@@ -7,7 +7,7 @@ import (
 	"github.com/bazelbuild/bazel-gazelle/resolve"
 	"github.com/bazelbuild/bazel-gazelle/rule"
 	bzpb "github.com/stackb/centrl/build/stack/bazel/bzlmod/v1"
-	"github.com/stackb/centrl/pkg/protoutil"
+	"github.com/stackb/centrl/pkg/metadatajson"
 )
 
 // moduleMetadataLoadInfo returns load info for the module_metadata rule
@@ -123,9 +123,5 @@ func resolveModuleMetadataRule(r *rule.Rule, ix *resolve.RuleIndex) {
 
 // readMetadataJson reads and parses a metadata.json file
 func readMetadataJson(filename string) (*bzpb.Metadata, error) {
-	var md bzpb.Metadata
-	if err := protoutil.ReadFile(filename, &md); err != nil {
-		return nil, fmt.Errorf("reading metadata json: %v", err)
-	}
-	return &md, nil
+	return metadatajson.ReadFile(filename)
 }

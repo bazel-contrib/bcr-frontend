@@ -1,0 +1,8 @@
+load("@rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "paramsfile",
+    srcs = ["paramsfile.go"],
+    importpath = "github.com/stackb/centrl/pkg/paramsfile",
+    visibility = ["//visibility:public"],
+)

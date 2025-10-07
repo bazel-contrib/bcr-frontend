@@ -1,19 +1,13 @@
 package bcr
 
 import (
-	"fmt"
-
 	"github.com/bazelbuild/bazel-gazelle/rule"
 	bzpb "github.com/stackb/centrl/build/stack/bazel/bzlmod/v1"
-	"github.com/stackb/centrl/pkg/protoutil"
+	"github.com/stackb/centrl/pkg/attestationsjson"
 )
 
 func readAttestationsJson(filename string) (*bzpb.Attestations, error) {
-	var att bzpb.Attestations
-	if err := protoutil.ReadFile(filename, &att); err != nil {
-		return nil, fmt.Errorf("reading attestations json: %v", err)
-	}
-	return &att, nil
+	return attestationsjson.ReadFile(filename)
 }
 
 func makeModuleAttestationsRule(attestations *bzpb.Attestations, attestationsJsonFile string) *rule.Rule {

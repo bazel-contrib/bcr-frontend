@@ -1,0 +1,12 @@
+load("@rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "presubmityml",
+    srcs = ["presubmityml.go"],
+    importpath = "github.com/stackb/centrl/pkg/presubmityml",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//build/stack/bazel/bzlmod/v1:bzlmod",
+        "@in_gopkg_yaml_v3//:go_default_library",
+    ],
+)

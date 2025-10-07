@@ -71,6 +71,7 @@ ModuleVersionInfo = provider(
         "attestations": "Attestations target providing ModuleAttestationsInfo",
         "presubmit": "Presubmit target providing ModulePresubmitInfo",
         "module_bazel": "The MODULE.bazel file",
+        "proto": "The compiled ModuleVersion proto file",
     },
 )
 

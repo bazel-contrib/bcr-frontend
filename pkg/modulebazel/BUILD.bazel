@@ -1,0 +1,12 @@
+load("@rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "modulebazel",
+    srcs = ["modulebazel.go"],
+    importpath = "github.com/stackb/centrl/pkg/modulebazel",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//build/stack/bazel/bzlmod/v1:bzlmod",
+        "@com_github_bazelbuild_buildtools//build:go_default_library",
+    ],
+)

@@ -1,19 +1,13 @@
 package bcr
 
 import (
-	"fmt"
-
 	"github.com/bazelbuild/bazel-gazelle/rule"
 	bzpb "github.com/stackb/centrl/build/stack/bazel/bzlmod/v1"
-	"github.com/stackb/centrl/pkg/protoutil"
+	"github.com/stackb/centrl/pkg/sourcejson"
 )
 
 func readSourceJson(filename string) (*bzpb.Source, error) {
-	var src bzpb.Source
-	if err := protoutil.ReadFile(filename, &src); err != nil {
-		return nil, fmt.Errorf("reading source json: %v", err)
-	}
-	return &src, nil
+	return sourcejson.ReadFile(filename)
 }
 
 func makeModuleSourceRule(source *bzpb.Source, sourceJsonFile string) *rule.Rule {

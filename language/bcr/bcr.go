@@ -2,8 +2,10 @@ package bcr
 
 import (
 	"flag"
+	"io"
 	"log"
 	"maps"
+	"os"
 	"path"
 	"path/filepath"
 	"strings"
@@ -216,6 +218,13 @@ func (ext *bcrExtension) GenerateRules(args language.GenerateArgs) language.Gene
 			if err != nil {
 				log.Panicln(err)
 			}
+
+			// Copy MODULE.bazel to MODULE.bazel.txt to work around Bazel's special handling
+			modulebazelTxtFilename := filepath.Join(args.Config.WorkDir, args.Rel, "MODULE.bazel.txt")
+			if err := copyFile(filename, modulebazelTxtFilename); err != nil {
+				log.Printf("Failed to copy MODULE.bazel to MODULE.bazel.txt: %v", err)
+			}
+
 			// Try to read source.json if it exists
 			var sourceRule *rule.Rule
 			sourceFilename := filepath.Join(args.Config.WorkDir, args.Rel, "source.json")
@@ -273,7 +282,8 @@ func (ext *bcrExtension) GenerateRules(args language.GenerateArgs) language.Gene
 			// Add dependency rules to the list
 			rules = append(rules, depRules...)
 			// Add module version rule with references to dependencies, source, attestations, and presubmit
-			rules = append(rules, makeModuleVersionRule(module, version, depRules, sourceRule, attestationsRule, presubmitRule, name))
+			// Use MODULE.bazel.txt instead of MODULE.bazel to avoid Bazel's special handling
+			rules = append(rules, makeModuleVersionRule(module, version, depRules, sourceRule, attestationsRule, presubmitRule, "MODULE.bazel.txt"))
 		}
 	}
 
@@ -286,4 +296,22 @@ func (ext *bcrExtension) GenerateRules(args language.GenerateArgs) language.Gene
 		Gen:     rules,
 		Imports: imports,
 	}
+}
+
+// copyFile copies a file from src to dst
+func copyFile(src, dst string) error {
+	sourceFile, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer sourceFile.Close()
+
+	destFile, err := os.Create(dst)
+	if err != nil {
+		return err
+	}
+	defer destFile.Close()
+
+	_, err = io.Copy(destFile, sourceFile)
+	return err
 }

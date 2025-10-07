@@ -1,0 +1,21 @@
+load("@rules_go//go:def.bzl", "go_binary", "go_library")
+
+go_library(
+    name = "moduleversioncompiler_lib",
+    srcs = ["moduleversioncompiler.go"],
+    importpath = "github.com/stackb/centrl/cmd/moduleversioncompiler",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//pkg/modulebazel",
+        "//pkg/paramsfile",
+        "//pkg/presubmityml",
+        "//pkg/protoutil",
+        "//pkg/sourcejson",
+    ],
+)
+
+go_binary(
+    name = "moduleversioncompiler",
+    embed = [":moduleversioncompiler_lib"],
+    visibility = ["//visibility:public"],
+)

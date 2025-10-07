@@ -1,0 +1,17 @@
+package metadatajson
+
+import (
+	"fmt"
+
+	bzpb "github.com/stackb/centrl/build/stack/bazel/bzlmod/v1"
+	"github.com/stackb/centrl/pkg/protoutil"
+)
+
+// ReadFile reads and parses a metadata.json file into a Metadata protobuf
+func ReadFile(filename string) (*bzpb.Metadata, error) {
+	var md bzpb.Metadata
+	if err := protoutil.ReadFile(filename, &md); err != nil {
+		return nil, fmt.Errorf("reading metadata json: %v", err)
+	}
+	return &md, nil
+}

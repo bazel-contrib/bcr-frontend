@@ -1,0 +1,12 @@
+load("@rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "attestationsjson",
+    srcs = ["attestationsjson.go"],
+    importpath = "github.com/stackb/centrl/pkg/attestationsjson",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//build/stack/bazel/bzlmod/v1:bzlmod",
+        "//pkg/protoutil",
+    ],
+)
