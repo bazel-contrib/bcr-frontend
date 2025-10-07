@@ -1,0 +1,40 @@
+load("@build_stack_rules_proto//rules:proto_compiled_sources.bzl", "proto_compiled_sources")
+load("@build_stack_rules_proto//rules/go:proto_go_library.bzl", "proto_go_library")
+load("@rules_go//go:def.bzl", "go_library")
+load("@rules_proto//proto:defs.bzl", "proto_library")
+
+proto_library(
+    name = "bzpb_proto",
+    srcs = ["metadata.proto"],
+    visibility = ["//visibility:public"],
+)
+
+proto_compiled_sources(
+    name = "bzpb_go_compiled_sources",
+    srcs = ["metadata.pb.go"],
+    output_mappings = ["metadata.pb.go=github.com/stackb/centrl/build/stack/bazel/bzlmod/v1/metadata.pb.go"],
+    plugins = ["@build_stack_rules_proto//plugin/golang/protobuf:protoc-gen-go"],
+    proto = "bzpb_proto",
+    visibility = ["//visibility:public"],
+)
+
+proto_go_library(
+    name = "bzpb_go_proto",
+    srcs = ["metadata.pb.go"],
+    importpath = "github.com/stackb/centrl/build/stack/bazel/bzlmod/v1",
+    visibility = ["//visibility:public"],
+    deps = [
+        "@org_golang_google_protobuf//encoding/protojson",
+        "@org_golang_google_protobuf//proto",
+        "@org_golang_google_protobuf//reflect/protoreflect",
+        "@org_golang_google_protobuf//reflect/protoregistry",
+        "@org_golang_google_protobuf//runtime/protoimpl",
+    ],
+)
+
+go_library(
+    name = "bzlmod",
+    srcs = ["metadata.pb.go"],
+    importpath = "github.com/stackb/centrl/build/stack/bazel/bzlmod/v1",
+    visibility = ["//visibility:public"],
+)

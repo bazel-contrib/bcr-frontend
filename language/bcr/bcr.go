@@ -1,7 +1,8 @@
-package noop
+package bcr
 
 import (
 	"flag"
+	"log"
 
 	"github.com/bazelbuild/bazel-gazelle/config"
 	"github.com/bazelbuild/bazel-gazelle/label"
@@ -119,5 +120,6 @@ func (pl *bcrExtension) Resolve(
 // Any non-fatal errors this function encounters should be logged using
 // log.Print.
 func (pl *bcrExtension) GenerateRules(args language.GenerateArgs) language.GenerateResult {
+	log.Println("visiting:", args.Rel, args.RegularFiles)
 	return language.GenerateResult{}
 }

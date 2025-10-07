@@ -1,0 +1,30 @@
+// ts-proto: Adding a comment to the syntax will become the first
+// comment in the output source file.
+syntax = "proto3";
+
+package build.stack.bazel.bzlmod.v1;
+
+option go_package = "github.com/stackb/centrl/build/stack/bazel/bzlmod/v1;bzpb";
+
+// ApiExchange is a demonstrative example of an API call that has a request and
+// a response.
+message Metadata {
+    message Maintainer {
+        // "email": "lperron@google.com",
+        string email = 1;
+        // "name": "Laurent Perron"
+        string name = 2;
+        // "github_user_id": 704767
+        int32 github_user_id = 3;
+    }
+    // "homepage": "https://github.com/mateidavid/zstr",
+    string homepage = 1;
+    // "maintainers": []
+    repeated Maintainer maintainers = 2;
+    // "repository": [ "github:mateidavid/zstr" ],
+    repeated string repository = 3;
+    // "versions": [ "1.0.7" ],
+    repeated string versions = 4;
+    // "yanked_versions": { "1.5.0": "Regression in prebuilt artifacts leads to missing rules_rust dep" }
+    map<string,string> yanked_versions = 5;
+}
