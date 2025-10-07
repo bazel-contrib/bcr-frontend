@@ -23,7 +23,7 @@ func moduleMetadataKinds() map[string]rule.KindInfo {
 	return map[string]rule.KindInfo{
 		"module_metadata": {
 			MatchAny:     true,
-			ResolveAttrs: map[string]bool{"maintainers": true, "deps": true},
+			ResolveAttrs: map[string]bool{"maintainers": true, "deps": true, "overrides": true},
 		},
 	}
 }
@@ -65,42 +65,56 @@ func moduleMetadataImports(r *rule.Rule) []resolve.ImportSpec {
 	}}
 }
 
-// resolveModuleMetadataRule resolves the deps attribute for a module_metadata rule
+// resolveModuleMetadataRule resolves the deps and overrides attributes for a module_metadata rule
 // by looking up module_version rules for each version in the versions list
+// and override rules for the module
 func resolveModuleMetadataRule(r *rule.Rule, ix *resolve.RuleIndex) {
 	// Get the versions attribute
 	versions := r.AttrStrings("versions")
-	if len(versions) == 0 {
-		return
-	}
-
 	moduleName := r.Name()
 
 	// Resolve each version to its module_version rule
-	deps := make([]string, 0, len(versions))
-	for _, version := range versions {
-		// Construct the import spec: "module_name@version"
-		importSpec := resolve.ImportSpec{
-			Lang: "bcr",
-			Imp:  fmt.Sprintf("%s@%s", moduleName, version),
+	if len(versions) > 0 {
+		deps := make([]string, 0, len(versions))
+		for _, version := range versions {
+			// Construct the import spec: "module_name@version"
+			importSpec := resolve.ImportSpec{
+				Lang: "bcr",
+				Imp:  fmt.Sprintf("%s@%s", moduleName, version),
+			}
+
+			// Find the module_version rule that provides this import
+			results := ix.FindRulesByImport(importSpec, "bcr")
+
+			if len(results) == 0 {
+				log.Printf("No module_version found for %s@%s in module_metadata", moduleName, version)
+				continue
+			}
+
+			// Use the first result (should only be one)
+			result := results[0]
+			deps = append(deps, result.Label.String())
 		}
 
-		// Find the module_version rule that provides this import
-		results := ix.FindRulesByImport(importSpec, "bcr")
-
-		if len(results) == 0 {
-			log.Printf("No module_version found for %s@%s in module_metadata", moduleName, version)
-			continue
+		// Set the deps attr
+		if len(deps) > 0 {
+			r.SetAttr("deps", deps)
 		}
-
-		// Use the first result (should only be one)
-		result := results[0]
-		deps = append(deps, result.Label.String())
 	}
 
-	// Set the deps attr
-	if len(deps) > 0 {
-		r.SetAttr("deps", deps)
+	// Resolve overrides by looking up override rules for this module
+	overrideSpec := resolve.ImportSpec{
+		Lang: "bcr_override",
+		Imp:  moduleName,
+	}
+
+	overrideResults := ix.FindRulesByImport(overrideSpec, "bcr")
+	if len(overrideResults) > 0 {
+		overrides := make([]string, len(overrideResults))
+		for i, result := range overrideResults {
+			overrides[i] = result.Label.String()
+		}
+		r.SetAttr("overrides", overrides)
 	}
 }
 

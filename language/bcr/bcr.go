@@ -71,6 +71,10 @@ func (*bcrExtension) Kinds() map[string]rule.KindInfo {
 	maps.Copy(kinds, moduleAttestationsKinds())
 	maps.Copy(kinds, moduleDependencyCycleKinds())
 	maps.Copy(kinds, moduleRegistryKinds())
+	maps.Copy(kinds, gitOverrideKinds())
+	maps.Copy(kinds, archiveOverrideKinds())
+	maps.Copy(kinds, singleVersionOverrideKinds())
+	maps.Copy(kinds, localPathOverrideKinds())
 	return kinds
 }
 
@@ -87,6 +91,10 @@ func (ext *bcrExtension) Loads() []rule.LoadInfo {
 		moduleAttestationsLoadInfo(),
 		moduleDependencyCycleLoadInfo(),
 		moduleRegistryLoadInfo(),
+		gitOverrideLoadInfo(),
+		archiveOverrideLoadInfo(),
+		singleVersionOverrideLoadInfo(),
+		localPathOverrideLoadInfo(),
 	}
 }
 
@@ -107,6 +115,14 @@ func (ext *bcrExtension) Imports(c *config.Config, r *rule.Rule, f *rule.File) [
 		return moduleVersionImports(r)
 	case "module_metadata":
 		return moduleMetadataImports(r)
+	case "git_override":
+		return gitOverrideImports(r)
+	case "archive_override":
+		return archiveOverrideImports(r)
+	case "single_version_override":
+		return singleVersionOverrideImports(r)
+	case "local_path_override":
+		return localPathOverrideImports(r)
 	}
 	return nil
 }
@@ -235,8 +251,10 @@ func (ext *bcrExtension) GenerateRules(args language.GenerateArgs) language.Gene
 				ext.addDependencyEdge(module.Name, version, dep.Name, dep.Version)
 			}
 
-			// Generate dependency rules
-			depRules := makeModuleDependencyRules(module.Deps)
+			// Generate dependency and override rules
+			depRules, overrideRules := makeModuleDependencyRules(module.Deps)
+			// Add override rules to the list first (so dependencies can reference them)
+			rules = append(rules, overrideRules...)
 			// Add dependency rules to the list
 			rules = append(rules, depRules...)
 			// Add module version rule with references to dependencies, source, and attestations

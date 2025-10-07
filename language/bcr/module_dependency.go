@@ -24,16 +24,20 @@ func moduleDependencyKinds() map[string]rule.KindInfo {
 		"module_dependency": {
 			MatchAny: true,
 			ResolveAttrs: map[string]bool{
-				"module": true,
-				"cycle":  true,
+				"module":   true,
+				"cycle":    true,
+				"override": true,
 			},
 		},
 	}
 }
 
 // makeModuleDependencyRules creates module_dependency rules from MODULE.bazel bazel_dep entries
-func makeModuleDependencyRules(deps []*bzpb.ModuleDependency) []*rule.Rule {
-	var rules []*rule.Rule
+// Returns both dependency rules and override rules
+func makeModuleDependencyRules(deps []*bzpb.ModuleDependency) ([]*rule.Rule, []*rule.Rule) {
+	var depRules []*rule.Rule
+	var overrideRules []*rule.Rule
+
 	for i, dep := range deps {
 		name := dep.Name
 		if name == "" {
@@ -48,9 +52,36 @@ func makeModuleDependencyRules(deps []*bzpb.ModuleDependency) []*rule.Rule {
 		if dep.Dev {
 			r.SetAttr("dev", dep.Dev)
 		}
-		rules = append(rules, r)
+
+		// Create override rule if present
+		if dep.Override != nil {
+			overrideRule := makeOverrideRule(dep.Name, dep.Override)
+			if overrideRule != nil {
+				overrideRules = append(overrideRules, overrideRule)
+				// Link the dependency to its override
+				r.SetAttr("override", fmt.Sprintf(":%s", overrideRule.Name()))
+			}
+		}
+
+		depRules = append(depRules, r)
 	}
-	return rules
+	return depRules, overrideRules
+}
+
+// makeOverrideRule creates an override rule based on the override type
+func makeOverrideRule(moduleName string, override interface{}) *rule.Rule {
+	switch o := override.(type) {
+	case *bzpb.ModuleDependency_GitOverride:
+		return makeGitOverrideRule(moduleName, o.GitOverride)
+	case *bzpb.ModuleDependency_ArchiveOverride:
+		return makeArchiveOverrideRule(moduleName, o.ArchiveOverride)
+	case *bzpb.ModuleDependency_SingleVersionOverride:
+		return makeSingleVersionOverrideRule(moduleName, o.SingleVersionOverride)
+	case *bzpb.ModuleDependency_LocalPathOverride:
+		return makeLocalPathOverrideRule(moduleName, o.LocalPathOverride)
+	default:
+		return nil
+	}
 }
 
 // resolveModuleDependencyRule resolves the module and cycle attributes for a module_dependency rule

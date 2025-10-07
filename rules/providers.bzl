@@ -80,3 +80,51 @@ ModuleRegistryInfo = provider(
         "deps": "List of module metadata targets providing ModuleMetadataInfo",
     },
 )
+
+ModuleOverrideInfo = provider(
+    doc = "Info about a Module Override",
+    fields = {
+        "module_name": "Name of the module being overridden",
+    },
+)
+
+GitOverrideInfo = provider(
+    doc = "Info about a Git Override",
+    fields = {
+        "module_name": "Name of the module being overridden",
+        "commit": "Git commit hash",
+        "patch_strip": "Number of path components to strip from patches",
+        "patches": "List of patch files",
+        "remote": "Git remote URL",
+    },
+)
+
+ArchiveOverrideInfo = provider(
+    doc = "Info about an Archive Override",
+    fields = {
+        "module_name": "Name of the module being overridden",
+        "integrity": "Integrity hash",
+        "patch_strip": "Number of path components to strip from patches",
+        "patches": "List of patch files",
+        "strip_prefix": "Directory prefix to strip from archive",
+        "urls": "List of archive URLs",
+    },
+)
+
+SingleVersionOverrideInfo = provider(
+    doc = "Info about a Single Version Override",
+    fields = {
+        "module_name": "Name of the module being overridden",
+        "patch_strip": "Number of path components to strip from patches",
+        "patches": "List of patch files",
+        "version": "Version to use",
+    },
+)
+
+LocalPathOverrideInfo = provider(
+    doc = "Info about a Local Path Override",
+    fields = {
+        "module_name": "Name of the module being overridden",
+        "path": "Local filesystem path",
+    },
+)

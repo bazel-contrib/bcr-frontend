@@ -1,6 +1,6 @@
 "provides the module_dependency rule"
 
-load("//rules:providers.bzl", "ModuleDependencyCycleInfo", "ModuleDependencyInfo", "ModuleVersionInfo")
+load("//rules:providers.bzl", "ModuleDependencyCycleInfo", "ModuleDependencyInfo", "ModuleOverrideInfo", "ModuleVersionInfo")
 
 def _module_dependency_impl(ctx):
     return [
@@ -21,6 +21,7 @@ module_dependency = rule(
         "dev": attr.bool(default = False),
         "module": attr.label(providers = [ModuleVersionInfo]),
         "cycle": attr.label(providers = [ModuleDependencyCycleInfo]),
+        "override": attr.label(providers = [ModuleOverrideInfo]),
     },
     provides = [ModuleDependencyInfo],
 )

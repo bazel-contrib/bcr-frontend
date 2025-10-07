@@ -3,9 +3,12 @@ load("@rules_go//go:def.bzl", "go_library")
 go_library(
     name = "bcr",
     srcs = [
+        "archive_override.go",
         "bcr.go",
+        "git_override.go",
         "graph.go",
         "lifecycle.go",
+        "local_path_override.go",
         "module_attestations.go",
         "module_dependency.go",
         "module_dependency_cycle.go",
@@ -14,6 +17,7 @@ go_library(
         "module_registry.go",
         "module_source.go",
         "module_version.go",
+        "single_version_override.go",
     ],
     importpath = "github.com/stackb/centrl/language/bcr",
     visibility = ["//visibility:public"],
