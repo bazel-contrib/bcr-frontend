@@ -234,14 +234,14 @@ func (x *Attestations) GetAttestations() map[string]*Attestations_Attestation {
 }
 
 type ModuleVersion struct {
-	state              protoimpl.MessageState      `protogen:"open.v1"`
-	Name               string                      `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	Version            string                      `protobuf:"bytes,2,opt,name=version,proto3" json:"version,omitempty"`
-	CompatibilityLevel int32                       `protobuf:"varint,3,opt,name=compatibility_level,json=compatibilityLevel,proto3" json:"compatibility_level,omitempty"`
-	RepoName           string                      `protobuf:"bytes,4,opt,name=repo_name,json=repoName,proto3" json:"repo_name,omitempty"`
-	Deps               []*ModuleVersion_Dependency `protobuf:"bytes,5,rep,name=deps,proto3" json:"deps,omitempty"`
-	Source             *Source                     `protobuf:"bytes,6,opt,name=source,proto3" json:"source,omitempty"`
-	Attestations       *Attestations               `protobuf:"bytes,7,opt,name=attestations,proto3" json:"attestations,omitempty"`
+	state              protoimpl.MessageState `protogen:"open.v1"`
+	Name               string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	Version            string                 `protobuf:"bytes,2,opt,name=version,proto3" json:"version,omitempty"`
+	CompatibilityLevel int32                  `protobuf:"varint,3,opt,name=compatibility_level,json=compatibilityLevel,proto3" json:"compatibility_level,omitempty"`
+	RepoName           string                 `protobuf:"bytes,4,opt,name=repo_name,json=repoName,proto3" json:"repo_name,omitempty"`
+	Deps               []*ModuleDependency    `protobuf:"bytes,5,rep,name=deps,proto3" json:"deps,omitempty"`
+	Source             *Source                `protobuf:"bytes,6,opt,name=source,proto3" json:"source,omitempty"`
+	Attestations       *Attestations          `protobuf:"bytes,7,opt,name=attestations,proto3" json:"attestations,omitempty"`
 	unknownFields      protoimpl.UnknownFields
 	sizeCache          protoimpl.SizeCache
 }
@@ -304,7 +304,7 @@ func (x *ModuleVersion) GetRepoName() string {
 	return ""
 }
 
-func (x *ModuleVersion) GetDeps() []*ModuleVersion_Dependency {
+func (x *ModuleVersion) GetDeps() []*ModuleDependency {
 	if x != nil {
 		return x.Deps
 	}
@@ -325,6 +325,66 @@ func (x *ModuleVersion) GetAttestations() *Attestations {
 	return nil
 }
 
+type ModuleDependency struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	Version       string                 `protobuf:"bytes,2,opt,name=version,proto3" json:"version,omitempty"`
+	Dev           bool                   `protobuf:"varint,3,opt,name=dev,proto3" json:"dev,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ModuleDependency) Reset() {
+	*x = ModuleDependency{}
+	mi := &file_build_stack_bazel_bzlmod_v1_metadata_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ModuleDependency) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ModuleDependency) ProtoMessage() {}
+
+func (x *ModuleDependency) ProtoReflect() protoreflect.Message {
+	mi := &file_build_stack_bazel_bzlmod_v1_metadata_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ModuleDependency.ProtoReflect.Descriptor instead.
+func (*ModuleDependency) Descriptor() ([]byte, []int) {
+	return file_build_stack_bazel_bzlmod_v1_metadata_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *ModuleDependency) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *ModuleDependency) GetVersion() string {
+	if x != nil {
+		return x.Version
+	}
+	return ""
+}
+
+func (x *ModuleDependency) GetDev() bool {
+	if x != nil {
+		return x.Dev
+	}
+	return false
+}
+
 type Metadata_Maintainer struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Email         string                 `protobuf:"bytes,1,opt,name=email,proto3" json:"email,omitempty"`
@@ -338,7 +398,7 @@ type Metadata_Maintainer struct {
 
 func (x *Metadata_Maintainer) Reset() {
 	*x = Metadata_Maintainer{}
-	mi := &file_build_stack_bazel_bzlmod_v1_metadata_proto_msgTypes[4]
+	mi := &file_build_stack_bazel_bzlmod_v1_metadata_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -350,7 +410,7 @@ func (x *Metadata_Maintainer) String() string {
 func (*Metadata_Maintainer) ProtoMessage() {}
 
 func (x *Metadata_Maintainer) ProtoReflect() protoreflect.Message {
-	mi := &file_build_stack_bazel_bzlmod_v1_metadata_proto_msgTypes[4]
+	mi := &file_build_stack_bazel_bzlmod_v1_metadata_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -411,7 +471,7 @@ type Attestations_Attestation struct {
 
 func (x *Attestations_Attestation) Reset() {
 	*x = Attestations_Attestation{}
-	mi := &file_build_stack_bazel_bzlmod_v1_metadata_proto_msgTypes[7]
+	mi := &file_build_stack_bazel_bzlmod_v1_metadata_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -423,7 +483,7 @@ func (x *Attestations_Attestation) String() string {
 func (*Attestations_Attestation) ProtoMessage() {}
 
 func (x *Attestations_Attestation) ProtoReflect() protoreflect.Message {
-	mi := &file_build_stack_bazel_bzlmod_v1_metadata_proto_msgTypes[7]
+	mi := &file_build_stack_bazel_bzlmod_v1_metadata_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -451,66 +511,6 @@ func (x *Attestations_Attestation) GetIntegrity() string {
 		return x.Integrity
 	}
 	return ""
-}
-
-type ModuleVersion_Dependency struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	Version       string                 `protobuf:"bytes,2,opt,name=version,proto3" json:"version,omitempty"`
-	Dev           bool                   `protobuf:"varint,3,opt,name=dev,proto3" json:"dev,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *ModuleVersion_Dependency) Reset() {
-	*x = ModuleVersion_Dependency{}
-	mi := &file_build_stack_bazel_bzlmod_v1_metadata_proto_msgTypes[9]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *ModuleVersion_Dependency) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*ModuleVersion_Dependency) ProtoMessage() {}
-
-func (x *ModuleVersion_Dependency) ProtoReflect() protoreflect.Message {
-	mi := &file_build_stack_bazel_bzlmod_v1_metadata_proto_msgTypes[9]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use ModuleVersion_Dependency.ProtoReflect.Descriptor instead.
-func (*ModuleVersion_Dependency) Descriptor() ([]byte, []int) {
-	return file_build_stack_bazel_bzlmod_v1_metadata_proto_rawDescGZIP(), []int{3, 0}
-}
-
-func (x *ModuleVersion_Dependency) GetName() string {
-	if x != nil {
-		return x.Name
-	}
-	return ""
-}
-
-func (x *ModuleVersion_Dependency) GetVersion() string {
-	if x != nil {
-		return x.Version
-	}
-	return ""
-}
-
-func (x *ModuleVersion_Dependency) GetDev() bool {
-	if x != nil {
-		return x.Dev
-	}
-	return false
 }
 
 var File_build_stack_bazel_bzlmod_v1_metadata_proto protoreflect.FileDescriptor
@@ -558,17 +558,16 @@ const file_build_stack_bazel_bzlmod_v1_metadata_proto_rawDesc = "" +
 	"\tintegrity\x18\x02 \x01(\tR\tintegrity\x1av\n" +
 	"\x11AttestationsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12K\n" +
-	"\x05value\x18\x02 \x01(\v25.build.stack.bazel.bzlmod.v1.Attestations.AttestationR\x05value:\x028\x01\"\xb0\x03\n" +
+	"\x05value\x18\x02 \x01(\v25.build.stack.bazel.bzlmod.v1.Attestations.AttestationR\x05value:\x028\x01\"\xda\x02\n" +
 	"\rModuleVersion\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x18\n" +
 	"\aversion\x18\x02 \x01(\tR\aversion\x12/\n" +
 	"\x13compatibility_level\x18\x03 \x01(\x05R\x12compatibilityLevel\x12\x1b\n" +
-	"\trepo_name\x18\x04 \x01(\tR\brepoName\x12I\n" +
-	"\x04deps\x18\x05 \x03(\v25.build.stack.bazel.bzlmod.v1.ModuleVersion.DependencyR\x04deps\x12;\n" +
+	"\trepo_name\x18\x04 \x01(\tR\brepoName\x12A\n" +
+	"\x04deps\x18\x05 \x03(\v2-.build.stack.bazel.bzlmod.v1.ModuleDependencyR\x04deps\x12;\n" +
 	"\x06source\x18\x06 \x01(\v2#.build.stack.bazel.bzlmod.v1.SourceR\x06source\x12M\n" +
-	"\fattestations\x18\a \x01(\v2).build.stack.bazel.bzlmod.v1.AttestationsR\fattestations\x1aL\n" +
-	"\n" +
-	"Dependency\x12\x12\n" +
+	"\fattestations\x18\a \x01(\v2).build.stack.bazel.bzlmod.v1.AttestationsR\fattestations\"R\n" +
+	"\x10ModuleDependency\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x18\n" +
 	"\aversion\x18\x02 \x01(\tR\aversion\x12\x10\n" +
 	"\x03dev\x18\x03 \x01(\bR\x03devB;Z9github.com/stackb/centrl/build/stack/bazel/bzlmod/v1;bzpbb\x06proto3"
@@ -591,22 +590,22 @@ var file_build_stack_bazel_bzlmod_v1_metadata_proto_goTypes = []any{
 	(*Source)(nil),                   // 1: build.stack.bazel.bzlmod.v1.Source
 	(*Attestations)(nil),             // 2: build.stack.bazel.bzlmod.v1.Attestations
 	(*ModuleVersion)(nil),            // 3: build.stack.bazel.bzlmod.v1.ModuleVersion
-	(*Metadata_Maintainer)(nil),      // 4: build.stack.bazel.bzlmod.v1.Metadata.Maintainer
-	nil,                              // 5: build.stack.bazel.bzlmod.v1.Metadata.YankedVersionsEntry
-	nil,                              // 6: build.stack.bazel.bzlmod.v1.Source.PatchesEntry
-	(*Attestations_Attestation)(nil), // 7: build.stack.bazel.bzlmod.v1.Attestations.Attestation
-	nil,                              // 8: build.stack.bazel.bzlmod.v1.Attestations.AttestationsEntry
-	(*ModuleVersion_Dependency)(nil), // 9: build.stack.bazel.bzlmod.v1.ModuleVersion.Dependency
+	(*ModuleDependency)(nil),         // 4: build.stack.bazel.bzlmod.v1.ModuleDependency
+	(*Metadata_Maintainer)(nil),      // 5: build.stack.bazel.bzlmod.v1.Metadata.Maintainer
+	nil,                              // 6: build.stack.bazel.bzlmod.v1.Metadata.YankedVersionsEntry
+	nil,                              // 7: build.stack.bazel.bzlmod.v1.Source.PatchesEntry
+	(*Attestations_Attestation)(nil), // 8: build.stack.bazel.bzlmod.v1.Attestations.Attestation
+	nil,                              // 9: build.stack.bazel.bzlmod.v1.Attestations.AttestationsEntry
 }
 var file_build_stack_bazel_bzlmod_v1_metadata_proto_depIdxs = []int32{
-	4, // 0: build.stack.bazel.bzlmod.v1.Metadata.maintainers:type_name -> build.stack.bazel.bzlmod.v1.Metadata.Maintainer
-	5, // 1: build.stack.bazel.bzlmod.v1.Metadata.yanked_versions:type_name -> build.stack.bazel.bzlmod.v1.Metadata.YankedVersionsEntry
-	6, // 2: build.stack.bazel.bzlmod.v1.Source.patches:type_name -> build.stack.bazel.bzlmod.v1.Source.PatchesEntry
-	8, // 3: build.stack.bazel.bzlmod.v1.Attestations.attestations:type_name -> build.stack.bazel.bzlmod.v1.Attestations.AttestationsEntry
-	9, // 4: build.stack.bazel.bzlmod.v1.ModuleVersion.deps:type_name -> build.stack.bazel.bzlmod.v1.ModuleVersion.Dependency
+	5, // 0: build.stack.bazel.bzlmod.v1.Metadata.maintainers:type_name -> build.stack.bazel.bzlmod.v1.Metadata.Maintainer
+	6, // 1: build.stack.bazel.bzlmod.v1.Metadata.yanked_versions:type_name -> build.stack.bazel.bzlmod.v1.Metadata.YankedVersionsEntry
+	7, // 2: build.stack.bazel.bzlmod.v1.Source.patches:type_name -> build.stack.bazel.bzlmod.v1.Source.PatchesEntry
+	9, // 3: build.stack.bazel.bzlmod.v1.Attestations.attestations:type_name -> build.stack.bazel.bzlmod.v1.Attestations.AttestationsEntry
+	4, // 4: build.stack.bazel.bzlmod.v1.ModuleVersion.deps:type_name -> build.stack.bazel.bzlmod.v1.ModuleDependency
 	1, // 5: build.stack.bazel.bzlmod.v1.ModuleVersion.source:type_name -> build.stack.bazel.bzlmod.v1.Source
 	2, // 6: build.stack.bazel.bzlmod.v1.ModuleVersion.attestations:type_name -> build.stack.bazel.bzlmod.v1.Attestations
-	7, // 7: build.stack.bazel.bzlmod.v1.Attestations.AttestationsEntry.value:type_name -> build.stack.bazel.bzlmod.v1.Attestations.Attestation
+	8, // 7: build.stack.bazel.bzlmod.v1.Attestations.AttestationsEntry.value:type_name -> build.stack.bazel.bzlmod.v1.Attestations.Attestation
 	8, // [8:8] is the sub-list for method output_type
 	8, // [8:8] is the sub-list for method input_type
 	8, // [8:8] is the sub-list for extension type_name

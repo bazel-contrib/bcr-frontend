@@ -65,15 +65,6 @@ message Attestations {
 
 // ModuleVersion represents a Bazel module version and its dependencies
 message ModuleVersion {
-    // Dependency represents a module dependency
-    message Dependency {
-        // Module name
-        string name = 1;
-        // Module version
-        string version = 2;
-        // Whether this is a dev dependency
-        bool dev = 3;
-    }
     // Module name
     string name = 1;
     // Module version
@@ -83,9 +74,19 @@ message ModuleVersion {
     // optional repo_name
     string repo_name = 4;
     // Module dependencies
-    repeated Dependency deps = 5;
+    repeated ModuleDependency deps = 5;
     // Source information from source.json
     Source source = 6;
     // Attestations information from attestations.json
     Attestations attestations = 7;
+}
+
+// ModuleDependency represents a module dependency
+message ModuleDependency {
+    // Module name
+    string name = 1;
+    // Module version
+    string version = 2;
+    // Whether this is a dev dependency
+    bool dev = 3;
 }

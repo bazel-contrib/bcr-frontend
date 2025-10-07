@@ -64,7 +64,9 @@ func (ext *bcrExtension) Configure(c *config.Config, rel string, f *rule.File) {
 func (*bcrExtension) Kinds() map[string]rule.KindInfo {
 	kinds := map[string]rule.KindInfo{}
 	maps.Copy(kinds, moduleMetadataKinds())
+	maps.Copy(kinds, moduleMaintainerKinds())
 	maps.Copy(kinds, moduleVersionKinds())
+	maps.Copy(kinds, moduleDependencyKinds())
 	maps.Copy(kinds, moduleSourceKinds())
 	maps.Copy(kinds, moduleAttestationsKinds())
 	maps.Copy(kinds, moduleDependencyCycleKinds())
@@ -135,11 +137,11 @@ func (ext *bcrExtension) Resolve(
 	// Switch on rule kind to delegate to specific resolver functions
 	switch r.Kind() {
 	case "module_dependency":
-		resolveModuleDependencyRule(r, ix, ext.moduleToCycle)
+		resolveModuleDependencyRule(r, ix, from, ext.moduleToCycle)
 	case "module_dependency_cycle":
 		resolveModuleDependencyCycleRule(r, ix)
 	case "module_metadata":
-		resolveModuleMetadataRule(r, ix, from)
+		resolveModuleMetadataRule(r, ix)
 	case "module_registry":
 		resolveModuleRegistryRule(r, ix)
 	}
