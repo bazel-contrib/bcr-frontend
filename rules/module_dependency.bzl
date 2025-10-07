@@ -3,13 +3,18 @@
 load("//rules:providers.bzl", "ModuleDependencyCycleInfo", "ModuleDependencyInfo", "ModuleOverrideInfo", "ModuleVersionInfo")
 
 def _module_dependency_impl(ctx):
+    module = ctx.attr.module[ModuleVersionInfo] if ctx.attr.module and ModuleVersionInfo in ctx.attr.module else None
+    cycle = ctx.attr.cycle[ModuleDependencyCycleInfo] if ctx.attr.cycle and ModuleDependencyCycleInfo in ctx.attr.cycle else None
+    override = ctx.attr.override[ModuleOverrideInfo] if ctx.attr.override and ModuleOverrideInfo in ctx.attr.override else None
+
     return [
         ModuleDependencyInfo(
             name = ctx.attr.dep_name,
             version = ctx.attr.version,
             dev = ctx.attr.dev,
-            module = ctx.attr.module,
-            cycle = ctx.attr.cycle,
+            module = module,
+            cycle = cycle,
+            override = override,
         ),
     ]
 

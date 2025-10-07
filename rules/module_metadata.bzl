@@ -3,15 +3,20 @@
 load("//rules:providers.bzl", "ModuleMaintainerInfo", "ModuleMetadataInfo", "ModuleOverrideInfo", "ModuleVersionInfo")
 
 def _module_metadata_impl(ctx):
+    maintainers = [m[ModuleMaintainerInfo] for m in ctx.attr.maintainers]
+    deps = [d[ModuleVersionInfo] for d in ctx.attr.deps]
+    overrides = [o[ModuleOverrideInfo] for o in ctx.attr.overrides]
+
     return [
         ModuleMetadataInfo(
             homepage = ctx.attr.homepage,
-            maintainers = ctx.attr.maintainers,
+            maintainers = depset(maintainers),
             repository = ctx.attr.repository,
             versions = ctx.attr.versions,
             yanked_versions = ctx.attr.yanked_versions,
             deprecated = ctx.attr.deprecated,
-            deps = ctx.attr.deps,
+            deps = depset(deps),
+            overrides = depset(overrides),
         ),
     ]
 

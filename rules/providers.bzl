@@ -19,6 +19,7 @@ ModuleMetadataInfo = provider(
         "yanked_versions": "Dictionary mapping version to reason for yanking",
         "deprecated": "Deprecation message if deprecated",
         "deps": "List of module version targets providing ModuleVersionInfo",
+        "overrides": "List of override targets providing ModuleOverrideInfo",
     },
 )
 
@@ -30,6 +31,7 @@ ModuleDependencyInfo = provider(
         "dev": "Whether this is a dev dependency",
         "module": "Module version target providing ModuleVersionInfo",
         "cycle": "Cycle target providing ModuleDependencyCycleInfo if this dependency is part of a cycle",
+        "override": "Override target providing ModuleOverrideInfo",
     },
 )
 
@@ -59,6 +61,7 @@ ModuleVersionInfo = provider(
         "name": "Module name",
         "version": "Module version",
         "compatibility_level": "Module compatibility level",
+        "bazel_compatibility": "List of compatible Bazel versions",
         "repo_name": "Repository name",
         "deps": "List of dependency targets providing ModuleDependencyInfo",
         "source": "Source target providing ModuleSourceInfo",

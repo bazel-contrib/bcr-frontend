@@ -71,14 +71,16 @@ message ModuleVersion {
     string version = 2;
     // compat level
     int32 compatibility_level = 3;
+    // bazel compatibility
+    repeated string bazel_compatibility = 4;
     // optional repo_name
-    string repo_name = 4;
+    string repo_name = 5;
     // Module dependencies
-    repeated ModuleDependency deps = 5;
+    repeated ModuleDependency deps = 6;
     // Source information from source.json
-    Source source = 6;
+    Source source = 7;
     // Attestations information from attestations.json
-    Attestations attestations = 7;
+    Attestations attestations = 8;
 }
 
 // ModuleDependency represents a module dependency
@@ -89,4 +91,101 @@ message ModuleDependency {
     string version = 2;
     // Whether this is a dev dependency
     bool dev = 3;
+    // Optional override for the dependency
+    oneof override {
+        GitOverride git_override = 4;
+        ArchiveOverride archive_override = 5;
+        SingleVersionOverride single_version_override = 6;
+        LocalPathOverride local_path_override = 7;
+    }
 }
+
+// GitOverride represents a git_override directive
+// Example:
+//
+// git_override(
+//     module_name = "pybind11_abseil",
+//     commit = "70f8b693b3b70573ca785ef62d9f48054f45d786",
+//     patch_strip = 1,
+//     patches = ["//patches:pybind11_abseil.patch"],
+//     remote = "https://github.com/pybind/pybind11_abseil.git",
+// )
+message GitOverride {
+    // Git commit hash
+    string commit = 1;
+    // Number of leading path components to strip from patch files
+    int32 patch_strip = 2;
+    // List of patch files to apply
+    repeated string patches = 3;
+    // Git remote URL
+    string remote = 4;
+}
+
+// ArchiveOverride represents an archive_override directive
+// Example:
+//
+// archive_override(
+//     module_name = "com_google_protobuf_v25",
+//     integrity = "sha256-e+7ZxRHWMs/3wirACU3Xcg5VAVMDnV2n4Fm8zrSIR0o=",
+//     patch_strip = 1,
+//     patches = [
+//         "@com_google_protobuf//:patches/protobuf_v25/0001-Add-MODULE.bazel.patch",
+//         "@com_google_protobuf//:patches/protobuf_v25/0002-Examples-MODULE.bazel.patch",
+//         "@com_google_protobuf//:patches/protobuf_v25/0003-relative-labels.patch",
+//         "@com_google_protobuf//:patches/protobuf_v25/0004-Add-utf8_range-dependency.patch",
+//         "@com_google_protobuf//:patches/protobuf_v25/0005-Make-rules_ruby-a-dev-only-dependency.patch",
+//         "@com_google_protobuf//:patches/protobuf_v25/0006-Add-repo_name.patch",
+//         "@com_google_protobuf//:patches/protobuf_v25/0007-Java-bazel8.patch",
+//     ],
+//     strip_prefix = "protobuf-25.0",
+//     urls = ["https://github.com/protocolbuffers/protobuf/releases/download/v25.0/protobuf-25.0.tar.gz"],
+// )
+message ArchiveOverride {
+    // Integrity hash (e.g., "sha256-...")
+    string integrity = 1;
+    // Number of leading path components to strip from patch files
+    int32 patch_strip = 2;
+    // List of patch files to apply
+    repeated string patches = 3;
+    // Directory prefix to strip from the archive
+    string strip_prefix = 4;
+    // URLs to the archive
+    repeated string urls = 5;
+}
+
+// SingleVersionOverride represents a single_version_override directive
+// Example:
+//
+// single_version_override(
+//     module_name = "rules_ruby",
+//     patch_strip = 1,
+//     patches = [
+//         "@com_google_protobuf//:Disable_bundle_install.patch",
+//         "@com_google_protobuf//:Neverlink_jruby_jars.patch",
+//     ],
+//     version = "0.17.3",
+// )
+message SingleVersionOverride {
+    // Number of leading path components to strip from patch files
+    int32 patch_strip = 1;
+    // List of patch files to apply
+    repeated string patches = 2;
+    // Version to use
+    string version = 3;
+}
+
+// LocalPathOverride represents a local_path_override directive
+// Example:
+//
+// local_path_override(
+//     module_name = "bazel_worker_api",
+//     path = "../proto",
+//
+message LocalPathOverride {
+    // Local filesystem path to the module
+    string path = 1;
+}
+
+
+
+

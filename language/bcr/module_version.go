@@ -47,6 +47,9 @@ func makeModuleVersionRule(module *bzpb.ModuleVersion, version string, depRules 
 	if module.CompatibilityLevel != 0 {
 		r.SetAttr("compatibility_level", int(module.CompatibilityLevel))
 	}
+	if len(module.BazelCompatibility) > 0 {
+		r.SetAttr("bazel_compatibility", module.BazelCompatibility)
+	}
 	if module.RepoName != "" {
 		r.SetAttr("repo_name", module.RepoName)
 	}
@@ -118,6 +121,7 @@ func readModuleBazelBuildFile(filename string, f *build.File) (*bzpb.ModuleVersi
 	module.Name = r.AttrString("name")
 	module.RepoName = r.AttrString("repo_name")
 	module.CompatibilityLevel = parseStarlarkInt32(r.AttrString("compatibility_level"))
+	module.BazelCompatibility = r.AttrStrings("bazel_compatibility")
 
 	// Build a map of overrides by module name
 	overrides := buildOverridesMap(f)

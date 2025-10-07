@@ -3,9 +3,11 @@
 load("//rules:providers.bzl", "ModuleMetadataInfo", "ModuleRegistryInfo")
 
 def _module_registry_impl(ctx):
+    deps = [d[ModuleMetadataInfo] for d in ctx.attr.deps]
+
     return [
         ModuleRegistryInfo(
-            deps = ctx.attr.deps,
+            deps = depset(deps),
         ),
     ]
 
