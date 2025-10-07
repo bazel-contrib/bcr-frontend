@@ -1,6 +1,6 @@
 "provides the module_version rule"
 
-load("//rules:providers.bzl", "ModuleDependencyInfo", "ModuleSourceInfo", "ModuleVersionInfo")
+load("//rules:providers.bzl", "ModuleAttestationsInfo", "ModuleDependencyInfo", "ModuleSourceInfo", "ModuleVersionInfo")
 
 def _module_version_impl(ctx):
     return [
@@ -11,6 +11,7 @@ def _module_version_impl(ctx):
             repo_name = ctx.attr.repo_name,
             deps = ctx.attr.deps,
             source = ctx.attr.source,
+            attestations = ctx.attr.attestations,
         ),
     ]
 
@@ -23,6 +24,7 @@ module_version = rule(
         "repo_name": attr.string(),
         "deps": attr.label_list(providers = [ModuleDependencyInfo]),
         "source": attr.label(providers = [ModuleSourceInfo]),
+        "attestations": attr.label(providers = [ModuleAttestationsInfo]),
     },
     provides = [ModuleVersionInfo],
 )

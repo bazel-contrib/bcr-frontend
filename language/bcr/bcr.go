@@ -64,6 +64,7 @@ func (*bcrExtension) Kinds() map[string]rule.KindInfo {
 	maps.Copy(kinds, moduleMetadataKinds())
 	maps.Copy(kinds, moduleVersionKinds())
 	maps.Copy(kinds, moduleSourceKinds())
+	maps.Copy(kinds, moduleAttestationsKinds())
 	return kinds
 }
 
@@ -77,6 +78,7 @@ func (pl *bcrExtension) Loads() []rule.LoadInfo {
 		moduleVersionLoadInfo(),
 		moduleDependencyLoadInfo(),
 		moduleSourceLoadInfo(),
+		moduleAttestationsLoadInfo(),
 	}
 }
 
@@ -170,14 +172,27 @@ func (pl *bcrExtension) GenerateRules(args language.GenerateArgs) language.Gener
 				sourceRule = makeModuleSourceRule(source)
 				rules = append(rules, sourceRule)
 			}
+			// Try to read attestations.json if it exists
+			var attestationsRule *rule.Rule
+			attestationsFilename := filepath.Join(args.Config.WorkDir, args.Rel, "attestations.json")
+			attestations, err := readAttestationsJson(attestationsFilename)
+			if err != nil {
+				// attestations.json is optional, just log if missing
+				log.Printf("No attestations.json found for %s: %v", args.Rel, err)
+			} else {
+				module.Attestations = attestations
+				// Generate attestations rule
+				attestationsRule = makeModuleAttestationsRule(attestations)
+				rules = append(rules, attestationsRule)
+			}
 			// Extract version from path (e.g., modules/foo/1.2.3 -> 1.2.3)
 			version := filepath.Base(args.Rel)
 			// Generate dependency rules
 			depRules := makeModuleDependencyRules(module.Deps)
 			// Add dependency rules to the list
 			rules = append(rules, depRules...)
-			// Add module version rule with references to dependencies and source
-			rules = append(rules, makeModuleVersionRule(module, version, depRules, sourceRule))
+			// Add module version rule with references to dependencies, source, and attestations
+			rules = append(rules, makeModuleVersionRule(module, version, depRules, sourceRule, attestationsRule))
 		}
 	}
 

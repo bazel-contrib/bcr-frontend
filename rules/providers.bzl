@@ -41,6 +41,15 @@ ModuleSourceInfo = provider(
     },
 )
 
+ModuleAttestationsInfo = provider(
+    doc = "Info about Module Attestations",
+    fields = {
+        "media_type": "Media type for the attestations file",
+        "urls": "Map of file names to attestation URLs",
+        "integrities": "Map of file names to attestation integrity hashes",
+    },
+)
+
 ModuleVersionInfo = provider(
     doc = "Info about a Module Version",
     fields = {
@@ -50,5 +59,6 @@ ModuleVersionInfo = provider(
         "repo_name": "Repository name",
         "deps": "List of dependency targets providing ModuleDependencyInfo",
         "source": "Source target providing ModuleSourceInfo",
+        "attestations": "Attestations target providing ModuleAttestationsInfo",
     },
 )

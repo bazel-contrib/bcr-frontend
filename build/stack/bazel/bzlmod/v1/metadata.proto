@@ -6,8 +6,7 @@ package build.stack.bazel.bzlmod.v1;
 
 option go_package = "github.com/stackb/centrl/build/stack/bazel/bzlmod/v1;bzpb";
 
-// ApiExchange is a demonstrative example of an API call that has a request and
-// a response.
+// Metadata about a Module.
 message Metadata {
     message Maintainer {
         // "email": "lperron@google.com",
@@ -49,6 +48,21 @@ message Source {
     map<string, string> patches = 5;
 }
 
+// Attestations represents an attestations.json file for a module version
+message Attestations {
+    // Attestation represents a single attestation entry
+    message Attestation {
+        // URL to the attestation file
+        string url = 1;
+        // Integrity hash of the attestation
+        string integrity = 2;
+    }
+    // Media type for the attestations file
+    string media_type = 1;
+    // Map of file names to their attestations
+    map<string, Attestation> attestations = 2;
+}
+
 // ModuleVersion represents a Bazel module version and its dependencies
 message ModuleVersion {
     // Dependency represents a module dependency
@@ -72,4 +86,6 @@ message ModuleVersion {
     repeated Dependency deps = 5;
     // Source information from source.json
     Source source = 6;
+    // Attestations information from attestations.json
+    Attestations attestations = 7;
 }
