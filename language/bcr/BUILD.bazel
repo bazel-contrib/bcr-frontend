@@ -5,6 +5,10 @@ go_library(
     srcs = [
         "attestations.go",
         "bcr.go",
+        "graph.go",
+        "lifecycle.go",
+        # "graph.go",
+        # "lifecycle.go",
         "metadata.go",
         "module.go",
         "source.go",
@@ -21,5 +25,6 @@ go_library(
         "@bazel_gazelle//resolve:go_default_library",
         "@bazel_gazelle//rule:go_default_library",
         "@com_github_bazelbuild_buildtools//build:go_default_library",
+        "@com_github_dominikbraun_graph//:go_default_library",
     ],
 )
