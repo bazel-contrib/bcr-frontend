@@ -85,7 +85,7 @@ func makeOverrideRule(moduleName string, override interface{}) *rule.Rule {
 }
 
 // resolveModuleDependencyRule resolves the module and cycle attributes for a module_dependency rule
-func resolveModuleDependencyRule(r *rule.Rule, ix *resolve.RuleIndex, from label.Label, moduleToCycle map[string]string) {
+func resolveModuleDependencyRule(cfg *Config, r *rule.Rule, ix *resolve.RuleIndex, from label.Label, moduleToCycle map[string]string) {
 	// Get the dependency name and version to construct the import spec
 	depName := r.AttrString("dep_name")
 	version := r.AttrString("version")
@@ -98,12 +98,12 @@ func resolveModuleDependencyRule(r *rule.Rule, ix *resolve.RuleIndex, from label
 	// Construct the import spec: "module_name@version"
 	moduleVersion := fmt.Sprintf("%s@%s", depName, version)
 	importSpec := resolve.ImportSpec{
-		Lang: "bcr",
+		Lang: bcrLangName,
 		Imp:  moduleVersion,
 	}
 
 	// Find the module_version rule that provides this import
-	results := ix.FindRulesByImport(importSpec, "bcr")
+	results := ix.FindRulesByImport(importSpec, bcrLangName)
 
 	if len(results) == 0 {
 		log.Printf("%s: No module_version found for %s", from, moduleVersion)
@@ -116,7 +116,7 @@ func resolveModuleDependencyRule(r *rule.Rule, ix *resolve.RuleIndex, from label
 	// Check if this module is part of a cycle
 	if cycleName, inCycle := moduleToCycle[moduleVersion]; inCycle {
 		// Set the cycle attr to point to the cycle rule
-		cycleLabel := fmt.Sprintf("//bazel-central-registry/recursion:%s", cycleName)
+		cycleLabel := fmt.Sprintf("//%s:%s", cfg.modulesRoot, cycleName)
 		r.SetAttr("cycle", cycleLabel)
 	} else {
 		// Set the module attr to point to the found module_version rule

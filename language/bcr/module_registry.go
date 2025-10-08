@@ -23,8 +23,8 @@ func moduleRegistryKinds() map[string]rule.KindInfo {
 	}
 }
 
-func makeModuleRegistryRule(subdirs []string) *rule.Rule {
-	r := rule.NewRule("module_registry", "modules")
+func makeModuleRegistryRule(name string, subdirs []string) *rule.Rule {
+	r := rule.NewRule("module_registry", name)
 	r.SetPrivateAttr("subdirs", subdirs)
 	r.SetAttr("visibility", []string{"//visibility:public"})
 	return r
@@ -50,12 +50,12 @@ func resolveModuleRegistryRule(r *rule.Rule, ix *resolve.RuleIndex) {
 		// Construct the import spec using the module name
 		// module_metadata rules are indexed by their name "metadata"
 		importSpec := resolve.ImportSpec{
-			Lang: "bcr",
+			Lang: bcrLangName,
 			Imp:  moduleName,
 		}
 
 		// Find all module_metadata rules with this import
-		results := ix.FindRulesByImport(importSpec, "bcr")
+		results := ix.FindRulesByImport(importSpec, bcrLangName)
 		if len(results) == 0 {
 			log.Printf("No module_metadata found for module %s", moduleName)
 		}

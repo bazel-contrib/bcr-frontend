@@ -63,7 +63,7 @@ func makeModuleMetadataRule(name string, md *bzpb.Metadata, maintainerRules []*r
 // moduleMetadataImports returns import specs for indexing module_metadata rules
 func moduleMetadataImports(r *rule.Rule) []resolve.ImportSpec {
 	return []resolve.ImportSpec{{
-		Lang: "bcr",
+		Lang: bcrLangName,
 		Imp:  r.Name(),
 	}}
 }
@@ -82,12 +82,12 @@ func resolveModuleMetadataRule(r *rule.Rule, ix *resolve.RuleIndex) {
 		for _, version := range versions {
 			// Construct the import spec: "module_name@version"
 			importSpec := resolve.ImportSpec{
-				Lang: "bcr",
+				Lang: bcrLangName,
 				Imp:  fmt.Sprintf("%s@%s", moduleName, version),
 			}
 
 			// Find the module_version rule that provides this import
-			results := ix.FindRulesByImport(importSpec, "bcr")
+			results := ix.FindRulesByImport(importSpec, bcrLangName)
 
 			if len(results) == 0 {
 				log.Printf("resolveModuleMetadataRule: No module_version found for %s@%s in module_metadata", moduleName, version)
@@ -111,7 +111,7 @@ func resolveModuleMetadataRule(r *rule.Rule, ix *resolve.RuleIndex) {
 		Imp:  moduleName,
 	}
 
-	overrideResults := ix.FindRulesByImport(overrideSpec, "bcr")
+	overrideResults := ix.FindRulesByImport(overrideSpec, bcrLangName)
 	if len(overrideResults) > 0 {
 		overrides := make([]string, len(overrideResults))
 		for i, result := range overrideResults {

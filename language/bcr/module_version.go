@@ -92,7 +92,7 @@ func moduleVersionImports(r *rule.Rule) []resolve.ImportSpec {
 
 	// Construct and return the import spec: "module_name@version"
 	importSpec := resolve.ImportSpec{
-		Lang: "bcr",
+		Lang: bcrLangName,
 		Imp:  fmt.Sprintf("%s@%s", moduleName, version),
 	}
 

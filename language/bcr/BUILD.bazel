@@ -5,6 +5,7 @@ go_library(
     srcs = [
         "archive_override.go",
         "bcr.go",
+        "config.go",
         "git_override.go",
         "graph.go",
         "lifecycle.go",

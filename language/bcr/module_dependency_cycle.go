@@ -87,12 +87,12 @@ func resolveModuleDependencyCycleRule(r *rule.Rule, ix *resolve.RuleIndex) {
 	for _, moduleVersion := range cycleModules {
 		// Construct the import spec: "module_name@version"
 		importSpec := resolve.ImportSpec{
-			Lang: "bcr",
+			Lang: bcrLangName,
 			Imp:  moduleVersion,
 		}
 
 		// Find the module_version rule that provides this import
-		results := ix.FindRulesByImport(importSpec, "bcr")
+		results := ix.FindRulesByImport(importSpec, bcrLangName)
 
 		if len(results) == 0 {
 			log.Printf("resolveModuleDependencyCycleRule: No module_version found for %s in cycle %s", moduleVersion, r.Name())
