@@ -89,9 +89,12 @@ func resolveModuleDependencyRule(cfg *Config, r *rule.Rule, ix *resolve.RuleInde
 	// Get the dependency name and version to construct the import spec
 	depName := r.AttrString("dep_name")
 	version := r.AttrString("version")
+	override := r.AttrString("override")
 
-	if depName == "" || version == "" {
-		log.Printf("module_dependency %s missing dep_name or version", from)
+	if version == "" {
+		if override == "" {
+			log.Printf("%s: module_dependency '%s' missing version and override", from, depName)
+		}
 		return
 	}
 
@@ -106,7 +109,9 @@ func resolveModuleDependencyRule(cfg *Config, r *rule.Rule, ix *resolve.RuleInde
 	results := ix.FindRulesByImport(importSpec, bcrLangName)
 
 	if len(results) == 0 {
-		log.Printf("%s: No module_version found for %s", from, moduleVersion)
+		if override == "" {
+			log.Printf("%s: No module_version (or override) found for %s", from, moduleVersion)
+		}
 		return
 	}
 

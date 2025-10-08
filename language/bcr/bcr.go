@@ -4,7 +4,6 @@ import (
 	"flag"
 	"log"
 	"maps"
-	"os"
 	"path"
 	"path/filepath"
 	"slices"
@@ -193,7 +192,7 @@ func (ext *bcrExtension) GenerateRules(args language.GenerateArgs) language.Gene
 		return language.GenerateResult{}
 	}
 
-	log.Println("visiting:", args.Rel, args.RegularFiles)
+	// log.Println("visiting:", args.Rel, args.RegularFiles)
 
 	var rules []*rule.Rule
 
@@ -222,22 +221,9 @@ func (ext *bcrExtension) GenerateRules(args language.GenerateArgs) language.Gene
 		rules = append(rules, makeModuleMetadataRule(path.Base(args.Rel), md, maintainerRules, "metadata.json"))
 	}
 
-	// are we in a module version directory?  A previous pass of gazelle may have already renamed MODULE.bazel to MODULE.bazel.txt
-	if strings.Contains(args.Rel, "modules/") &&
-		!strings.Contains(args.Rel, "/overlay") &&
-		(slices.Contains(args.RegularFiles, "MODULE.bazel") || slices.Contains(args.RegularFiles, "MODULE.bazel.txt")) {
-		moduleBazelFilename := filepath.Join(args.Config.WorkDir, args.Rel, "MODULE.bazel.txt")
-
-		// Move MODULE.bazel to MODULE.bazel.txt because that file breaks
-		// symlinks in sandboxes
-		if slices.Contains(args.RegularFiles, "MODULE.bazel") {
-			src := filepath.Join(args.Config.WorkDir, args.Rel, "MODULE.bazel")
-			dst := moduleBazelFilename
-			if err := os.Rename(src, dst); err != nil {
-				log.Fatalf("Failed to rename %s to %s: %v", src, dst, err)
-			}
-		}
-
+	// are we in a module version directory?
+	if !inOverlayDir(args.Rel) && slices.Contains(args.RegularFiles, "MODULE.bazel") {
+		moduleBazelFilename := filepath.Join(args.Config.WorkDir, args.Rel, "MODULE.bazel")
 		module, err := modulebazel.ReadFile(moduleBazelFilename)
 		if err != nil {
 			log.Fatalf("reading %s: %v", moduleBazelFilename, err)
@@ -299,8 +285,7 @@ func (ext *bcrExtension) GenerateRules(args language.GenerateArgs) language.Gene
 		// Add dependency rules to the list
 		rules = append(rules, depRules...)
 		// Add module version rule with references to dependencies, source, attestations, and presubmit
-		// Use MODULE.bazel.txt instead of MODULE.bazel to avoid Bazel's special handling
-		rules = append(rules, makeModuleVersionRule(module, version, depRules, sourceRule, attestationsRule, presubmitRule, "MODULE.bazel.txt"))
+		rules = append(rules, makeModuleVersionRule(module, version, depRules, sourceRule, attestationsRule, presubmitRule, "MODULE.bazel"))
 	}
 
 	imports := make([]interface{}, len(rules))
@@ -312,4 +297,8 @@ func (ext *bcrExtension) GenerateRules(args language.GenerateArgs) language.Gene
 		Gen:     rules,
 		Imports: imports,
 	}
+}
+
+func inOverlayDir(rel string) bool {
+	return strings.Contains(rel, "/overlay")
 }
