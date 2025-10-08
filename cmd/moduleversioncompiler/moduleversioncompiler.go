@@ -60,7 +60,7 @@ func run(args []string) error {
 	}
 
 	// Read MODULE.bazel file (required)
-	module, err := modulebazel.ReadFile(cfg.ModuleBazelFile)
+	module, err := modulebazel.ExecFile(cfg.ModuleBazelFile)
 	if err != nil {
 		return fmt.Errorf("failed to read MODULE.bazel: %v", err)
 	}

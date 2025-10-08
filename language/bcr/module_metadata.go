@@ -29,7 +29,7 @@ func moduleMetadataKinds() map[string]rule.KindInfo {
 }
 
 // makeModuleMetadataRule creates a module_metadata rule from protobuf metadata
-func makeModuleMetadataRule(name string, md *bzpb.Metadata, maintainerRules []*rule.Rule, metadataJsonFile string) *rule.Rule {
+func makeModuleMetadataRule(name string, md *bzpb.ModuleMetadata, maintainerRules []*rule.Rule, metadataJsonFile string) *rule.Rule {
 	r := rule.NewRule("module_metadata", name)
 	if md.Homepage != "" {
 		r.SetAttr("homepage", md.Homepage)
@@ -122,6 +122,6 @@ func resolveModuleMetadataRule(r *rule.Rule, ix *resolve.RuleIndex) {
 }
 
 // readMetadataJson reads and parses a metadata.json file
-func readMetadataJson(filename string) (*bzpb.Metadata, error) {
+func readMetadataJson(filename string) (*bzpb.ModuleMetadata, error) {
 	return metadatajson.ReadFile(filename)
 }

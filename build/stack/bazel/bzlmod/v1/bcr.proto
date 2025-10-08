@@ -7,7 +7,7 @@ package build.stack.bazel.bzlmod.v1;
 option go_package = "github.com/stackb/centrl/build/stack/bazel/bzlmod/v1;bzpb";
 
 // Metadata about a Module.
-message Metadata {
+message ModuleMetadata {
     message Maintainer {
         // "email": "lperron@google.com",
         string email = 1;
@@ -35,7 +35,7 @@ message Metadata {
 }
 
 // Source represents a source.json file for a module version
-message Source {
+message ModuleSource {
     // URL to the source archive
     string url = 1;
     // Integrity hash (e.g., "sha256-...")
@@ -90,7 +90,7 @@ message ModuleVersion {
     // Module dependencies
     repeated ModuleDependency deps = 6;
     // Source information from source.json
-    Source source = 7;
+    ModuleSource source = 7;
     // Attestations information from attestations.json
     Attestations attestations = 8;
     // Presubmit configuration from presubmit.yml
@@ -98,7 +98,7 @@ message ModuleVersion {
     // optional toolchains to be registered
     repeated string toolchains_to_register = 10;
     // Optional overrides
-    repeated ModuleDependencyOverride override = 11;    
+    repeated ModuleDependencyOverride override = 11; 
 }
 
 message ModuleDependencyOverride {

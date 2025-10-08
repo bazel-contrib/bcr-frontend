@@ -6,11 +6,11 @@ import (
 	"github.com/stackb/centrl/pkg/sourcejson"
 )
 
-func readSourceJson(filename string) (*bzpb.Source, error) {
+func readModuleSourceJson(filename string) (*bzpb.ModuleSource, error) {
 	return sourcejson.ReadFile(filename)
 }
 
-func makeModuleSourceRule(source *bzpb.Source, sourceJsonFile string) *rule.Rule {
+func makeModuleSourceRule(source *bzpb.ModuleSource, sourceJsonFile string) *rule.Rule {
 	r := rule.NewRule("module_source", "source")
 	if source.Url != "" {
 		r.SetAttr("url", source.Url)

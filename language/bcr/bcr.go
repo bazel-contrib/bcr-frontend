@@ -238,7 +238,7 @@ func (ext *bcrExtension) GenerateRules(args language.GenerateArgs) language.Gene
 
 		if slices.Contains(args.RegularFiles, "source.json") {
 			sourceFilename := filepath.Join(args.Config.WorkDir, args.Rel, "source.json")
-			source, err := readSourceJson(sourceFilename)
+			source, err := readModuleSourceJson(sourceFilename)
 			if err != nil {
 				log.Fatalf("reading %s/source.json: %v", args.Rel, err)
 			}
