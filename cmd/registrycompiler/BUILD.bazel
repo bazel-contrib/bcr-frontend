@@ -7,7 +7,6 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//build/stack/bazel/bzlmod/v1:bzlmod",
-        "//pkg/metadatajson",
         "//pkg/paramsfile",
         "//pkg/protoutil",
     ],

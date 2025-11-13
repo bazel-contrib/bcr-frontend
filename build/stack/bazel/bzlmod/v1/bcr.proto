@@ -14,26 +14,32 @@ message Registry {
 
 // Aggregate type about a module and all it's versions
 message Module {
+    // the module name
+    string name = 1;
     // the module metadata
-    ModuleMetadata metadata = 1;
+    ModuleMetadata metadata = 2;
     // list of known versions
-    repeated ModuleVersion versions = 2;
+    repeated ModuleVersion versions = 3;
+    // url to an avatar image
+    string avatar_url = 4;
+}
+
+// Metadata about a Maitainer.
+message Maintainer {
+    // "email": "lperron@google.com",
+    string email = 1;
+    // "name": "Laurent Perron"
+    string name = 2;
+    // "github": "UebelAndre",
+    string github = 3;
+    // "do_not_notify": true,
+    bool do_not_notify = 4;
+    // "github_user_id": 704767
+    int32 github_user_id = 5;
 }
 
 // Metadata about a Module.
 message ModuleMetadata {
-    message Maintainer {
-        // "email": "lperron@google.com",
-        string email = 1;
-        // "name": "Laurent Perron"
-        string name = 2;
-        // "github": "UebelAndre",
-        string github = 3;
-        // "do_not_notify": true,
-        bool do_not_notify = 4;
-        // "github_user_id": 704767
-        int32 github_user_id = 5;
-    }
     // "homepage": "https://github.com/mateidavid/zstr",
     string homepage = 1;
     // "maintainers": []

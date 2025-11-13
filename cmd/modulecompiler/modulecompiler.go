@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"slices"
+	"strings"
 
 	bzpb "github.com/stackb/centrl/build/stack/bazel/bzlmod/v1"
 	"github.com/stackb/centrl/pkg/metadatajson"
@@ -62,6 +64,7 @@ func run(args []string) error {
 			return fmt.Errorf("failed to read %s: %v", cfg.ModuleMetadataFile, err)
 		}
 		module.Metadata = metadata
+		module.AvatarUrl = githubOrgAvatarUrl(metadata.Repository)
 	}
 
 	for _, file := range cfg.ModuleVersionFiles {
@@ -69,8 +72,10 @@ func run(args []string) error {
 		if err := protoutil.ReadFile(file, &version); err != nil {
 			return fmt.Errorf("reading %s: %v", file, err)
 		}
+		module.Name = version.Name
 		module.Versions = append(module.Versions, &version)
 	}
+	slices.Reverse(module.Versions)
 
 	// Write the compiled ModuleVersion to output file
 	if err := protoutil.WriteFile(cfg.OutputFile, &module); err != nil {
@@ -97,4 +102,16 @@ func parseFlags(args []string) (cfg Config, err error) {
 	cfg.ModuleVersionFiles = fs.Args()
 
 	return
+}
+
+func githubOrgAvatarUrl(repositories []string) string {
+	for _, repo := range repositories {
+		orgName := strings.TrimPrefix(repo, "github:")
+		if orgName == repo {
+			continue
+		}
+		parts := strings.SplitN(orgName, "/", 2)
+		return "https://github.com/" + parts[0] + ".png"
+	}
+	return "https://github.com/bazelbuild.png"
 }

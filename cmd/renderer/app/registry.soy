@@ -1,0 +1,494 @@
+{namespace soy.registry}
+
+import {
+    Maintainer,
+    Module,
+    Registry,
+    ModuleDependency,
+    ModuleVersion,
+    ModuleSource,
+    ModuleMetadata
+} from 'build/stack/bazel/bzlmod/v1/bcr.proto';
+
+{template moduleVersionOverview}
+  {@param current: ModuleVersion}
+  {@param module: Module}
+<div class="mt-3 Box Box--condensed">
+  <div class="Box-header">
+      <span class="Box-title">{$current.getName()}</span> <a href="#">{$current.getVersion()}</a>
+  </div>
+  <div class="Box-body d-flex flex-wrap">
+    {for $version in $module.getVersionsList()}
+        <a class="Box-row-link mr-2" href="#">{$version.getVersion()}</a>
+    {/for}
+  </div>
+</div>
+{/template}
+
+{template maintainersLink kind="html<a>"}
+<a class="mr-2" href="{maintainersUrl()}">maintainers</a>
+{/template}
+
+{template maintainerLink kind="html<a>"}
+  {@param maintainer: Maintainer}
+<a class="mr-2" href="{maintainerUrl(maintainer: $maintainer)}">{$maintainer.getName()}</a>
+{/template}
+
+
+{template moduleDependencyLink kind="html<a>"}
+  {@param dep: ModuleDependency}
+<a class="mr-2" href="{moduleVersionUrl(name: $dep.getName(), version: $dep.getVersion())}">{$dep.getName()}@{$dep.getVersion()}</a>
+{/template}
+
+{template clippy}
+    {@param? text: string}
+<button type="button" class="mb-1 btn-octicon {css('clippy')}" {if $text}data-clippy="{$text}"{/if}>
+    <i class="octicon octicon-clippy text-gray">{sp}</i>
+</button>
+{/template}
+
+{template moduleVersionBazelDep kind="text"}
+  {@param name: string}
+  {@param version: string}
+bazel_dep(name = "{$name}", version = "{$version}")
+{/template}
+
+{template moduleVersionModuleBazel}
+  {@param moduleVersion: ModuleVersion}
+<div class="Box Box--condensed">
+  <div class="Box-header">
+
+      <div class="Box-title d-flex flex-justify-between flex-items-center">
+        <div class="text-mono">
+        MODULE.bazel
+        </div>
+        <button class="btn btn-secondary" aria-label="Copy to clipboard" data-clippy='{moduleVersionBazelDep(name: $moduleVersion.getName(), version: $moduleVersion.getVersion())}'>
+            <i class="octicon octicon-clippy">{sp}</i>
+        </button>
+      </div>
+  </div>
+  <div class="">
+      <pre class="width-full m-3"><code class="{css('shiki')}" lang="python">{moduleVersionBazelDep(name: $moduleVersion.getName(), version: $moduleVersion.getVersion())}</code></pre>
+  </div>
+</div>
+
+{/template}
+
+
+{template maintainerModuleVersionTable}
+  {@param moduleVersions: list<ModuleVersion>}
+<div class="">
+  <div class="f3 mb-2">
+      <span class="">Modules {counterLabel(count: length($moduleVersions))}</span>
+  </div>
+  <div>
+    {for $moduleVersion in $moduleVersions}
+            {moduleVersionCard(moduleVersion: $moduleVersion)}
+    {/for}
+  </div>
+</div>
+{/template}
+
+{template moduleDependencyTable}
+  {@param title: string}
+  {@param deps: list<ModuleDependency>}
+<div class="Box Box--condensed">
+  <div class="Box-header">
+      <span class="Box-title">{$title} {counterLabel(count: length($deps))}</span>
+  </div>
+  <div class="Box-body width-full">
+    {for $dep in $deps}
+        <div class="mx-1 my-2">
+            {moduleDependencyLink(dep: $dep)}
+        </div>
+    {/for}
+  </div>
+</div>
+{/template}
+
+{template maintainersTable}
+  {@param maintainers: list<Maintainer>}
+<div>
+  <div class="f3 pb-2">
+      Maintainers {counterLabel(count: length($maintainers))}
+  </div>
+  <div class="d-flex flex-wrap">
+    {for $maintainer in $maintainers}
+        <div class="m-1">
+        {maintainerAvatar(maintainer: $maintainer)}
+        </div>
+    {/for}
+  </div>
+</div>
+{/template}
+
+{template moduleVersionSourceDetails}
+  {@param? moduleSource: ModuleSource}
+  {@param moduleVersion: ModuleVersion}
+<div>
+  <div class="f3 pb-2">
+      Source Details
+  </div>
+  <div>
+    {if $moduleSource}
+    {itemDetail(
+        octicon: "info",
+        label: 'Integrity',
+        value: $moduleSource.getIntegrity(),
+    )}
+    {itemDetail(
+        octicon: "link",
+        label: 'Source URL',
+        // url: $moduleSource.getUrl(),
+        value: $moduleSource.getUrl(),
+    )}
+    {if $moduleSource.getDocsUrl()}
+        {itemDetail(
+            octicon: "link",
+            label: 'Docs URL',
+            // url: $moduleSource.getDocsUrl(),
+            value: $moduleSource.getDocsUrl(),
+        )}
+    {/if}
+    {/if}
+  </div>
+</div>
+{/template}
+
+{template bazelCompatibilityTable}
+  {@param moduleVersion: ModuleVersion}
+<div>
+  <div class="f3 pb-2">
+      Bazel Compatibility
+  </div>
+  <div class="d-flex flex-wrap">
+    {if length($moduleVersion.getBazelCompatibilityList())}
+        {for $version in $moduleVersion.getBazelCompatibilityList()}
+            <label class="Label Label--secondary">{$version}</label>
+        {/for}
+    {else}
+        <span class="text-light text-italic">Unspecified</span>
+    {/if}
+  </div>
+</div>
+{/template}
+
+{template moduleVersionTable}
+  {@param module: Module}
+  {@param? currentVersion: string}
+<div>
+  <div class="f3 pb-2">
+      Versions {counterLabel(count: length($module.getVersionsList()))}
+  </div>
+  <div class="d-flex flex-wrap">
+    {for $version in $module.getVersionsList()}
+        {if ($currentVersion === $version.getVersion())}
+            <span class="mr-2 text-bold">{$version.getVersion()}</span>
+        {else}
+            <a class="mr-2" href="{moduleVersionUrl(name: $version.getName(), version: $version.getVersion())}">{$version.getVersion()}</a>
+        {/if}
+    {/for}
+  </div>
+</div>
+{/template}
+
+{template moduleVersions}
+  {@param registry: Registry}
+<div class="{css('modules')}">
+    {for $module in $registry.getModulesList()}
+        {if length($module.getVersionsList()) > 0}
+            {call moduleVersionOverview}
+                {param module: $module /}
+                {param current: $module.getVersionsList()[length($module.getVersionsList())-1] /}
+            {/call}
+        {/if}
+    {/for}
+</div>
+{/template}
+
+// ====================================================================
+// URL HELPERS
+// ====================================================================
+
+{template rootUrl kind="uri"}
+/#/
+{/template}
+
+{template maintainersUrl kind="uri"}
+{rootUrl()}maintainers
+{/template}
+
+{template modulesUrl kind="uri"}
+{rootUrl()}modules
+{/template}
+
+{template moduleUrl kind="uri"}
+  {@param name: string}
+{modulesUrl()}/{$name}
+{/template}
+
+{template moduleVersionUrl kind="uri"}
+  {@param name: string}
+  {@param version: string}
+{moduleUrl(name: $name)}/{$version}
+{/template}
+
+{template maintainerUrl kind="uri"}
+  {@param maintainer: Maintainer}
+{if $maintainer.getGithub()}
+    {maintainersUrl()}/@{$maintainer.getGithub()}
+{elseif $maintainer.getEmail()}
+    {maintainersUrl()}/{$maintainer.getEmail()}
+{else}
+    {maintainersUrl()}/{$maintainer.getName()}
+{/if}
+{/template}
+
+{template githubAvatarUrl kind="uri"}
+  {@param name: string}
+{if $name}
+https://github.com/{$name}.png
+{else}
+https://github.com/bazelbuild.png
+{/if}
+{/template}
+
+{template githubUserUrl kind="uri"}
+  {@param name: string}
+https://github.com/{$name}
+{/template}
+
+{template mailtoUrl kind="uri"}
+  {@param to: string}
+mailto:{$to}
+{/template}
+
+// ====================================================================
+// LINK HELPERS
+// ====================================================================
+
+{template rootLink kind="html<a>"}
+<a href="{rootUrl()}">#</a>
+{/template}
+
+{template modulesLink kind="html<a>"}
+<a href="{modulesUrl()}">modules</a>
+{/template}
+
+{template moduleLink kind="html<a>"}
+  {@param name: string}
+<a href="{moduleUrl(name: $name)}">{$name}</a>
+{/template}
+
+{template moduleVersionLink kind="html<a>"}
+  {@param moduleVersion: ModuleVersion}
+<a href="{moduleVersionUrl(name: $moduleVersion.getName(), version: $moduleVersion.getVersion())}">{$moduleVersion.getVersion()}</a>
+{/template}
+
+{template registryModuleVersions}
+  {@param moduleVersions: list<ModuleVersion>}
+<div class="mt-3">
+  <div class="f3 mb-2 d-flex flex-items-center">
+      Modules {counterLabel(count: length($moduleVersions))}
+  </div>
+  <div>
+    {for $moduleVersion in $moduleVersions}
+        {moduleVersionCard(moduleVersion: $moduleVersion)}
+    {/for}
+  </div>
+</div>
+{/template}
+
+{template registryModules}
+  {@param registry: Registry}
+<div class="mt-3">
+  <div>
+      <span class="f2 mb-2">Modules {counterLabel(count: length($registry.getModulesList()))}</span>
+  </div>
+  <div class="mt-2 d-flex flex-wrap border-top">
+    {for $module in $registry.getModulesList()}
+        {if length($module.getVersionsList()) > 0}
+            <div class="anim-fade-in">
+            {moduleAvatar(module: $module)}
+            </div>
+        {/if}
+    {/for}
+  </div>
+</div>
+{/template}
+
+{template moduleAvatar}
+  {@param module: Module}
+<div class="m-2 p-2 avatar color-border-success anim-hover-grow">
+    <a class="avatar-link" href="{moduleUrl(name: $module.getName())}">
+        <img width="124px" src="{$module.getAvatarUrl()}">
+        <div class="text-center text-small mt-1">
+            {$module.getName()|truncate:22}
+        </div>
+    </a>
+</div>
+{/template}
+
+{template moduleVersionCard}
+  {@param moduleVersion: ModuleVersion}
+<div class="Box Box-condensed mr-2 mb-2 p-2 anim-hover-grow d-inline-block">
+    <a class="no-underline Box-row-link" href="{moduleUrl(name: $moduleVersion.getName())}">
+        <div class="">
+            <i class="octicon octicon-package mr-2">{sp}</i>
+            {sp}
+            <span class="f4 text-bold">{$moduleVersion.getName()|truncate:32}</span>
+            {sp}
+            <span class="f4-light">{$moduleVersion.getVersion()}</span>
+        </div>
+    </a>
+</div>
+{/template}
+
+{template maintainerAvatar}
+  {@param maintainer: Maintainer}
+<div class="p-2 avatar anim-hover-grow">
+    <a class="avatar-link" href="{maintainerUrl(maintainer: $maintainer)}">
+        <img class="rounded" width="130px" src="{githubAvatarUrl(name: $maintainer.getGithub())}">
+        <div class="text-center text-small mt-1">
+            {$maintainer.getName() || '@' + $maintainer.getGithub()}
+        </div>
+    </a>
+</div>
+{/template}
+
+
+{template labelValue}
+  {@param label: string}
+  {@param value: string}
+<label><span class="text-semibold">{$label|truncate:32,true}</span> {$value|truncate:32,true}</label>
+{/template}
+
+{template itemDetail}
+  {@param? octicon: string}
+  {@param? url: uri}
+  {@param label: string}
+  {@param value: string}
+<div class="my-1">
+    {if $octicon}
+    <i class="octicon octicon-{$octicon} mr-2">{sp}</i> 
+    {/if}
+    {if $url}
+    <a class="Box-row-link" href="{$url}">{labelValue(label: $label, value: $value)}</a> 
+    {else}
+        {labelValue(label: $label, value: $value)}
+    {/if}
+</div>
+{/template}
+
+{template actionLink}
+  {@param? octicon: string}
+  {@param? url: uri}
+  {@param label: string}
+<span>
+    {if $octicon}
+    <i class="octicon octicon-{$octicon} mr-2">{sp}</i> 
+    {if $url}
+        <a class="Box-row-link" href="{$url}">{$label|truncate:32,true}</a>
+    {else}
+        {$label|truncate:32,true}
+    {/if}
+    {/if}
+</span>
+{/template}
+
+{template maintainerProfile}
+  {@param maintainer: Maintainer}
+<div class="p-2 avatar">
+    <a class="avatar-link" href="{maintainerUrl(maintainer: $maintainer)}">
+        <img width="280px" src="{githubAvatarUrl(name: $maintainer.getGithub())}">
+    </a>
+</div>
+<div class="f3 text-bold mt-2">
+    {$maintainer.getName() || '@' + $maintainer.getGithub()}
+</div>
+<div class="SideNav mt-3 rounded">
+{if $maintainer.getGithub()}
+    <div class="SideNav-item">
+        {actionLink(
+            octicon: "mark-github",
+            url: githubUserUrl(name: $maintainer.getGithub()),
+            label: '@' + $maintainer.getGithub(),
+        )}
+    </div>
+{/if}
+{if $maintainer.getEmail()}
+    <div class="SideNav-item">
+        {actionLink(
+            octicon: "mail",
+            url: mailtoUrl(to: $maintainer.getEmail()),
+            label: $maintainer.getEmail(),
+        )}
+    </div>
+{/if}
+</div>
+{/template}
+
+{template maintainersList}
+  {@param maintainers: map<string,Maintainer>}
+<div class="mt-3">
+  <div class="f3 mb-2 d-flex flex-items-center">
+      Maintainers {counterLabel(count: $maintainers.size)}
+  </div>
+
+  <div class="d-flex flex-wrap">
+    {for $name in $maintainers.keys()}
+        {let $maintainer: $maintainers.get($name) /}
+        {if $maintainer?.getGithub()}
+            <div class="m-2">
+            {maintainerAvatar(maintainer: $maintainer)}
+            </div>
+        {else}
+        {/if}
+    {/for}
+  </div>
+</div>
+{/template}
+
+{template moduleVersionHeader}
+  {@param moduleVersion: ModuleVersion}
+<div class="SubHead mt-3 mb-2">
+  <div class="SubHead-heading f2-light" style="margin-left: -40px">
+    <a class="Box-row-link anim-hover-grow-in" href="{modulesUrl()}"><i class="octicon octicon-package mr-2" style="font-size: 1.8rem; color: rgba(0,0,0,0.36)">{sp}</i></a>
+    {sp}
+    <span class="f1 text-semibold">{$moduleVersion.getName()}</span>
+    {sp}
+    <span class="f2">{$moduleVersion.getVersion()}</span>
+  </div>
+</div>
+{/template}
+
+{template moduleVersionBreadcrumb}
+  {@param moduleVersion: ModuleVersion}
+<div class="d-flex flex-justify-between">
+  <ol>
+    <li class="breadcrumb-item">{rootLink()}</li>
+    <li class="breadcrumb-item">{modulesLink()}</li>
+    <li class="breadcrumb-item">{moduleLink(name: $moduleVersion.getName())}</li>
+    <li class="breadcrumb-item breadcrumb-item-selected">{moduleVersionLink(moduleVersion: $moduleVersion)}</li>
+  </ol>
+</div>
+{/template}
+
+
+{template maintainerBreadcrumb}
+  {@param maintainer: Maintainer}
+<div>
+  <ol class="text-lg">
+    <li class="breadcrumb-item">{rootLink()}</li>
+    <li class="breadcrumb-item">{maintainersLink()}</li>
+    <li class="breadcrumb-item breadcrumb-item-selected">{maintainerLink(maintainer: $maintainer)}</li>
+  </ol>
+</div>
+{/template}
+
+{template counterLabel}
+  {@param count: int}
+
+<label class="Counter ml-1">{$count}</label>
+{/template}
+

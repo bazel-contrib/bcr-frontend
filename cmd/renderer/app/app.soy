@@ -1,0 +1,314 @@
+{namespace soy.centrl.app}
+
+import {ClosureJsLibrary} from 'java/io/bazel/rules/closure/build_info.proto';
+import {
+  Maintainer,
+  Module,
+  ModuleDependency,
+  ModuleMetadata,
+  ModuleVersion,
+  Registry
+} from 'build/stack/bazel/bzlmod/v1/bcr.proto';
+import {
+  bazelCompatibilityTable,
+  maintainerBreadcrumb,
+  maintainerModuleVersionTable,
+  maintainerProfile,
+  maintainersList,
+  maintainersTable,
+  moduleDependencyTable,
+  moduleAvatar,
+  moduleVersionBreadcrumb,
+  moduleVersionCard,
+  moduleVersionModuleBazel,
+  moduleVersions,
+  moduleVersionHeader,
+  moduleVersionTable,
+  moduleVersionSourceDetails,
+  registryModules
+} from 'cmd/renderer/app/registry.soy';
+
+{template heading}
+  {@param title: string}
+<h1 class="{css('app-heading')}">
+    {$title} (<code>{xid('a.b.c')}</code>)
+</h1>
+{/template}
+
+{template section kind="html<section>"}
+  {@param title: string}
+  {@param body: html}
+<section class="{css('app-section')}">
+  <h2>{$title}</h2>
+  {$body}
+</section>
+{/template}
+
+{template app}
+<div class="container-lg mx-auto">
+  <div class="{css('app-main')}"></div>
+</div>
+{/template}
+
+{template logo}
+<div class="{css('app-logo')}">
+  <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" x="0px" y="0px" viewBox="0 0 86.5 86.5" style="enable-background:new 0 0 317.8 86.5; transform: rotate(0deg)" xml:space="preserve" fit="" height="100%" width="100%" preserveAspectRatio="xMidYMid meet" focusable="false">
+    <g>
+      <rect class="anim" x="39" y="2.8" transform="matrix(-0.7071 -0.7071 0.7071 -0.7071 69.033 94.234)" style="fill:none;stroke:#31bc4e;stroke-width:2;stroke-linejoin:round;stroke-miterlimit:10;" width="30" height="60"></rect>
+      <rect class="anim" x="17.8" y="2.8" transform="matrix(-0.7071 0.7071 -0.7071 -0.7071 79.234 32.8198)" style="fill:none;stroke:#31bc4e;stroke-width:2;stroke-linejoin:round;stroke-miterlimit:10;" width="30" height="60"></rect>
+      <rect class="anim" x="39" y="23.6" transform="matrix(-0.7071 -0.7071 0.7071 -0.7071 54.3112 129.7757)" style="fill:none;opacity:0.2;stroke:#31bc4e;stroke-width:2;stroke-linejoin:round;stroke-miterlimit:10;" width="30" height="60"></rect>
+      <rect class="anim" x="17.8" y="23.6" transform="matrix(-0.7071 0.7071 -0.7071 -0.7071 93.9558 68.3614)" style="fill:none;opacity:0.2;stroke:#31bc4e;stroke-width:2;stroke-linejoin:round;stroke-miterlimit:10;" width="30" height="60"></rect>
+      <polygon class="anim" style="fill:none;stroke:#31bc4e;stroke-width:2;stroke-linejoin:round;stroke-miterlimit:10;" points="1,22.2 1,43 22.2,64.2 22.2,43.4 "></polygon>
+      <polygon class="anim" style="fill:none;stroke:#31bc4e;stroke-width:2;stroke-linejoin:round;stroke-miterlimit:10;" points="43.4,64.6 43.4,85.5 22.2,64.2 22.2,43.4 "></polygon>
+      <polygon class="anim" style="fill:none;stroke:#31bc4e;stroke-width:2;stroke-linejoin:round;stroke-miterlimit:10;" points="85.9,22.2 85.9,43 64.6,64.2 64.6,43.4 "></polygon>
+      <polygon class="anim" style="fill:none;stroke:#31bc4e;stroke-width:2;stroke-linejoin:round;stroke-miterlimit:10;" points="43.4,64.6 64.6,43.4 64.6,64.2 43.4,85.5 "></polygon>
+      <line style="opacity:0.2;stroke:#31bc4e;stroke-width:2;stroke-linejoin:round;stroke-miterlimit:10;" x1="22.2" y1="1" x2="22.2" y2="21.8"></line>
+      <line style="opacity:0.2;stroke:#31bc4e;stroke-width:2;stroke-linejoin:round;stroke-miterlimit:10;" x1="64.6" y1="1" x2="64.6" y2="21.8"></line>
+      <line style="opacity:0.2;stroke:#31bc4e;stroke-width:2;stroke-linejoin:round;stroke-miterlimit:10;" x1="43.4" y1="22.1" x2="43.4" y2="43.1"></line>
+    </g>
+  </svg>
+</div>
+{/template}
+
+{template headerLink kind="html<a>"}
+  {@param path: string}
+  {@param label: string}
+  {@param? octicon: string}
+<a href="/#/{$path}" class="f4">
+  {if $octicon}
+      <i class="octicon octicon-{$octicon} mr-2">{sp}</i>
+  {/if}
+  {$label}
+</a>
+{/template}
+
+{template header}
+<div class="{css('app-header')} Header">
+  <div class="Header-item" style="max-width: 54px">
+    {call logo}{/call}
+  </div>
+  <div class="Header-item Header-item--full">
+    <form class="form col-12">
+      <input class="form-control col-12 input-hide-webkit-autofill border" type="text" placeholder="Search..."/>
+    </form>
+  </div>
+  <div class="Header-item">
+    {headerLink(path: "modules", label: "Modules", octicon: "package")}
+  </div>
+  <div class="Header-item">
+    {headerLink(path: "maintainers", label: "Maintainers", octicon: "mention")}
+  </div>
+</div>
+{/template}
+
+{template footer}
+<div>
+  <div class="{css('app-footer')} PageLayout-footer"></div>
+</div>
+{/template}
+
+{template body}
+<div class="PageLayout">
+  {call header}{/call}
+  <div class="{css('content')} PageLayout-content"></div>
+  {call footer}{/call}
+</div>
+{/template}
+
+
+{template home}
+<div>
+  <div class="{css('app-home')}">
+      {call heading}
+          {param title: 'Modules' /}
+      {/call}
+      <div class="{css('content')}"></div>
+  </div>
+</div>
+{/template}
+
+{template moduleVersionList}
+  {@param registry: Registry}
+<div>
+    {call moduleVersions}
+        {param registry: $registry /}
+    {/call}
+</div>
+{/template}
+
+{template maintainerList}
+  {@param maintainers: map<string,Maintainer>}
+<div>
+    {call maintainersList}
+        {param maintainers: $maintainers /}
+    {/call}
+</div>
+{/template}
+
+{template moduleList}
+  {@param registry: Registry}
+<div>
+    {call registryModules}
+        {param registry: $registry /}
+    {/call}
+</div>
+{/template}
+
+{template moduleComponent}
+  {@param name: string}
+  {@param module: Module}
+<div>
+  <div class="{css('content')}"></div>
+</div>
+{/template}
+
+{template modulesComponent}
+<div>
+  <div class="{css('content')}"></div>
+</div>
+{/template}
+
+
+{template moduleVersionComponent}
+  {@param moduleVersion: ModuleVersion}
+// {call moduleVersionBreadcrumb}
+//     {param moduleVersion: $moduleVersion /}
+// {/call}
+<div class="{css('content')}"></div>
+{/template}
+
+{template moduleVersionOverviewComponent}
+  {@param module: Module}
+  {@param metadata: ModuleMetadata}
+  {@param moduleVersion: ModuleVersion}
+  {@param deps: list<ModuleDependency>}
+  {@param devDeps: list<ModuleDependency>}
+<div class="PageLayout PageLayout--panePos-end PageLayout--hasPaneDivider">
+    <div class="PageLayout-header">
+        {call moduleVersionHeader}
+          {param moduleVersion: $moduleVersion /}
+        {/call}
+    </div>
+    <div class="PageLayout-columns">
+      <div class="PageLayout-content">
+        {call moduleVersionModuleBazel}
+          {param moduleVersion: $moduleVersion /}
+        {/call}
+
+        {if length($deps)}
+          <div class="mt-3">
+            {call moduleDependencyTable}
+              {param title: 'Dependencies' /}
+              {param deps: $deps /}
+            {/call}
+          </div>
+        {/if}
+
+        {if length($devDeps)}
+          <div class="mt-3">
+            {call moduleDependencyTable}
+              {param title: 'Dev Dependencies' /}
+              {param deps: $devDeps /}
+            {/call}
+          </div>
+        {/if}
+      </div>
+
+      <div class="PageLayout-pane">
+        <div style="margin-top: -2rem">
+          {call bazelCompatibilityTable}
+            {param moduleVersion: $moduleVersion /}
+          {/call}
+          <div class="mt-3">
+            {call maintainersTable}
+              {param maintainers: $metadata.getMaintainersList() /}
+            {/call}
+          </div>
+          <div class="mt-3">
+            {call moduleVersionTable}
+              {param module: $module /}
+              {param currentVersion: $moduleVersion.getVersion() /}
+            {/call}
+          </div>
+          <div class="mt-3">
+            {call moduleVersionSourceDetails}
+              {param moduleSource: $moduleVersion.getSource() /}
+              {param moduleVersion: $moduleVersion /}
+            {/call}
+          </div>
+        </div>
+      </div>
+  </div>
+</div>
+{/template}
+
+{template maintainersComponent}
+<div>
+  <div class="{css('content')}"></div>
+</div>
+{/template}
+
+{template maintainerComponent}
+  {@param maintainer: Maintainer}
+  {@param moduleVersions: list<ModuleVersion>}
+<div>
+  // {call maintainerBreadcrumb}
+  //   {param maintainer: $maintainer /}
+  // {/call}
+  <div class="mt-3 PageLayout PageLayout--panePos-start PageLayout--hasPaneDivider">
+    <div class="PageLayout-wrapper">
+      <div class="PageLayout-columns">
+        <div class="PageLayout-content">
+          {call maintainerModuleVersionTable}
+            {param moduleVersions: $moduleVersions /}
+          {/call}
+        </div>
+
+        <div class="PageLayout-pane">
+          {call maintainerProfile}
+            {param maintainer: $maintainer /}
+          {/call}
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+{/template}
+
+
+/**
+ * Private helper to build a comma separated list.
+ */
+{template buildCommaSeparatedList_ visibility="private"}
+  {@param items: list<?>}  /** The list of items. */
+  {for $item, $itemIndex in $items}
+    {if $itemIndex != 0}
+      ,{sp}
+    {/if}
+    {mono(value: $item)}
+  {/for}
+{/template}
+
+{template notFound}
+  {@param? msg: string}
+<div class="blankslate-container">
+  <div class="blankslate">
+    <div class="blankslate-heading">
+      Page Not Found
+    </div>
+    <p>{$msg || 'Page not found'}</p>
+  </div>
+</div>
+{/template}
+
+{template mono kind="html<code>"}
+  {@param value: ?}
+  <code>{$value}</code>
+{/template}
+
+{template moduleSearchRow kind="html<code>"}
+  {@param module: Module}
+  <code>{$module.getName()}</code>
+{/template}
+

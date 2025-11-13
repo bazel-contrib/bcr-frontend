@@ -1,0 +1,31 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html lang="en" xml:lang="en" xmlns="http://www.w3.org/1999/xhtml">
+
+<head>
+  <title>Bazel Module Registry</title>
+  <meta content="text/html; charset=utf-8" http-equiv="Content-Type" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link href="/style.css" type="text/css" rel="stylesheet" />
+  <link href="/primer.css" type="text/css" rel="stylesheet" />
+  <!-- <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/Primer/21.1.1/primer.css"
+    integrity="sha512-DQRZcDaNuIkb4JiH6PHalnncWllAK5txkJVocLdyfglJSavW/HxQaJRJeRw5eEPnp+kD1QImSxCwUiOsRrCMEw=="
+    crossorigin="anonymous" referrerpolicy="no-referrer" /> -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/octicons/4.4.0/font/octicons.min.css" />
+  <script src="/bundle.js"></script>
+  <script src="/registry.pb.b64.js"></script>
+</head>
+
+<body style="margin: 0 auto">
+  <script type="module">
+
+    // Initialize the app
+    centrl.main(REGISTRY_DATA);
+  </script>
+</body>
+
+</html>
+
+<!-- import { codeToHtml } from 'https://esm.sh/shiki@3.0.0'
+
+    // Make codeToHtml available globally
+    window.codeToHtml = codeToHtml; -->

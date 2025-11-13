@@ -10,12 +10,15 @@ exports_files([
 # ----------------------------------------------------
 # Gazelle
 # ----------------------------------------------------
+#
 # -- Gazelle language "walk" ---
 # gazelle:exclude vendor
 # gazelle:exclude bazel-central-registry/tools/bzlmod_migration_test_examples
+#
 # -- Gazelle language "go" ---
 # gazelle:prefix github.com/stackb/centrl
 # gazelle:go_generate_proto false
+#
 # -- Gazelle language "protobuf" ---
 # gazelle:proto_language go enable true
 

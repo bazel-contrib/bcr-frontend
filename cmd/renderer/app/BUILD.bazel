@@ -1,0 +1,215 @@
+load("@build_stack_rules_proto//rules:proto_compile.bzl", "proto_compile")
+load(
+    "@io_bazel_rules_closure//closure:defs.bzl",
+    "closure_css_binary",
+    "closure_css_library",
+    "closure_js_binary",
+    "closure_js_library",
+    "closure_js_template_library",
+    "web_library",
+)
+load("@io_bazel_rules_closure//closure/protobuf:defs.bzl", "closure_jspb_library")
+load("@rules_proto//proto:defs.bzl", "proto_library")
+load("//rules:cloudflare.bzl", "cloudflare_deploy")
+load("@rules_tsickle//rules:defs.bzl", "closure_ts_compile")
+
+proto_compile(
+    name = "build_info_js_proto",
+    outputs = ["build_info.js"],
+    plugins = ["@io_bazel_rules_closure//closure/protobuf:protoc-gen-js"],
+    proto = "@io_bazel_rules_closure//java/io/bazel/rules/closure:build_info_proto",
+)
+
+closure_jspb_library(
+    name = "build_info",
+    srcs = [":build_info_js_proto"],
+    internal_descriptors = [
+        "@io_bazel_rules_closure//java/io/bazel/rules/closure:build_info_proto",
+    ],
+)
+
+closure_css_library(
+    name = "css",
+    srcs = [
+        "index.css",
+    ],
+)
+
+closure_css_binary(
+    name = "style",
+    debug = False,
+    renaming = True,
+    visibility = ["//visibility:public"],
+    deps = [":css"],
+)
+
+closure_js_template_library(
+    name = "soy",
+    srcs = [
+        "app.soy",
+        "registry.soy",
+    ],
+    deps = [
+        ":build_info",
+        "//build/stack/bazel/bzlmod/v1:bzpb_js",
+    ],
+)
+
+closure_ts_compile(
+    name = "shiki",
+    srcs = ["shiki.d.ts"],
+)
+
+closure_js_library(
+    name = "common",
+    srcs = ["common.js"],
+    deps = [
+        "@build_stack_ui_js//js/ui:core",
+        "@build_stack_ui_js//js/ui:keyboard",
+        "@build_stack_ui_js//js/ui:select",
+        "@io_bazel_rules_closure//closure/goog/dom",
+        "@io_bazel_rules_closure//closure/goog/ui/ac:autocomplete",
+        "@io_bazel_rules_closure//closure/goog/ui/ac:cachingmatcher",
+        "@io_bazel_rules_closure//closure/goog/ui/ac:inputhandler",
+        "@io_bazel_rules_closure//closure/goog/ui/ac:renderer",
+    ],
+)
+
+closure_js_library(
+    name = "search",
+    srcs = [
+        "autocompletematcher.js",
+        "heap.js",
+    ],
+    deps = [
+        # "//build/stack/bazel/bzlmod/v1:bzpb_js",
+        # "@build_stack_ui_js//js/ui:core",
+        # "@build_stack_ui_js//js/ui:select",
+        # "@io_bazel_rules_closure//closure/goog/array",
+        "@io_bazel_rules_closure//closure/goog/asserts",
+        # "@io_bazel_rules_closure//closure/goog/dom",
+        # "@io_bazel_rules_closure//closure/goog/dom:dataset",
+        # "@io_bazel_rules_closure//closure/goog/events",
+        # "@io_bazel_rules_closure//closure/goog/soy",
+        "@io_bazel_rules_closure//closure/goog/string",
+        # "@io_bazel_rules_closure//closure/goog/ui:component",
+        # "@io_bazel_rules_closure//closure/protobuf:jspb",
+    ],
+)
+
+closure_js_library(
+    name = "app",
+    srcs = [
+        "app.js",
+        "search.js",
+        "shiki.externs.js",
+    ],
+    deps = [
+        ":common",
+        ":search",
+        ":soy",
+        "//build/stack/bazel/bzlmod/v1:bzpb_js",
+        "@build_stack_ui_js//js/ui:core",
+        "@build_stack_ui_js//js/ui:select",
+        "@io_bazel_rules_closure//closure/goog/array",
+        "@io_bazel_rules_closure//closure/goog/asserts",
+        "@io_bazel_rules_closure//closure/goog/dom",
+        "@io_bazel_rules_closure//closure/goog/dom:dataset",
+        "@io_bazel_rules_closure//closure/goog/events",
+        "@io_bazel_rules_closure//closure/goog/events:listenable",
+        "@io_bazel_rules_closure//closure/goog/soy",
+        "@io_bazel_rules_closure//closure/goog/string",
+        "@io_bazel_rules_closure//closure/goog/ui:component",
+        "@io_bazel_rules_closure//closure/goog/ui/ac:autocomplete",
+        "@io_bazel_rules_closure//closure/goog/ui/ac:cachingmatcher",
+        "@io_bazel_rules_closure//closure/goog/ui/ac:inputhandler",
+        "@io_bazel_rules_closure//closure/goog/ui/ac:renderer",
+        "@io_bazel_rules_closure//closure/protobuf:jspb",
+    ],
+)
+
+closure_js_library(
+    name = "main",
+    srcs = ["main.js"],
+    deps = [
+        ":app",
+        "//build/stack/bazel/bzlmod/v1:bzpb_js",
+        "@io_bazel_rules_closure//closure/goog/crypt:base64",
+        "@io_bazel_rules_closure//closure/protobuf:jspb",
+    ],
+)
+
+closure_js_binary(
+    name = "bundle",
+    # compilation_level = "ADVANCED",
+    compilation_level = "SIMPLE",
+    css = ":style",
+    debug = True,
+    defs = [
+        "--define=GREETING=world",
+    ],
+    entry_points = ["goog:centrl.main"],
+    language = "ECMASCRIPT_2021",
+    output_wrapper = "(function(){%output%}).call(this);",
+    deps = [":main"],
+)
+
+genrule(
+    name = "registry",
+    outs = ["registry.pb"],
+    cmd = "cp $(location //modules) $@",
+    tools = ["//modules"],
+)
+
+genrule(
+    name = "registry_b64",
+    srcs = ["registry.pb"],
+    outs = ["registry.pb.b64.js"],
+    cmd = "echo 'const REGISTRY_DATA = \"'$$(base64 < $<)'\";' > $@",
+)
+
+web_library(
+    name = "assets",
+    srcs = [
+        "bundle.js",
+        "index.html",
+        "primer.css",
+        "registry.pb.b64.js",
+        "style.css",
+    ],
+    path = "/",
+)
+
+filegroup(
+    name = "files",
+    srcs = [
+        "bundle.js",
+        "index.html",
+        "primer.css",
+        "registry.pb.b64.js",
+        "style.css",
+    ],
+)
+
+cloudflare_deploy(
+    name = "deploy",
+    srcs = [":files"],
+    project = "centrl",
+)
+
+# ProTip: bazel run //closure/compiler/test/app:web
+# or use: serve -p 8080 -S -s bazel-bin/cmd/renderer/app/web.runfiles/_main/cmd/renderer/app/
+# (port, follow-symlinks, directory)
+web_library(
+    name = "web",
+    srcs = ["index.html"],
+    path = "/",
+    port = "8080",
+    deps = [":assets"],
+)
+
+proto_library(
+    name = "app_proto",
+    srcs = ["app.proto"],
+    visibility = ["//visibility:public"],
+)
