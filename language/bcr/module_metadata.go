@@ -22,14 +22,20 @@ func moduleMetadataLoadInfo() rule.LoadInfo {
 func moduleMetadataKinds() map[string]rule.KindInfo {
 	return map[string]rule.KindInfo{
 		"module_metadata": {
-			MatchAny:     true,
-			ResolveAttrs: map[string]bool{"maintainers": true, "deps": true, "overrides": true},
+			MatchAny: true,
+			ResolveAttrs: map[string]bool{
+				"maintainers": true,
+				"deps":        true,
+				"overrides":   true,
+				"repos":       true,
+			},
 		},
 	}
 }
 
 // makeModuleMetadataRule creates a module_metadata rule from protobuf metadata
-func makeModuleMetadataRule(name string, md *bzpb.ModuleMetadata, maintainerRules []*rule.Rule, metadataJsonFile string) *rule.Rule {
+// If ext is provided, it will track the repositories for later generation
+func makeModuleMetadataRule(name string, md *bzpb.ModuleMetadata, maintainerRules []*rule.Rule, metadataJsonFile string, ext *bcrExtension) *rule.Rule {
 	r := rule.NewRule("module_metadata", name)
 	if md.Homepage != "" {
 		r.SetAttr("homepage", md.Homepage)
@@ -43,6 +49,10 @@ func makeModuleMetadataRule(name string, md *bzpb.ModuleMetadata, maintainerRule
 	}
 	if len(md.Repository) > 0 {
 		r.SetAttr("repository", md.Repository)
+		// Track repositories if extension is provided
+		if ext != nil {
+			ext.trackRepositories(md.Repository)
+		}
 	}
 	if len(md.Versions) > 0 {
 		r.SetAttr("versions", md.Versions)
@@ -102,6 +112,36 @@ func resolveModuleMetadataRule(r *rule.Rule, ix *resolve.RuleIndex) {
 		// Set the deps attr
 		if len(deps) > 0 {
 			r.SetAttr("deps", deps)
+		}
+	}
+
+	repositories := r.AttrStrings("repository")
+	if len(repositories) > 0 {
+		repos := make(map[string]string)
+		for _, repo := range repositories {
+			normalizedRepo := normalizeRepository(repo)
+			// Construct the import spec: "module_name@version"
+			importSpec := resolve.ImportSpec{
+				Lang: bcrLangName,
+				Imp:  normalizedRepo,
+			}
+
+			// Find the module_version rule that provides this import
+			results := ix.FindRulesByImport(importSpec, bcrLangName)
+
+			if len(results) == 0 {
+				log.Printf("resolveModuleMetadataRule: No repository_metadata found for %s", normalizedRepo)
+				continue
+			}
+
+			// Use the first result (should only be one)
+			result := results[0]
+			repos[repo] = result.Label.String()
+		}
+
+		// Set the deps attr
+		if len(repos) > 0 {
+			r.SetAttr("repos", repos)
 		}
 	}
 

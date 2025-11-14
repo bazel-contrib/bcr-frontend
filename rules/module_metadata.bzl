@@ -1,6 +1,6 @@
 "provides the module_metadata rule"
 
-load("//rules:providers.bzl", "ModuleMaintainerInfo", "ModuleMetadataInfo", "ModuleOverrideInfo", "ModuleVersionInfo")
+load("//rules:providers.bzl", "ModuleMaintainerInfo", "ModuleMetadataInfo", "ModuleOverrideInfo", "ModuleVersionInfo", "RepositoryMetadataInfo")
 
 def _compile_action(ctx, versions):
     # Declare output file for compiled proto
@@ -63,6 +63,7 @@ module_metadata = rule(
         "yanked_versions": attr.string_dict(),
         "deprecated": attr.string(),
         "deps": attr.label_list(providers = [ModuleVersionInfo]),
+        "repos": attr.string_keyed_label_dict(providers = [RepositoryMetadataInfo]),
         "overrides": attr.label_list(providers = [ModuleOverrideInfo]),
         "metadata_json": attr.label(allow_single_file = [".json"], mandatory = True),
         "_compiler": attr.label(

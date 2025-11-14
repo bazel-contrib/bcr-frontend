@@ -4,6 +4,7 @@ import (
 	"flag"
 	"log"
 	"maps"
+	"os"
 	"path"
 	"path/filepath"
 	"slices"
@@ -16,7 +17,9 @@ import (
 	"github.com/bazelbuild/bazel-gazelle/resolve"
 	"github.com/bazelbuild/bazel-gazelle/rule"
 	"github.com/dominikbraun/graph"
+	bzpb "github.com/stackb/centrl/build/stack/bazel/bzlmod/v1"
 	"github.com/stackb/centrl/pkg/modulebazel"
+	"github.com/stackb/centrl/pkg/protoutil"
 )
 
 // NewLanguage is called by Gazelle to install this language extension in a
@@ -25,6 +28,7 @@ func NewLanguage() language.Language {
 	return &bcrExtension{
 		depGraph:      initDepGraph(),
 		moduleToCycle: make(map[string]string),
+		repositories:  make(map[string]bool),
 	}
 }
 
@@ -33,7 +37,10 @@ type bcrExtension struct {
 	name          string
 	depGraph      graph.Graph[string, string]
 	modulesRoot   string
+	registryFile  string
 	moduleToCycle map[string]string // maps "module@version" to cycle rule name
+	repositories  map[string]bool   // tracks unique repository strings (e.g., "github:org/repo")
+	registry      *bzpb.Registry
 }
 
 // Name returns the name of the language. This should be a prefix of the kinds
@@ -48,9 +55,16 @@ func (ext *bcrExtension) Name() string {
 // interface, but are otherwise unused.
 func (ext *bcrExtension) RegisterFlags(fs *flag.FlagSet, cmd string, c *config.Config) {
 	fs.StringVar(&ext.modulesRoot, "modules-root", "modules", "root package dir of the bcr modules")
+	fs.StringVar(&ext.registryFile, "registry-file", "", "path to repository.pb file containing registry data to use as a base data set (repository metadata)")
 }
 
-func (*bcrExtension) CheckFlags(fs *flag.FlagSet, c *config.Config) error {
+func (ext *bcrExtension) CheckFlags(fs *flag.FlagSet, c *config.Config) error {
+	ext.registry = &bzpb.Registry{}
+	if ext.registryFile != "" {
+		if err := protoutil.ReadFile(os.ExpandEnv(ext.registryFile), ext.registry); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -60,7 +74,20 @@ func (*bcrExtension) KnownDirectives() []string {
 
 // Configure implements config.Configurer
 func (ext *bcrExtension) Configure(c *config.Config, rel string, f *rule.File) {
+	log.Println("rel:", rel)
 	cfg := getOrCreateConfig(c, rel)
+	if rel == "vendor/+_repo_rules+bazel_central_registry/" {
+		log.Println("rel:", rel)
+	}
+	if ext.modulesRoot != "" && ext.modulesRoot == rel {
+		cfg.modulesRoot = rel
+		cfg.enabled = true
+		log.Println("enabled!", rel)
+	} else {
+		if rel == "vendor/+_repo_rules+bazel_central_registry/" {
+			log.Println("not enabled?", rel)
+		}
+	}
 	if f != nil {
 		cfg.parseDirectives(rel, f.Directives)
 	}
@@ -84,6 +111,7 @@ func (*bcrExtension) Kinds() map[string]rule.KindInfo {
 	maps.Copy(kinds, archiveOverrideKinds())
 	maps.Copy(kinds, singleVersionOverrideKinds())
 	maps.Copy(kinds, localPathOverrideKinds())
+	maps.Copy(kinds, repositoryMetadataKinds())
 	return kinds
 }
 
@@ -105,6 +133,7 @@ func (ext *bcrExtension) Loads() []rule.LoadInfo {
 		archiveOverrideLoadInfo(),
 		singleVersionOverrideLoadInfo(),
 		localPathOverrideLoadInfo(),
+		repositoryMetadataLoadInfo(),
 	}
 }
 
@@ -133,6 +162,8 @@ func (ext *bcrExtension) Imports(c *config.Config, r *rule.Rule, f *rule.File) [
 		return singleVersionOverrideImports(r)
 	case "local_path_override":
 		return localPathOverrideImports(r)
+	case "repository_metadata":
+		return repositoryMetadataImports(r)
 	}
 	return nil
 }
@@ -171,6 +202,8 @@ func (ext *bcrExtension) Resolve(
 		resolveModuleMetadataRule(r, ix)
 	case "module_registry":
 		resolveModuleRegistryRule(r, ix)
+	case "repository_metadata":
+		resolveRepositoryMetadataRule(r, ix)
 	}
 }
 
@@ -204,8 +237,11 @@ func (ext *bcrExtension) GenerateRules(args language.GenerateArgs) language.Gene
 			cycleRules = makeModuleDependencyCycleRules(cycles)
 			rules = append(rules, cycleRules...)
 		}
+		// Generate repository_metadata rules from tracked repositories
+		repoRules := makeRepositoryMetadataRules(ext.repositories)
+		rules = append(rules, repoRules...)
 		// generate registry in the modules root package
-		rules = append(rules, makeModuleRegistryRule(cfg.modulesRoot, args.Subdirs, cycleRules))
+		rules = append(rules, makeModuleRegistryRule("registry", args.Subdirs, cycleRules))
 	}
 
 	if slices.Contains(args.RegularFiles, "metadata.json") {
@@ -218,8 +254,8 @@ func (ext *bcrExtension) GenerateRules(args language.GenerateArgs) language.Gene
 		maintainerRules := makeModuleMaintainerRules(md.Maintainers)
 		// Add maintainer rules to the list
 		rules = append(rules, maintainerRules...)
-		// Add metadata rule with references to maintainers
-		rules = append(rules, makeModuleMetadataRule(path.Base(args.Rel), md, maintainerRules, "metadata.json"))
+		// Add metadata rule with references to maintainers (passing ext to track repositories)
+		rules = append(rules, makeModuleMetadataRule(path.Base(args.Rel), md, maintainerRules, "metadata.json", ext))
 	}
 
 	// are we in a module version directory?

@@ -25,7 +25,7 @@ func moduleMaintainerKinds() map[string]rule.KindInfo {
 }
 
 // makeModuleMaintainerRules creates module_maintainer rules from protobuf maintainers
-func makeModuleMaintainerRules(maintainers []*bzpb.ModuleMetadata_Maintainer) []*rule.Rule {
+func makeModuleMaintainerRules(maintainers []*bzpb.Maintainer) []*rule.Rule {
 	var rules []*rule.Rule
 	for i, m := range maintainers {
 		name := fmt.Sprintf("maintainer_%d", i)

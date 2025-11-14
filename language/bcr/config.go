@@ -13,8 +13,6 @@ const (
 
 const (
 	// root of the modules tree.
-	//
-	// gazelle:scala_debug true
 	bcrModulesRootDirective = "bcr_modules_root"
 )
 

@@ -97,6 +97,11 @@ ModuleRegistryInfo = provider(
         "deps": "List of module metadata targets providing ModuleMetadataInfo",
         "cycles": "List of module dep cycle targets providing ModuleDependencyCycleInfo",
         "proto": "The compiled Registry proto file",
+        "repository_url": "Repository URL of the registry (e.g. 'https://github.com/bazelbuild/bazel-central-registry')",
+        "registry_url": "URL of the registry UI (e.g. 'https://registry.bazel.build')",
+        "branch": "Branch name of the repository data (e.g. 'main')",
+        "commit": "Commit sha1 of the repository data",
+        "commit_date": "Timestamp of the commit date (ISO 8601 format)",
     },
 )
 
@@ -146,5 +151,17 @@ LocalPathOverrideInfo = provider(
     fields = {
         "module_name": "Name of the module being overridden",
         "path": "Local filesystem path",
+    },
+)
+
+RepositoryMetadataInfo = provider(
+    doc = "Info about a Repository Metadata",
+    fields = {
+        "type": "Repository type (e.g., 'GITHUB')",
+        "organization": "Organization or owner name",
+        "repo_name": "Repository name",
+        "description": "Repository description",
+        "stargazers": "Number of stargazers",
+        "languages": "Map of programming languages to line counts",
     },
 )
