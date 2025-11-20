@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       tag_name:
-        description: 'Tag name (e.g., v1.0.0)'
+        description: "Tag name (e.g., v1.0.0)"
         required: false
         type: string
 
@@ -24,7 +24,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: bazel-contrib/setup-bazel@0.15.0
       - name: update submodule
-        run: git submodule update --remote data/bazel-central-registry
+        run: git submodule update --init --remote data/bazel-central-registry
       - name: gazelle central_registry
         run: >-
           bazelisk

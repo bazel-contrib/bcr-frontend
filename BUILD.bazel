@@ -63,6 +63,7 @@ gazelle(
         "--registry-file=$(rootpath @registry_pb//file)",
         "--registry-root=data/bazel-central-registry",
         "--registry-url=https://registry.bazel.build",
+        "--exclude=.cache",  # exists in CI
         "--exclude=modules",
     ] + ["--exclude=" + dir for dir in bcr_exclude_dirs],
     data = ["@registry_pb//file"],
