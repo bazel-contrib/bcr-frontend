@@ -73,6 +73,7 @@ func makeModuleVersionRule(module *bzpb.ModuleVersion, version string, depRules 
 	if moduleBazelFile != "" {
 		r.SetAttr("module_bazel", moduleBazelFile)
 	}
+	r.SetAttr("build_bazel", ":BUILD.bazel")
 	r.SetAttr("visibility", []string{"//visibility:public"})
 
 	// Set GazelleImports private attr with the import spec

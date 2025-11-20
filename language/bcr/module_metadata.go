@@ -64,6 +64,7 @@ func makeModuleMetadataRule(name string, md *bzpb.ModuleMetadata, maintainerRule
 	if metadataJsonFile != "" {
 		r.SetAttr("metadata_json", metadataJsonFile)
 	}
+	r.SetAttr("build_bazel", ":BUILD.bazel")
 	r.SetAttr("visibility", []string{"//visibility:public"})
 	return r
 }

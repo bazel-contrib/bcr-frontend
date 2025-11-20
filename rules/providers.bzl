@@ -23,6 +23,7 @@ ModuleMetadataInfo = provider(
         "deps": "List of module version targets providing ModuleVersionInfo",
         "metadata_json": "The metadata.json file",
         "proto": "The compiled Module proto file",
+        "build_bazel": "The BUILD.bazel file",
     },
 )
 
@@ -75,6 +76,7 @@ ModuleVersionInfo = provider(
         "presubmit": "Presubmit target providing ModulePresubmitInfo",
         "commit": "Commit target providing ModuleCommitInfo",
         "module_bazel": "The MODULE.bazel file",
+        "build_bazel": "The BUILD.bazel file",
         "proto": "The compiled ModuleVersion proto file",
     },
 )

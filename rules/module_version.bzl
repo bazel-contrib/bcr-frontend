@@ -87,6 +87,7 @@ def _module_version_impl(ctx):
             presubmit = presubmit,
             commit = commit,
             module_bazel = ctx.file.module_bazel if ctx.file.module_bazel else None,
+            build_bazel = ctx.file.build_bazel if ctx.file.build_bazel else None,
             proto = proto_out,
         ),
     ]
@@ -104,6 +105,7 @@ module_version = rule(
         "attestations": attr.label(providers = [ModuleAttestationsInfo]),
         "presubmit": attr.label(providers = [ModulePresubmitInfo]),
         "commit": attr.label(providers = [ModuleCommitInfo]),
+        "build_bazel": attr.label(allow_single_file = True),
         "module_bazel": attr.label(allow_single_file = True),
         "_compiler": attr.label(
             default = "//cmd/moduleversioncompiler",

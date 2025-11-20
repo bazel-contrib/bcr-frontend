@@ -54,6 +54,7 @@ def _module_metadata_impl(ctx):
             deprecated = ctx.attr.deprecated,
             deps = depset(deps),
             metadata_json = ctx.file.metadata_json,
+            build_bazel = ctx.file.build_bazel if ctx.file.build_bazel else None,
             proto = proto_out,
         ),
     ]
@@ -69,6 +70,7 @@ module_metadata = rule(
         "deprecated": attr.string(),
         "deps": attr.label_list(providers = [ModuleVersionInfo]),
         "repository_metadata": attr.label(providers = [RepositoryMetadataInfo]),
+        "build_bazel": attr.label(allow_single_file = True),
         "metadata_json": attr.label(allow_single_file = [".json"], mandatory = True),
         "_compiler": attr.label(
             default = "//cmd/modulecompiler",

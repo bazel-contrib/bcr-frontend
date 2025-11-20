@@ -34,9 +34,11 @@ def _compile_codesearch_index_action(ctx, deps):
     files = []
 
     for module in deps:
+        files.append(module.build_bazel)
         for mv in module.deps.to_list():
             files.append(mv.module_bazel)
-            files.append(mv.source.source_json)
+            files.append(mv.build_bazel)
+            # files.append(mv.source.source_json)
 
     args = ctx.actions.args()
     args.add("--output_file")
