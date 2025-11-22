@@ -1,6 +1,7 @@
 goog.module("centrl.App");
 
 const AspectInfo = goog.require("proto.stardoc_output.AspectInfo");
+const AttributeInfo = goog.require("proto.stardoc_output.AttributeInfo");
 const ComponentEventType = goog.require("goog.ui.Component.EventType");
 const DocumentationInfo = goog.require("proto.build.stack.bazel.bzlmod.v1.DocumentationInfo");
 const FileInfo = goog.require("proto.build.stack.bazel.bzlmod.v1.FileInfo");
@@ -35,7 +36,7 @@ const strings = goog.require("goog.string");
 const { App, Component, Route, RouteEvent, RouteEventType } = goog.require("stack.ui");
 const { Application, Searchable } = goog.require("centrl.common");
 const { ModuleSearchHandler, SearchComponent } = goog.require('centrl.search');
-const { bodySelect, documentationInfoListComponent, documentationInfoSelect, fileInfoListComponent, fileInfoSelect, homeOverviewComponent, homeSelect, maintainerComponent, maintainersMapComponent, maintainersMapSelectNav, maintainersSelect, moduleBlankslateComponent, moduleSelect, moduleVersionBlankslateComponent, moduleVersionComponent, moduleVersionList, moduleVersionSelectNav, moduleVersionsFilterSelect, modulesMapSelect, modulesMapSelectNav, navItem, notFoundComponent, registryApp, settingsAppearanceComponent, settingsSelect, starlarkFunctionSymbolComponent, symbolInfoComponent, toastSuccess } = goog.require('soy.centrl.app'); const { moduleVersionsListComponent } = goog.require('soy.registry');
+const { bodySelect, documentationInfoListComponent, documentationInfoSelect, fileInfoListComponent, fileInfoSelect, homeOverviewComponent, homeSelect, maintainerComponent, maintainersMapComponent, maintainersMapSelectNav, maintainersSelect, moduleBlankslateComponent, moduleSelect, moduleVersionBlankslateComponent, moduleVersionComponent, moduleVersionList, moduleVersionSelectNav, moduleVersionsFilterSelect, modulesMapSelect, modulesMapSelectNav, navItem, notFoundComponent, registryApp, ruleInfoComponent, settingsAppearanceComponent, settingsSelect, starlarkFunctionSymbolComponent, symbolInfoComponent, toastSuccess } = goog.require('soy.centrl.app'); const { moduleVersionsListComponent } = goog.require('soy.registry');
 
 const HIGHLIGHT_SYNTAX = true;
 const FORMAT_MARKDOWN = true;
@@ -1498,14 +1499,14 @@ class ModuleVersionComponent extends Component {
     enterDocument() {
         super.enterDocument();
 
-        if (HIGHLIGHT_SYNTAX) {
-            this.enterSyntaxHighlighting();
-        }
+        this.enterSyntaxHighlighting();
     }
 
     enterSyntaxHighlighting() {
-        const preEls = this.dom_.getElementsByTagNameAndClass(dom.TagName.PRE, goog.getCssName('shiki'), this.getElementStrict());
-        arrays.forEach(preEls, preEl => syntaxHighlight(this.dom_.getWindow(), preEl));
+        if (HIGHLIGHT_SYNTAX) {
+            const preEls = this.dom_.getElementsByTagNameAndClass(dom.TagName.PRE, goog.getCssName('shiki'), this.getElementStrict());
+            arrays.forEach(preEls, preEl => syntaxHighlight(this.dom_.getWindow(), preEl));
+        }
     }
 
     /**
@@ -1716,17 +1717,79 @@ class FileInfoSelect extends ContentSelect {
             if (name !== sym.getName()) {
                 continue;
             }
-            this.addTab(name, new SymbolInfoComponent(this.moduleVersion_, this.file_, sym));
+            this.addTab(name, this.createSymbolComponent(sym));
             this.select(name, route);
             return;
         }
 
         super.selectFail(name, route);
     }
+
+    /**
+     * @param {!SymbolInfo} sym
+     * @returns {!SymbolInfoComponent}
+     */
+    createSymbolComponent(sym) {
+        switch (sym.getType()) {
+            case 1: // SYMBOL_TYPE_RULE
+                return new RuleInfoComponent(this.moduleVersion_, this.file_, sym, this.dom_);
+            case 2: // SYMBOL_TYPE_FUNCTION
+                return new SymbolInfoComponent(this.moduleVersion_, this.file_, sym, this.dom_);
+            case 3: // SYMBOL_TYPE_PROVIDER
+                return new SymbolInfoComponent(this.moduleVersion_, this.file_, sym, this.dom_);
+            case 4: // SYMBOL_TYPE_ASPECT
+                return new SymbolInfoComponent(this.moduleVersion_, this.file_, sym, this.dom_);
+            case 5: // SYMBOL_TYPE_MODULE_EXTENSION
+                return new SymbolInfoComponent(this.moduleVersion_, this.file_, sym, this.dom_);
+            case 6: // SYMBOL_TYPE_REPOSITORY_RULE
+                return new SymbolInfoComponent(this.moduleVersion_, this.file_, sym, this.dom_);
+            default:
+                return new SymbolInfoComponent(this.moduleVersion_, this.file_, sym, this.dom_);
+        }
+    }
 }
 
 
-class SymbolInfoComponent extends Component {
+class MarkdownComponent extends Component {
+    /**
+     * @param {?dom.DomHelper=} opt_domHelper
+     */
+    constructor(opt_domHelper) {
+        super(opt_domHelper);
+    }
+
+    /** @override */
+    enterDocument() {
+        super.enterDocument();
+
+        if (FORMAT_MARKDOWN) {
+            this.enterMarkdownFormatting();
+        }
+
+        this.checkDescriptionOverflow();
+    }
+
+    checkDescriptionOverflow() {
+        const descContent = this.getElement().querySelector('.desc-content');
+        const toggleLabel = this.getElement().querySelector('.desc-toggle-label');
+
+        if (descContent && toggleLabel) {
+            // Check if content is overflowing
+            if (descContent.scrollHeight <= 240) {
+                // Content fits, hide the toggle
+                toggleLabel.style.display = 'none';
+                descContent.style.maxHeight = 'none';
+            }
+        }
+    }
+
+    enterMarkdownFormatting() {
+        const divEls = this.dom_.getElementsByTagNameAndClass(dom.TagName.DIV, goog.getCssName('markdown-body'), this.getElementStrict());
+        arrays.forEach(divEls, el => formatMarkdown(this.dom_.getWindow(), el));
+    }
+}
+
+class SymbolInfoComponent extends MarkdownComponent {
     /**
      * @param {!ModuleVersion} moduleVersion
      * @param {!FileInfo} file
@@ -1736,13 +1799,13 @@ class SymbolInfoComponent extends Component {
     constructor(moduleVersion, file, sym, opt_domHelper) {
         super(opt_domHelper);
 
-        /** @private @const */
+        /** @protected @const */
         this.moduleVersion_ = moduleVersion;
 
-        /** @private @const */
+        /** @protected @const */
         this.file_ = file;
 
-        /** @private @const */
+        /** @protected @const */
         this.sym_ = sym;
     }
 
@@ -1754,7 +1817,185 @@ class SymbolInfoComponent extends Component {
             moduleVersion: this.moduleVersion_,
             file: this.file_,
             sym: this.sym_,
+        }, {
+            baseUrl: this.getDocsBaseUrl(),
         }));
+    }
+
+    /**
+     * @returns {string}
+     */
+    getDocsBaseUrl() {
+        return path.join('modules', this.moduleVersion_.getName(), this.moduleVersion_.getVersion(), 'docs');
+    }
+
+    /** @override */
+    enterDocument() {
+        super.enterDocument();
+
+        this.enterSyntaxHighlighting();
+    }
+
+    enterSyntaxHighlighting() {
+        if (HIGHLIGHT_SYNTAX) {
+            const preEls = this.dom_.getElementsByTagNameAndClass(dom.TagName.PRE, goog.getCssName('shiki'), this.getElementStrict());
+            arrays.forEach(preEls, preEl => syntaxHighlight(this.dom_.getWindow(), preEl));
+        }
+    }
+}
+
+class RuleInfoComponent extends SymbolInfoComponent {
+    /**
+     * @param {!ModuleVersion} moduleVersion
+     * @param {!FileInfo} file
+     * @param {!SymbolInfo} sym
+     * @param {?dom.DomHelper=} opt_domHelper
+     */
+    constructor(moduleVersion, file, sym, opt_domHelper) {
+        super(moduleVersion, file, sym, opt_domHelper);
+    }
+
+    /**
+     * @override
+     */
+    createDom() {
+        const exampleCode = this.generateRuleExample();
+
+        this.setElementInternal(soy.renderAsElement(ruleInfoComponent, {
+            moduleVersion: this.moduleVersion_,
+            file: this.file_,
+            sym: this.sym_,
+            exampleCode: exampleCode,
+        }, {
+            baseUrl: this.getDocsBaseUrl(),
+        }));
+    }
+
+    /**
+     * Format a Label into a Starlark label string
+     * @param {!Label} label
+     * @returns {string}
+     */
+    formatLabel(label) {
+        const repo = label.getRepo() || '';
+        const pkg = label.getPkg() || '';
+        const name = label.getName() || '';
+
+        let result = '';
+
+        // Add repository if present
+        if (repo && repo !== '') {
+            result += `@${repo}`;
+        }
+
+        // Add package path
+        if (pkg && pkg !== '') {
+            result += `//${pkg}`;
+        } else {
+            result += '//';
+        }
+
+        // Add target name
+        if (name && name !== '') {
+            result += `:${name}`;
+        }
+
+        return result;
+    }
+
+    /**
+     * Generate a Starlark example for the rule
+     * @returns {string}
+     */
+    generateRuleExample() {
+        const rule = this.sym_.getRule();
+        if (!rule) {
+            return '';
+        }
+
+        const ruleName = this.sym_.getName();
+        const lines = [];
+
+        // Load statement with module name as repository
+        const label = this.file_.getLabel();
+        if (label) {
+            // Create a new Label with the module name as repo
+            const loadLabel = label.clone();
+            loadLabel.setRepo(this.moduleVersion_.getName());
+
+            const loadPath = this.formatLabel(loadLabel);
+            lines.push(`load("${loadPath}", "${ruleName}")`);
+            lines.push('');
+        }
+
+        // Rule invocation
+        lines.push(`${ruleName}(`);
+
+        // Add attributes
+        const attrs = rule.getAttributeList();
+        const requiredAttrs = attrs.filter(attr => attr.getMandatory());
+        const optionalAttrs = attrs.filter(attr => !attr.getMandatory());
+
+        // Required attributes first
+        requiredAttrs.forEach((attr) => {
+            const value = this.getExampleValue(attr);
+            lines.push(`    ${attr.getName()} = ${value},`);
+        });
+        optionalAttrs.forEach((attr) => {
+            const value = this.getExampleValue(attr);
+            lines.push(`    # ${attr.getName()} = ${value},`);
+        });
+
+        lines.push(')');
+
+        return lines.join('\n');
+    }
+
+    /**
+     * Get an example value for an attribute based on its type
+     * @param {!AttributeInfo} attr
+     * @returns {string}
+     */
+    getExampleValue(attr) {
+        const attrName = attr.getName();
+
+        // Special case for "name" attribute
+        if (attrName === 'name') {
+            return `"${this.sym_.getName()}"`;
+        }
+
+        const attrType = attr.getType();
+
+        switch (attrType) {
+            case 1: // NAME
+                return '"my_target"';
+            case 2: // INT
+                return '1';
+            case 3: // LABEL
+                return '"//path/to:target"';
+            case 4: // STRING
+                return '""';
+            case 5: // STRING_LIST
+                return '[]';
+            case 6: // INT_LIST
+                return '[]';
+            case 7: // LABEL_LIST
+                return '[]';
+            case 8: // BOOLEAN
+                return 'True';
+            case 9: // LABEL_STRING_DICT
+                return '{}';
+            case 10: // STRING_DICT
+                return '{}';
+            case 11: // STRING_LIST_DICT
+                return '{}';
+            case 12: // OUTPUT
+                return '"output.txt"';
+            case 13: // OUTPUT_LIST
+                return '[]';
+            default:
+                return '""';
+        }
     }
 }
 
@@ -1886,34 +2127,7 @@ class FileInfoListComponent extends Component {
     /** @override */
     enterDocument() {
         super.enterDocument();
-
-        if (FORMAT_MARKDOWN) {
-            this.enterMarkdownFormatting();
-        }
-
-        this.enterMarkdownFormatting();
-        this.checkDescriptionOverflow();
     }
-
-    checkDescriptionOverflow() {
-        const descContent = this.getElement().querySelector('.desc-content');
-        const toggleLabel = this.getElement().querySelector('.desc-toggle-label');
-
-        if (descContent && toggleLabel) {
-            // Check if content is overflowing
-            if (descContent.scrollHeight <= 100) {
-                // Content fits, hide the toggle
-                toggleLabel.style.display = 'none';
-                descContent.style.maxHeight = 'none';
-            }
-        }
-    }
-
-    enterMarkdownFormatting() {
-        const divEls = this.dom_.getElementsByTagNameAndClass(dom.TagName.DIV, goog.getCssName('markdown-body'), this.getElementStrict());
-        arrays.forEach(divEls, el => formatMarkdown(this.dom_.getWindow(), el));
-    }
-
 }
 
 class NotFoundComponent extends Component {

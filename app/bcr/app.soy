@@ -18,6 +18,7 @@ import {
 } from 'app/bcr/octicons.soy';
 import {
   AspectInfo,
+  AttributeInfo,
   ModuleExtensionInfo,
   ModuleInfo,
   ProviderInfo,
@@ -39,6 +40,7 @@ import {
 import {
   attestationsTable,
   compatibilityTable,
+  copyToClipboardButton,
   counterLabel,
   maintainerBreadcrumb,
   maintainerModuleVersionTable,
@@ -728,9 +730,211 @@ import {
 
 
 {template symbolInfoComponent}
+  {@param moduleVersion: ModuleVersion}
   {@param file: FileInfo}
   {@param sym: SymbolInfo}
-{$sym}
+<div style="min-width: 0">
+  {symbolInfoHeader(moduleVersion: $moduleVersion, file: $file, sym: $sym)}
+
+  <div class="Box Box--condensed mt-3">
+    <div class="Box-header">
+      <div class="Box-title">Details</div>
+    </div>
+    <div class="Box-body">
+      {$sym}
+    </div>
+  </div>
+</div>
+{/template}
+
+{template symbolInfoHeader}
+  {@param moduleVersion: ModuleVersion}
+  {@param file: FileInfo}
+  {@param sym: SymbolInfo}
+<div class="Subhead mb-2">
+  <div class="Subhead-heading d-flex flex-items-center">
+    <h3 class="d-flex flex-items-center">
+      <span class="text-light f3-light">{$file.getLabel()?.getPkg() ? $file.getLabel()?.getPkg() + '/' + $file.getLabel()?.getName() : $file.getLabel()?.getName()}</span>
+      <span class="mx-2 d-flex flex-items-center">
+        {let $color: symbolColor(type: $sym.getType()) /}
+        {octiconDotFill16(fill: 'var(' + $color + ')')}
+      </span>
+      <span>{$sym.getName()}</span>
+    </h3>
+    <a class="Link--muted btn btn-sm btn-octicon ml-2" href="{fileInfoUrl(file: $file)}">{octiconChevronUp24()}</a>
+  </div>
+  {if $sym.getDescription()}
+    <div class="Subhead-description">
+      <label class="desc-toggle-wrapper" style="display: block">
+        <input type="checkbox" class="desc-toggle" style="display: none">
+        <div class="markdown-body mb-1 text-normal desc-content" style="font-size: 14px; overflow-x: auto; max-height: 100px; overflow-y: hidden">
+          {$sym.getDescription()}
+        </div>
+        <span class="Link--muted desc-toggle-label" style="cursor: pointer; font-size: 12px; display: block">
+          <span class="show-more">Show more...</span>
+          <span class="show-less" style="display: none">Show less</span>
+        </span>
+      </label>
+      <style>
+        {literal}
+        .desc-toggle:checked ~ .desc-content {
+          max-height: none !important;
+        }
+        .desc-toggle:checked ~ .desc-toggle-label .show-more {
+          display: none;
+        }
+        .desc-toggle:checked ~ .desc-toggle-label .show-less {
+          display: inline;
+        }
+        {/literal}
+      </style>
+    </div>
+  {/if}
+  <div class="Subhead-actions">
+  </div>
+</div>
+{/template}
+
+{template ruleInfoComponent}
+  {@param moduleVersion: ModuleVersion}
+  {@param file: FileInfo}
+  {@param sym: SymbolInfo}
+  {@param? exampleCode: string}
+<div style="min-width: 0">
+  {symbolInfoHeader(moduleVersion: $moduleVersion, file: $file, sym: $sym)}
+
+  {if $exampleCode}
+    <div class="Box Box--condensed mt-3">
+      <div class="Box-header">
+        <div class="Box-title d-flex flex-items-center flex-justify-between">
+          <div class="text-mono">Example</div>
+          {copyToClipboardButton(content: $exampleCode)}
+        </div>
+      </div>
+      <div class="Box-body p-3">
+        <pre class="width-full {css('shiki')}"><code lang="py">{$exampleCode}</code></pre>
+      </div>
+    </div>
+  {/if}
+
+  {if $sym.getRule()}
+    {let $rule: $sym.getRule() /}
+    {if length($rule.getAttributeList()) > 0}
+      {attributeListBox(attributes: $rule.getAttributeList(), title: 'Attributes')}
+    {/if}
+  {/if}
+</div>
+{/template}
+
+{template attributeListBox}
+  {@param attributes: list<AttributeInfo>}
+  {@param title: string}
+<div class="Box Box--condensed mt-3">
+  <div class="Box-header">
+    <div class="Box-title">{$title} {counterLabel(count: length($attributes))}</div>
+  </div>
+  <div>
+    {for $attr in $attributes}
+      {attributeListItem(attr: $attr)}
+    {/for}
+  </div>
+</div>
+{/template}
+
+{template attributeListItem}
+  {@param attr: AttributeInfo}
+<div class="Box-row d-flex flex-items-start">
+  <div class="flex-auto">
+    <div class="d-flex flex-items-center">
+      <span class="text-semibold text-mono">{$attr.getName()}</span>
+      {if $attr.getMandatory()}
+        <span class="Label Label--danger ml-2">required</span>
+      {/if}
+    </div>
+    {if $attr.getDocString()}
+      <div class="markdown-body text-small mt-1" style="overflow-x: auto">
+        {$attr.getDocString()}
+      </div>
+    {/if}
+  </div>
+  {if $attr.getType()}
+    <div class="flex-shrink-0 ml-2">
+      <span class="Label" style="background-color: var({attrColor(type: $attr.getType())}); color: var(--color-fg-on-emphasis)">{attrName(type: $attr.getType())}</span>
+    </div>
+  {/if}
+</div>
+{/template}
+
+{template attrName kind="text"}
+  {@param type: int}
+{switch $type}
+  {case 0} /* UNKNOWN */
+    unknown
+  {case 1} /* NAME */
+    name
+  {case 2} /* INT */
+    int
+  {case 3} /* LABEL */
+    label
+  {case 4} /* STRING */
+    string
+  {case 5} /* STRING_LIST */
+    string_list
+  {case 6} /* INT_LIST */
+    int_list
+  {case 7} /* LABEL_LIST */
+    label_list
+  {case 8} /* BOOLEAN */
+    bool
+  {case 9} /* LABEL_STRING_DICT */
+    label_string_dict
+  {case 10} /* STRING_DICT */
+    string_dict
+  {case 11} /* STRING_LIST_DICT */
+    string_list_dict
+  {case 12} /* OUTPUT */
+    output
+  {case 13} /* OUTPUT_LIST */
+    output_list
+  {default}
+    type-{$type}
+{/switch}
+{/template}
+
+{template attrColor kind="text"}
+  {@param type: int}
+{switch $type}
+  {case 0} /* UNKNOWN */
+    --color-prettylights-syntax-comment
+  {case 1} /* NAME */
+    --color-prettylights-syntax-entity
+  {case 2} /* INT */
+    --color-prettylights-syntax-constant
+  {case 3} /* LABEL */
+    --color-prettylights-syntax-entity-tag
+  {case 4} /* STRING */
+    --color-prettylights-syntax-string
+  {case 5} /* STRING_LIST */
+    --color-prettylights-syntax-string
+  {case 6} /* INT_LIST */
+    --color-prettylights-syntax-constant
+  {case 7} /* LABEL_LIST */
+    --color-prettylights-syntax-entity-tag
+  {case 8} /* BOOLEAN */
+    --color-prettylights-syntax-keyword
+  {case 9} /* LABEL_STRING_DICT */
+    --color-prettylights-syntax-meta-diff-range
+  {case 10} /* STRING_DICT */
+    --color-prettylights-syntax-meta-diff-range
+  {case 11} /* STRING_LIST_DICT */
+    --color-prettylights-syntax-meta-diff-range
+  {case 12} /* OUTPUT */
+    --color-prettylights-syntax-markup-changed-text
+  {case 13} /* OUTPUT_LIST */
+    --color-prettylights-syntax-markup-changed-text
+  {default}
+    --color-fg-default
+{/switch}
 {/template}
 
 {template counter}
