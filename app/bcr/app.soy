@@ -19,6 +19,8 @@ import {
 import {
   AspectInfo,
   AttributeInfo,
+  FunctionParamInfo,
+  FunctionReturnInfo,
   ModuleExtensionInfo,
   ModuleInfo,
   ProviderInfo,
@@ -29,6 +31,7 @@ import {
 import {
   DocumentationInfo,
   FileInfo,
+  Label,
   SymbolInfo,
   Maintainer,
   Module,
@@ -602,16 +605,16 @@ import {
 
 {template fileInfoUrl kind="uri"}
   {@inject baseUrl: string}
-  {@param file: FileInfo}
-{let $pkg: $file.getLabel()?.getPkg() /}
-{let $name: $file.getLabel()?.getName() /}
+  {@param? label: Label}
+{let $pkg: $label?.getPkg() /}
+{let $name: $label?.getName() /}
 /#/{$baseUrl}/{if $pkg}{$pkg}/{/if}{$name}
 {/template}
 
 {template symbolInfoUrl kind="uri"}
   {@param file: FileInfo}
   {@param sym: SymbolInfo}
-{fileInfoUrl(file: $file)}/{$sym.getName()}
+{fileInfoUrl(label: $file.getLabel())}/{$sym.getName()}
 {/template}
 
 
@@ -631,7 +634,7 @@ import {
         <div class="flex-shrink-0 mr-2">
           {octiconFile16()}
         </div>
-        <a href="{fileInfoUrl(file: $file)}" class="flex-auto Link--primary">
+        <a href="{fileInfoUrl(label: $file.getLabel())}" class="flex-auto Link--primary">
           <span class="text-semibold">{$pkg ? $pkg + '/' : ''}{$name}</span>
         </a>
         <span class="text-small text-light ml-2">{$file.getDescription()|truncate:63}</span>
@@ -761,7 +764,7 @@ import {
       </span>
       <span>{$sym.getName()}</span>
     </h3>
-    <a class="Link--muted btn btn-sm btn-octicon ml-2" href="{fileInfoUrl(file: $file)}">{octiconChevronUp24()}</a>
+    <a class="Link--muted btn btn-sm btn-octicon ml-2" href="{fileInfoUrl(label: $file.getLabel())}">{octiconChevronUp24()}</a>
   </div>
   {if $sym.getDescription()}
     <div class="Subhead-description">
@@ -823,6 +826,104 @@ import {
       {attributeListBox(attributes: $rule.getAttributeList(), title: 'Attributes')}
     {/if}
   {/if}
+</div>
+{/template}
+
+{template functionInfoComponent}
+  {@param moduleVersion: ModuleVersion}
+  {@param file: FileInfo}
+  {@param sym: SymbolInfo}
+  {@param? exampleCode: string}
+<div style="min-width: 0">
+  {symbolInfoHeader(moduleVersion: $moduleVersion, file: $file, sym: $sym)}
+
+  {if $exampleCode}
+    <div class="Box Box--condensed mt-3">
+      <div class="Box-header">
+        <div class="Box-title d-flex flex-items-center flex-justify-between">
+          <div class="text-mono">Example</div>
+          {copyToClipboardButton(content: $exampleCode)}
+        </div>
+      </div>
+      <div class="Box-body p-3">
+        <pre class="width-full {css('shiki')}"><code lang="py">{$exampleCode}</code></pre>
+      </div>
+    </div>
+  {/if}
+
+  {if $sym.getFunc()}
+    {let $func: $sym.getFunc() /}
+    {if length($func.getParameterList()) > 0}
+      {parameterListBox(parameters: $func.getParameterList(), title: 'Parameters')}
+    {/if}
+    {if $func.getReturn()}
+      {returnInfoBox(returnInfo: $func.getReturn())}
+    {/if}
+  {/if}
+</div>
+{/template}
+
+{template parameterListBox}
+  {@param parameters: list<FunctionParamInfo>}
+  {@param title: string}
+<div class="Box Box--condensed mt-3">
+  <div class="Box-header">
+    <div class="Box-title">{$title} {counterLabel(count: length($parameters))}</div>
+  </div>
+  <div>
+    {for $param in $parameters}
+      {parameterListItem(param: $param)}
+    {/for}
+  </div>
+</div>
+{/template}
+
+{template parameterListItem}
+  {@param param: FunctionParamInfo}
+<div class="Box-row d-flex flex-items-start">
+  <div class="flex-auto">
+    <div class="d-flex flex-items-center">
+      <span class="text-semibold text-mono">
+      {$param.getName()}
+      {if $param.getDefaultValue()}
+        {sp}={sp}<span class="" style="color: var(--color-prettylights-syntax-markup-inserted-text)" title="default value">{$param.getDefaultValue()}</span>
+      {/if}
+      </span>
+      {if $param.getMandatory()}
+        <span class="Label Label--danger ml-2">required</span>
+      {/if}
+    </div>
+    {if $param.getDocString()}
+      <div class="markdown-body text-small mt-1" style="overflow-x: auto">
+        {$param.getDocString()}
+      </div>
+    {/if}
+  </div>
+</div>
+{/template}
+
+{template returnInfoBox}
+  {@param returnInfo: FunctionReturnInfo}
+<div class="Box Box--condensed mt-3">
+  <div class="Box-header">
+    <div class="Box-title">Returns</div>
+  </div>
+  <div>
+    {returnInfoItem(returnInfo: $returnInfo)}
+  </div>
+</div>
+{/template}
+
+{template returnInfoItem}
+  {@param returnInfo: FunctionReturnInfo}
+<div class="Box-row">
+  <div class="d-flex flex-column">
+    {if $returnInfo.getDocString()}
+      <div class="markdown-body text-small" style="overflow-x: auto">
+        {$returnInfo.getDocString()}
+      </div>
+    {/if}
+  </div>
 </div>
 {/template}
 
@@ -993,11 +1094,6 @@ import {
 {/if}
 {/template}
 
-{template starlarkFunctionSymbolComponent}
-  {@param func: StarlarkFunctionInfo}
-Function
-<pre>{$func}</pre>
-{/template}
 
 {template labelNameLink}
   {@param label: string}

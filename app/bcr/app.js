@@ -5,6 +5,7 @@ const AttributeInfo = goog.require("proto.stardoc_output.AttributeInfo");
 const ComponentEventType = goog.require("goog.ui.Component.EventType");
 const DocumentationInfo = goog.require("proto.build.stack.bazel.bzlmod.v1.DocumentationInfo");
 const FileInfo = goog.require("proto.build.stack.bazel.bzlmod.v1.FileInfo");
+const FunctionParamInfo = goog.require("proto.stardoc_output.FunctionParamInfo");
 const Label = goog.require("proto.build.stack.bazel.bzlmod.v1.Label");
 const Maintainer = goog.require("proto.build.stack.bazel.bzlmod.v1.Maintainer");
 const Message = goog.require("jspb.Message");
@@ -36,7 +37,7 @@ const strings = goog.require("goog.string");
 const { App, Component, Route, RouteEvent, RouteEventType } = goog.require("stack.ui");
 const { Application, Searchable } = goog.require("centrl.common");
 const { ModuleSearchHandler, SearchComponent } = goog.require('centrl.search');
-const { bodySelect, documentationInfoListComponent, documentationInfoSelect, fileInfoListComponent, fileInfoSelect, homeOverviewComponent, homeSelect, maintainerComponent, maintainersMapComponent, maintainersMapSelectNav, maintainersSelect, moduleBlankslateComponent, moduleSelect, moduleVersionBlankslateComponent, moduleVersionComponent, moduleVersionList, moduleVersionSelectNav, moduleVersionsFilterSelect, modulesMapSelect, modulesMapSelectNav, navItem, notFoundComponent, registryApp, ruleInfoComponent, settingsAppearanceComponent, settingsSelect, starlarkFunctionSymbolComponent, symbolInfoComponent, toastSuccess } = goog.require('soy.centrl.app'); const { moduleVersionsListComponent } = goog.require('soy.registry');
+const { bodySelect, documentationInfoListComponent, documentationInfoSelect, fileInfoListComponent, fileInfoSelect, functionInfoComponent, homeOverviewComponent, homeSelect, maintainerComponent, maintainersMapComponent, maintainersMapSelectNav, maintainersSelect, moduleBlankslateComponent, moduleSelect, moduleVersionBlankslateComponent, moduleVersionComponent, moduleVersionList, moduleVersionSelectNav, moduleVersionsFilterSelect, modulesMapSelect, modulesMapSelectNav, navItem, notFoundComponent, registryApp, ruleInfoComponent, settingsAppearanceComponent, settingsSelect, symbolInfoComponent, toastSuccess } = goog.require('soy.centrl.app'); const { moduleVersionsListComponent } = goog.require('soy.registry');
 
 const HIGHLIGHT_SYNTAX = true;
 const FORMAT_MARKDOWN = true;
@@ -1693,6 +1694,94 @@ class FileInfoSelect extends ContentSelect {
         }));
     }
 
+    /** @override */
+    enterDocument() {
+        super.enterDocument();
+        this.enterKeys();
+    }
+
+    /**
+     * Setup keyboard shorcuts.
+     */
+    enterKeys() {
+        this.getHandler().listen(this, ["keydown", "keyup"], this.onKey);
+    }
+
+    /**
+     * Key down handler for the menu.
+     * @param {events.KeyEvent} e The event object.
+     */
+    onKey(e) {
+        switch (e.keyCode) {
+            case events.KeyCodes.RIGHT:
+                this.onKeyRight();
+                this.setSelectedSymbol(this.getNextPrevSymbol(false));
+                break;
+            case events.KeyCodes.LEFT:
+                this.onKeyLeft();
+                break;
+            case events.KeyCodes.UP:
+                this.onKeyUp();
+                break;
+        }
+    }
+
+    onKeyRight() {
+        this.setSelectedSymbol(this.getNextPrevSymbol(false));
+    }
+
+    onKeyLeft() {
+        this.setSelectedSymbol(this.getNextPrevSymbol(true));
+    }
+
+    onKeyUp() {
+        const app = /** @type {!Application} */ (this.getApp());
+        app.setLocation(this.parent().getPath());
+    }
+
+    /**
+     * 
+     * @param {!SymbolInfo} sym 
+     */
+    setSelectedSymbol(sym) {
+        const app = /** @type {!Application} */ (this.getApp());
+        app.setLocation(this.getPath().concat([sym.getName()]));
+    }
+
+    /**
+     * Returns the next or previous item. Used for up/down arrows.
+     * @param {boolean} prev True to go to the previous element instead of next.
+     * @return {!SymbolInfo} The next or previous symbol.
+     */
+    getNextPrevSymbol(prev) {
+        const symbols = this.file_.getSymbolList();
+        const count = symbols.length;
+
+        /** @type {!SymbolInfo | undefined} */
+        let currentSymbol = undefined;
+
+        const currentTab = this.getCurrent();
+        if (currentTab) {
+            currentSymbol = /** @type {!SymbolInfoComponent} */(currentTab).getSymbol();
+        }
+
+        if (!currentSymbol) {
+            return symbols[prev ? count - 1 : 0];
+        }
+
+        const currentIndex = symbols.indexOf(currentSymbol);
+        let nextIndex = currentIndex + (prev ? -1 : 1);
+
+        // if overflowed/underflowed, wrap around
+        if (nextIndex < 0) {
+            nextIndex += count;
+        } else if (nextIndex >= count) {
+            nextIndex -= count;
+        }
+
+        return symbols[nextIndex];
+    }
+
     /**
      * @override
      * @param {!Route} route
@@ -1734,7 +1823,7 @@ class FileInfoSelect extends ContentSelect {
             case 1: // SYMBOL_TYPE_RULE
                 return new RuleInfoComponent(this.moduleVersion_, this.file_, sym, this.dom_);
             case 2: // SYMBOL_TYPE_FUNCTION
-                return new SymbolInfoComponent(this.moduleVersion_, this.file_, sym, this.dom_);
+                return new FunctionInfoComponent(this.moduleVersion_, this.file_, sym, this.dom_);
             case 3: // SYMBOL_TYPE_PROVIDER
                 return new SymbolInfoComponent(this.moduleVersion_, this.file_, sym, this.dom_);
             case 4: // SYMBOL_TYPE_ASPECT
@@ -1810,6 +1899,13 @@ class SymbolInfoComponent extends MarkdownComponent {
     }
 
     /**
+     * @returns {!SymbolInfo}
+     */
+    getSymbol() {
+        return this.sym_;
+    }
+
+    /**
      * @override
      */
     createDom() {
@@ -1841,34 +1937,6 @@ class SymbolInfoComponent extends MarkdownComponent {
             const preEls = this.dom_.getElementsByTagNameAndClass(dom.TagName.PRE, goog.getCssName('shiki'), this.getElementStrict());
             arrays.forEach(preEls, preEl => syntaxHighlight(this.dom_.getWindow(), preEl));
         }
-    }
-}
-
-class RuleInfoComponent extends SymbolInfoComponent {
-    /**
-     * @param {!ModuleVersion} moduleVersion
-     * @param {!FileInfo} file
-     * @param {!SymbolInfo} sym
-     * @param {?dom.DomHelper=} opt_domHelper
-     */
-    constructor(moduleVersion, file, sym, opt_domHelper) {
-        super(moduleVersion, file, sym, opt_domHelper);
-    }
-
-    /**
-     * @override
-     */
-    createDom() {
-        const exampleCode = this.generateRuleExample();
-
-        this.setElementInternal(soy.renderAsElement(ruleInfoComponent, {
-            moduleVersion: this.moduleVersion_,
-            file: this.file_,
-            sym: this.sym_,
-            exampleCode: exampleCode,
-        }, {
-            baseUrl: this.getDocsBaseUrl(),
-        }));
     }
 
     /**
@@ -1904,6 +1972,53 @@ class RuleInfoComponent extends SymbolInfoComponent {
     }
 
     /**
+     * Generate a load statement for the current symbol
+     * @param {string} symbolName - The name of the symbol to load
+     * @returns {string}
+     */
+    generateLoadStatement(symbolName) {
+        const label = this.file_.getLabel();
+        if (!label) {
+            return '';
+        }
+
+        // Create a new Label with the module name as repo
+        const loadLabel = label.clone();
+        loadLabel.setRepo(this.moduleVersion_.getName());
+
+        const loadPath = this.formatLabel(loadLabel);
+        return `load("${loadPath}", "${symbolName}")`;
+    }
+}
+
+class RuleInfoComponent extends SymbolInfoComponent {
+    /**
+     * @param {!ModuleVersion} moduleVersion
+     * @param {!FileInfo} file
+     * @param {!SymbolInfo} sym
+     * @param {?dom.DomHelper=} opt_domHelper
+     */
+    constructor(moduleVersion, file, sym, opt_domHelper) {
+        super(moduleVersion, file, sym, opt_domHelper);
+    }
+
+    /**
+     * @override
+     */
+    createDom() {
+        const exampleCode = this.generateRuleExample();
+
+        this.setElementInternal(soy.renderAsElement(ruleInfoComponent, {
+            moduleVersion: this.moduleVersion_,
+            file: this.file_,
+            sym: this.sym_,
+            exampleCode: exampleCode,
+        }, {
+            baseUrl: this.getDocsBaseUrl(),
+        }));
+    }
+
+    /**
      * Generate a Starlark example for the rule
      * @returns {string}
      */
@@ -1914,19 +2029,7 @@ class RuleInfoComponent extends SymbolInfoComponent {
         }
 
         const ruleName = this.sym_.getName();
-        const lines = [];
-
-        // Load statement with module name as repository
-        const label = this.file_.getLabel();
-        if (label) {
-            // Create a new Label with the module name as repo
-            const loadLabel = label.clone();
-            loadLabel.setRepo(this.moduleVersion_.getName());
-
-            const loadPath = this.formatLabel(loadLabel);
-            lines.push(`load("${loadPath}", "${ruleName}")`);
-            lines.push('');
-        }
+        const lines = [this.generateLoadStatement(ruleName), ''];
 
         // Rule invocation
         lines.push(`${ruleName}(`);
@@ -1999,31 +2102,99 @@ class RuleInfoComponent extends SymbolInfoComponent {
     }
 }
 
-
-class StarlarkFunctionSymbolComponent extends Component {
+class FunctionInfoComponent extends SymbolInfoComponent {
     /**
      * @param {!ModuleVersion} moduleVersion
-     * @param {!StarlarkFunctionInfo} func
+     * @param {!FileInfo} file
+     * @param {!SymbolInfo} sym
      * @param {?dom.DomHelper=} opt_domHelper
      */
-    constructor(moduleVersion, func, opt_domHelper) {
-        super(opt_domHelper);
-
-        /** @private @const */
-        this.moduleVersion_ = moduleVersion;
-
-        /** @private @const */
-        this.func_ = func;
+    constructor(moduleVersion, file, sym, opt_domHelper) {
+        super(moduleVersion, file, sym, opt_domHelper);
     }
 
     /**
      * @override
      */
     createDom() {
-        this.setElementInternal(soy.renderAsElement(starlarkFunctionSymbolComponent, {
+        const exampleCode = this.generateFunctionExample();
+
+        this.setElementInternal(soy.renderAsElement(functionInfoComponent, {
             moduleVersion: this.moduleVersion_,
-            func: this.func_,
+            file: this.file_,
+            sym: this.sym_,
+            exampleCode: exampleCode,
+        }, {
+            baseUrl: this.getDocsBaseUrl(),
         }));
+    }
+
+    /**
+     * Generate a Starlark example for the function
+     * @returns {string}
+     */
+    generateFunctionExample() {
+        const func = this.sym_.getFunc();
+        if (!func) {
+            return '';
+        }
+
+        const funcName = this.sym_.getName();
+        const lines = [this.generateLoadStatement(funcName), ''];
+
+        // Function invocation
+        const params = func.getParameterList();
+        const requiredParams = params.filter(param => param.getMandatory());
+        const hasReturn = func.getReturn() != null;
+        const resultPrefix = hasReturn ? 'result = ' : '';
+
+        if (requiredParams.length === 0) {
+            lines.push(`${resultPrefix}${funcName}()`);
+        } else {
+            lines.push(`${resultPrefix}${funcName}(`);
+            requiredParams.forEach((param) => {
+                const value = this.getParameterExampleValue(param);
+                lines.push(`    ${param.getName()} = ${value},`);
+            });
+            lines.push(')');
+        }
+
+        return lines.join('\n');
+    }
+
+    /**
+     * Get an example value for a function parameter
+     * @param {!FunctionParamInfo} param
+     * @returns {string}
+     */
+    getParameterExampleValue(param) {
+        const defaultValue = param.getDefaultValue();
+        if (defaultValue && defaultValue !== '') {
+            return defaultValue;
+        }
+
+        // Generic example values based on parameter name patterns
+        const name = param.getName().toLowerCase();
+        if (name.includes('name')) {
+            return '"my_target"';
+        }
+        if (name.includes('label') || name.includes('target')) {
+            return '"//path/to:target"';
+        }
+        if (name.includes('list') || name.includes('files') || name.includes('deps')) {
+            return '[]';
+        }
+        if (name.includes('dict') || name.includes('map')) {
+            return '{}';
+        }
+        if (name.includes('bool') || name.includes('enabled') || name.includes('flag')) {
+            return 'True';
+        }
+        if (name.includes('int') || name.includes('count') || name.includes('size')) {
+            return '1';
+        }
+
+        return '""';
     }
 }
 
