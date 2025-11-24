@@ -32,30 +32,32 @@ import (
 // binary.
 func NewLanguage() language.Language {
 	return &bcrExtension{
-		depGraph:      initDepGraph(),
-		moduleToCycle: make(map[string]string),
-		repositories:  make(map[string]*bzpb.RepositoryMetadata),
-		docs:          make(map[label.Label]*rule.Rule),
+		depGraph:             initDepGraph(),
+		moduleToCycle:        make(map[string]string),
+		repositories:         make(map[string]*bzpb.RepositoryMetadata),
+		httpArchives:         make(map[label.Label]*rule.Rule),
+		starlarkRepositories: make(map[label.Label]*rule.Rule),
 	}
 }
 
 // bcrExtension implements language.Language.
 type bcrExtension struct {
-	name             string
-	depGraph         graph.Graph[string, string]
-	registryRoot     string
-	registryURL      string
-	repoRoot         string // copy of config.RepoRoot
-	modulesRoot      string
-	baseRegistryFile string
-	githubToken      string
-	gitlabToken      string
-	moduleToCycle    map[string]string                   // maps "module@version" to cycle rule name
-	repositories     map[string]*bzpb.RepositoryMetadata // tracks unique repository strings (e.g., "github:org/repo")
-	docs             map[label.Label]*rule.Rule          // tracks docs URLs to fetch (e.g.  https://github.com/bazel-contrib/yq.bzl/releases/download/v0.3.2/yq.bzl-v0.3.2.docs.tar.gz -> http_archive rule)
-	baseRegistry     *bzpb.Registry
-	moduleCommits    map[string]*bzpb.ModuleCommit // cache of all module commits (preloaded)
-	githubClient     *github.Client
+	name                 string
+	depGraph             graph.Graph[string, string]
+	registryRoot         string
+	registryURL          string
+	repoRoot             string // copy of config.RepoRoot
+	modulesRoot          string
+	baseRegistryFile     string
+	githubToken          string
+	gitlabToken          string
+	moduleToCycle        map[string]string                   // maps "module@version" to cycle rule name
+	repositories         map[string]*bzpb.RepositoryMetadata // tracks unique repository strings (e.g., "github:org/repo")
+	httpArchives         map[label.Label]*rule.Rule          // tracks docs http_archives to fetch (e.g.  https://github.com/bazel-contrib/yq.bzl/releases/download/v0.3.2/yq.bzl-v0.3.2.docs.tar.gz -> http_archive rule)
+	starlarkRepositories map[label.Label]*rule.Rule          // tracks docs starlark_repository
+	baseRegistry         *bzpb.Registry
+	moduleCommits        map[string]*bzpb.ModuleCommit // cache of all module commits (preloaded)
+	githubClient         *github.Client
 }
 
 // Name returns the name of the language. This should be a prefix of the kinds
@@ -123,7 +125,7 @@ func (*bcrExtension) KnownDirectives() []string {
 
 // Configure implements config.Configurer
 func (ext *bcrExtension) Configure(c *config.Config, rel string, f *rule.File) {
-	log.Println("visiting:", rel)
+	// log.Println("visiting:", rel)
 	cfg := getOrCreateConfig(c)
 
 	// enable this extension once we hit the registry
@@ -390,7 +392,7 @@ func (ext *bcrExtension) GenerateRules(args language.GenerateArgs) language.Gene
 				log.Fatalf("reading %s/source.json: %v", args.Rel, err)
 			}
 			module.Source = source
-			sourceRule = makeModuleSourceRule(source, "source.json", ext)
+			sourceRule = makeModuleSourceRule(module, source, "source.json", ext)
 			rules = append(rules, sourceRule)
 		}
 

@@ -1,0 +1,156 @@
+load("@build_stack_rules_proto//rules:starlark_library.bzl", "starlark_library")
+
+starlark_library(
+    name = "libarchive_override",
+    src = "archive_override.bzl",
+    srcs = ["archive_override.bzl"],
+    visibility = ["//visibility:public"],
+    deps = [":libproviders"],
+)
+
+starlark_library(
+    name = "libdeploy",
+    src = "deploy.bzl",
+    srcs = ["deploy.bzl"],
+    visibility = ["//visibility:public"],
+)
+
+starlark_library(
+    name = "libgit_override",
+    src = "git_override.bzl",
+    srcs = ["git_override.bzl"],
+    visibility = ["//visibility:public"],
+    deps = [":libproviders"],
+)
+
+starlark_library(
+    name = "liblocal_path_override",
+    src = "local_path_override.bzl",
+    srcs = ["local_path_override.bzl"],
+    visibility = ["//visibility:public"],
+    deps = [":libproviders"],
+)
+
+starlark_library(
+    name = "libmodule_attestations",
+    src = "module_attestations.bzl",
+    srcs = ["module_attestations.bzl"],
+    visibility = ["//visibility:public"],
+    deps = [":libproviders"],
+)
+
+starlark_library(
+    name = "libmodule_commit",
+    src = "module_commit.bzl",
+    srcs = ["module_commit.bzl"],
+    visibility = ["//visibility:public"],
+    deps = [":libproviders"],
+)
+
+starlark_library(
+    name = "libmodule_dependency",
+    src = "module_dependency.bzl",
+    srcs = ["module_dependency.bzl"],
+    visibility = ["//visibility:public"],
+    deps = [":libproviders"],
+)
+
+starlark_library(
+    name = "libmodule_dependency_cycle",
+    src = "module_dependency_cycle.bzl",
+    srcs = ["module_dependency_cycle.bzl"],
+    visibility = ["//visibility:public"],
+    deps = [":libproviders"],
+)
+
+starlark_library(
+    name = "libmodule_maintainer",
+    src = "module_maintainer.bzl",
+    srcs = ["module_maintainer.bzl"],
+    visibility = ["//visibility:public"],
+    deps = [":libproviders"],
+)
+
+starlark_library(
+    name = "libmodule_metadata",
+    src = "module_metadata.bzl",
+    srcs = ["module_metadata.bzl"],
+    visibility = ["//visibility:public"],
+    deps = [":libproviders"],
+)
+
+starlark_library(
+    name = "libmodule_presubmit",
+    src = "module_presubmit.bzl",
+    srcs = ["module_presubmit.bzl"],
+    visibility = ["//visibility:public"],
+    deps = [":libproviders"],
+)
+
+starlark_library(
+    name = "libmodule_registry",
+    src = "module_registry.bzl",
+    srcs = ["module_registry.bzl"],
+    visibility = ["//visibility:public"],
+    deps = [":libproviders"],
+)
+
+starlark_library(
+    name = "libmodule_source",
+    src = "module_source.bzl",
+    srcs = ["module_source.bzl"],
+    visibility = ["//visibility:public"],
+    deps = [":libproviders"],
+)
+
+starlark_library(
+    name = "libmodule_version",
+    src = "module_version.bzl",
+    srcs = ["module_version.bzl"],
+    visibility = ["//visibility:public"],
+    deps = [":libproviders"],
+)
+
+starlark_library(
+    name = "libocticons_closure_template_compile",
+    src = "octicons_closure_template_compile.bzl",
+    srcs = ["octicons_closure_template_compile.bzl"],
+    visibility = ["//visibility:public"],
+)
+
+starlark_library(
+    name = "libproviders",
+    src = "providers.bzl",
+    srcs = ["providers.bzl"],
+    visibility = ["//visibility:public"],
+)
+
+starlark_library(
+    name = "librelease",
+    src = "release.bzl",
+    srcs = ["release.bzl"],
+    visibility = ["//visibility:public"],
+)
+
+starlark_library(
+    name = "librepository_metadata",
+    src = "repository_metadata.bzl",
+    srcs = ["repository_metadata.bzl"],
+    visibility = ["//visibility:public"],
+    deps = [":libproviders"],
+)
+
+starlark_library(
+    name = "libserve",
+    src = "serve.bzl",
+    srcs = ["serve.bzl"],
+    visibility = ["//visibility:public"],
+)
+
+starlark_library(
+    name = "libsingle_version_override",
+    src = "single_version_override.bzl",
+    srcs = ["single_version_override.bzl"],
+    visibility = ["//visibility:public"],
+    deps = [":libproviders"],
+)

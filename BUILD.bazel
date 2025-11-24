@@ -1,6 +1,7 @@
 load("@bazel_gazelle//:def.bzl", "gazelle", "gazelle_binary")
 load("@build_stack_rules_proto//rules:proto_compile_assets.bzl", "proto_compile_assets")
 load("@build_stack_rules_proto//rules:proto_gazelle.bzl", "proto_gazelle")
+load("@build_stack_rules_proto//rules:starlark_bundle.bzl", "starlark_bundle")
 
 exports_files([
     "rules_proto_config.yaml",
@@ -21,12 +22,17 @@ exports_files([
 # -- Gazelle language "protobuf" ---
 # gazelle:proto_language go enable true
 
+# -- Gazelle language "starlark_bundle" ---
+# gazelle:starlark_bundle_root
+# gazelle:starlark_bundle_exclude data
+
 gazelle_binary(
     name = "gazelle-custom",
     languages = [
         "@bazel_gazelle//language/go",
         "@bazel_gazelle//language/proto",
         "@build_stack_rules_proto//language/protobuf",
+        "@build_stack_rules_proto//language/starlarkbundle",
     ],
     visibility = ["//visibility:public"],
 )
@@ -91,5 +97,33 @@ proto_compile_assets(
         "//build/stack/centrl/render/v1:rnpb_go_compiled_sources",
         "//build/stack/livegrep/v1:livegrep_go_compiled_sources",
         "//stardoc_output:stardoc_output_go_compiled_sources",
+    ],
+)
+
+starlark_bundle(
+    name = "starlark_bundle",
+    visibility = ["//visibility:public"],
+    deps = [
+        "@stackb_centrl//cmd/renderhtml:libhtml",
+        "@stackb_centrl//rules:libarchive_override",
+        "@stackb_centrl//rules:libdeploy",
+        "@stackb_centrl//rules:libgit_override",
+        "@stackb_centrl//rules:liblocal_path_override",
+        "@stackb_centrl//rules:libmodule_attestations",
+        "@stackb_centrl//rules:libmodule_commit",
+        "@stackb_centrl//rules:libmodule_dependency",
+        "@stackb_centrl//rules:libmodule_dependency_cycle",
+        "@stackb_centrl//rules:libmodule_maintainer",
+        "@stackb_centrl//rules:libmodule_metadata",
+        "@stackb_centrl//rules:libmodule_presubmit",
+        "@stackb_centrl//rules:libmodule_registry",
+        "@stackb_centrl//rules:libmodule_source",
+        "@stackb_centrl//rules:libmodule_version",
+        "@stackb_centrl//rules:libocticons_closure_template_compile",
+        "@stackb_centrl//rules:libproviders",
+        "@stackb_centrl//rules:librelease",
+        "@stackb_centrl//rules:librepository_metadata",
+        "@stackb_centrl//rules:libserve",
+        "@stackb_centrl//rules:libsingle_version_override",
     ],
 )
