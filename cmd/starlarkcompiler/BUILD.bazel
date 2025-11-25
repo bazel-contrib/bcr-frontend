@@ -1,0 +1,44 @@
+load("@rules_go//go:def.bzl", "go_binary", "go_library")
+
+# load("@rules_java//java:java_library.bzl", "java_library")
+load("@rules_java//java:java_binary.bzl", "java_binary")
+load("@rules_java//java:java_import.bzl", "java_import")
+
+go_library(
+    name = "starlarkcompiler_lib",
+    srcs = ["main.go"],
+    importpath = "github.com/stackb/centrl/cmd/starlarkcompiler",
+    visibility = ["//visibility:private"],
+    deps = [
+        "//blaze/worker",
+        "//build/stack/starlark/v1beta1",
+        "//pkg/paramsfile",
+        "//pkg/protoutil",
+        "@bazel_gazelle//label:go_default_library",
+        "@org_golang_google_grpc//:go_default_library",
+        "@org_golang_google_grpc//credentials/insecure:go_default_library",
+    ],
+)
+
+go_binary(
+    name = "starlarkcompiler",
+    embed = [":starlarkcompiler_lib"],
+    visibility = ["//visibility:public"],
+)
+
+filegroup(
+    name = "constellate_jar_file",
+    srcs = ["constellate.jar"],
+    visibility = ["//visibility:public"],
+)
+
+java_import(
+    name = "constellate_jar",
+    jars = ["constellate.jar"],
+)
+
+java_binary(
+    name = "starlarkserver",
+    main_class = "build.stack.devtools.build.constellate.RemoteStarlarkServer",
+    runtime_deps = ["constellate_jar"],
+)

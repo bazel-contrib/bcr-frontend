@@ -203,11 +203,14 @@ func makeDocsStarlarkRepository(repoRoot string, module *bzpb.ModuleVersion, fro
 func makeEffectiveModuleDeps(module *bzpb.ModuleVersion) map[string]string {
 	deps := make(map[string]string)
 	for _, dep := range module.Deps {
-		repoName := dep.Name
+		// here we are populating both (for example) '@bazel_gazelle' and
+		// '@gazelle'.  The consuming repo may have both MODULE and WORKSPACE
+		// dependencies that differ (maybe? at least in rules_go...).
+		docsRepoName := makeDocsStarlarkRepositoryRepoName(dep.Name, dep.Version)
+		deps[dep.Name] = docsRepoName
 		if dep.RepoName != "" {
-			repoName = dep.RepoName
+			deps[dep.RepoName] = docsRepoName
 		}
-		deps[repoName] = makeDocsStarlarkRepositoryRepoName(dep.Name, dep.Version)
 	}
 	return deps
 }

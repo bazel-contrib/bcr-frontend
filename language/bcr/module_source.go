@@ -51,11 +51,15 @@ func makeModuleSourceRule(module *bzpb.ModuleVersion, source *bzpb.ModuleSource,
 	if source.DocsUrl != "" {
 		r.SetAttr("docs_url", source.DocsUrl)
 		docsLabel := ext.trackDocsUrl(source.DocsUrl)
-		r.SetAttr("docs", []string{docsLabel.String()})
+		if docsLabel != label.NoLabel {
+			r.SetAttr("docs", []string{docsLabel.String()})
+		}
 	}
 
-	bundleLabel := ext.trackDocsBundle(module, source)
-	r.SetAttr("docs_bundle", bundleLabel.String())
+	// ext.trackDocsBundle(module, source)
+	// if bundleLabel != label.NoLabel {
+	// 	r.SetAttr("docs_bundle", []string{bundleLabel.String()})
+	// }
 
 	return r
 }

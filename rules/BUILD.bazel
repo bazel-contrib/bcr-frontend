@@ -5,7 +5,7 @@ starlark_library(
     src = "archive_override.bzl",
     srcs = ["archive_override.bzl"],
     visibility = ["//visibility:public"],
-    deps = [":libproviders"],
+    deps = ["@stackb_centrl//rules:libproviders"],
 )
 
 starlark_library(
@@ -20,7 +20,7 @@ starlark_library(
     src = "git_override.bzl",
     srcs = ["git_override.bzl"],
     visibility = ["//visibility:public"],
-    deps = [":libproviders"],
+    deps = ["@stackb_centrl//rules:libproviders"],
 )
 
 starlark_library(
@@ -28,7 +28,7 @@ starlark_library(
     src = "local_path_override.bzl",
     srcs = ["local_path_override.bzl"],
     visibility = ["//visibility:public"],
-    deps = [":libproviders"],
+    deps = ["@stackb_centrl//rules:libproviders"],
 )
 
 starlark_library(
@@ -36,7 +36,7 @@ starlark_library(
     src = "module_attestations.bzl",
     srcs = ["module_attestations.bzl"],
     visibility = ["//visibility:public"],
-    deps = [":libproviders"],
+    deps = ["@stackb_centrl//rules:libproviders"],
 )
 
 starlark_library(
@@ -44,7 +44,7 @@ starlark_library(
     src = "module_commit.bzl",
     srcs = ["module_commit.bzl"],
     visibility = ["//visibility:public"],
-    deps = [":libproviders"],
+    deps = ["@stackb_centrl//rules:libproviders"],
 )
 
 starlark_library(
@@ -52,7 +52,7 @@ starlark_library(
     src = "module_dependency.bzl",
     srcs = ["module_dependency.bzl"],
     visibility = ["//visibility:public"],
-    deps = [":libproviders"],
+    deps = ["@stackb_centrl//rules:libproviders"],
 )
 
 starlark_library(
@@ -60,7 +60,7 @@ starlark_library(
     src = "module_dependency_cycle.bzl",
     srcs = ["module_dependency_cycle.bzl"],
     visibility = ["//visibility:public"],
-    deps = [":libproviders"],
+    deps = ["@stackb_centrl//rules:libproviders"],
 )
 
 starlark_library(
@@ -68,7 +68,7 @@ starlark_library(
     src = "module_maintainer.bzl",
     srcs = ["module_maintainer.bzl"],
     visibility = ["//visibility:public"],
-    deps = [":libproviders"],
+    deps = ["@stackb_centrl//rules:libproviders"],
 )
 
 starlark_library(
@@ -76,7 +76,7 @@ starlark_library(
     src = "module_metadata.bzl",
     srcs = ["module_metadata.bzl"],
     visibility = ["//visibility:public"],
-    deps = [":libproviders"],
+    deps = ["@stackb_centrl//rules:libproviders"],
 )
 
 starlark_library(
@@ -84,7 +84,7 @@ starlark_library(
     src = "module_presubmit.bzl",
     srcs = ["module_presubmit.bzl"],
     visibility = ["//visibility:public"],
-    deps = [":libproviders"],
+    deps = ["@stackb_centrl//rules:libproviders"],
 )
 
 starlark_library(
@@ -92,7 +92,7 @@ starlark_library(
     src = "module_registry.bzl",
     srcs = ["module_registry.bzl"],
     visibility = ["//visibility:public"],
-    deps = [":libproviders"],
+    deps = ["@stackb_centrl//rules:libproviders"],
 )
 
 starlark_library(
@@ -100,7 +100,7 @@ starlark_library(
     src = "module_source.bzl",
     srcs = ["module_source.bzl"],
     visibility = ["//visibility:public"],
-    deps = [":libproviders"],
+    deps = ["@stackb_centrl//rules:libproviders"],
 )
 
 starlark_library(
@@ -108,7 +108,7 @@ starlark_library(
     src = "module_version.bzl",
     srcs = ["module_version.bzl"],
     visibility = ["//visibility:public"],
-    deps = [":libproviders"],
+    deps = ["@stackb_centrl//rules:libproviders"],
 )
 
 starlark_library(
@@ -137,7 +137,7 @@ starlark_library(
     src = "repository_metadata.bzl",
     srcs = ["repository_metadata.bzl"],
     visibility = ["//visibility:public"],
-    deps = [":libproviders"],
+    deps = ["@stackb_centrl//rules:libproviders"],
 )
 
 starlark_library(
@@ -152,5 +152,5 @@ starlark_library(
     src = "single_version_override.bzl",
     srcs = ["single_version_override.bzl"],
     visibility = ["//visibility:public"],
-    deps = [":libproviders"],
+    deps = ["@stackb_centrl//rules:libproviders"],
 )

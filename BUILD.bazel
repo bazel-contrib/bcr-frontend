@@ -2,11 +2,18 @@ load("@bazel_gazelle//:def.bzl", "gazelle", "gazelle_binary")
 load("@build_stack_rules_proto//rules:proto_compile_assets.bzl", "proto_compile_assets")
 load("@build_stack_rules_proto//rules:proto_gazelle.bzl", "proto_gazelle")
 load("@build_stack_rules_proto//rules:starlark_bundle.bzl", "starlark_bundle")
+# load("@npm//:defs.bzl", "npm_link_all_packages")
 
 exports_files([
     "rules_proto_config.yaml",
     "protobuf_javascript.patch",
 ])
+
+# ----------------------------------------------------
+# NPM Dependencies
+# ----------------------------------------------------
+
+# npm_link_all_packages(name = "node_modules")
 
 # ----------------------------------------------------
 # Gazelle
@@ -96,6 +103,7 @@ proto_compile_assets(
         "//build/stack/bazel/bzlmod/v1:bzpb_go_compiled_sources",
         "//build/stack/centrl/render/v1:rnpb_go_compiled_sources",
         "//build/stack/livegrep/v1:livegrep_go_compiled_sources",
+        "//build/stack/starlark/v1beta1:v1beta1_go_compiled_sources",
         "//stardoc_output:stardoc_output_go_compiled_sources",
     ],
 )
@@ -105,6 +113,35 @@ starlark_bundle(
     visibility = ["//visibility:public"],
     deps = [
         "@stackb_centrl//cmd/renderhtml:libhtml",
+        "@stackb_centrl//rules:libarchive_override",
+        "@stackb_centrl//rules:libdeploy",
+        "@stackb_centrl//rules:libgit_override",
+        "@stackb_centrl//rules:liblocal_path_override",
+        "@stackb_centrl//rules:libmodule_attestations",
+        "@stackb_centrl//rules:libmodule_commit",
+        "@stackb_centrl//rules:libmodule_dependency",
+        "@stackb_centrl//rules:libmodule_dependency_cycle",
+        "@stackb_centrl//rules:libmodule_maintainer",
+        "@stackb_centrl//rules:libmodule_metadata",
+        "@stackb_centrl//rules:libmodule_presubmit",
+        "@stackb_centrl//rules:libmodule_registry",
+        "@stackb_centrl//rules:libmodule_source",
+        "@stackb_centrl//rules:libmodule_version",
+        "@stackb_centrl//rules:libocticons_closure_template_compile",
+        "@stackb_centrl//rules:libproviders",
+        "@stackb_centrl//rules:librelease",
+        "@stackb_centrl//rules:librepository_metadata",
+        "@stackb_centrl//rules:libserve",
+        "@stackb_centrl//rules:libsingle_version_override",
+    ],
+)
+
+starlark_bundle(
+    name = "docs",
+    visibility = ["//visibility:public"],
+    deps = [
+        "@stackb_centrl//cmd/renderhtml:libhtml",
+        "@stackb_centrl//cmd/starlarkcompiler/tests:libexample",
         "@stackb_centrl//rules:libarchive_override",
         "@stackb_centrl//rules:libdeploy",
         "@stackb_centrl//rules:libgit_override",
