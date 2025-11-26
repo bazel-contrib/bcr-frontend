@@ -3,7 +3,8 @@ package bcr
 import (
 	"context"
 	"log"
-	"sort"
+	"maps"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -153,11 +154,7 @@ func (ext *bcrExtension) reportGithubRateLimits() {
 }
 
 func filterGitlabRepositories(repositories map[string]*bzpb.RepositoryMetadata) []*bzpb.RepositoryMetadata {
-	names := make([]string, 0, len(repositories))
-	for key := range repositories {
-		names = append(names, key)
-	}
-	sort.Strings(names)
+	names := slices.Sorted(maps.Keys(repositories))
 
 	todo := make([]*bzpb.RepositoryMetadata, 0)
 	for _, name := range names {
@@ -171,11 +168,7 @@ func filterGitlabRepositories(repositories map[string]*bzpb.RepositoryMetadata) 
 }
 
 func filterGithubRepositories(repositories map[string]*bzpb.RepositoryMetadata) []*bzpb.RepositoryMetadata {
-	names := make([]string, 0, len(repositories))
-	for key := range repositories {
-		names = append(names, key)
-	}
-	sort.Strings(names)
+	names := slices.Sorted(maps.Keys(repositories))
 
 	todo := make([]*bzpb.RepositoryMetadata, 0)
 	for _, name := range names {
@@ -220,7 +213,7 @@ func (ext *bcrExtension) fetchGithubRepositoryMetadata(todo []*bzpb.RepositoryMe
 	}
 
 	if ext.githubClient == nil {
-		log.Printf("No github client available,  Skipping fetch github metadata...")
+		log.Printf("No github client available, skipping retrieval of github metadata...")
 		return
 	}
 

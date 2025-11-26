@@ -3,9 +3,10 @@ package bcr
 import (
 	"fmt"
 	"log"
+	"maps"
 	"os"
 	"path/filepath"
-	"sort"
+	"slices"
 	"strings"
 
 	"github.com/bazelbuild/bazel-gazelle/label"
@@ -185,12 +186,7 @@ func makeDocsStarlarkRepository(repoRoot string, module *bzpb.ModuleVersion, fro
 		fmt.Sprintf("gazelle:module_dependency %s %s", module.Name, makeDocsStarlarkRepositoryRepoName(module.Name, module.Version)),
 	}
 
-	depNames := make([]string, 0, len(deps))
-	for depName := range deps {
-		depNames = append(depNames, depName)
-	}
-	sort.Strings(depNames)
-
+	depNames := slices.Sorted(maps.Keys(deps))
 	for _, name := range depNames {
 		version := deps[name]
 		directives = append(directives, fmt.Sprintf("gazelle:module_dependency %s %s", name, version))

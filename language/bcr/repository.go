@@ -2,6 +2,8 @@ package bcr
 
 import (
 	"fmt"
+	"maps"
+	"slices"
 	"strings"
 
 	"github.com/bazelbuild/bazel-gazelle/rule"
@@ -111,7 +113,10 @@ func (ext *bcrExtension) trackRepositories(repos []string) {
 func makeRepositoryMetadataRules(repositories map[string]*bzpb.RepositoryMetadata) []*rule.Rule {
 	var rules []*rule.Rule
 
-	for _, md := range repositories {
+	keys := slices.Sorted(maps.Keys(repositories))
+
+	for _, k := range keys {
+		md := repositories[k]
 		// Generate rule name
 		ruleName := makeRepositoryName(md)
 		// Create the rule
