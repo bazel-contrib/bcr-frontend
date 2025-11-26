@@ -1,11 +1,18 @@
 load("@bazel_gazelle//:def.bzl", "gazelle", "gazelle_binary")
 load("@build_stack_rules_proto//rules:proto_compile_assets.bzl", "proto_compile_assets")
 load("@build_stack_rules_proto//rules:proto_gazelle.bzl", "proto_gazelle")
+load("@npm//:defs.bzl", "npm_link_all_packages")
 
 exports_files([
     "rules_proto_config.yaml",
     "protobuf_javascript.patch",
 ])
+
+# ----------------------------------------------------
+# NPM Dependencies
+# ----------------------------------------------------
+
+npm_link_all_packages(name = "node_modules")
 
 # ----------------------------------------------------
 # Gazelle

@@ -29,7 +29,7 @@ func (ext *bcrExtension) DoneGeneratingRules() {
 
 	// fetch repository metadata now that we know the full list of repos to
 	// gather info for
-	// ext.fetchGithubRepositoryMetadata(filterGithubRepositories(ext.repositories))
+	ext.fetchGithubRepositoryMetadata(filterGithubRepositories(ext.repositories))
 	// ext.fetchGitlabRepositoryMetadata(filterGitlabRepositories(ext.repositories))
 
 	// in case we had issues fetching metadata, propagate formward from previous

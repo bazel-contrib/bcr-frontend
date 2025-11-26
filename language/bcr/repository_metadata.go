@@ -6,6 +6,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/bazelbuild/bazel-gazelle/resolve"
 	"github.com/bazelbuild/bazel-gazelle/rule"
@@ -238,15 +239,27 @@ func (ext *bcrExtension) fetchGithubRepositoryMetadata(todo []*bzpb.RepositoryMe
 
 		batch := todo[i:end]
 		log.Printf("Fetching metadata for batch %d-%d of %d repositories using GraphQL...", i+1, end, len(todo))
-		// var repos []string
-		// for _, repo := range batch {
-		// 	repos(" > %s/%s", repo.Organization, repo.Name)
 
-		// }
-		// Fetch using GraphQL
-		if err := gh.FetchRepositoryMetadataBatch(ctx, ext.githubToken, batch); err != nil {
-			log.Printf("warning: failed to fetch repository metadata batch: %v", err)
-			// Continue with next batch instead of failing completely
+		// Retry with exponential backoff
+		maxRetries := 3
+		var err error
+		for attempt := 0; attempt < maxRetries; attempt++ {
+			if attempt > 0 {
+				backoff := time.Duration(attempt) * time.Second
+				log.Printf("Retrying batch %d-%d after %v (attempt %d/%d)...", i+1, end, backoff, attempt+1, maxRetries)
+				time.Sleep(backoff)
+			}
+
+			err = gh.FetchRepositoryMetadataBatch(ctx, ext.githubToken, batch)
+			if err == nil {
+				break
+			}
+
+			log.Printf("warning: failed to fetch repository metadata batch (attempt %d/%d): %v", attempt+1, maxRetries, err)
+		}
+
+		if err != nil {
+			log.Printf("error: failed to fetch repository metadata batch after %d attempts, skipping batch %d-%d", maxRetries, i+1, end)
 			continue
 		}
 
@@ -292,10 +305,26 @@ func (ext *bcrExtension) fetchGitlabRepositoryMetadata(todo []*bzpb.RepositoryMe
 			log.Printf(" > %s/%s", repo.Organization, repo.Name)
 		}
 
-		// Fetch using GraphQL
-		if err := gl.FetchRepositoryMetadataBatch(ctx, ext.gitlabToken, batch); err != nil {
-			log.Printf("warning: failed to fetch GitLab repository metadata batch: %v", err)
-			// Continue with next batch instead of failing completely
+		// Retry with exponential backoff
+		maxRetries := 3
+		var err error
+		for attempt := 0; attempt < maxRetries; attempt++ {
+			if attempt > 0 {
+				backoff := time.Duration(attempt) * time.Second
+				log.Printf("Retrying GitLab batch %d-%d after %v (attempt %d/%d)...", i+1, end, backoff, attempt+1, maxRetries)
+				time.Sleep(backoff)
+			}
+
+			err = gl.FetchRepositoryMetadataBatch(ctx, ext.gitlabToken, batch)
+			if err == nil {
+				break
+			}
+
+			log.Printf("warning: failed to fetch GitLab repository metadata batch (attempt %d/%d): %v", attempt+1, maxRetries, err)
+		}
+
+		if err != nil {
+			log.Printf("error: failed to fetch GitLab repository metadata batch after %d attempts, skipping batch %d-%d", maxRetries, i+1, end)
 			continue
 		}
 

@@ -1661,7 +1661,11 @@ class ModuleVersionComponent extends Component {
 
     enterSyntaxHighlighting() {
         if (HIGHLIGHT_SYNTAX) {
-            const preEls = this.dom_.getElementsByTagNameAndClass(dom.TagName.PRE, goog.getCssName('shiki'), this.getElementStrict());
+            const rootEl = this.getElementStrict();
+            const className = goog.getCssName('shiki');
+            const preEls = dom.findElements(rootEl, (el) => {
+                return el.tagName === 'PRE' && el.classList.contains(className);
+            });
             arrays.forEach(preEls, preEl => syntaxHighlight(this.dom_.getWindow(), preEl));
         }
     }
@@ -2019,6 +2023,13 @@ class FileInfoSelect extends NavigableSelect {
         }));
     }
 
+    /** @override */
+    enterDocument() {
+        super.enterDocument();
+
+        formatMarkdownAll(this.getElementStrict());
+    }
+
     /**
      * @override
      * @param {!Route} route
@@ -2090,30 +2101,7 @@ class MarkdownComponent extends Component {
     enterDocument() {
         super.enterDocument();
 
-        if (FORMAT_MARKDOWN) {
-            this.enterMarkdownFormatting();
-        }
-
-        this.checkDescriptionOverflow();
-    }
-
-    checkDescriptionOverflow() {
-        const descContent = this.getElement().querySelector('.desc-content');
-        const toggleLabel = this.getElement().querySelector('.desc-toggle-label');
-
-        if (descContent && toggleLabel) {
-            // Check if content is overflowing
-            if (descContent.scrollHeight <= 240) {
-                // Content fits, hide the toggle
-                toggleLabel.style.display = 'none';
-                descContent.style.maxHeight = 'none';
-            }
-        }
-    }
-
-    enterMarkdownFormatting() {
-        const divEls = this.dom_.getElementsByTagNameAndClass(dom.TagName.DIV, goog.getCssName('markdown-body'), this.getElementStrict());
-        arrays.forEach(divEls, el => formatMarkdown(this.dom_.getWindow(), el));
+        formatMarkdownAll(this.getElementStrict());
     }
 }
 
@@ -2173,7 +2161,9 @@ class SymbolInfoComponent extends MarkdownComponent {
 
     enterSyntaxHighlighting() {
         if (HIGHLIGHT_SYNTAX) {
-            const preEls = this.dom_.getElementsByTagNameAndClass(dom.TagName.PRE, goog.getCssName('shiki'), this.getElementStrict());
+            const rootEl = this.getElementStrict();
+            const className = goog.getCssName('shiki');
+            const preEls = dom.findElements(rootEl, el => el.classList.contains(className));
             arrays.forEach(preEls, preEl => syntaxHighlight(this.dom_.getWindow(), preEl));
         }
     }
@@ -2678,7 +2668,7 @@ class ModuleExtensionInfoComponent extends SymbolInfoComponent {
 }
 
 
-class DocumentationInfoListComponent extends Component {
+class DocumentationInfoListComponent extends MarkdownComponent {
     /**
      * @param {!ModuleVersion} moduleVersion
      * @param {!DocumentationInfo} docs
@@ -2709,7 +2699,7 @@ class DocumentationInfoListComponent extends Component {
 
 
 
-class FileInfoListComponent extends Component {
+class FileInfoListComponent extends MarkdownComponent {
     /**
      * @param {!ModuleVersion} moduleVersion
      * @param {!FileInfo} file
@@ -2853,7 +2843,7 @@ function maintainerModuleVersions(registry, maintainer) {
  * Builds a mapping of module versions from a module.
  *
  * @param {!Window} window
- * @param {!HTMLPreElement} preEl The element to highlight
+ * @param {!Element} preEl The element to highlight
  * @suppress {reportUnknownTypes, missingSourcesWarnings}
  */
 async function syntaxHighlight(window, preEl) {
@@ -2869,16 +2859,27 @@ async function syntaxHighlight(window, preEl) {
 }
 
 /**
- * Converts an element text content to html.
+ * 
+ * @param {!Element} rootEl The root element to search from 
+ */
+function formatMarkdownAll(rootEl) {
+    if (FORMAT_MARKDOWN) {
+        const divEls = dom.findElements(rootEl, el => dom.classlist.contains(el, 'marked'));
+        arrays.forEach(divEls, formatMarkdown);
+    }
+}
+
+/**
+ * formats the innner text of an element as markdown using 'marked'.
  *
- * @param {!Window} window
- * @param {!HTMLElement} el The element to convert
+ * @param {!Element} el The element to convert
  * @suppress {reportUnknownTypes, missingSourcesWarnings}
  */
-function formatMarkdown(window, el) {
+function formatMarkdown(el) {
     const text = el.textContent;
     const html = window['marked']['parse'](text);
     el.innerHTML = html;
+    dom.dataset.set(el, "formatted", "markdown");
 }
 
 /**

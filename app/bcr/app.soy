@@ -233,7 +233,7 @@ import {
       <div class="Box-header">
         <div class="Box-title">About</div>
       </div>
-      <div class="Box-body markdown-body">
+      <div class="Box-body markdown-body {css('marked')}">
         <h1>Bazel Central Registry</h1>
         <p>
           The Bazel Central Registry (BCR) is the official registry for Bazel modules. It serves as a centralized repository
@@ -635,16 +635,9 @@ import {
     </div>
     {if $file.getDescription()}
       <div class="Subhead-description">
-        <label class="desc-toggle-wrapper" style="display: block">
-          <input type="checkbox" class="desc-toggle" style="display: none">
-          <div class="markdown-body mb-1 text-normal desc-content" style="font-size: 14px; overflow-x: auto; max-height: 100px; overflow-y: hidden">
-            {$file.getDescription()}
-          </div>
-          <span class="Link--muted desc-toggle-label" style="cursor: pointer; font-size: 12px; display: block">
-            <span class="show-more">Show more...</span>
-            <span class="show-less" style="display: none">Show less</span>
-          </span>
-        </label>
+        <div class="markdown-body {css('marked')} mb-1 text-normal" style="font-size: 14px; overflow-x: auto; max-height: 100px; overflow-y: hidden">
+          {$file.getDescription()}
+        </div>
       </div>
     {/if}
     <div class="Subhead-actions">
@@ -699,7 +692,7 @@ import {
   <a href="{symbolInfoUrl(file: $file, sym: $sym)}" class="flex-auto Link--primary">
     <span class="text-semibold">{$sym.getName()}</span>
   </a>
-  <span class="text-small text-light ml-2">{$sym.getDescription()|truncate:63}</span>
+  <span class="{css('marked')} markdown-body text-small text-light ml-2">{$sym.getDescription()|truncate:63}</span>
 </div>
 {/template}
 
@@ -744,29 +737,9 @@ import {
   </div>
   {if $sym.getDescription()}
     <div class="Subhead-description">
-      <label class="desc-toggle-wrapper" style="display: block">
-        <input type="checkbox" class="desc-toggle" style="display: none">
-        <div class="markdown-body mb-1 text-normal desc-content" style="font-size: 14px; overflow-x: auto; max-height: 100px; overflow-y: hidden">
-          {$sym.getDescription()}
-        </div>
-        <span class="Link--muted desc-toggle-label" style="cursor: pointer; font-size: 12px; display: block">
-          <span class="show-more">Show more...</span>
-          <span class="show-less" style="display: none">Show less</span>
-        </span>
-      </label>
-      <style>
-        {literal}
-        .desc-toggle:checked ~ .desc-content {
-          max-height: none !important;
-        }
-        .desc-toggle:checked ~ .desc-toggle-label .show-more {
-          display: none;
-        }
-        .desc-toggle:checked ~ .desc-toggle-label .show-less {
-          display: inline;
-        }
-        {/literal}
-      </style>
+      <div class="markdown-body {css('marked')} mb-1 text-normal" style="font-size: 14px; overflow-x: auto; max-height: 100px; overflow-y: hidden">
+        {$sym.getDescription()}
+      </div>
     </div>
   {/if}
   <div class="Subhead-actions">
@@ -932,7 +905,7 @@ import {
     <h4 class="text-semibold">{$tagClass.getTagName()}</h4>
   </div>
   {if $tagClass.getDocString()}
-    <div class="markdown-body mb-2" style="overflow-x: auto">
+    <div class="markdown-body {css('marked')} mb-2" style="overflow-x: auto">
       {$tagClass.getDocString()}
     </div>
   {/if}
@@ -980,7 +953,7 @@ import {
       <span class="text-semibold text-mono">{$field.getName()}</span>
     </div>
     {if $field.getDocString()}
-      <div class="markdown-body text-small mt-1" style="overflow-x: auto">
+      <div class="markdown-body {css('marked')} text-small mt-1" style="overflow-x: auto">
         {$field.getDocString()}
       </div>
     {/if}
@@ -1030,7 +1003,7 @@ import {
       {/if}
     </div>
     {if $param.getDocString()}
-      <div class="markdown-body text-small mt-1" style="overflow-x: auto">
+      <div class="markdown-body {css('marked')} text-small mt-1" style="overflow-x: auto">
         {$param.getDocString()}
       </div>
     {/if}
@@ -1055,7 +1028,7 @@ import {
 <div class="Box-row">
   <div class="d-flex flex-column">
     {if $returnInfo.getDocString()}
-      <div class="markdown-body text-small" style="overflow-x: auto">
+      <div class="markdown-body {css('marked')} text-small" style="overflow-x: auto">
         {$returnInfo.getDocString()}
       </div>
     {/if}
@@ -1092,7 +1065,7 @@ import {
       {/if}
     </div>
     {if $attr.getDocString()}
-      <div class="markdown-body text-small mt-1" style="overflow-x: auto">
+      <div class="markdown-body {css('marked')} text-small mt-1" style="overflow-x: auto">
         {$attr.getDocString()}
       </div>
     {/if}

@@ -8,14 +8,16 @@ module(
 # Dev  Dependencies
 # -------------------------------------------------------------------
 
+bazel_dep(name = "aspect_rules_js", version = "2.8.2", dev_dependency = True)
 bazel_dep(name = "bazel_skylib", version = "1.8.2", dev_dependency = True)
 bazel_dep(name = "build_stack_rules_proto", version = "4.1.1", dev_dependency = True)
 bazel_dep(name = "buildifier_prebuilt", version = "8.2.0.2", dev_dependency = True)
 bazel_dep(name = "gazelle", version = "0.45.0", dev_dependency = True, repo_name = "bazel_gazelle")
-bazel_dep(name = "stackb_rules_closure", version = "1.0.0", dev_dependency = True)
 bazel_dep(name = "rules_go", version = "0.57.0", dev_dependency = True)
+bazel_dep(name = "rules_java", version = "8.16.1", dev_dependency = True)
 bazel_dep(name = "rules_proto", version = "7.1.0", dev_dependency = True)
 bazel_dep(name = "rules_tsickle", version = "1.1.0", dev_dependency = True)
+bazel_dep(name = "stackb_rules_closure", version = "1.0.0", dev_dependency = True)
 bazel_dep(name = "stackb_ui_js", version = "1.0.0", dev_dependency = True)
 
 # -------------------------------------------------------------------
@@ -119,6 +121,18 @@ use_repo(
 )
 
 # -------------------------------------------------------------------
+# Configuration: NPM
+# -------------------------------------------------------------------
+
+npm = use_extension("@aspect_rules_js//npm:extensions.bzl", "npm", dev_dependency = True)
+npm.npm_translate_lock(
+    name = "npm",
+    pnpm_lock = "//:pnpm-lock.yaml",
+    verify_node_modules_ignored = "//:.bazelignore",
+)
+use_repo(npm, "npm")
+
+# -------------------------------------------------------------------
 # Configuration: colors.json
 # -------------------------------------------------------------------
 
@@ -168,219 +182,9 @@ http_file(
 # -------------------------------------------------------------------
 
 http_archive(
-    name = "github.com_bazel-contrib_jq.bzl_releases_download_v0.4.0_jq.bzl-v0.4.0",
-    build_file_content = "filegroup(name = \"files\",\n    srcs = glob([\"**/*.binaryproto\"]),\n    visibility = [\"//visibility:public\"],\n)",
-    url = "https://github.com/bazel-contrib/jq.bzl/releases/download/v0.4.0/jq.bzl-v0.4.0.docs.tar.gz",
-)
-
-http_archive(
-    name = "github.com_dzbarsky_rules_rs_releases_download_v0.0.10_rules_rs-v0.0.10",
-    build_file_content = "filegroup(name = \"files\",\n    srcs = glob([\"**/*.binaryproto\"]),\n    visibility = [\"//visibility:public\"],\n)",
-    url = "https://github.com/dzbarsky/rules_rs/releases/download/v0.0.10/rules_rs-v0.0.10.docs.tar.gz",
-)
-
-http_archive(
-    name = "github.com_dzbarsky_rules_rs_releases_download_v0.0.11_rules_rs-v0.0.11",
-    build_file_content = "filegroup(name = \"files\",\n    srcs = glob([\"**/*.binaryproto\"]),\n    visibility = [\"//visibility:public\"],\n)",
-    url = "https://github.com/dzbarsky/rules_rs/releases/download/v0.0.11/rules_rs-v0.0.11.docs.tar.gz",
-)
-
-http_archive(
-    name = "github.com_bazel-contrib_yq.bzl_releases_download_v0.3.2_yq.bzl-v0.3.2",
-    build_file_content = "filegroup(name = \"files\",\n    srcs = glob([\"**/*.binaryproto\"]),\n    visibility = [\"//visibility:public\"],\n)",
-    url = "https://github.com/bazel-contrib/yq.bzl/releases/download/v0.3.2/yq.bzl-v0.3.2.docs.tar.gz",
-)
-
-http_archive(
-    name = "github.com_bazel-contrib_bazelrc-preset.bzl_releases_download_v1.5.1_bazelrc-preset.bzl-v1.5.1",
-    build_file_content = "filegroup(name = \"files\",\n    srcs = glob([\"**/*.binaryproto\"]),\n    visibility = [\"//visibility:public\"],\n)",
-    url = "https://github.com/bazel-contrib/bazelrc-preset.bzl/releases/download/v1.5.1/bazelrc-preset.bzl-v1.5.1.docs.tar.gz",
-)
-
-http_archive(
-    name = "github.com_bazel-contrib_jq.bzl_releases_download_v0.2.4_jq.bzl-v0.2.4",
-    build_file_content = "filegroup(name = \"files\",\n    srcs = glob([\"**/*.binaryproto\"]),\n    visibility = [\"//visibility:public\"],\n)",
-    url = "https://github.com/bazel-contrib/jq.bzl/releases/download/v0.2.4/jq.bzl-v0.2.4.docs.tar.gz",
-)
-
-http_archive(
-    name = "github.com_bazel-contrib_rules_dotnet_releases_download_v0.20.5_rules_dotnet-v0.20.5",
-    build_file_content = "filegroup(name = \"files\",\n    srcs = glob([\"**/*.binaryproto\"]),\n    visibility = [\"//visibility:public\"],\n)",
-    url = "https://github.com/bazel-contrib/rules_dotnet/releases/download/v0.20.5/rules_dotnet-v0.20.5.docs.tar.gz",
-)
-
-http_archive(
-    name = "github.com_bazel-contrib_rules_nodejs_releases_download_v6.6.0_rules_nodejs-v6.6.0",
-    build_file_content = "filegroup(name = \"files\",\n    srcs = glob([\"**/*.binaryproto\"]),\n    visibility = [\"//visibility:public\"],\n)",
-    url = "https://github.com/bazel-contrib/rules_nodejs/releases/download/v6.6.0/rules_nodejs-v6.6.0.docs.tar.gz",
-)
-
-http_archive(
-    name = "github.com_bazel-contrib_tar.bzl_releases_download_v0.7.0_tar.bzl-v0.7.0",
-    build_file_content = "filegroup(name = \"files\",\n    srcs = glob([\"**/*.binaryproto\"]),\n    visibility = [\"//visibility:public\"],\n)",
-    url = "https://github.com/bazel-contrib/tar.bzl/releases/download/v0.7.0/tar.bzl-v0.7.0.docs.tar.gz",
-)
-
-http_archive(
-    name = "github.com_bazel-contrib_bazelrc-preset.bzl_releases_download_v1.5.0_bazelrc-preset.bzl-v1.5.0",
-    build_file_content = "filegroup(name = \"files\",\n    srcs = glob([\"**/*.binaryproto\"]),\n    visibility = [\"//visibility:public\"],\n)",
-    url = "https://github.com/bazel-contrib/bazelrc-preset.bzl/releases/download/v1.5.0/bazelrc-preset.bzl-v1.5.0.docs.tar.gz",
-)
-
-http_archive(
-    name = "github.com_bazel-contrib_rules_img_releases_download_v0.2.6_rules_img-v0.2.6",
-    build_file_content = "filegroup(name = \"files\",\n    srcs = glob([\"**/*.binaryproto\"]),\n    visibility = [\"//visibility:public\"],\n)",
-    url = "https://github.com/bazel-contrib/rules_img/releases/download/v0.2.6/rules_img-v0.2.6.docs.tar.gz",
-)
-
-http_archive(
-    name = "github.com_dzbarsky_rules_rs_releases_download_v0.0.12_rules_rs-v0.0.12",
-    build_file_content = "filegroup(name = \"files\",\n    srcs = glob([\"**/*.binaryproto\"]),\n    visibility = [\"//visibility:public\"],\n)",
-    url = "https://github.com/dzbarsky/rules_rs/releases/download/v0.0.12/rules_rs-v0.0.12.docs.tar.gz",
-)
-
-http_archive(
-    name = "github.com_aspect-build_rules_py_releases_download_v1.6.6_rules_py-v1.6.6",
-    build_file_content = "filegroup(name = \"files\",\n    srcs = glob([\"**/*.binaryproto\"]),\n    visibility = [\"//visibility:public\"],\n)",
-    url = "https://github.com/aspect-build/rules_py/releases/download/v1.6.6/rules_py-v1.6.6.docs.tar.gz",
-)
-
-http_archive(
-    name = "github.com_aspect-build_rules_swc_releases_download_v2.5.0_rules_swc-v2.5.0",
-    build_file_content = "filegroup(name = \"files\",\n    srcs = glob([\"**/*.binaryproto\"]),\n    visibility = [\"//visibility:public\"],\n)",
-    url = "https://github.com/aspect-build/rules_swc/releases/download/v2.5.0/rules_swc-v2.5.0.docs.tar.gz",
-)
-
-http_archive(
-    name = "github.com_bazel-contrib_bazel-lib_releases_download_v3.0.0-beta.1_bazel-lib-v3.0.0-beta.1",
-    build_file_content = "filegroup(name = \"files\",\n    srcs = glob([\"**/*.binaryproto\"]),\n    visibility = [\"//visibility:public\"],\n)",
-    url = "https://github.com/bazel-contrib/bazel-lib/releases/download/v3.0.0-beta.1/bazel-lib-v3.0.0-beta.1.docs.tar.gz",
-)
-
-http_archive(
-    name = "github.com_bazel-contrib_bazel-lib_releases_download_v3.0.0-rc.0_bazel-lib-v3.0.0-rc.0",
-    build_file_content = "filegroup(name = \"files\",\n    srcs = glob([\"**/*.binaryproto\"]),\n    visibility = [\"//visibility:public\"],\n)",
-    url = "https://github.com/bazel-contrib/bazel-lib/releases/download/v3.0.0-rc.0/bazel-lib-v3.0.0-rc.0.docs.tar.gz",
-)
-
-http_archive(
-    name = "github.com_bazel-contrib_jq.bzl_releases_download_v0.3.0_jq.bzl-v0.3.0",
-    build_file_content = "filegroup(name = \"files\",\n    srcs = glob([\"**/*.binaryproto\"]),\n    visibility = [\"//visibility:public\"],\n)",
-    url = "https://github.com/bazel-contrib/jq.bzl/releases/download/v0.3.0/jq.bzl-v0.3.0.docs.tar.gz",
-)
-
-http_archive(
-    name = "github.com_aspect-build_rules_terser_releases_download_v2.1.0_rules_terser-v2.1.0",
-    build_file_content = "filegroup(name = \"files\",\n    srcs = glob([\"**/*.binaryproto\"]),\n    visibility = [\"//visibility:public\"],\n)",
-    url = "https://github.com/aspect-build/rules_terser/releases/download/v2.1.0/rules_terser-v2.1.0.docs.tar.gz",
-)
-
-http_archive(
-    name = "github.com_bazel-contrib_rules_dotnet_releases_download_v0.21.5_rules_dotnet-v0.21.5",
-    build_file_content = "filegroup(name = \"files\",\n    srcs = glob([\"**/*.binaryproto\"]),\n    visibility = [\"//visibility:public\"],\n)",
-    url = "https://github.com/bazel-contrib/rules_dotnet/releases/download/v0.21.5/rules_dotnet-v0.21.5.docs.tar.gz",
-)
-
-http_archive(
-    name = "github.com_bazel-contrib_rules_img_releases_download_v0.2.7_rules_img-v0.2.7",
-    build_file_content = "filegroup(name = \"files\",\n    srcs = glob([\"**/*.binaryproto\"]),\n    visibility = [\"//visibility:public\"],\n)",
-    url = "https://github.com/bazel-contrib/rules_img/releases/download/v0.2.7/rules_img-v0.2.7.docs.tar.gz",
-)
-
-http_archive(
-    name = "github.com_bazel-contrib_rules_img_releases_download_v0.2.8_rules_img-v0.2.8",
-    build_file_content = "filegroup(name = \"files\",\n    srcs = glob([\"**/*.binaryproto\"]),\n    visibility = [\"//visibility:public\"],\n)",
-    url = "https://github.com/bazel-contrib/rules_img/releases/download/v0.2.8/rules_img-v0.2.8.docs.tar.gz",
-)
-
-http_archive(
-    name = "github.com_bazel-contrib_rules_img_releases_download_v0.2.9_rules_img-v0.2.9",
-    build_file_content = "filegroup(name = \"files\",\n    srcs = glob([\"**/*.binaryproto\"]),\n    visibility = [\"//visibility:public\"],\n)",
-    url = "https://github.com/bazel-contrib/rules_img/releases/download/v0.2.9/rules_img-v0.2.9.docs.tar.gz",
-)
-
-http_archive(
-    name = "github.com_bazel-contrib_rules_nodejs_releases_download_v6.6.1_rules_nodejs-v6.6.1",
-    build_file_content = "filegroup(name = \"files\",\n    srcs = glob([\"**/*.binaryproto\"]),\n    visibility = [\"//visibility:public\"],\n)",
-    url = "https://github.com/bazel-contrib/rules_nodejs/releases/download/v6.6.1/rules_nodejs-v6.6.1.docs.tar.gz",
-)
-
-http_archive(
-    name = "github.com_bazel-contrib_tar.bzl_releases_download_v0.5.6_tar.bzl-v0.5.6",
-    build_file_content = "filegroup(name = \"files\",\n    srcs = glob([\"**/*.binaryproto\"]),\n    visibility = [\"//visibility:public\"],\n)",
-    url = "https://github.com/bazel-contrib/tar.bzl/releases/download/v0.5.6/tar.bzl-v0.5.6.docs.tar.gz",
-)
-
-http_archive(
-    name = "github.com_bazel-contrib_tar.bzl_releases_download_v0.6.0_tar.bzl-v0.6.0",
-    build_file_content = "filegroup(name = \"files\",\n    srcs = glob([\"**/*.binaryproto\"]),\n    visibility = [\"//visibility:public\"],\n)",
-    url = "https://github.com/bazel-contrib/tar.bzl/releases/download/v0.6.0/tar.bzl-v0.6.0.docs.tar.gz",
-)
-
-http_archive(
-    name = "github.com_bazel-contrib_jq.bzl_releases_download_v0.2.3_jq.bzl-v0.2.3",
-    build_file_content = "filegroup(name = \"files\",\n    srcs = glob([\"**/*.binaryproto\"]),\n    visibility = [\"//visibility:public\"],\n)",
-    url = "https://github.com/bazel-contrib/jq.bzl/releases/download/v0.2.3/jq.bzl-v0.2.3.docs.tar.gz",
-)
-
-http_archive(
-    name = "github.com_dzbarsky_rules_rs_releases_download_v0.0.15_rules_rs-v0.0.15",
-    build_file_content = "filegroup(name = \"files\",\n    srcs = glob([\"**/*.binaryproto\"]),\n    visibility = [\"//visibility:public\"],\n)",
-    url = "https://github.com/dzbarsky/rules_rs/releases/download/v0.0.15/rules_rs-v0.0.15.docs.tar.gz",
-)
-
-http_archive(
-    name = "github.com_bazel-contrib_yq.bzl_releases_download_v0.3.0_yq.bzl-v0.3.0",
-    build_file_content = "filegroup(name = \"files\",\n    srcs = glob([\"**/*.binaryproto\"]),\n    visibility = [\"//visibility:public\"],\n)",
-    url = "https://github.com/bazel-contrib/yq.bzl/releases/download/v0.3.0/yq.bzl-v0.3.0.docs.tar.gz",
-)
-
-http_archive(
-    name = "github.com_aspect-build_rules_esbuild_releases_download_v0.24.0_rules_esbuild-v0.24.0",
-    build_file_content = "filegroup(name = \"files\",\n    srcs = glob([\"**/*.binaryproto\"]),\n    visibility = [\"//visibility:public\"],\n)",
-    url = "https://github.com/aspect-build/rules_esbuild/releases/download/v0.24.0/rules_esbuild-v0.24.0.docs.tar.gz",
-)
-
-http_archive(
-    name = "github.com_bazel-contrib_bazelrc-preset.bzl_releases_download_v1.4.0_bazelrc-preset.bzl-v1.4.0",
-    build_file_content = "filegroup(name = \"files\",\n    srcs = glob([\"**/*.binaryproto\"]),\n    visibility = [\"//visibility:public\"],\n)",
-    url = "https://github.com/bazel-contrib/bazelrc-preset.bzl/releases/download/v1.4.0/bazelrc-preset.bzl-v1.4.0.docs.tar.gz",
-)
-
-http_archive(
-    name = "github.com_bazel-contrib_bazelrc-preset.bzl_releases_download_v1.6.0_bazelrc-preset.bzl-v1.6.0",
-    build_file_content = "filegroup(name = \"files\",\n    srcs = glob([\"**/*.binaryproto\"]),\n    visibility = [\"//visibility:public\"],\n)",
-    url = "https://github.com/bazel-contrib/bazelrc-preset.bzl/releases/download/v1.6.0/bazelrc-preset.bzl-v1.6.0.docs.tar.gz",
-)
-
-http_archive(
-    name = "github.com_bazel-contrib_jq.bzl_releases_download_v0.2.2_jq.bzl-v0.2.2",
-    build_file_content = "filegroup(name = \"files\",\n    srcs = glob([\"**/*.binaryproto\"]),\n    visibility = [\"//visibility:public\"],\n)",
-    url = "https://github.com/bazel-contrib/jq.bzl/releases/download/v0.2.2/jq.bzl-v0.2.2.docs.tar.gz",
-)
-
-http_archive(
-    name = "github.com_bazel-contrib_rules_d_releases_download_v0.3.1_rules_d-v0.3.1",
-    build_file_content = "filegroup(name = \"files\",\n    srcs = glob([\"**/*.binaryproto\"]),\n    visibility = [\"//visibility:public\"],\n)",
-    url = "https://github.com/bazel-contrib/rules_d/releases/download/v0.3.1/rules_d-v0.3.1.docs.tar.gz",
-)
-
-http_archive(
-    name = "github.com_bazel-contrib_rules_distroless_releases_download_v0.6.1_rules_distroless-v0.6.1",
-    build_file_content = "filegroup(name = \"files\",\n    srcs = glob([\"**/*.binaryproto\"]),\n    visibility = [\"//visibility:public\"],\n)",
-    url = "https://github.com/bazel-contrib/rules_distroless/releases/download/v0.6.1/rules_distroless-v0.6.1.docs.tar.gz",
-)
-
-http_archive(
     name = "github.com_bazel-contrib_rules_nodejs_releases_download_v6.5.2_rules_nodejs-v6.5.2",
     build_file_content = "filegroup(name = \"files\",\n    srcs = glob([\"**/*.binaryproto\"]),\n    visibility = [\"//visibility:public\"],\n)",
     url = "https://github.com/bazel-contrib/rules_nodejs/releases/download/v6.5.2/rules_nodejs-v6.5.2.docs.tar.gz",
-)
-
-http_archive(
-    name = "github.com_dzbarsky_rules_rs_releases_download_v0.0.13_rules_rs-v0.0.13",
-    build_file_content = "filegroup(name = \"files\",\n    srcs = glob([\"**/*.binaryproto\"]),\n    visibility = [\"//visibility:public\"],\n)",
-    url = "https://github.com/dzbarsky/rules_rs/releases/download/v0.0.13/rules_rs-v0.0.13.docs.tar.gz",
 )
 
 http_archive(
@@ -390,9 +194,177 @@ http_archive(
 )
 
 http_archive(
+    name = "github.com_bazel-contrib_bazel-lib_releases_download_v3.0.0-rc.0_bazel-lib-v3.0.0-rc.0",
+    build_file_content = "filegroup(name = \"files\",\n    srcs = glob([\"**/*.binaryproto\"]),\n    visibility = [\"//visibility:public\"],\n)",
+    url = "https://github.com/bazel-contrib/bazel-lib/releases/download/v3.0.0-rc.0/bazel-lib-v3.0.0-rc.0.docs.tar.gz",
+)
+
+http_archive(
+    name = "github.com_bazel-contrib_bazelrc-preset.bzl_releases_download_v1.4.0_bazelrc-preset.bzl-v1.4.0",
+    build_file_content = "filegroup(name = \"files\",\n    srcs = glob([\"**/*.binaryproto\"]),\n    visibility = [\"//visibility:public\"],\n)",
+    url = "https://github.com/bazel-contrib/bazelrc-preset.bzl/releases/download/v1.4.0/bazelrc-preset.bzl-v1.4.0.docs.tar.gz",
+)
+
+http_archive(
+    name = "github.com_bazel-contrib_bazelrc-preset.bzl_releases_download_v1.5.1_bazelrc-preset.bzl-v1.5.1",
+    build_file_content = "filegroup(name = \"files\",\n    srcs = glob([\"**/*.binaryproto\"]),\n    visibility = [\"//visibility:public\"],\n)",
+    url = "https://github.com/bazel-contrib/bazelrc-preset.bzl/releases/download/v1.5.1/bazelrc-preset.bzl-v1.5.1.docs.tar.gz",
+)
+
+http_archive(
+    name = "github.com_bazel-contrib_rules_d_releases_download_v0.3.1_rules_d-v0.3.1",
+    build_file_content = "filegroup(name = \"files\",\n    srcs = glob([\"**/*.binaryproto\"]),\n    visibility = [\"//visibility:public\"],\n)",
+    url = "https://github.com/bazel-contrib/rules_d/releases/download/v0.3.1/rules_d-v0.3.1.docs.tar.gz",
+)
+
+http_archive(
+    name = "github.com_dzbarsky_rules_rs_releases_download_v0.0.10_rules_rs-v0.0.10",
+    build_file_content = "filegroup(name = \"files\",\n    srcs = glob([\"**/*.binaryproto\"]),\n    visibility = [\"//visibility:public\"],\n)",
+    url = "https://github.com/dzbarsky/rules_rs/releases/download/v0.0.10/rules_rs-v0.0.10.docs.tar.gz",
+)
+
+http_archive(
+    name = "github.com_dzbarsky_rules_rs_releases_download_v0.0.13_rules_rs-v0.0.13",
+    build_file_content = "filegroup(name = \"files\",\n    srcs = glob([\"**/*.binaryproto\"]),\n    visibility = [\"//visibility:public\"],\n)",
+    url = "https://github.com/dzbarsky/rules_rs/releases/download/v0.0.13/rules_rs-v0.0.13.docs.tar.gz",
+)
+
+http_archive(
+    name = "github.com_aspect-build_rules_esbuild_releases_download_v0.24.0_rules_esbuild-v0.24.0",
+    build_file_content = "filegroup(name = \"files\",\n    srcs = glob([\"**/*.binaryproto\"]),\n    visibility = [\"//visibility:public\"],\n)",
+    url = "https://github.com/aspect-build/rules_esbuild/releases/download/v0.24.0/rules_esbuild-v0.24.0.docs.tar.gz",
+)
+
+http_archive(
+    name = "github.com_aspect-build_rules_py_releases_download_v1.6.6_rules_py-v1.6.6",
+    build_file_content = "filegroup(name = \"files\",\n    srcs = glob([\"**/*.binaryproto\"]),\n    visibility = [\"//visibility:public\"],\n)",
+    url = "https://github.com/aspect-build/rules_py/releases/download/v1.6.6/rules_py-v1.6.6.docs.tar.gz",
+)
+
+http_archive(
+    name = "github.com_bazel-contrib_bazelrc-preset.bzl_releases_download_v1.5.0_bazelrc-preset.bzl-v1.5.0",
+    build_file_content = "filegroup(name = \"files\",\n    srcs = glob([\"**/*.binaryproto\"]),\n    visibility = [\"//visibility:public\"],\n)",
+    url = "https://github.com/bazel-contrib/bazelrc-preset.bzl/releases/download/v1.5.0/bazelrc-preset.bzl-v1.5.0.docs.tar.gz",
+)
+
+http_archive(
+    name = "github.com_bazel-contrib_bazelrc-preset.bzl_releases_download_v1.6.0_bazelrc-preset.bzl-v1.6.0",
+    build_file_content = "filegroup(name = \"files\",\n    srcs = glob([\"**/*.binaryproto\"]),\n    visibility = [\"//visibility:public\"],\n)",
+    url = "https://github.com/bazel-contrib/bazelrc-preset.bzl/releases/download/v1.6.0/bazelrc-preset.bzl-v1.6.0.docs.tar.gz",
+)
+
+http_archive(
+    name = "github.com_bazel-contrib_rules_dotnet_releases_download_v0.20.5_rules_dotnet-v0.20.5",
+    build_file_content = "filegroup(name = \"files\",\n    srcs = glob([\"**/*.binaryproto\"]),\n    visibility = [\"//visibility:public\"],\n)",
+    url = "https://github.com/bazel-contrib/rules_dotnet/releases/download/v0.20.5/rules_dotnet-v0.20.5.docs.tar.gz",
+)
+
+http_archive(
+    name = "github.com_bazel-contrib_rules_img_releases_download_v0.2.8_rules_img-v0.2.8",
+    build_file_content = "filegroup(name = \"files\",\n    srcs = glob([\"**/*.binaryproto\"]),\n    visibility = [\"//visibility:public\"],\n)",
+    url = "https://github.com/bazel-contrib/rules_img/releases/download/v0.2.8/rules_img-v0.2.8.docs.tar.gz",
+)
+
+http_archive(
+    name = "github.com_dzbarsky_rules_rs_releases_download_v0.0.15_rules_rs-v0.0.15",
+    build_file_content = "filegroup(name = \"files\",\n    srcs = glob([\"**/*.binaryproto\"]),\n    visibility = [\"//visibility:public\"],\n)",
+    url = "https://github.com/dzbarsky/rules_rs/releases/download/v0.0.15/rules_rs-v0.0.15.docs.tar.gz",
+)
+
+http_archive(
+    name = "github.com_bazel-contrib_tar.bzl_releases_download_v0.5.6_tar.bzl-v0.5.6",
+    build_file_content = "filegroup(name = \"files\",\n    srcs = glob([\"**/*.binaryproto\"]),\n    visibility = [\"//visibility:public\"],\n)",
+    url = "https://github.com/bazel-contrib/tar.bzl/releases/download/v0.5.6/tar.bzl-v0.5.6.docs.tar.gz",
+)
+
+http_archive(
+    name = "github.com_bazel-contrib_bazel-lib_releases_download_v3.0.0-beta.1_bazel-lib-v3.0.0-beta.1",
+    build_file_content = "filegroup(name = \"files\",\n    srcs = glob([\"**/*.binaryproto\"]),\n    visibility = [\"//visibility:public\"],\n)",
+    url = "https://github.com/bazel-contrib/bazel-lib/releases/download/v3.0.0-beta.1/bazel-lib-v3.0.0-beta.1.docs.tar.gz",
+)
+
+http_archive(
+    name = "github.com_bazel-contrib_jq.bzl_releases_download_v0.2.4_jq.bzl-v0.2.4",
+    build_file_content = "filegroup(name = \"files\",\n    srcs = glob([\"**/*.binaryproto\"]),\n    visibility = [\"//visibility:public\"],\n)",
+    url = "https://github.com/bazel-contrib/jq.bzl/releases/download/v0.2.4/jq.bzl-v0.2.4.docs.tar.gz",
+)
+
+http_archive(
+    name = "github.com_bazel-contrib_rules_img_releases_download_v0.2.6_rules_img-v0.2.6",
+    build_file_content = "filegroup(name = \"files\",\n    srcs = glob([\"**/*.binaryproto\"]),\n    visibility = [\"//visibility:public\"],\n)",
+    url = "https://github.com/bazel-contrib/rules_img/releases/download/v0.2.6/rules_img-v0.2.6.docs.tar.gz",
+)
+
+http_archive(
+    name = "github.com_bazel-contrib_rules_img_releases_download_v0.2.9_rules_img-v0.2.9",
+    build_file_content = "filegroup(name = \"files\",\n    srcs = glob([\"**/*.binaryproto\"]),\n    visibility = [\"//visibility:public\"],\n)",
+    url = "https://github.com/bazel-contrib/rules_img/releases/download/v0.2.9/rules_img-v0.2.9.docs.tar.gz",
+)
+
+http_archive(
+    name = "github.com_bazel-contrib_rules_nodejs_releases_download_v6.6.0_rules_nodejs-v6.6.0",
+    build_file_content = "filegroup(name = \"files\",\n    srcs = glob([\"**/*.binaryproto\"]),\n    visibility = [\"//visibility:public\"],\n)",
+    url = "https://github.com/bazel-contrib/rules_nodejs/releases/download/v6.6.0/rules_nodejs-v6.6.0.docs.tar.gz",
+)
+
+http_archive(
+    name = "github.com_dzbarsky_rules_rs_releases_download_v0.0.11_rules_rs-v0.0.11",
+    build_file_content = "filegroup(name = \"files\",\n    srcs = glob([\"**/*.binaryproto\"]),\n    visibility = [\"//visibility:public\"],\n)",
+    url = "https://github.com/dzbarsky/rules_rs/releases/download/v0.0.11/rules_rs-v0.0.11.docs.tar.gz",
+)
+
+http_archive(
+    name = "github.com_bazel-contrib_tar.bzl_releases_download_v0.7.0_tar.bzl-v0.7.0",
+    build_file_content = "filegroup(name = \"files\",\n    srcs = glob([\"**/*.binaryproto\"]),\n    visibility = [\"//visibility:public\"],\n)",
+    url = "https://github.com/bazel-contrib/tar.bzl/releases/download/v0.7.0/tar.bzl-v0.7.0.docs.tar.gz",
+)
+
+http_archive(
+    name = "github.com_bazel-contrib_yq.bzl_releases_download_v0.3.2_yq.bzl-v0.3.2",
+    build_file_content = "filegroup(name = \"files\",\n    srcs = glob([\"**/*.binaryproto\"]),\n    visibility = [\"//visibility:public\"],\n)",
+    url = "https://github.com/bazel-contrib/yq.bzl/releases/download/v0.3.2/yq.bzl-v0.3.2.docs.tar.gz",
+)
+
+http_archive(
     name = "github.com_bazel-contrib_bazel-lib_releases_download_v3.0.0_bazel-lib-v3.0.0",
     build_file_content = "filegroup(name = \"files\",\n    srcs = glob([\"**/*.binaryproto\"]),\n    visibility = [\"//visibility:public\"],\n)",
     url = "https://github.com/bazel-contrib/bazel-lib/releases/download/v3.0.0/bazel-lib-v3.0.0.docs.tar.gz",
+)
+
+http_archive(
+    name = "github.com_bazel-contrib_jq.bzl_releases_download_v0.3.0_jq.bzl-v0.3.0",
+    build_file_content = "filegroup(name = \"files\",\n    srcs = glob([\"**/*.binaryproto\"]),\n    visibility = [\"//visibility:public\"],\n)",
+    url = "https://github.com/bazel-contrib/jq.bzl/releases/download/v0.3.0/jq.bzl-v0.3.0.docs.tar.gz",
+)
+
+http_archive(
+    name = "github.com_bazel-contrib_tar.bzl_releases_download_v0.6.0_tar.bzl-v0.6.0",
+    build_file_content = "filegroup(name = \"files\",\n    srcs = glob([\"**/*.binaryproto\"]),\n    visibility = [\"//visibility:public\"],\n)",
+    url = "https://github.com/bazel-contrib/tar.bzl/releases/download/v0.6.0/tar.bzl-v0.6.0.docs.tar.gz",
+)
+
+http_archive(
+    name = "github.com_bazel-contrib_yq.bzl_releases_download_v0.3.0_yq.bzl-v0.3.0",
+    build_file_content = "filegroup(name = \"files\",\n    srcs = glob([\"**/*.binaryproto\"]),\n    visibility = [\"//visibility:public\"],\n)",
+    url = "https://github.com/bazel-contrib/yq.bzl/releases/download/v0.3.0/yq.bzl-v0.3.0.docs.tar.gz",
+)
+
+http_archive(
+    name = "github.com_bazel-contrib_jq.bzl_releases_download_v0.2.3_jq.bzl-v0.2.3",
+    build_file_content = "filegroup(name = \"files\",\n    srcs = glob([\"**/*.binaryproto\"]),\n    visibility = [\"//visibility:public\"],\n)",
+    url = "https://github.com/bazel-contrib/jq.bzl/releases/download/v0.2.3/jq.bzl-v0.2.3.docs.tar.gz",
+)
+
+http_archive(
+    name = "github.com_bazel-contrib_rules_distroless_releases_download_v0.6.1_rules_distroless-v0.6.1",
+    build_file_content = "filegroup(name = \"files\",\n    srcs = glob([\"**/*.binaryproto\"]),\n    visibility = [\"//visibility:public\"],\n)",
+    url = "https://github.com/bazel-contrib/rules_distroless/releases/download/v0.6.1/rules_distroless-v0.6.1.docs.tar.gz",
+)
+
+http_archive(
+    name = "github.com_bazel-contrib_rules_img_releases_download_v0.2.7_rules_img-v0.2.7",
+    build_file_content = "filegroup(name = \"files\",\n    srcs = glob([\"**/*.binaryproto\"]),\n    visibility = [\"//visibility:public\"],\n)",
+    url = "https://github.com/bazel-contrib/rules_img/releases/download/v0.2.7/rules_img-v0.2.7.docs.tar.gz",
 )
 
 http_archive(
@@ -402,7 +374,55 @@ http_archive(
 )
 
 http_archive(
+    name = "github.com_aspect-build_rules_swc_releases_download_v2.5.0_rules_swc-v2.5.0",
+    build_file_content = "filegroup(name = \"files\",\n    srcs = glob([\"**/*.binaryproto\"]),\n    visibility = [\"//visibility:public\"],\n)",
+    url = "https://github.com/aspect-build/rules_swc/releases/download/v2.5.0/rules_swc-v2.5.0.docs.tar.gz",
+)
+
+http_archive(
+    name = "github.com_aspect-build_rules_terser_releases_download_v2.1.0_rules_terser-v2.1.0",
+    build_file_content = "filegroup(name = \"files\",\n    srcs = glob([\"**/*.binaryproto\"]),\n    visibility = [\"//visibility:public\"],\n)",
+    url = "https://github.com/aspect-build/rules_terser/releases/download/v2.1.0/rules_terser-v2.1.0.docs.tar.gz",
+)
+
+http_archive(
+    name = "github.com_calebzulawski_rules_conda_releases_download_0.1.0_rules_conda-0.1.0",
+    build_file_content = "filegroup(name = \"files\",\n    srcs = glob([\"**/*.binaryproto\"]),\n    visibility = [\"//visibility:public\"],\n)",
+    url = "https://github.com/calebzulawski/rules_conda/releases/download/0.1.0/rules_conda-0.1.0.docs.tar.gz",
+)
+
+http_archive(
+    name = "github.com_bazel-contrib_rules_dotnet_releases_download_v0.21.5_rules_dotnet-v0.21.5",
+    build_file_content = "filegroup(name = \"files\",\n    srcs = glob([\"**/*.binaryproto\"]),\n    visibility = [\"//visibility:public\"],\n)",
+    url = "https://github.com/bazel-contrib/rules_dotnet/releases/download/v0.21.5/rules_dotnet-v0.21.5.docs.tar.gz",
+)
+
+http_archive(
+    name = "github.com_bazel-contrib_jq.bzl_releases_download_v0.2.2_jq.bzl-v0.2.2",
+    build_file_content = "filegroup(name = \"files\",\n    srcs = glob([\"**/*.binaryproto\"]),\n    visibility = [\"//visibility:public\"],\n)",
+    url = "https://github.com/bazel-contrib/jq.bzl/releases/download/v0.2.2/jq.bzl-v0.2.2.docs.tar.gz",
+)
+
+http_archive(
     name = "github.com_bazel-contrib_yq.bzl_releases_download_v0.3.1_yq.bzl-v0.3.1",
     build_file_content = "filegroup(name = \"files\",\n    srcs = glob([\"**/*.binaryproto\"]),\n    visibility = [\"//visibility:public\"],\n)",
     url = "https://github.com/bazel-contrib/yq.bzl/releases/download/v0.3.1/yq.bzl-v0.3.1.docs.tar.gz",
+)
+
+http_archive(
+    name = "github.com_bazel-contrib_jq.bzl_releases_download_v0.4.0_jq.bzl-v0.4.0",
+    build_file_content = "filegroup(name = \"files\",\n    srcs = glob([\"**/*.binaryproto\"]),\n    visibility = [\"//visibility:public\"],\n)",
+    url = "https://github.com/bazel-contrib/jq.bzl/releases/download/v0.4.0/jq.bzl-v0.4.0.docs.tar.gz",
+)
+
+http_archive(
+    name = "github.com_bazel-contrib_rules_nodejs_releases_download_v6.6.1_rules_nodejs-v6.6.1",
+    build_file_content = "filegroup(name = \"files\",\n    srcs = glob([\"**/*.binaryproto\"]),\n    visibility = [\"//visibility:public\"],\n)",
+    url = "https://github.com/bazel-contrib/rules_nodejs/releases/download/v6.6.1/rules_nodejs-v6.6.1.docs.tar.gz",
+)
+
+http_archive(
+    name = "github.com_dzbarsky_rules_rs_releases_download_v0.0.12_rules_rs-v0.0.12",
+    build_file_content = "filegroup(name = \"files\",\n    srcs = glob([\"**/*.binaryproto\"]),\n    visibility = [\"//visibility:public\"],\n)",
+    url = "https://github.com/dzbarsky/rules_rs/releases/download/v0.0.12/rules_rs-v0.0.12.docs.tar.gz",
 )

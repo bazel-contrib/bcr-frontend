@@ -18,15 +18,3 @@
     user-select: none;
     speak: none;
 }
-
-.desc-toggle:checked~.desc-content {
-    max-height: none !important;
-}
-
-.desc-toggle:checked~.desc-toggle-label .show-more {
-    display: none;
-}
-
-.desc-toggle:checked~.desc-toggle-label .show-less {
-    display: inline;
-}

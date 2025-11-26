@@ -556,7 +556,7 @@ unknown
       <div class="d-flex flex-items-center {if $lang.isPrimary}{else}text-small{/if}">
         <span class="mr-2">{octiconDotFill16(fill: 'var(--lang-' + $lang.sanitizedName + '-bg, currentColor)')}</span>
         {if $lang.isPrimary}
-          <a class="Link--primary text-bold" href="/#/modules/all/{$lang.name}">{$lang.name}</a>
+          <a class="Link--primary text-bold" href="{modulesUrl()}/list/all/{$lang.name}">{$lang.name}</a>
         {else}
           <span>{$lang.name}</span>
         {/if}
