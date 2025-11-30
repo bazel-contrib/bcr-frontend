@@ -357,7 +357,9 @@ func (ext *bcrExtension) GenerateRules(args language.GenerateArgs) language.Gene
 		// consequence we cannot build.  If this file exists, remove all
 		// pre-existing rules if a BUILD file exists.
 		if args.File != nil {
-			args.File.Content = nil
+			for _, r := range args.File.Rules {
+				r.Delete()
+			}
 			args.File.Sync()
 		}
 

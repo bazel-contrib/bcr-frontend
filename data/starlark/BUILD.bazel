@@ -4,5 +4,6 @@ load("@build_stack_rules_proto//rules:starlark_library.bzl", "starlark_library")
 # status.
 starlark_library(
     name = "empty",
+    repo_name = "",
     visibility = ["//visibility:public"],
 )
