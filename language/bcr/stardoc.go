@@ -40,27 +40,27 @@ type rankedVersion struct {
 type rankedModuleVersionMap map[moduleName][]*rankedVersion
 
 type checkItem struct {
-	url        string
-	moduleKeys []moduleID
+	url       string
+	moduleIDs []moduleID
 }
 
 // trackDocsUrl keeps a list of rules that reference this doc URL.
-func (ext *bcrExtension) trackDocsUrl(url string, modKey moduleID) {
+func (ext *bcrExtension) trackDocsUrl(url string, id moduleID) {
 	if url == "" || strings.Contains(url, "{OWNER}") || strings.Contains(url, "{REPO}") || strings.Contains(url, "{TAG}") {
 		return
 	}
-	ext.moduleKeysByDocUrl[url] = append(ext.moduleKeysByDocUrl[url], modKey)
+	ext.moduleIDsByDocUrl[url] = append(ext.moduleIDsByDocUrl[url], id)
 }
 
-func (ext *bcrExtension) trackSourceUrl(url string, modKey moduleID) {
+func (ext *bcrExtension) trackSourceUrl(url string, id moduleID) {
 	if url == "" {
 		return
 	}
-	ext.moduleKeysBySourceUrl[url] = append(ext.moduleKeysBySourceUrl[url], modKey)
+	ext.moduleIDsBySourceUrl[url] = append(ext.moduleIDsBySourceUrl[url], id)
 }
 
 // handleDocsUrlStatus processes a docs URL status and updates the repos map and rules
-func (ext *bcrExtension) handleDocsUrlStatus(url string, moduleKeys []moduleID, status netutil.URLStatus, repos map[label.Label]*rule.Rule, cached bool) {
+func (ext *bcrExtension) handleDocsUrlStatus(url string, moduleIDs []moduleID, status netutil.URLStatus, repos map[label.Label]*rule.Rule, cached bool) {
 	// Store status in the map for future caching
 	ext.resourceStatusByUrl[url] = &bzpb.ResourceStatus{
 		Url:     url,
@@ -72,8 +72,8 @@ func (ext *bcrExtension) handleDocsUrlStatus(url string, moduleKeys []moduleID, 
 		httpArchiveLabel := makeBinaryProtoRepositoryLabel(url)
 		docsHttpArchive := makeBinaryProtoRepository(httpArchiveLabel, url)
 		repos[httpArchiveLabel] = docsHttpArchive
-		for _, modKey := range moduleKeys {
-			moduleSourceProtoRule := ext.moduleSourceRules[modKey]
+		for _, id := range moduleIDs {
+			moduleSourceProtoRule := ext.moduleSourceRules[id]
 			// Update the module_source rule with status
 			updateModuleSourceRuleDocsUrlStatus(moduleSourceProtoRule.Rule(), status)
 			// Update the corresponding module_version rule with published_docs
@@ -85,8 +85,8 @@ func (ext *bcrExtension) handleDocsUrlStatus(url string, moduleKeys []moduleID, 
 			cacheMsg = " (cached)"
 		}
 		log.Printf("warning: docs URL does not exist%s: %s (status: %d %s)", cacheMsg, url, status.Code, status.Message)
-		for _, modKey := range moduleKeys {
-			moduleSourceProtoRule := ext.moduleSourceRules[modKey]
+		for _, id := range moduleIDs {
+			moduleSourceProtoRule := ext.moduleSourceRules[id]
 			updateModuleSourceRuleDocsUrlStatus(moduleSourceProtoRule.Rule(), status)
 			// No need to update module_version if docs don't exist
 		}
@@ -94,7 +94,7 @@ func (ext *bcrExtension) handleDocsUrlStatus(url string, moduleKeys []moduleID, 
 }
 
 func (ext *bcrExtension) prepareBinaryprotoRepositories() []*rule.Rule {
-	if len(ext.moduleKeysByDocUrl) == 0 {
+	if len(ext.moduleIDsByDocUrl) == 0 {
 		return nil
 	}
 
@@ -106,7 +106,7 @@ func (ext *bcrExtension) prepareBinaryprotoRepositories() []*rule.Rule {
 	var cachedCount int
 	var blacklistedCount int
 
-	for url, moduleKeys := range ext.moduleKeysByDocUrl {
+	for url, moduleIDs := range ext.moduleIDsByDocUrl {
 		if ext.blacklistedUrls[url] {
 			// Skip blacklisted URLs
 			blacklistedCount++
@@ -121,10 +121,10 @@ func (ext *bcrExtension) prepareBinaryprotoRepositories() []*rule.Rule {
 				Code:    int(cachedStatus.Code),
 				Message: cachedStatus.Message,
 			}
-			ext.handleDocsUrlStatus(url, moduleKeys, status, repos, true)
+			ext.handleDocsUrlStatus(url, moduleIDs, status, repos, true)
 		} else {
 			// Need to check this URL
-			uncachedItems = append(uncachedItems, checkItem{url, moduleKeys})
+			uncachedItems = append(uncachedItems, checkItem{url, moduleIDs})
 		}
 	}
 
@@ -139,7 +139,7 @@ func (ext *bcrExtension) prepareBinaryprotoRepositories() []*rule.Rule {
 	if len(uncachedItems) > 0 {
 		netutil.CheckURLsParallel("Checking http_archive URLs", uncachedItems, func(item checkItem) string { return item.url },
 			func(item checkItem, status netutil.URLStatus) {
-				ext.handleDocsUrlStatus(item.url, item.moduleKeys, status, repos, false)
+				ext.handleDocsUrlStatus(item.url, item.moduleIDs, status, repos, false)
 			})
 	}
 
@@ -148,7 +148,7 @@ func (ext *bcrExtension) prepareBinaryprotoRepositories() []*rule.Rule {
 
 // handleSourceUrlStatus processes a source URL status and updates the repos map
 // and rules
-func (ext *bcrExtension) handleSourceUrlStatus(url string, moduleKeys []moduleID, status netutil.URLStatus, repos rankedModuleVersionMap, cached bool) {
+func (ext *bcrExtension) handleSourceUrlStatus(url string, moduleIDs []moduleID, status netutil.URLStatus, repos rankedModuleVersionMap, cached bool) {
 	// Store status in the map for future caching
 	ext.resourceStatusByUrl[url] = &bzpb.ResourceStatus{
 		Url:     url,
@@ -157,8 +157,8 @@ func (ext *bcrExtension) handleSourceUrlStatus(url string, moduleKeys []moduleID
 	}
 
 	var moduleSourceProtoRule *protoRule[*bzpb.ModuleSource]
-	for _, modKey := range moduleKeys {
-		moduleSourceProtoRule = ext.moduleSourceRules[modKey]
+	for _, is := range moduleIDs {
+		moduleSourceProtoRule = ext.moduleSourceRules[is]
 		updateModuleSourceRuleUrlStatus(moduleSourceProtoRule.Rule(), status)
 	}
 
@@ -183,7 +183,7 @@ func (ext *bcrExtension) handleSourceUrlStatus(url string, moduleKeys []moduleID
 }
 
 func (ext *bcrExtension) prepareBzlRepositories() rankedModuleVersionMap {
-	if len(ext.moduleKeysBySourceUrl) == 0 {
+	if len(ext.moduleIDsBySourceUrl) == 0 {
 		return nil
 	}
 
@@ -196,7 +196,7 @@ func (ext *bcrExtension) prepareBzlRepositories() rankedModuleVersionMap {
 	var blacklistedCount int
 	var bzlSrcsFilteredCount int
 
-	for url, moduleKeys := range ext.moduleKeysBySourceUrl {
+	for url, moduleIDs := range ext.moduleIDsBySourceUrl {
 		if ext.blacklistedUrls[url] {
 			// Skip blacklisted URLs
 			blacklistedCount++
@@ -211,10 +211,10 @@ func (ext *bcrExtension) prepareBzlRepositories() rankedModuleVersionMap {
 				Code:    int(cachedStatus.Code),
 				Message: cachedStatus.Message,
 			}
-			ext.handleSourceUrlStatus(url, moduleKeys, status, repos, true)
+			ext.handleSourceUrlStatus(url, moduleIDs, status, repos, true)
 		} else {
 			// Need to check this URL
-			uncachedItems = append(uncachedItems, checkItem{url, moduleKeys})
+			uncachedItems = append(uncachedItems, checkItem{url, moduleIDs})
 		}
 	}
 
@@ -235,7 +235,7 @@ func (ext *bcrExtension) prepareBzlRepositories() rankedModuleVersionMap {
 	if len(uncachedItems) > 0 {
 		netutil.CheckURLsParallel("Checking source URLs", uncachedItems, func(item checkItem) string { return item.url },
 			func(item checkItem, status netutil.URLStatus) {
-				ext.handleSourceUrlStatus(item.url, item.moduleKeys, status, repos, false)
+				ext.handleSourceUrlStatus(item.url, item.moduleIDs, status, repos, false)
 			})
 	}
 

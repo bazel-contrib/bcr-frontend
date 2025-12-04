@@ -85,7 +85,6 @@ func (ext *bcrExtension) readModuleCommits(c *config.Config) {
 		log.Printf("warning: failed to preload module commits: %v", err)
 		ext.moduleCommits = make(map[moduleID]*bzpb.ModuleCommit)
 	} else {
-		// Convert map[string]*bzpb.ModuleCommit to map[moduleKey]*bzpb.ModuleCommit
 		ext.moduleCommits = make(map[moduleID]*bzpb.ModuleCommit, len(commits))
 		for key, commit := range commits {
 			ext.moduleCommits[moduleID(key)] = commit

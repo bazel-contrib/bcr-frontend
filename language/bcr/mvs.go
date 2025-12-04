@@ -65,14 +65,14 @@ func (ext *bcrExtension) calculatePerModuleVersionMvs(depGraph graph.Graph[modul
 	}
 
 	// Collect module keys to process (excluding unresolved)
-	var moduleKeys []moduleID
-	for modKey := range adjacencyMap {
-		if !ext.unresolvedModules[modKey] {
-			moduleKeys = append(moduleKeys, modKey)
+	var moduleIDs []moduleID
+	for id := range adjacencyMap {
+		if !ext.unresolvedModules[id] {
+			moduleIDs = append(moduleIDs, id)
 		}
 	}
 
-	if len(moduleKeys) == 0 {
+	if len(moduleIDs) == 0 {
 		log.Println("No module versions to calculate MVS for")
 		return perModuleVersionMvs
 	}
@@ -82,34 +82,34 @@ func (ext *bcrExtension) calculatePerModuleVersionMvs(depGraph graph.Graph[modul
 	var mu sync.Mutex
 
 	// Create channels for jobs and results
-	jobChan := make(chan moduleID, len(moduleKeys))
+	jobChan := make(chan moduleID, len(moduleIDs))
 	resultChan := make(chan struct {
-		moduleKey moduleID
-		result    map[moduleName]moduleVersion
-	}, len(moduleKeys))
+		id     moduleID
+		result map[moduleName]moduleVersion
+	}, len(moduleIDs))
 
 	// Start worker goroutines
-	numWorkers := min(10, len(moduleKeys)) // Limit concurrent workers
+	numWorkers := min(10, len(moduleIDs)) // Limit concurrent workers
 
 	for range numWorkers {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			for modKey := range jobChan {
+			for id := range jobChan {
 				// Run MVS with this single module@version as the root
-				selected := runMvs([]moduleID{modKey}, adjacencyMap)
+				selected := runMvs([]moduleID{id}, adjacencyMap)
 				resultChan <- struct {
-					moduleKey moduleID
-					result    map[moduleName]moduleVersion
-				}{moduleKey: modKey, result: selected}
+					id     moduleID
+					result map[moduleName]moduleVersion
+				}{id: id, result: selected}
 			}
 		}()
 	}
 
 	// Send jobs
 	go func() {
-		for _, moduleKey := range moduleKeys {
-			jobChan <- moduleKey
+		for _, id := range moduleIDs {
+			jobChan <- id
 		}
 		close(jobChan)
 	}()
@@ -123,11 +123,11 @@ func (ext *bcrExtension) calculatePerModuleVersionMvs(depGraph graph.Graph[modul
 	// Collect results with progress reporting
 	for result := range resultChan {
 		mu.Lock()
-		perModuleVersionMvs[result.moduleKey] = result.result
+		perModuleVersionMvs[result.id] = result.result
 		mu.Unlock()
 	}
 
-	log.Printf("Calculated MVS for %d module versions", len(moduleKeys))
+	log.Printf("Calculated MVS for %d module versions", len(moduleIDs))
 	return perModuleVersionMvs
 }
 
@@ -138,23 +138,23 @@ func runMvs(roots []moduleID, adjacencyMap map[moduleID]map[moduleID]graph.Edge[
 	selected := make(moduleDeps)
 
 	// Initialize selected versions from roots
-	for _, modKey := range roots {
-		selected[modKey.name()] = modKey.version()
+	for _, id := range roots {
+		selected[id.name()] = id.version()
 	}
 
 	// Build the transitive closure of dependencies
 	// Start from roots and traverse the graph, selecting maximum versions
 	visited := make(map[moduleID]bool)
-	var visit func(modKey moduleID)
+	var visit func(id moduleID)
 
-	visit = func(modKey moduleID) {
-		if visited[modKey] {
+	visit = func(id moduleID) {
+		if visited[id] {
 			return
 		}
-		visited[modKey] = true
+		visited[id] = true
 
-		moduleName := modKey.name()
-		version := modKey.version()
+		moduleName := id.name()
+		version := id.version()
 
 		// Update selected version if this is higher
 		if currentVersion, exists := selected[moduleName]; !exists || compareVersions(version, currentVersion) > 0 {
@@ -162,7 +162,7 @@ func runMvs(roots []moduleID, adjacencyMap map[moduleID]map[moduleID]graph.Edge[
 		}
 
 		// Visit dependencies using adjacency map
-		if deps, exists := adjacencyMap[modKey]; exists {
+		if deps, exists := adjacencyMap[id]; exists {
 			for targetKey := range deps {
 				visit(targetKey)
 			}
@@ -170,8 +170,8 @@ func runMvs(roots []moduleID, adjacencyMap map[moduleID]map[moduleID]graph.Edge[
 	}
 
 	// Visit all root module@version keys (and their transitive dependencies)
-	for _, modKey := range roots {
-		visit(modKey)
+	for _, id := range roots {
+		visit(id)
 	}
 
 	return selected
@@ -362,11 +362,11 @@ func (ext *bcrExtension) finalizeBzlSrcsAndDeps(bzlRepositories rankedModuleVers
 		// coalesce / merge patch versions or minor versions together such that
 		// we reduce the overall number of repos to fetch.
 		versions := bzlRepositories[moduleName]
-		originalCount := len(versions)
-		versions = narrowSelectedVersionsByPatchLevel(sortedVersions, versions)
-		if len(versions) < originalCount {
-			log.Printf("Narrowed %s versions from %d to %d by merging patch levels", moduleName, originalCount, len(versions))
-		}
+		// originalCount := len(versions)
+		// versions = narrowSelectedVersionsByPatchLevel(sortedVersions, versions)
+		// if len(versions) < originalCount {
+		// 	log.Printf("Narrowed %s versions from %d to %d by merging patch levels", moduleName, originalCount, len(versions))
+		// }
 
 		// iterate the list of versions for each module (e.g. "bazel_skylib").
 		// The ranked versions is a sparse list of available versions that may
