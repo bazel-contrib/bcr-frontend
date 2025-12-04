@@ -42,8 +42,8 @@ func NewLanguage() language.Language {
 		unresolvedModules:        make(map[moduleID]bool),
 		repositoriesMetadataByID: make(map[repositoryID]*bzpb.RepositoryMetadata),
 		resourceStatusByUrl:      make(map[string]*bzpb.ResourceStatus),
-		moduleKeysByDocUrl:       make(map[string][]moduleID),
-		moduleKeysBySourceUrl:    make(map[string][]moduleID),
+		moduleIDsByDocUrl:        make(map[string][]moduleID),
+		moduleIDsBySourceUrl:     make(map[string][]moduleID),
 		moduleMetadataRules:      make(map[moduleName]*protoRule[*bzpb.ModuleMetadata]),
 		moduleVersionRules:       make(map[moduleID]*protoRule[*bzpb.ModuleVersion]),
 		moduleSourceRules:        make(map[moduleID]*protoRule[*bzpb.ModuleSource]),
@@ -66,14 +66,14 @@ type bcrExtension struct {
 	depGraph                  graph.Graph[moduleID, moduleID]                 // graph of all dependencies (regular + dev) - for cycle detection
 	regularDepGraph           graph.Graph[moduleID, moduleID]                 // graph of only non-dev dependencies
 	devDepGraph               graph.Graph[moduleID, moduleID]                 // graph of only dev dependencies
-	moduleToCycle             map[moduleID]string                             // maps moduleKey to cycle rule name
+	moduleToCycle             map[moduleID]string                             // maps ID to cycle rule name
 	unresolvedModules         map[moduleID]bool                               // tracks module versions that failed to resolve
 	repositoriesMetadataByID  map[repositoryID]*bzpb.RepositoryMetadata       // tracks unique repository strings (e.g., "github:org/repo")
 	moduleMetadataRules       map[moduleName]*protoRule[*bzpb.ModuleMetadata] // tracks module metadata rules
-	moduleVersionRules        map[moduleID]*protoRule[*bzpb.ModuleVersion]    // tracks module_version rules by moduleKey
-	moduleSourceRules         map[moduleID]*protoRule[*bzpb.ModuleSource]     // tracks module_source rules by moduleKey
-	moduleKeysByDocUrl        map[string][]moduleID                           // tracks docs http_archives to fetch
-	moduleKeysBySourceUrl     map[string][]moduleID                           // tracks URLs for starlark_repository
+	moduleVersionRules        map[moduleID]*protoRule[*bzpb.ModuleVersion]    // tracks module_version rules by ID
+	moduleSourceRules         map[moduleID]*protoRule[*bzpb.ModuleSource]     // tracks module_source rules by ID
+	moduleIDsByDocUrl         map[string][]moduleID                           // tracks docs http_archives to fetch
+	moduleIDsBySourceUrl      map[string][]moduleID                           // tracks URLs for starlark_repository
 	resourceStatusByUrl       map[string]*bzpb.ResourceStatus                 // results of reading resourceStatusSetFile, keyed by URL
 	moduleCommits             map[moduleID]*bzpb.ModuleCommit                 // cache of all module commits (preloaded)
 	fetchedRepositoryMetadata bool                                            // tracks whether we fetched any new repository metadata this run
@@ -367,10 +367,10 @@ func (ext *bcrExtension) GenerateRules(args language.GenerateArgs) language.Gene
 			rules = append(rules, sourceRule)
 
 			// Track the rule and URLS
-			modKey := newModuleID(module.Name, module.Version)
-			ext.moduleSourceRules[modKey] = newProtoRule(sourceRule, source)
-			ext.trackDocsUrl(source.DocsUrl, modKey)
-			ext.trackSourceUrl(source.Url, modKey)
+			id := newModuleID(module.Name, module.Version)
+			ext.moduleSourceRules[id] = newProtoRule(sourceRule, source)
+			ext.trackDocsUrl(source.DocsUrl, id)
+			ext.trackSourceUrl(source.Url, id)
 		}
 
 		if slices.Contains(args.RegularFiles, "attestations.json") {
@@ -398,10 +398,10 @@ func (ext *bcrExtension) GenerateRules(args language.GenerateArgs) language.Gene
 		}
 
 		// Add module to all dependency graphs
-		modKey := newModuleID(module.Name, version)
+		id := newModuleID(module.Name, version)
 		ext.addModuleToGraph(module.Name, version)
-		_ = ext.regularDepGraph.AddVertex(modKey)
-		_ = ext.devDepGraph.AddVertex(modKey)
+		_ = ext.regularDepGraph.AddVertex(id)
+		_ = ext.devDepGraph.AddVertex(id)
 
 		// Add dependency edges to graphs
 		for _, dep := range module.Deps {
@@ -437,7 +437,7 @@ func (ext *bcrExtension) GenerateRules(args language.GenerateArgs) language.Gene
 		rules = append(rules, moduleVersionRule)
 
 		// Track the module_version rule for later MVS annotation
-		ext.moduleVersionRules[modKey] = newProtoRule(moduleVersionRule, module)
+		ext.moduleVersionRules[id] = newProtoRule(moduleVersionRule, module)
 	}
 
 	imports := make([]interface{}, len(rules))

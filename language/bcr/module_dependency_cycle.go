@@ -27,7 +27,7 @@ func moduleDependencyCycleKinds() map[string]rule.KindInfo {
 	}
 }
 
-// buildModuleToCycleMap creates a mapping from moduleKey to cycle rule name
+// buildModuleToCycleMap creates a mapping from moduleID to cycle rule name
 func buildModuleToCycleMap(cycles [][]moduleID) map[moduleID]string {
 	moduleToCycle := make(map[moduleID]string)
 
@@ -38,8 +38,8 @@ func buildModuleToCycleMap(cycles [][]moduleID) map[moduleID]string {
 
 		// Sort cycle members for deterministic naming
 		sorted := make([]string, len(cycle))
-		for i, modKey := range cycle {
-			sorted[i] = modKey.String()
+		for i, id := range cycle {
+			sorted[i] = id.String()
 		}
 		sort.Strings(sorted)
 
@@ -51,8 +51,8 @@ func buildModuleToCycleMap(cycles [][]moduleID) map[moduleID]string {
 		cycleName := strings.Join(nameSegments, "+")
 
 		// Map each module version in the cycle to the cycle name
-		for _, modKey := range cycle {
-			moduleToCycle[modKey] = cycleName
+		for _, id := range cycle {
+			moduleToCycle[id] = cycleName
 		}
 	}
 
@@ -63,8 +63,8 @@ func buildModuleToCycleMap(cycles [][]moduleID) map[moduleID]string {
 func makeModuleDependencyCycleRule(cycle []moduleID) *rule.Rule {
 	// Sort cycle members for deterministic naming
 	sorted := make([]string, len(cycle))
-	for i, modKey := range cycle {
-		sorted[i] = modKey.String()
+	for i, id := range cycle {
+		sorted[i] = id.String()
 	}
 	sort.Strings(sorted)
 

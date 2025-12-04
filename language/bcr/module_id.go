@@ -15,7 +15,7 @@ type moduleName string
 // moduleVersion is the identifier of a module version
 type moduleVersion string
 
-// newModuleID creates a new moduleKey from a name and version
+// newModuleID creates a new ID from a name and version
 func newModuleID(name, version string) moduleID {
 	return moduleID(fmt.Sprintf("%s@%s", name, version))
 }
