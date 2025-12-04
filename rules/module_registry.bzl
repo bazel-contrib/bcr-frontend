@@ -122,7 +122,7 @@ def _compile_docs_action_for_module_version(ctx, mv, versions_by_id):
     # 2. Dependencies (bzl_deps)
     for bzl_dep in mv.bzl_deps:
         id = _get_module_id_from_bzl_repository_repo_name(bzl_dep.label.repo_name)
-        bzl_dep_module = repomap.get(id)
+        bzl_dep_module = versions_by_id.get(id)
         if not bzl_dep_module:
             # buildifier: disable=print
             print("🔴 WARN for module %s, the module for bzl source dependency %s was not found!" % (mv.id, bzl_dep.label.repo_name))
@@ -135,14 +135,6 @@ def _compile_docs_action_for_module_version(ctx, mv, versions_by_id):
             args.add("--bzl_file=%s:%s" % (bzl_dep_module.name, file.path))
         for dep in bzl_dep_module.deps:
             args.add("--module_dep=%s:%s=%s" % (bzl_dep_module.name, dep.name, dep.repo_name))
-
-    # 2. Dependencies (bzl_deps)
-    for dep_lib in mv.bzl_deps:
-        dep_mv = _get_module_version_by_bzl_srcs_label(versions_by_id, dep_lib.label)
-        for file in dep_lib.srcs:
-            args.add("--bzl_file=%s:%s" % (dep_mv.name, file.path))
-        for dep in dep_mv.deps:
-            args.add("--module_dep=%s:%s=%s" % (dep_mv.name, dep.name, dep.repo_name))
 
     # 3. Bazel tools
     for file in bazel_tools_lib.srcs:
