@@ -2,6 +2,7 @@ package bcr
 
 import (
 	"context"
+	"log"
 	"path/filepath"
 
 	"github.com/bazelbuild/bazel-gazelle/config"
@@ -31,7 +32,7 @@ func moduleCommitKinds() map[string]rule.KindInfo {
 // modulePath should be relative to the workspace root (e.g., "data/bazel-central-registry/modules/apple_support/1.22.0")
 // submoduleRoot should be the path to the submodule root relative to workspace (e.g., "data/bazel-central-registry")
 // commitsCache is the preloaded cache of module commits (can be nil for fallback)
-func makeModuleVersionCommitRule(cfg *config.Config, registryRoot, rel string, commitsCache map[string]*bzpb.ModuleCommit) (*rule.Rule, error) {
+func makeModuleVersionCommitRule(cfg *config.Config, registryRoot, rel string, commitsCache map[moduleKey]*bzpb.ModuleCommit) (*rule.Rule, error) {
 	// Strip submodule prefix from modulePath to get path relative to submodule
 	// e.g., "data/bazel-central-registry/modules/apple_support/1.22.0" -> "modules/apple_support/1.22.0"
 	relPath, err := filepath.Rel(registryRoot, rel)
@@ -46,7 +47,7 @@ func makeModuleVersionCommitRule(cfg *config.Config, registryRoot, rel string, c
 
 	// Try to get from cache first
 	if commitsCache != nil {
-		if cached, ok := commitsCache[moduleFile]; ok {
+		if cached, ok := commitsCache[moduleKey(moduleFile)]; ok {
 			commit = cached
 		}
 	}
@@ -70,4 +71,23 @@ func makeModuleVersionCommitRule(cfg *config.Config, registryRoot, rel string, c
 	r.SetPrivateAttr("commit", commit)
 
 	return r, nil
+}
+
+func (ext *bcrExtension) readModuleCommits(c *config.Config) {
+	// Preload all module commits in one git call for performance
+	ctx := context.Background()
+	submodulePath := filepath.Join(c.RepoRoot, ext.registryRoot)
+	log.Printf("Preloading module commits from %s...", submodulePath)
+	commits, err := gitpkg.GetAllModuleCommits(ctx, submodulePath, "modules/*/*/MODULE.bazel")
+	if err != nil {
+		log.Printf("warning: failed to preload module commits: %v", err)
+		ext.moduleCommitsByModuleName = make(map[moduleKey]*bzpb.ModuleCommit)
+	} else {
+		// Convert map[string]*bzpb.ModuleCommit to map[moduleKey]*bzpb.ModuleCommit
+		ext.moduleCommitsByModuleName = make(map[moduleKey]*bzpb.ModuleCommit, len(commits))
+		for key, commit := range commits {
+			ext.moduleCommitsByModuleName[moduleKey(key)] = commit
+		}
+		log.Printf("Preloaded %d module commits", len(commits))
+	}
 }

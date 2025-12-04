@@ -36,26 +36,26 @@ type moduleVersionRuleMap map[string][]*versionedRule
 
 type checkItem struct {
 	url        string
-	moduleKeys []string
+	moduleKeys []moduleKey
 }
 
 // trackDocsUrl keeps a list of rules that reference this doc URL.
-func (ext *bcrExtension) trackDocsUrl(url string, moduleKey string) {
+func (ext *bcrExtension) trackDocsUrl(url string, modKey moduleKey) {
 	if url == "" || strings.Contains(url, "{OWNER}") || strings.Contains(url, "{REPO}") || strings.Contains(url, "{TAG}") {
 		return
 	}
-	ext.moduleKeysByDocUrl[url] = append(ext.moduleKeysByDocUrl[url], moduleKey)
+	ext.moduleKeysByDocUrl[url] = append(ext.moduleKeysByDocUrl[url], modKey)
 }
 
-func (ext *bcrExtension) trackSourceUrl(url string, moduleKey string) {
+func (ext *bcrExtension) trackSourceUrl(url string, modKey moduleKey) {
 	if url == "" {
 		return
 	}
-	ext.moduleKeysBySourceUrl[url] = append(ext.moduleKeysBySourceUrl[url], moduleKey)
+	ext.moduleKeysBySourceUrl[url] = append(ext.moduleKeysBySourceUrl[url], modKey)
 }
 
 // handleDocsUrlStatus processes a docs URL status and updates the repos map and rules
-func (ext *bcrExtension) handleDocsUrlStatus(url string, moduleKeys []string, status netutil.URLStatus, repos map[label.Label]*rule.Rule, cached bool) {
+func (ext *bcrExtension) handleDocsUrlStatus(url string, moduleKeys []moduleKey, status netutil.URLStatus, repos map[label.Label]*rule.Rule, cached bool) {
 	// Store status in the map for future caching
 	ext.resourceStatusByUrl[url] = &bzpb.ResourceStatus{
 		Url:     url,
@@ -67,12 +67,12 @@ func (ext *bcrExtension) handleDocsUrlStatus(url string, moduleKeys []string, st
 		httpArchiveLabel := makeBinaryProtoRepositoryLabel(url)
 		docsHttpArchive := makeBinaryProtoRepository(httpArchiveLabel, url)
 		repos[httpArchiveLabel] = docsHttpArchive
-		for _, moduleKey := range moduleKeys {
-			moduleSourceRule := ext.moduleSourceRulesByModuleKey[moduleKey]
+		for _, modKey := range moduleKeys {
+			moduleSourceProtoRule := ext.moduleSourceRulesByModuleKey[modKey]
 			// Update the module_source rule with status
-			updateModuleSourceRuleDocsUrlStatus(moduleSourceRule, status)
+			updateModuleSourceRuleDocsUrlStatus(moduleSourceProtoRule.Rule(), status)
 			// Update the corresponding module_version rule with published_docs
-			updateModuleVersionRulePublishedDocs(moduleSourceRule, httpArchiveLabel, ext.moduleVersionRulesByModuleKey)
+			updateModuleVersionRulePublishedDocs(moduleSourceProtoRule, httpArchiveLabel, ext.moduleVersionRulesByModuleKey)
 		}
 	} else {
 		cacheMsg := ""
@@ -80,9 +80,9 @@ func (ext *bcrExtension) handleDocsUrlStatus(url string, moduleKeys []string, st
 			cacheMsg = " (cached)"
 		}
 		log.Printf("warning: docs URL does not exist%s: %s (status: %d %s)", cacheMsg, url, status.Code, status.Message)
-		for _, moduleKey := range moduleKeys {
-			moduleSourceRule := ext.moduleSourceRulesByModuleKey[moduleKey]
-			updateModuleSourceRuleDocsUrlStatus(moduleSourceRule, status)
+		for _, modKey := range moduleKeys {
+			moduleSourceProtoRule := ext.moduleSourceRulesByModuleKey[modKey]
+			updateModuleSourceRuleDocsUrlStatus(moduleSourceProtoRule.Rule(), status)
 			// No need to update module_version if docs don't exist
 		}
 	}
@@ -143,7 +143,7 @@ func (ext *bcrExtension) prepareBinaryprotoRepositories() []*rule.Rule {
 
 // handleSourceUrlStatus processes a source URL status and updates the repos map
 // and rules
-func (ext *bcrExtension) handleSourceUrlStatus(url string, moduleKeys []string, status netutil.URLStatus, repos moduleVersionRuleMap, cached bool) {
+func (ext *bcrExtension) handleSourceUrlStatus(url string, moduleKeys []moduleKey, status netutil.URLStatus, repos moduleVersionRuleMap, cached bool) {
 	// Store status in the map for future caching
 	ext.resourceStatusByUrl[url] = &bzpb.ResourceStatus{
 		Url:     url,
@@ -151,10 +151,10 @@ func (ext *bcrExtension) handleSourceUrlStatus(url string, moduleKeys []string, 
 		Message: status.Message,
 	}
 
-	var moduleSourceRule *rule.Rule
-	for _, moduleKey := range moduleKeys {
-		moduleSourceRule = ext.moduleSourceRulesByModuleKey[moduleKey]
-		updateModuleSourceRuleUrlStatus(moduleSourceRule, status)
+	var moduleSourceProtoRule *protoRule[*bzpb.ModuleSource]
+	for _, modKey := range moduleKeys {
+		moduleSourceProtoRule = ext.moduleSourceRulesByModuleKey[modKey]
+		updateModuleSourceRuleUrlStatus(moduleSourceProtoRule.Rule(), status)
 	}
 
 	if !status.Exists() {
@@ -166,12 +166,12 @@ func (ext *bcrExtension) handleSourceUrlStatus(url string, moduleKeys []string, 
 		return
 	}
 
-	module := moduleSourceRule.PrivateAttr(moduleVersionPrivateAttr).(*bzpb.ModuleVersion)
-	source := moduleSourceRule.PrivateAttr(moduleSourcePrivateAttr).(*bzpb.ModuleSource)
+	module := moduleSourceProtoRule.Rule().PrivateAttr(moduleVersionPrivateAttr).(*bzpb.ModuleVersion)
+	source := moduleSourceProtoRule.Proto()
 	lbl := makeStarlarkRepositoryLabel(module.Name, module.Version)
 	rule := makeStarlarkRepository(lbl, source)
 	repos[module.Name] = append(repos[module.Name], &versionedRule{version: module.Version, rule: rule, label: lbl})
-	log.Printf("created starlark repository: %v (%s)", lbl, moduleSourceRule.AttrString("url"))
+	log.Printf("created starlark repository: %v (%s)", lbl, moduleSourceProtoRule.Rule().AttrString("url"))
 }
 
 func (ext *bcrExtension) prepareStarlarkRepositories() moduleVersionRuleMap {

@@ -6,18 +6,20 @@ import (
 	bzpb "github.com/stackb/centrl/build/stack/bazel/bzlmod/v1"
 )
 
+const archiveOverrideKind = "archive_override"
+
 // archiveOverrideLoadInfo returns load info for the archive_override rule
 func archiveOverrideLoadInfo() rule.LoadInfo {
 	return rule.LoadInfo{
 		Name:    "//rules:archive_override.bzl",
-		Symbols: []string{"archive_override"},
+		Symbols: []string{archiveOverrideKind},
 	}
 }
 
 // archiveOverrideKinds returns kind info for the archive_override rule
 func archiveOverrideKinds() map[string]rule.KindInfo {
 	return map[string]rule.KindInfo{
-		"archive_override": {
+		archiveOverrideKind: {
 			MatchAny: true,
 		},
 	}
@@ -25,7 +27,8 @@ func archiveOverrideKinds() map[string]rule.KindInfo {
 
 // makeArchiveOverrideRule creates an archive_override rule from proto data
 func makeArchiveOverrideRule(moduleName string, override *bzpb.ArchiveOverride) *rule.Rule {
-	r := rule.NewRule("archive_override", moduleName+"_override")
+	r := rule.NewRule(archiveOverrideKind, moduleName+"_override")
+
 	r.SetAttr("module_name", moduleName)
 	if override.Integrity != "" {
 		r.SetAttr("integrity", override.Integrity)
@@ -43,6 +46,7 @@ func makeArchiveOverrideRule(moduleName string, override *bzpb.ArchiveOverride) 
 		r.SetAttr("urls", override.Urls)
 	}
 	r.SetAttr("visibility", []string{"//visibility:public"})
+
 	return r
 }
 

@@ -29,7 +29,7 @@ func (ext *bcrExtension) DoneGeneratingRules() {
 
 	// fetch repository metadata now that we know the full list of repos to
 	// gather info for
-	ext.fetchGithubRepositoryMetadata(filterGithubRepositories(ext.repositoriesMetadataByCanonicalName))
+	ext.fetchGithubRepositoryMetadata(filterGithubRepositories(ext.repositoriesMetadataByID))
 	// ext.fetchGitlabRepositoryMetadata(filterGitlabRepositories(ext.repositories))
 
 	log.Println("===[BeforeResolvingDeps]======================================")

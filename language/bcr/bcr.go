@@ -1,7 +1,6 @@
 package bcr
 
 import (
-	"context"
 	"flag"
 	"fmt"
 	"log"
@@ -21,84 +20,61 @@ import (
 	"github.com/dominikbraun/graph"
 	"github.com/google/go-github/v66/github"
 	bzpb "github.com/stackb/centrl/build/stack/bazel/bzlmod/v1"
-	"github.com/stackb/centrl/pkg/gh"
-	gitpkg "github.com/stackb/centrl/pkg/git"
 	"github.com/stackb/centrl/pkg/metadatajson"
 	"github.com/stackb/centrl/pkg/modulebazel"
-	"github.com/stackb/centrl/pkg/protoutil"
 )
 
-const generateModuleDependencyCycleRules = false
-
-// stringBoolMap is a custom flag type for repeatable string flags that populates a map
-type stringBoolMap map[string]bool
-
-func (m *stringBoolMap) String() string {
-	if *m == nil {
-		return ""
-	}
-	urls := make([]string, 0, len(*m))
-	for url := range *m {
-		urls = append(urls, url)
-	}
-	return strings.Join(urls, ",")
-}
-
-func (m *stringBoolMap) Set(value string) error {
-	if *m == nil {
-		*m = make(map[string]bool)
-	}
-	(*m)[value] = true
-	return nil
-}
+const (
+	bcrLangName                        = "bcr"
+	generateModuleDependencyCycleRules = false
+)
 
 // NewLanguage is called by Gazelle to install this language extension in a
 // binary.
 func NewLanguage() language.Language {
 	return &bcrExtension{
-		depGraph:                            initDepGraph(),
-		regularDepGraph:                     initDepGraph(),
-		devDepGraph:                         initDepGraph(),
-		moduleToCycle:                       make(map[string]string),
-		unresolvedModulesByModuleName:       make(map[string]bool),
-		repositoriesMetadataByCanonicalName: make(map[string]*bzpb.RepositoryMetadata),
-		moduleKeysByDocUrl:                  make(map[string][]string),
-		moduleKeysBySourceUrl:               make(map[string][]string),
-		moduleMetadataRulesByModuleName:     make(map[string]*rule.Rule),
-		moduleVersionRulesByModuleKey:       make(map[string]*rule.Rule),
-		moduleSourceRulesByModuleKey:        make(map[string]*rule.Rule),
+		depGraph:                        initDepGraph(),
+		regularDepGraph:                 initDepGraph(),
+		devDepGraph:                     initDepGraph(),
+		moduleToCycle:                   make(map[moduleKey]string),
+		unresolvedModulesByModuleName:   make(map[moduleKey]bool),
+		repositoriesMetadataByID:        make(map[repositoryID]*bzpb.RepositoryMetadata),
+		resourceStatusByUrl:             make(map[string]*bzpb.ResourceStatus),
+		moduleKeysByDocUrl:              make(map[string][]moduleKey),
+		moduleKeysBySourceUrl:           make(map[string][]moduleKey),
+		moduleMetadataRulesByModuleName: make(map[string]*protoRule[*bzpb.ModuleMetadata]),
+		moduleVersionRulesByModuleKey:   make(map[moduleKey]*protoRule[*bzpb.ModuleVersion]),
+		moduleSourceRulesByModuleKey:    make(map[moduleKey]*protoRule[*bzpb.ModuleSource]),
 	}
 }
 
 // bcrExtension implements language.Language.
 type bcrExtension struct {
-	// Configuration
-	name                      string
-	repoRoot                  string // copy of config.RepoRoot
-	modulesRoot               string
-	resourceStatusSetFile     string
-	repositoryMetadataSetFile string
-	githubToken               string
-	gitlabToken               string
-	registryRoot              string
-	registryURL               string
-	blacklistedUrls           stringBoolMap // tracks urls that are known to have wrong integrity or would otherwise not download
-	githubClient              *github.Client
-	// State Tracking
-	depGraph                            graph.Graph[string, string]         // graph of all dependencies (regular + dev) - for cycle detection
-	regularDepGraph                     graph.Graph[string, string]         // graph of only non-dev dependencies
-	devDepGraph                         graph.Graph[string, string]         // graph of only dev dependencies
-	moduleToCycle                       map[string]string                   // maps "module@version" to cycle rule name
-	unresolvedModulesByModuleName       map[string]bool                     // tracks "module@version" keys that failed to resolve
-	repositoriesMetadataByCanonicalName map[string]*bzpb.RepositoryMetadata // tracks unique repository strings (e.g., "github:org/repo")
-	moduleMetadataRulesByModuleName     map[string]*rule.Rule               // tracks module metadata rules
-	moduleVersionRulesByModuleKey       map[string]*rule.Rule               // tracks module_version rules by "module@version" key
-	moduleSourceRulesByModuleKey        map[string]*rule.Rule               // tracks module_version rules by "module@version" key
-	moduleKeysByDocUrl                  map[string][]string                 // tracks docs http_archives to fetch (e.g.  https://github.com/bazel-contrib/yq.bzl/releases/download/v0.3.2/yq.bzl-v0.3.2.docs.tar.gz -> http_archive rule)
-	moduleKeysBySourceUrl               map[string][]string                 // tracks URLs for starlark_repository
-	resourceStatusByUrl                 map[string]*bzpb.ResourceStatus     // results of reading resourceStatusSetFile, keyed by URL
-	moduleCommitsByModuleName           map[string]*bzpb.ModuleCommit       // cache of all module commits (preloaded)
-	fetchedRepositoryMetadata           bool                                // tracks whether we fetched any new repository metadata this run
+	name                            string
+	repoRoot                        string // copy of config.RepoRoot
+	modulesRoot                     string
+	resourceStatusSetFile           string
+	repositoryMetadataSetFile       string
+	githubToken                     string
+	gitlabToken                     string
+	registryRoot                    string
+	registryURL                     string
+	blacklistedUrls                 stringBoolMap // tracks urls that are known to have wrong integrity or would otherwise not download
+	githubClient                    *github.Client
+	depGraph                        graph.Graph[moduleKey, moduleKey]             // graph of all dependencies (regular + dev) - for cycle detection
+	regularDepGraph                 graph.Graph[moduleKey, moduleKey]             // graph of only non-dev dependencies
+	devDepGraph                     graph.Graph[moduleKey, moduleKey]             // graph of only dev dependencies
+	moduleToCycle                   map[moduleKey]string                          // maps moduleKey to cycle rule name
+	unresolvedModulesByModuleName   map[moduleKey]bool                            // tracks moduleKey keys that failed to resolve
+	repositoriesMetadataByID        map[repositoryID]*bzpb.RepositoryMetadata     // tracks unique repository strings (e.g., "github:org/repo")
+	moduleMetadataRulesByModuleName map[string]*protoRule[*bzpb.ModuleMetadata]   // tracks module metadata rules
+	moduleVersionRulesByModuleKey   map[moduleKey]*protoRule[*bzpb.ModuleVersion] // tracks module_version rules by moduleKey
+	moduleSourceRulesByModuleKey    map[moduleKey]*protoRule[*bzpb.ModuleSource]  // tracks module_source rules by moduleKey
+	moduleKeysByDocUrl              map[string][]moduleKey                        // tracks docs http_archives to fetch
+	moduleKeysBySourceUrl           map[string][]moduleKey                        // tracks URLs for starlark_repository
+	resourceStatusByUrl             map[string]*bzpb.ResourceStatus               // results of reading resourceStatusSetFile, keyed by URL
+	moduleCommitsByModuleName       map[moduleKey]*bzpb.ModuleCommit              // cache of all module commits (preloaded)
+	fetchedRepositoryMetadata       bool                                          // tracks whether we fetched any new repository metadata this run
 }
 
 // Name returns the name of the language. This should be a prefix of the kinds
@@ -112,75 +88,43 @@ func (ext *bcrExtension) Name() string {
 // https://pkg.go.dev/github.com/bazelbuild/bazel-gazelle/resolve?tab=doc#Resolver
 // interface, but are otherwise unused.
 func (ext *bcrExtension) RegisterFlags(fs *flag.FlagSet, cmd string, c *config.Config) {
-	fs.StringVar(&ext.registryRoot, "registry-root", "", "root dir for the bcr registry")
-	fs.StringVar(&ext.registryURL, "registry-url", "", "base URL for the deployed registry")
-	fs.StringVar(&ext.resourceStatusSetFile, "resource-status-set-file", "", "path to resource-status.json file containing cached http statuses for the registry URLs (helpful for development)")
-	fs.StringVar(&ext.repositoryMetadataSetFile, "repository-metadata-set-file", "", "path to repository-metadata.json file containing cached repository metadata (helpful for development)")
-	fs.StringVar(&ext.githubToken, "github-token", os.Getenv("GITHUB_TOKEN"), "GitHub API token (defaults to GITHUB_TOKEN env var)")
-	fs.StringVar(&ext.gitlabToken, "gitlab-token", os.Getenv("GITLAB_TOKEN"), "GitLab API token (defaults to GITLAB_TOKEN env var)")
-	fs.Var(&ext.blacklistedUrls, "blacklisted_url", "URL to blacklist (repeatable)")
+	fs.StringVar(&ext.registryRoot,
+		"registry-root", "", "root dir for the bcr registry")
+	fs.StringVar(&ext.registryURL,
+		"registry-url", "", "base URL for the deployed registry")
+	fs.StringVar(&ext.resourceStatusSetFile,
+		"resource-status-set-file", "", "path to resource-status.json file containing cached http statuses for the registry URLs (helpful for development)")
+	fs.StringVar(&ext.repositoryMetadataSetFile,
+		"repository-metadata-set-file", "", "path to repository-metadata.json file containing cached repository metadata (helpful for development)")
+	fs.StringVar(&ext.githubToken,
+		"github-token", os.Getenv("GITHUB_TOKEN"), "GitHub API token (defaults to GITHUB_TOKEN env var)")
+	fs.StringVar(&ext.gitlabToken,
+		"gitlab-token", os.Getenv("GITLAB_TOKEN"), "GitLab API token (defaults to GITLAB_TOKEN env var)")
+	fs.Var(&ext.blacklistedUrls,
+		"blacklisted_url", "URL to blacklist (repeatable)")
 }
 
 func (ext *bcrExtension) CheckFlags(fs *flag.FlagSet, c *config.Config) error {
 	ext.repoRoot = c.RepoRoot
 
-	// ensure registryRoot has been set
-	if ext.registryRoot == "" {
-		return fmt.Errorf("--registry-root is required")
-	}
 	if ext.registryURL == "" {
 		return fmt.Errorf("--registry-url is required")
 	}
+	if ext.registryRoot == "" {
+		return fmt.Errorf("--registry-root is required")
+	}
 	ext.modulesRoot = filepath.Join(ext.registryRoot, "modules")
 
-	if ext.githubToken != "" {
-		ext.githubClient = gh.NewClient(ext.githubToken)
-	} else {
-		log.Printf("No github-token available.  GitHub API operations will be disabled.")
-	}
-
-	ext.resourceStatusByUrl = make(map[string]*bzpb.ResourceStatus)
-	if ext.resourceStatusSetFile != "" {
-		var resourceStatusSet bzpb.ResourceStatusSet
-		if err := protoutil.ReadFile(os.ExpandEnv(ext.resourceStatusSetFile), &resourceStatusSet); err != nil {
-			log.Printf("warning: could not read resource statuses: %v", err)
-		}
-		for _, status := range resourceStatusSet.Status {
-			ext.resourceStatusByUrl[status.Url] = status
-		}
-	}
-
-	ext.repositoriesMetadataByCanonicalName = make(map[string]*bzpb.RepositoryMetadata)
-	if ext.repositoryMetadataSetFile != "" {
-		var repositoryMetadataSet bzpb.RepositoryMetadataSet
-		if err := protoutil.ReadFile(os.ExpandEnv(ext.repositoryMetadataSetFile), &repositoryMetadataSet); err != nil {
-			log.Printf("warning: could not read repository metadata: %v", err)
-		}
-		for _, md := range repositoryMetadataSet.RepositoryMetadata {
-			normalized := formatRepositoryCanonicalName(md)
-			ext.repositoriesMetadataByCanonicalName[normalized] = md
-		}
-	}
-
-	// Preload all module commits in one git call for performance
-	ctx := context.Background()
-	submodulePath := filepath.Join(c.RepoRoot, ext.registryRoot)
-	log.Printf("Preloading module commits from %s...", submodulePath)
-	commits, err := gitpkg.GetAllModuleCommits(ctx, submodulePath, "modules/*/*/MODULE.bazel")
-	if err != nil {
-		log.Printf("warning: failed to preload module commits: %v", err)
-		ext.moduleCommitsByModuleName = make(map[string]*bzpb.ModuleCommit)
-	} else {
-		ext.moduleCommitsByModuleName = commits
-		log.Printf("Preloaded %d module commits", len(commits))
-	}
+	ext.configureGithubClient()
+	ext.readResourceStatusCacheFile()
+	ext.readRepositoryMetadataCacheFile()
+	ext.readModuleCommits(c)
 
 	return nil
 }
 
 // Configure implements config.Configurer
 func (ext *bcrExtension) Configure(c *config.Config, rel string, f *rule.File) {
-	// log.Println("visiting:", rel)
 	cfg := getOrCreateConfig(c)
 
 	// enable this extension once we hit the registry
@@ -235,8 +179,8 @@ func (ext *bcrExtension) Loads() []rule.LoadInfo {
 	}
 }
 
-func (*bcrExtension) KnownDirectives() (directives []string) {
-	return
+func (*bcrExtension) KnownDirectives() []string {
+	return nil
 }
 
 // Fix repairs deprecated usage of language-specific rules in f. This is called
@@ -304,7 +248,7 @@ func (ext *bcrExtension) Resolve(
 	case "module_registry":
 		resolveModuleRegistryRule(r, ix)
 	case "repository_metadata":
-		resolveRepositoryMetadataRule(r, ix, ext.repositoriesMetadataByCanonicalName)
+		resolveRepositoryMetadataRule(r, ix, ext.repositoriesMetadataByID)
 	case "module_version":
 		resolveModuleVersionRule(r, ext.moduleMetadataRulesByModuleName)
 	}
@@ -334,7 +278,7 @@ func (ext *bcrExtension) GenerateRules(args language.GenerateArgs) language.Gene
 
 	// Generate repository metadata in the registry root package
 	if args.Rel == ext.registryRoot {
-		repoRules := makeRepositoryMetadataRules(ext.repositoriesMetadataByCanonicalName)
+		repoRules := makeRepositoryMetadataRules(ext.repositoriesMetadataByID)
 		rules = append(rules, repoRules...)
 	}
 
@@ -365,7 +309,7 @@ func (ext *bcrExtension) GenerateRules(args language.GenerateArgs) language.Gene
 		// Add metadata rule with references to maintainers (passing ext to track repositories)
 		r := makeModuleMetadataRule(path.Base(args.Rel), md, maintainerRules, "metadata.json", ext)
 		// track it so moduleVersion can determine if it is latest version
-		ext.moduleMetadataRulesByModuleName[r.Name()] = r
+		ext.moduleMetadataRulesByModuleName[r.Name()] = newProtoRule(r, md)
 		rules = append(rules, r)
 	}
 
@@ -421,10 +365,10 @@ func (ext *bcrExtension) GenerateRules(args language.GenerateArgs) language.Gene
 			rules = append(rules, sourceRule)
 
 			// Track the rule and URLS
-			moduleKey := makeModuleVersionKey(module.Name, module.Version)
-			ext.moduleSourceRulesByModuleKey[moduleKey] = sourceRule
-			ext.trackDocsUrl(source.DocsUrl, moduleKey)
-			ext.trackSourceUrl(source.Url, moduleKey)
+			modKey := newModuleKey(module.Name, module.Version)
+			ext.moduleSourceRulesByModuleKey[modKey] = newProtoRule(sourceRule, source)
+			ext.trackDocsUrl(source.DocsUrl, modKey)
+			ext.trackSourceUrl(source.Url, modKey)
 		}
 
 		if slices.Contains(args.RegularFiles, "attestations.json") {
@@ -452,18 +396,18 @@ func (ext *bcrExtension) GenerateRules(args language.GenerateArgs) language.Gene
 		}
 
 		// Add module to all dependency graphs
-		moduleKey := makeModuleVersionKey(module.Name, version)
+		modKey := newModuleKey(module.Name, version)
 		ext.addModuleToGraph(module.Name, version)
-		_ = ext.regularDepGraph.AddVertex(moduleKey)
-		_ = ext.devDepGraph.AddVertex(moduleKey)
+		_ = ext.regularDepGraph.AddVertex(modKey)
+		_ = ext.devDepGraph.AddVertex(modKey)
 
 		// Add dependency edges to graphs
 		for _, dep := range module.Deps {
 			// Add to main graph (all deps - for cycle detection)
 			ext.addDependencyEdge(module.Name, version, dep.Name, dep.Version)
 
-			fromKey := makeModuleVersionKey(module.Name, version)
-			toKey := makeModuleVersionKey(dep.Name, dep.Version)
+			fromKey := newModuleKey(module.Name, version)
+			toKey := newModuleKey(dep.Name, dep.Version)
 
 			if dep.Dev {
 				// Add to dev graph only
@@ -491,7 +435,7 @@ func (ext *bcrExtension) GenerateRules(args language.GenerateArgs) language.Gene
 		rules = append(rules, moduleVersionRule)
 
 		// Track the module_version rule for later MVS annotation
-		ext.moduleVersionRulesByModuleKey[moduleKey] = moduleVersionRule
+		ext.moduleVersionRulesByModuleKey[modKey] = newProtoRule(moduleVersionRule, module)
 	}
 
 	imports := make([]interface{}, len(rules))

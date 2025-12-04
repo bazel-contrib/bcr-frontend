@@ -9,18 +9,21 @@ import (
 	"github.com/stackb/centrl/pkg/sourcejson"
 )
 
-const moduleSourcePrivateAttr = "_module_source"
+const (
+	moduleSourceKind         = "module_source"
+	moduleVersionPrivateAttr = "_module_version"
+)
 
 func moduleSourceLoadInfo() rule.LoadInfo {
 	return rule.LoadInfo{
 		Name:    "//rules:module_source.bzl",
-		Symbols: []string{"module_source"},
+		Symbols: []string{moduleSourceKind},
 	}
 }
 
 func moduleSourceKinds() map[string]rule.KindInfo {
 	return map[string]rule.KindInfo{
-		"module_source": {
+		moduleSourceKind: {
 			MatchAny:     true,
 			ResolveAttrs: map[string]bool{"docs_url": true},
 		},
@@ -31,9 +34,8 @@ func readModuleSourceJson(filename string) (*bzpb.ModuleSource, error) {
 }
 
 func makeModuleSourceRule(module *bzpb.ModuleVersion, source *bzpb.ModuleSource, sourceJsonFile string) *rule.Rule {
-	r := rule.NewRule("module_source", "source")
+	r := rule.NewRule(moduleSourceKind, "source")
 	r.SetPrivateAttr(moduleVersionPrivateAttr, module)
-	r.SetPrivateAttr(moduleSourcePrivateAttr, source)
 
 	if source.Url != "" {
 		r.SetAttr("url", source.Url)

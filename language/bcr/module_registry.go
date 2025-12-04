@@ -13,16 +13,18 @@ import (
 	gitpkg "github.com/stackb/centrl/pkg/git"
 )
 
+const moduleRegistryKind = "module_registry"
+
 func moduleRegistryLoadInfo() rule.LoadInfo {
 	return rule.LoadInfo{
 		Name:    "//rules:module_registry.bzl",
-		Symbols: []string{"module_registry"},
+		Symbols: []string{moduleRegistryKind},
 	}
 }
 
 func moduleRegistryKinds() map[string]rule.KindInfo {
 	return map[string]rule.KindInfo{
-		"module_registry": {
+		moduleRegistryKind: {
 			MatchAny: true,
 			ResolveAttrs: map[string]bool{
 				"deps":   true,
@@ -33,7 +35,7 @@ func moduleRegistryKinds() map[string]rule.KindInfo {
 }
 
 func makeModuleRegistryRule(name string, subdirs []string, registryURL string, cycleRules []*rule.Rule, cfg *config.Config) *rule.Rule {
-	r := rule.NewRule("module_registry", name)
+	r := rule.NewRule(moduleRegistryKind, name)
 	if len(cycleRules) > 0 {
 		cycles := make([]string, len(cycleRules))
 		for i, mr := range cycleRules {

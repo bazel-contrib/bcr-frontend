@@ -4,9 +4,7 @@ import (
 	"fmt"
 	"log"
 	"sort"
-	"strings"
 
-	"github.com/bazelbuild/bazel-gazelle/config"
 	"github.com/bazelbuild/bazel-gazelle/label"
 	"github.com/bazelbuild/bazel-gazelle/resolve"
 	"github.com/bazelbuild/bazel-gazelle/rule"
@@ -14,31 +12,22 @@ import (
 )
 
 const (
+	moduleVersionKind          = "module_version"
 	isLatestVersionPrivateAttr = "_is_latest_version"
-	moduleVersionPrivateAttr   = "_module_version"
 )
-
-func makeModuleVersionKey(name, version string) string {
-	return fmt.Sprintf("%s@%s", name, version)
-}
-
-func parseModuleVersionKey(key string) (string, string) {
-	parts := strings.SplitN(key, "@", 2)
-	return parts[0], parts[1]
-}
 
 // moduleVersionLoadInfo returns load info for the module_version rule
 func moduleVersionLoadInfo() rule.LoadInfo {
 	return rule.LoadInfo{
 		Name:    "//rules:module_version.bzl",
-		Symbols: []string{"module_version"},
+		Symbols: []string{moduleVersionKind},
 	}
 }
 
 // moduleVersionKinds returns kind info for the module_version rule
 func moduleVersionKinds() map[string]rule.KindInfo {
 	return map[string]rule.KindInfo{
-		"module_version": {
+		moduleVersionKind: {
 			MatchAny: true,
 			ResolveAttrs: map[string]bool{
 				"deps":         true,
@@ -53,7 +42,8 @@ func moduleVersionKinds() map[string]rule.KindInfo {
 
 // makeModuleVersionRule creates a module_version rule from parsed MODULE.bazel data
 func makeModuleVersionRule(module *bzpb.ModuleVersion, version string, depRules []*rule.Rule, sourceRule *rule.Rule, attestationsRule *rule.Rule, presubmitRule *rule.Rule, commitRule *rule.Rule, moduleBazelFile string) *rule.Rule {
-	r := rule.NewRule("module_version", version)
+	r := rule.NewRule(moduleVersionKind, version)
+
 	if module.Name != "" {
 		r.SetAttr("module_name", module.Name)
 	}
@@ -94,15 +84,6 @@ func makeModuleVersionRule(module *bzpb.ModuleVersion, version string, depRules 
 	r.SetAttr("build_bazel", ":BUILD.bazel")
 	r.SetAttr("visibility", []string{"//visibility:public"})
 
-	// Set GazelleImports private attr with the import spec
-	// The import spec for a module version is "module_name@version"
-	if module.Name != "" && version != "" {
-		importSpec := makeModuleVersionKey(module.Name, version)
-		r.SetPrivateAttr(config.GazelleImportsKey, []string{importSpec})
-	}
-
-	r.SetPrivateAttr(moduleVersionPrivateAttr, module)
-
 	return r
 }
 
@@ -119,21 +100,21 @@ func moduleVersionImports(r *rule.Rule) []resolve.ImportSpec {
 	// Construct and return the import spec: "module_name@version"
 	importSpec := resolve.ImportSpec{
 		Lang: bcrLangName,
-		Imp:  makeModuleVersionKey(moduleName, version),
+		Imp:  newModuleKey(moduleName, version).String(),
 	}
 
 	return []resolve.ImportSpec{importSpec}
 }
 
-func resolveModuleVersionRule(r *rule.Rule, moduleRules map[string]*rule.Rule) {
+func resolveModuleVersionRule(r *rule.Rule, moduleRules map[string]*protoRule[*bzpb.ModuleMetadata]) {
 	moduleName := r.AttrString("module_name")
 	moduleVersion := r.AttrString("version")
 
-	if moduleRule, ok := moduleRules[moduleName]; !ok {
+	if protoRule, ok := moduleRules[moduleName]; !ok {
 		// https://github.com/bazelbuild/bazel-central-registry/tree/8c5761038905a45f1cf2d1098ba9917a456d20bb/modules/postgres/14.18
 		log.Printf("WARN: while resolving latest versions, discovered unknown module: %v", moduleName)
 	} else {
-		versions := moduleRule.AttrStrings("versions")
+		versions := protoRule.Proto().Versions
 
 		// latest version is expected to be the last element in the list
 		if len(versions) > 0 && versions[len(versions)-1] == moduleVersion {
@@ -145,36 +126,33 @@ func resolveModuleVersionRule(r *rule.Rule, moduleRules map[string]*rule.Rule) {
 
 // updateModuleVersionRulePublishedDocs sets the published_docs attribute on the
 // module_version rule corresponding to the given module_source rule
-func updateModuleVersionRulePublishedDocs(moduleSourceRule *rule.Rule, httpArchiveLabel label.Label, moduleVersions map[string]*rule.Rule) {
+func updateModuleVersionRulePublishedDocs(moduleSource *protoRule[*bzpb.ModuleSource], httpArchiveLabel label.Label, moduleVersions map[moduleKey]*protoRule[*bzpb.ModuleVersion]) {
 	// Get the module@version from the module_source rule's private attr
-	module := moduleSourceRule.PrivateAttr(moduleVersionPrivateAttr).(*bzpb.ModuleVersion)
+	module := moduleSource.Rule().PrivateAttr(moduleVersionPrivateAttr).(*bzpb.ModuleVersion)
 
 	// Look up the corresponding module_version rule using ext.moduleVersions map
-	moduleKey := makeModuleVersionKey(module.Name, module.Version)
-	if moduleVersionRule, exists := moduleVersions[moduleKey]; exists {
+	modKey := newModuleKey(module.Name, module.Version)
+	if protoRule, exists := moduleVersions[modKey]; exists {
 		// Set the published_docs attribute as a label_list
 		if httpArchiveLabel != label.NoLabel {
-			moduleVersionRule.SetAttr("published_docs", []string{httpArchiveLabel.String()})
+			protoRule.Rule().SetAttr("published_docs", []string{httpArchiveLabel.String()})
 		}
 	} else {
-		log.Panicf("BUG: not module version found for %s", moduleKey)
+		log.Panicf("BUG: not module version found for %s", modKey)
 	}
 }
 
-func updateModuleVersionRulesMvs(moduleVersions map[string]*rule.Rule, attrName string, perModuleVersionMvs mvs) (annotatedCount int) {
-	for moduleKey, mvs := range perModuleVersionMvs {
+func updateModuleVersionMvsAttr(moduleVersions map[moduleKey]*protoRule[*bzpb.ModuleVersion], attrName string, perModuleVersionMvs mvs) (annotatedCount int) {
+	for modKeyStr, mvs := range perModuleVersionMvs {
+		modKey := moduleKey(modKeyStr)
 		// Find the corresponding module_version rule
-		rule, exists := moduleVersions[moduleKey]
+		protoRule, exists := moduleVersions[modKey]
 		if !exists {
 			continue
 		}
 
 		// Extract root module name and version to exclude from mvs attribute
-		parts := strings.Split(moduleKey, "@")
-		if len(parts) != 2 {
-			continue
-		}
-		rootModuleName := parts[0]
+		rootModuleName := modKey.name()
 
 		// Remove root module from the mvs dict (we only want dependencies)
 		mvsWithoutRoot := make(map[string]string)
@@ -186,7 +164,7 @@ func updateModuleVersionRulesMvs(moduleVersions map[string]*rule.Rule, attrName 
 
 		// Set the "mvs" attribute as a dict (without root module)
 		if len(mvsWithoutRoot) > 0 {
-			rule.SetAttr(attrName, mvsWithoutRoot)
+			protoRule.Rule().SetAttr(attrName, mvsWithoutRoot)
 			annotatedCount++
 		}
 	}
@@ -194,7 +172,7 @@ func updateModuleVersionRulesMvs(moduleVersions map[string]*rule.Rule, attrName 
 	return
 }
 
-func hasStarlarkLanguage(moduleMetadataRule *rule.Rule, repositoryMetadataByCanonicalName map[string]*bzpb.RepositoryMetadata) bool {
+func hasStarlarkLanguage(moduleMetadataRule *rule.Rule, repositoryMetadataByID map[repositoryID]*bzpb.RepositoryMetadata) bool {
 	// Get the repository field
 	repositories := moduleMetadataRule.AttrStrings("repository")
 	if len(repositories) == 0 {
@@ -203,8 +181,8 @@ func hasStarlarkLanguage(moduleMetadataRule *rule.Rule, repositoryMetadataByCano
 
 	// Check if the repositoriy has Starlark in its languages
 	for _, repo := range repositories {
-		canonicalName := repositoryMetadataCanonicalName(repo)
-		repoMetadata, exists := repositoryMetadataByCanonicalName[canonicalName]
+		canonicalName := normalizeRepositoryID(repo)
+		repoMetadata, exists := repositoryMetadataByID[canonicalName]
 		if !exists {
 			continue
 		}
@@ -224,7 +202,7 @@ func isLatestVersion(moduleVersionRule *rule.Rule) bool {
 	return ok && isLatest
 }
 
-func selectVersion(version string, available []*versionedRule, metadata *bzpb.ModuleMetadata) label.Label {
+func selectVersion(version string, available []*versionedRule, _ *bzpb.ModuleMetadata) label.Label {
 	if len(available) == 0 {
 		return label.NoLabel
 	}
@@ -241,32 +219,33 @@ func selectVersion(version string, available []*versionedRule, metadata *bzpb.Mo
 	return upvote(available[len(available)-1])
 }
 
-func (ext *bcrExtension) updateModuleVersionRuleBzlSrcsAndDeps(moduleKey string, mvs map[string]string, starlarkRepositories moduleVersionRuleMap) bool {
+func (ext *bcrExtension) updateModuleVersionRuleBzlSrcsAndDeps(modKey moduleKey, mvs map[string]string, starlarkRepositories moduleVersionRuleMap) bool {
 	// skip setting bzl_srcs and deps on non-latest versions
-	mvRule, exists := ext.moduleVersionRulesByModuleKey[moduleKey]
+	mvProtoRule, exists := ext.moduleVersionRulesByModuleKey[modKey]
 	if !exists {
 		return false
 	}
-	if !isLatestVersion(mvRule) {
+	if !isLatestVersion(mvProtoRule.Rule()) {
 		return false
 	}
 
-	rootModuleName, rootModuleVersion := parseModuleVersionKey(moduleKey)
+	rootModuleName := modKey.name()
+	rootModuleVersion := modKey.version()
 
 	// Separate root from dependencies
 	var bzlSrcLabel label.Label
 	var bzlDepLabels []label.Label
 
 	for moduleName, version := range mvs {
-		moduleMetadataRule, exists := ext.moduleMetadataRulesByModuleName[rootModuleName]
+		moduleMetadataProtoRule, exists := ext.moduleMetadataRulesByModuleName[rootModuleName]
 		if !exists {
 			return false
 		}
-		if !hasStarlarkLanguage(moduleMetadataRule, ext.repositoriesMetadataByCanonicalName) {
+		if !hasStarlarkLanguage(moduleMetadataProtoRule.Rule(), ext.repositoriesMetadataByID) {
 			continue
 		}
 
-		metadata := moduleMetadataRule.PrivateAttr(moduleMetadataPrivateAttr).(*bzpb.ModuleMetadata)
+		metadata := moduleMetadataProtoRule.Proto()
 		selectedVersion := selectVersion(version, starlarkRepositories[moduleName], metadata)
 
 		if moduleName == rootModuleName && version == rootModuleVersion {
@@ -284,7 +263,7 @@ func (ext *bcrExtension) updateModuleVersionRuleBzlSrcsAndDeps(moduleKey string,
 	}
 
 	// Set bzl_srcs attribute using select expression
-	mvRule.SetAttr("bzl_srcs", makeBzlSrcSelectExpr(bzlSrcLabel.String()))
+	mvProtoRule.Rule().SetAttr("bzl_srcs", makeBzlSrcSelectExpr(bzlSrcLabel.String()))
 
 	// Set bzl_deps attribute if there are any dependencies
 	if len(bzlDepLabels) > 0 {
@@ -295,15 +274,16 @@ func (ext *bcrExtension) updateModuleVersionRuleBzlSrcsAndDeps(moduleKey string,
 			}
 		}
 		sort.Strings(bzlDeps)
-		mvRule.SetAttr("bzl_deps", makeBzlDepsSelectExpr(bzlDeps))
+		mvProtoRule.Rule().SetAttr("bzl_deps", makeBzlDepsSelectExpr(bzlDeps))
 	}
 
 	return true
 }
 
 func (ext *bcrExtension) updateModuleVersionRulesBzlSrcsAndDeps(perModuleVersionMvs mvs, starlarkRepositories moduleVersionRuleMap) (annotatedCount int) {
-	for moduleKey, mvs := range perModuleVersionMvs {
-		if ext.updateModuleVersionRuleBzlSrcsAndDeps(moduleKey, mvs, starlarkRepositories) {
+	for modKeyStr, mvs := range perModuleVersionMvs {
+		modKey := moduleKey(modKeyStr)
+		if ext.updateModuleVersionRuleBzlSrcsAndDeps(modKey, mvs, starlarkRepositories) {
 			annotatedCount++
 		}
 	}

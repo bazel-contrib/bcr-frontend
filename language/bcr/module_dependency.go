@@ -91,7 +91,7 @@ func makeOverrideRule(moduleName string, override *bzpb.ModuleDependencyOverride
 }
 
 // resolveModuleDependencyRule resolves the module and cycle attributes for a module_dependency rule
-func resolveModuleDependencyRule(modulesRoot string, r *rule.Rule, ix *resolve.RuleIndex, from label.Label, moduleToCycle map[string]string, unresolvedModules map[string]bool) {
+func resolveModuleDependencyRule(modulesRoot string, r *rule.Rule, ix *resolve.RuleIndex, from label.Label, moduleToCycle map[moduleKey]string, unresolvedModules map[moduleKey]bool) {
 	// Get the dependency name and version to construct the import spec
 	depName := r.AttrString("dep_name")
 	version := r.AttrString("version")
@@ -105,7 +105,7 @@ func resolveModuleDependencyRule(modulesRoot string, r *rule.Rule, ix *resolve.R
 	}
 
 	// Construct the import spec: "module_name@version"
-	moduleVersion := makeModuleVersionKey(depName, version)
+	moduleVersion := newModuleKey(depName, version).String()
 	importSpec := resolve.ImportSpec{
 		Lang: bcrLangName,
 		Imp:  moduleVersion,
@@ -120,7 +120,7 @@ func resolveModuleDependencyRule(modulesRoot string, r *rule.Rule, ix *resolve.R
 			r.SetAttr("unresolved", true)
 			// Track this as unresolved so MVS can skip it
 			if unresolvedModules != nil {
-				unresolvedModules[moduleVersion] = true
+				unresolvedModules[moduleKey(moduleVersion)] = true
 			}
 		}
 		return
@@ -131,7 +131,8 @@ func resolveModuleDependencyRule(modulesRoot string, r *rule.Rule, ix *resolve.R
 
 	// Check if this module is part of a cycle
 	if generateModuleDependencyCycleRules {
-		if cycleName, inCycle := moduleToCycle[moduleVersion]; inCycle {
+		modKey := moduleKey(moduleVersion)
+		if cycleName, inCycle := moduleToCycle[modKey]; inCycle {
 			// Set the cycle attr to point to the cycle rule
 			cycleLabel := fmt.Sprintf("//%s:%s", modulesRoot, cycleName)
 			r.SetAttr("cycle", cycleLabel)

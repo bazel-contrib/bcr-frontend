@@ -9,9 +9,9 @@ import (
 	"github.com/bazelbuild/bazel-gazelle/rule"
 )
 
-// buildModuleToCycleMap creates a mapping from module@version to cycle rule name
-func buildModuleToCycleMap(cycles [][]string) map[string]string {
-	moduleToCycle := make(map[string]string)
+// buildModuleToCycleMap creates a mapping from moduleKey to cycle rule name
+func buildModuleToCycleMap(cycles [][]moduleKey) map[moduleKey]string {
+	moduleToCycle := make(map[moduleKey]string)
 
 	for _, cycle := range cycles {
 		if len(cycle) == 0 {
@@ -20,7 +20,9 @@ func buildModuleToCycleMap(cycles [][]string) map[string]string {
 
 		// Sort cycle members for deterministic naming
 		sorted := make([]string, len(cycle))
-		copy(sorted, cycle)
+		for i, modKey := range cycle {
+			sorted[i] = modKey.String()
+		}
 		sort.Strings(sorted)
 
 		// Generate cycle rule name: replace @ with - and join with +
@@ -31,8 +33,8 @@ func buildModuleToCycleMap(cycles [][]string) map[string]string {
 		cycleName := strings.Join(nameSegments, "+")
 
 		// Map each module version in the cycle to the cycle name
-		for _, moduleVersion := range cycle {
-			moduleToCycle[moduleVersion] = cycleName
+		for _, modKey := range cycle {
+			moduleToCycle[modKey] = cycleName
 		}
 	}
 
@@ -40,7 +42,7 @@ func buildModuleToCycleMap(cycles [][]string) map[string]string {
 }
 
 // makeModuleDependencyCycleRules generates module_dependency_cycle rules for detected cycles
-func makeModuleDependencyCycleRules(cycles [][]string) []*rule.Rule {
+func makeModuleDependencyCycleRules(cycles [][]moduleKey) []*rule.Rule {
 	var rules []*rule.Rule
 
 	for _, cycle := range cycles {
@@ -50,7 +52,9 @@ func makeModuleDependencyCycleRules(cycles [][]string) []*rule.Rule {
 
 		// Sort cycle members for deterministic naming
 		sorted := make([]string, len(cycle))
-		copy(sorted, cycle)
+		for i, modKey := range cycle {
+			sorted[i] = modKey.String()
+		}
 		sort.Strings(sorted)
 
 		// Generate rule name: replace @ with - and join with +
