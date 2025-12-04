@@ -147,7 +147,7 @@ def _module_version_impl(ctx):
             files = depset(outputs),
         ),
         ModuleVersionInfo(
-            key = "%s@%s" % (ctx.attr.module_name, ctx.attr.version),
+            id = "%s@%s" % (ctx.attr.module_name, ctx.attr.version),
             name = ctx.attr.module_name,
             attestations = attestations,
             bazel_compatibility = ctx.attr.bazel_compatibility,
