@@ -8,6 +8,7 @@ import (
 	"maps"
 	"path/filepath"
 	"slices"
+	"sort"
 	"strings"
 
 	"github.com/bazelbuild/bazel-gazelle/label"
@@ -148,7 +149,7 @@ func (ext *bcrExtension) prepareBinaryprotoRepositories() []*rule.Rule {
 
 // handleSourceUrlStatus processes a source URL status and updates the repos map
 // and rules
-func (ext *bcrExtension) handleSourceUrlStatus(url string, moduleIDs []moduleID, status netutil.URLStatus, repos rankedModuleVersionMap, cached bool) {
+func (ext *bcrExtension) handleSourceUrlStatus(url string, moduleIDs []moduleID, status netutil.URLStatus, versions rankedModuleVersionMap, cached bool) {
 	// Store status in the map for future caching
 	ext.resourceStatusByUrl[url] = &bzpb.ResourceStatus{
 		Url:     url,
@@ -177,9 +178,8 @@ func (ext *bcrExtension) handleSourceUrlStatus(url string, moduleIDs []moduleID,
 	rule := makeBzlRepository(lbl, source)
 	name := moduleName(module.Name)
 	version := moduleVersion(module.Version)
-	repos[name] = append(repos[name], &rankedVersion{version: version, bzlRepositoryRule: rule, bzlRepositoryLabel: lbl})
-
-	log.Printf("created starlark repository: %v (%s)", lbl, moduleSourceProtoRule.Rule().AttrString("url"))
+	log.Printf("DEBUG: Creating rankedVersion for %s@%s with label %s", module.Name, module.Version, lbl.String())
+	versions[name] = append(versions[name], &rankedVersion{version: version, bzlRepositoryRule: rule, bzlRepositoryLabel: lbl})
 }
 
 func (ext *bcrExtension) prepareBzlRepositories() rankedModuleVersionMap {
@@ -187,7 +187,7 @@ func (ext *bcrExtension) prepareBzlRepositories() rankedModuleVersionMap {
 		return nil
 	}
 
-	repos := make(rankedModuleVersionMap)
+	versions := make(rankedModuleVersionMap)
 
 	// Separate URLs into cached, blacklisted, MVS-filtered, bzl_srcs-filtered, and uncached
 	var uncachedItems []checkItem
@@ -211,7 +211,7 @@ func (ext *bcrExtension) prepareBzlRepositories() rankedModuleVersionMap {
 				Code:    int(cachedStatus.Code),
 				Message: cachedStatus.Message,
 			}
-			ext.handleSourceUrlStatus(url, moduleIDs, status, repos, true)
+			ext.handleSourceUrlStatus(url, moduleIDs, status, versions, true)
 		} else {
 			// Need to check this URL
 			uncachedItems = append(uncachedItems, checkItem{url, moduleIDs})
@@ -235,11 +235,121 @@ func (ext *bcrExtension) prepareBzlRepositories() rankedModuleVersionMap {
 	if len(uncachedItems) > 0 {
 		netutil.CheckURLsParallel("Checking source URLs", uncachedItems, func(item checkItem) string { return item.url },
 			func(item checkItem, status netutil.URLStatus) {
-				ext.handleSourceUrlStatus(item.url, item.moduleIDs, status, repos, false)
+				ext.handleSourceUrlStatus(item.url, item.moduleIDs, status, versions, false)
 			})
 	}
 
-	return repos
+	return versions
+}
+
+func (ext *bcrExtension) rankBzlRepositoryVersions(perModuleVersionMvs mvs, bzlRepositories rankedModuleVersionMap) {
+	for id, mvs := range perModuleVersionMvs {
+		ext.rankBzlRepositoryVersionsForModule(id, mvs, bzlRepositories)
+	}
+}
+
+func (ext *bcrExtension) rankBzlRepositoryVersionsForModule(id moduleID, deps moduleDeps, bzlRepositories rankedModuleVersionMap) {
+	// skip setting bzl_srcs and deps on non-latest versions
+	moduleVersionRule, exists := ext.moduleVersionRules[id]
+	if !exists {
+		return
+	}
+	if !isLatestVersion(moduleVersionRule) {
+		return
+	}
+
+	rootModuleName := id.name()
+	rootModuleVersion := id.version()
+
+	for moduleName, version := range deps {
+		moduleMetadataProtoRule, exists := ext.moduleMetadataRules[rootModuleName]
+		if !exists {
+			return
+		}
+		if !hasStarlarkLanguage(moduleMetadataProtoRule.Rule(), ext.repositoriesMetadataByID) {
+			continue
+		}
+
+		metadata := moduleMetadataProtoRule.Proto()
+
+		if moduleName == rootModuleName && version == rootModuleVersion {
+			// This is the root module → bzl_srcs (single label)
+			selectVersion(moduleVersionRule, version, true, bzlRepositories[moduleName], metadata)
+		} else {
+			// This is a dependency → bzl_deps (list)
+			selectVersion(moduleVersionRule, version, false, bzlRepositories[moduleName], metadata)
+		}
+	}
+
+}
+
+func (ext *bcrExtension) finalizeBzlSrcsAndDeps(bzlRepositories rankedModuleVersionMap) {
+	// collect selected bzlDeps foreach rule so we can sort them later
+	bzlSrcRuleMap := make(map[*protoRule[*bzpb.ModuleVersion]]string)
+	bzlDepsRuleMap := make(map[*protoRule[*bzpb.ModuleVersion]][]string)
+
+	// Debug: Log all available versions and their ranks
+	log.Println("=== Available bzl repository versions with ranks ===")
+	for moduleName, versions := range bzlRepositories {
+		for _, version := range versions {
+			if version.rank > 0 {
+				log.Printf("  %s@%s: rank=%d label=%s", moduleName, version.version, version.rank, version.bzlRepositoryLabel.String())
+			}
+		}
+	}
+
+	moduleNames := slices.Sorted(maps.Keys(bzlRepositories))
+
+	// iterate the list of versions for each module (e.g. "bazel_skylib").
+	for _, moduleName := range moduleNames {
+
+		moduleMetadata := ext.moduleMetadataRules[moduleName]
+		if moduleMetadata == nil {
+			log.Printf("WARNING: no metadata found for module %s, skipping", moduleName)
+			continue
+		}
+
+		// Convert string slice to moduleVersion slice
+		sortedVersions := make([]moduleVersion, len(moduleMetadata.Proto().Versions))
+		for i, v := range moduleMetadata.Proto().Versions {
+			sortedVersions[i] = moduleVersion(v)
+		}
+
+		// coalesce / merge patch versions or minor versions together such that
+		// we reduce the overall number of repos to fetch.
+		versions := bzlRepositories[moduleName]
+		// originalCount := len(versions)
+		// versions = narrowSelectedVersionsByPatchLevel(sortedVersions, versions)
+		// if len(versions) < originalCount {
+		// 	log.Printf("Narrowed %s versions from %d to %d by merging patch levels", moduleName, originalCount, len(versions))
+		// }
+
+		// iterate the list of versions for each module (e.g. "bazel_skylib").
+		// The ranked versions is a sparse list of available versions that may
+		// or may not have any interested parties (rules that want to use them
+		// for doc generation).
+		for _, version := range versions {
+			if version.rank > 0 {
+				if version.source != nil {
+					bzlSrcRuleMap[version.source] = version.bzlRepositoryLabel.String()
+				}
+				for _, rule := range version.deps {
+					label := version.bzlRepositoryLabel.String()
+					bzlDepsRuleMap[rule] = append(bzlDepsRuleMap[rule], label)
+					log.Printf("DEBUG: Adding bzl_dep %s to rule %s@%s", label, rule.Proto().Name, rule.Proto().Version)
+				}
+			}
+		}
+	}
+
+	for rule, bzlSrc := range bzlSrcRuleMap {
+		rule.Rule().SetAttr("bzl_srcs", makeBzlSrcSelectExpr(bzlSrc))
+	}
+	for rule, bzlDeps := range bzlDepsRuleMap {
+		sort.Strings(bzlDeps)
+		log.Printf("DEBUG: Setting bzl_deps on %s@%s: %v", rule.Proto().Name, rule.Proto().Version, bzlDeps)
+		rule.Rule().SetAttr("bzl_deps", makeBzlDepsSelectExpr(bzlDeps))
+	}
 }
 
 // mergeModuleBazelFile updates the MODULE.bazel file with additional rules if
@@ -438,4 +548,181 @@ func getSha256Integrity(integrity string) (string, bool) {
 
 	// Convert to hex string
 	return hex.EncodeToString(hashBytes), true
+}
+
+// narrowSelectedVersionsByPatchLevel reduces the number of versions by merging
+// patch versions within the same major.minor group. This minimizes the number
+// of starlark repositories we need to generate while maintaining coverage.
+//
+// For example, if we have:
+//   - 1.8.2 (rank=10)
+//   - 1.8.1 (rank=5)
+//   - 1.8.0 (rank=3)
+//   - 1.7.1 (rank=2)
+//
+// We'll keep only:
+//   - 1.8.2 (rank=18) ← merged 1.8.1 and 1.8.0
+//   - 1.7.1 (rank=2)
+//
+// The sortedVersions list should be the sorted versions from moduleMetadata.Versions
+func narrowSelectedVersionsByPatchLevel(sortedVersions []moduleVersion, versions []*rankedVersion) []*rankedVersion {
+	if len(versions) == 0 {
+		return versions
+	}
+
+	// Create a map from version string to rankedVersion for quick lookup
+	versionMap := make(map[moduleVersion]*rankedVersion)
+	for _, v := range versions {
+		versionMap[v.version] = v
+	}
+
+	// Group versions by major.minor prefix
+	// Key is major.minor (e.g., "1.8"), value is list of full versions
+	groups := make(map[string][]moduleVersion)
+	for _, version := range sortedVersions {
+		if _, exists := versionMap[version]; !exists {
+			// Skip versions that don't have rankings (not selected by MVS)
+			continue
+		}
+
+		// Extract major.minor by taking everything before the last dot
+		// This handles versions like "1.8.2", "1.8.2-rc1", etc.
+		majorMinor := extractMajorMinor(string(version))
+		groups[majorMinor] = append(groups[majorMinor], version)
+	}
+
+	// For each group, keep only the highest version and merge ranks
+	narrowed := make([]*rankedVersion, 0, len(groups))
+	for _, groupVersions := range groups {
+		if len(groupVersions) == 0 {
+			continue
+		}
+
+		// The versions are already sorted (from sortedVersions), so the last one is highest
+		// within this group (since we iterated in order)
+		highestVersion := groupVersions[len(groupVersions)-1]
+		highest := versionMap[highestVersion]
+
+		if len(groupVersions) == 1 {
+			// Only one version in this group, keep it as-is
+			narrowed = append(narrowed, highest)
+			continue
+		}
+
+		// Merge ranks and deps from all versions in this group
+		mergedRank := 0
+		var mergedDeps []*protoRule[*bzpb.ModuleVersion]
+		var mergedSource *protoRule[*bzpb.ModuleVersion]
+
+		for _, version := range groupVersions {
+			v := versionMap[version]
+			mergedRank += v.rank
+			mergedDeps = append(mergedDeps, v.deps...)
+			if v.source != nil {
+				if mergedSource == nil {
+					mergedSource = v.source
+				}
+				// If multiple sources, prefer the one from the highest version
+				if version == highestVersion {
+					mergedSource = v.source
+				}
+			}
+		}
+
+		// Create a new rankedVersion with merged data
+		merged := &rankedVersion{
+			version:            highest.version,
+			bzlRepositoryLabel: highest.bzlRepositoryLabel,
+			bzlRepositoryRule:  highest.bzlRepositoryRule,
+			source:             mergedSource,
+			deps:               mergedDeps,
+			rank:               mergedRank,
+		}
+
+		narrowed = append(narrowed, merged)
+	}
+
+	return narrowed
+}
+
+// extractMajorMinor extracts the major.minor prefix from a version string
+// Examples:
+//   - "1.8.2" -> "1.8"
+//   - "1.8.2-rc1" -> "1.8"
+//   - "2.0.0" -> "2.0"
+func extractMajorMinor(version string) string {
+	// Find the last dot to separate patch version
+	lastDot := strings.LastIndex(version, ".")
+	if lastDot == -1 {
+		// No dots, use the whole version
+		return version
+	}
+
+	// Take everything before the last dot, but stop at any non-numeric character after that
+	majorMinor := version[:lastDot]
+
+	// Handle pre-release suffixes like "1.8.2-rc1" - find the first dash/hyphen
+	if dashIdx := strings.Index(majorMinor, "-"); dashIdx != -1 {
+		majorMinor = majorMinor[:dashIdx]
+	}
+
+	return majorMinor
+}
+
+// selectVersion votes for a version and returns the actual version selected.
+// If the requested version is not available, it falls back to the highest available version.
+// Returns the version that was actually selected (which may differ from the requested version).
+func selectVersion(rule *protoRule[*bzpb.ModuleVersion], version moduleVersion, isSource bool, available []*rankedVersion, _ *bzpb.ModuleMetadata) moduleVersion {
+	if len(available) == 0 {
+		return ""
+	}
+
+	choose := func(v *rankedVersion) moduleVersion {
+		if isSource {
+			if v.source != nil {
+				log.Panicf("more than one module is claiming to be the source module! %s", version)
+			}
+			v.source = rule
+		} else {
+			v.deps = append(v.deps, rule)
+		}
+		v.rank++
+		return v.version
+	}
+
+	for _, v := range available {
+		if v.version == version {
+			return choose(v)
+		}
+	}
+
+	// Fallback to highest available version
+	fallback := available[len(available)-1]
+	log.Printf("WARNING: %s not available, falling back to %s", newModuleID(rule.Proto().Name, string(version)), newModuleID(rule.Proto().Name, string(fallback.version)))
+	return choose(fallback)
+}
+
+func hasStarlarkLanguage(moduleMetadataRule *rule.Rule, repositoryMetadataByID map[repositoryID]*bzpb.RepositoryMetadata) bool {
+	// Get the repository field
+	repositories := moduleMetadataRule.AttrStrings("repository")
+	if len(repositories) == 0 {
+		return false
+	}
+
+	// Check if the repositoriy has Starlark in its languages
+	for _, repo := range repositories {
+		canonicalName := normalizeRepositoryID(repo)
+		repoMetadata, exists := repositoryMetadataByID[canonicalName]
+		if !exists {
+			continue
+		}
+		if repoMetadata.Languages == nil {
+			continue
+		}
+		if _, hasLang := repoMetadata.Languages["Starlark"]; hasLang {
+			return true
+		}
+	}
+
+	return false
 }
