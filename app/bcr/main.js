@@ -9,10 +9,39 @@ const base64 = goog.require("goog.crypt.base64");
  * Main entry point for the browser application.
  *
  * @param {string} registryDataBase64 the raw base64 encoded registry protobuf data
+*/
+async function main(registryDataBase64) {
+    const registry = Registry.deserializeBinary(await base64GzDecode(registryDataBase64));
+    setupRegistry(registry);
+    const app = new RegistryApp(registry);
+    app.render(document.body);
+    app.start();
+}
+
+/**
+ * Setup the registry once deserialized.  Currently this involves propagating
+ * RepositoryMetadata from Module down to ModuleVersion.
+ * @param {!Registry} registry 
+*/
+function setupRegistry(registry) {
+    for (const module of registry.getModulesList()) {
+        const md = module.getRepositoryMetadata();
+        if (md) {
+            for (const moduleVersion of module.getVersionsList()) {
+                moduleVersion.setRepositoryMetadata(md);
+            }
+        }
+    }
+}
+
+/**
+ * 
+ * @param {string} b64 The base64-encoded gzipped data
+ * @returns {!Promise<!Uint8Array>}
  * @suppress {reportUnknownTypes, missingProperties, checkTypes}
  */
-async function main(registryDataBase64) {
-    const binaryString = base64.decodeToBinaryString(registryDataBase64);
+async function base64GzDecode(b64) {
+    const binaryString = base64.decodeToBinaryString(b64);
     const binaryData = new Uint8Array(binaryString.length);
     for (let i = 0; i < binaryString.length; i++) {
         binaryData[i] = binaryString.charCodeAt(i);
@@ -42,28 +71,7 @@ async function main(registryDataBase64) {
         decompressed.set(chunk, offset);
         offset += chunk.length;
     }
-    const data = decompressed;
-    const registry = Registry.deserializeBinary(data);
-    setupRegistry(registry);
-    const app = new RegistryApp(registry);
-    app.render(document.body);
-    app.start();
-}
-
-/**
- * Setup the registry once deserialized.  Currently this involves propagating
- * RepositoryMetadata from Module down to ModuleVersion.
- * @param {!Registry} registry 
- */
-function setupRegistry(registry) {
-    for (const module of registry.getModulesList()) {
-        const md = module.getRepositoryMetadata();
-        if (md) {
-            for (const moduleVersion of module.getVersionsList()) {
-                moduleVersion.setRepositoryMetadata(md);
-            }
-        }
-    }
+    return decompressed;
 }
 
 /**

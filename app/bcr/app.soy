@@ -1,6 +1,7 @@
 {namespace soy.centrl.app}
 
 import {
+    octiconBook16,
     octiconCheck16,
     octiconChevronLeft16,
     octiconChevronLeft24,
@@ -118,6 +119,7 @@ import {
     </form>
   </div>
   <div class="Header-item">
+    {headerLink(path: "docs", label: "Docs", octicon: octiconBook16())}
     {headerLink(path: "modules", label: "Modules", octicon: octiconSquareFill16())}
     {headerLink(path: "maintainers", label: "Maintainers", octicon: octiconPerson16())}
     {headerLink(path: "settings", octicon: octiconGear16())}
@@ -1304,6 +1306,13 @@ import {
 </div>
 {/template}
 
+
+{template docsSelect}
+<div>
+  DOCS_HEADER
+  <div class="{css('content')}"></div>
+</div>
+{/template}
 
 {template maintainersSelect}
 <div>

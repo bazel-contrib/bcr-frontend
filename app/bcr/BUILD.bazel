@@ -182,7 +182,7 @@ closure_js_binary(
         "sitemap_xml",
         "robots_txt",
         "registry_pb",
-        "docs",
+        "documentation_registry_pb",
     ]
 ]
 
@@ -211,10 +211,11 @@ release_archive(
     ] + select({
         ":is_debug_release": ["bcr.js.map"],
         "//conditions:default": [],
-    }) + select({
-        "//app/bcr:is_docs_release": [":docs"],
-        "//conditions:default": [],
     }),
+    # documentation_registry_file = select({
+    #     "//app/bcr:is_docs_release": ":documentation_registry_pb",
+    #     "//conditions:default": None,
+    # }),
     hashed_srcs = [
         ":bcr.css",
         ":bcr.js",

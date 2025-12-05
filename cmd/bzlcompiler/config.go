@@ -117,6 +117,7 @@ func parseConfig(args []string) (*Config, error) {
 type bzlFile struct {
 	RepoName      string // the name of the repo to which the file belongs (e.g. "rules_go")
 	Path          string // the original path
+	RelativePath  string // non-external path
 	EffectivePath string // the remapped path
 	Label         *bzpb.Label
 }

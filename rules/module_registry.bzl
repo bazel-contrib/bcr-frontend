@@ -61,6 +61,26 @@ def _compile_codesearch_index_action(ctx, deps):
 
     return output
 
+def _compile_documentation_registry(ctx, doc_results):
+    output = ctx.actions.declare_file("documentationregistry.pb")
+    inputs = [result.output for result in doc_results]
+
+    args = ctx.actions.args()
+    args.add("--output_file")
+    args.add(output)
+    for result in doc_results:
+        args.add("--input_file=%s=%s" % (result.mv.id, result.output.path))
+
+    ctx.actions.run(
+        executable = ctx.executable._documentationregistrycompiler,
+        arguments = [args],
+        inputs = inputs,
+        outputs = [output],
+        mnemonic = "CompileDocumentationRegistry",
+    )
+
+    return output
+
 def _get_module_id_from_bzl_repository_repo_name(repo_name):
     parts = repo_name.split("+")
     if len(parts) == 0:
@@ -287,14 +307,19 @@ Sitemap: {registry_url}/sitemap.xml
 
     return output
 
-def _compile_action(ctx, modules):
+def _compile_registry_action(ctx, modules, docRegistry):
     output = ctx.actions.declare_file("registry.pb")
+    inputs = [] + modules
 
     args = ctx.actions.args()
     args.add("--output_file")
     args.add(output)
     args.add("--registry_url")
     args.add(ctx.attr.registry_url)
+    if docRegistry:
+        args.add("--documentation_registry_file")
+        args.add(docRegistry)
+        inputs.append(docRegistry)
     if ctx.attr.repository_url:
         args.add("--repository_url")
         args.add(ctx.attr.repository_url)
@@ -310,9 +335,9 @@ def _compile_action(ctx, modules):
     args.add_all(modules)
 
     ctx.actions.run(
-        executable = ctx.executable._compiler,
+        executable = ctx.executable._registrycompiler,
         arguments = [args],
-        inputs = modules,
+        inputs = inputs,
         outputs = [output],
         mnemonic = "CompileRegistry",
         progress_message = "Compiling registry for %{label}",
@@ -326,15 +351,15 @@ def _module_registry_impl(ctx):
     modules = [d.proto for d in deps]
     repository_metadatas = [dep.repository_metadata for dep in deps if dep.repository_metadata]
 
-    registry_pb = _compile_action(ctx, modules)
     repos_json = _write_repos_json_action(ctx, deps)
     languages_json = _write_registry_languages_json_action(ctx, repository_metadatas)
     colors_css = _compile_colors_action(ctx, ctx.file._colors_json, languages_json)
-    sitemap_xml = _compile_sitemap_action(ctx, registry_pb)
     robots_txt = _write_robots_txt_action(ctx)
     codesearch_index = _compile_codesearch_index_action(ctx, deps)
     doc_results = _compile_documentation(ctx, deps)
-    # docregistry = _compile_documentation_registry(ctx, docs)
+    documentation_registry_pb = _compile_documentation_registry(ctx, doc_results)
+    registry_pb = _compile_registry_action(ctx, modules, documentation_registry_pb)
+    sitemap_xml = _compile_sitemap_action(ctx, registry_pb)
 
     return [
         DefaultInfo(files = depset([registry_pb])),
@@ -347,6 +372,7 @@ def _module_registry_impl(ctx):
             registry_pb = [registry_pb],
             codesearch_index = [codesearch_index],
             docs = depset([r.output for r in doc_results]),
+            documentation_registry_pb = depset([documentation_registry_pb]),
         ),
         ModuleRegistryInfo(
             deps = depset(deps),
@@ -374,7 +400,7 @@ module_registry = rule(
             default = "@com_github_ozh_github_colors//:colors_json",
             allow_single_file = True,
         ),
-        "_compiler": attr.label(
+        "_registrycompiler": attr.label(
             default = "//cmd/registrycompiler",
             executable = True,
             cfg = "exec",
@@ -401,6 +427,11 @@ module_registry = rule(
         ),
         "_bzlcompiler": attr.label(
             default = "//cmd/bzlcompiler",
+            executable = True,
+            cfg = "exec",
+        ),
+        "_documentationregistrycompiler": attr.label(
+            default = "//cmd/documentationregistrycompiler",
             executable = True,
             cfg = "exec",
         ),

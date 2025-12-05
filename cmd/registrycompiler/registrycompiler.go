@@ -16,14 +16,15 @@ import (
 const toolName = "registrycompiler"
 
 type Config struct {
-	OutputFile    string
-	ModuleFiles   []string
-	GithubToken   string
-	RepositoryURL string
-	RegistryURL   string
-	Branch        string
-	Commit        string
-	CommitDate    string
+	OutputFile                string
+	DocumentationRegistryFile string
+	ModuleFiles               []string
+	GithubToken               string
+	RepositoryURL             string
+	RegistryURL               string
+	Branch                    string
+	Commit                    string
+	CommitDate                string
 }
 
 func main() {
@@ -63,12 +64,35 @@ func run(args []string) error {
 	registry.CommitSha = cfg.Commit
 	registry.CommitDate = cfg.CommitDate
 
+	moduleVersionsById := make(map[string]*bzpb.ModuleVersion)
+
 	for _, file := range cfg.ModuleFiles {
 		var module bzpb.Module
 		if err := protoutil.ReadFile(file, &module); err != nil {
 			return fmt.Errorf("reading %s: %v", file, err)
 		}
+		for _, mv := range module.Versions {
+			id := fmt.Sprintf("%s@%s", mv.Name, mv.Version)
+			moduleVersionsById[id] = mv
+		}
 		registry.Modules = append(registry.Modules, &module)
+	}
+
+	if cfg.DocumentationRegistryFile != "" {
+		var docRegistry bzpb.DocumentationRegistry
+		if err := protoutil.ReadFile(cfg.DocumentationRegistryFile, &docRegistry); err != nil {
+			return fmt.Errorf("reading %s: %v", cfg.DocumentationRegistryFile, err)
+		}
+		for _, d := range docRegistry.Documentation {
+			id := fmt.Sprintf("%s@%s", d.ModuleName, d.Version)
+			if mv, ok := moduleVersionsById[id]; ok {
+				if mv.Source.Documentation == nil {
+					mv.Source.Documentation = d
+				}
+			} else {
+				log.Panicf("module version not found!", mv)
+			}
+		}
 	}
 
 	// Write the compiled ModuleVersion to output file
@@ -83,6 +107,7 @@ func run(args []string) error {
 func parseFlags(args []string) (cfg Config, err error) {
 	fs := flag.NewFlagSet(toolName, flag.ExitOnError)
 	fs.StringVar(&cfg.OutputFile, "output_file", "", "the output file to write")
+	fs.StringVar(&cfg.DocumentationRegistryFile, "documentation_registry_file", "", "the doc registry file to read")
 	fs.StringVar(&cfg.RepositoryURL, "repository_url", "", "repository URL of the registry (e.g. 'https://github.com/bazelbuild/bazel-central-registry')")
 	fs.StringVar(&cfg.RegistryURL, "registry_url", "", "URL of the registry UI (e.g. 'https://registry.bazel.build')")
 	fs.StringVar(&cfg.Branch, "branch", "", "branch name of the repository data (e.g. 'main')")

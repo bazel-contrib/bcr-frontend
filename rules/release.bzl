@@ -23,6 +23,9 @@ def _compile_release_action(ctx):
     args.add(ctx.file.index_html)
     args.add("--registry_file")
     args.add(ctx.file.registry_file)
+    if ctx.file.documentation_registry_file:
+        args.add("--documentation_registry_file")
+        args.add(ctx.file.documentation_registry_file)
     if len(ctx.files.srcs) > 0:
         args.add("--exclude_from_hash", ",".join([src.basename for src in ctx.files.srcs]))
 
@@ -30,7 +33,12 @@ def _compile_release_action(ctx):
     args.add_all(ctx.files.hashed_srcs)
 
     # Build inputs list
-    inputs = [ctx.file.index_html, ctx.file.registry_file] + ctx.files.srcs + ctx.files.hashed_srcs
+    inputs = ctx.files.srcs + ctx.files.hashed_srcs + [
+        ctx.file.index_html,
+        ctx.file.registry_file,
+    ] + (
+        [ctx.file.documentation_registry_file] if ctx.file.documentation_registry_file else []
+    )
 
     ctx.actions.run(
         executable = ctx.executable._releasecompiler,
@@ -61,6 +69,7 @@ release_archive = rule(
         "srcs": attr.label_list(allow_files = True),
         "index_html": attr.label(allow_single_file = True, mandatory = True),
         "registry_file": attr.label(allow_single_file = True),
+        "documentation_registry_file": attr.label(allow_single_file = True),
         "_releasecompiler": attr.label(
             default = "//cmd/releasecompiler",
             executable = True,

@@ -7,12 +7,13 @@
 package v1beta1
 
 import (
-	stardoc_output "github.com/stackb/centrl/stardoc_output"
-	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
-	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
 	sync "sync"
 	unsafe "unsafe"
+
+	stardoc_output "github.com/stackb/centrl/stardoc_output"
+	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
+	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 )
 
 const (

@@ -41,7 +41,7 @@ const strings = goog.require("goog.string");
 const { App, Component, Route, RouteEvent, RouteEventType } = goog.require("stack.ui");
 const { Application, Searchable } = goog.require("centrl.common");
 const { ModuleSearchHandler, SearchComponent } = goog.require('centrl.search');
-const { aspectInfoComponent, bodySelect, documentationInfoListComponent, documentationInfoSelect, fileInfoListComponent, fileInfoSelect, functionInfoComponent, homeOverviewComponent, homeSelect, macroInfoComponent, maintainerComponent, maintainersMapComponent, maintainersMapSelectNav, maintainersSelect, moduleBlankslateComponent, moduleExtensionInfoComponent, moduleSelect, moduleVersionBlankslateComponent, moduleVersionComponent, moduleVersionList, moduleVersionSelectNav, moduleVersionsFilterSelect, modulesMapSelect, modulesMapSelectNav, navItem, notFoundComponent, providerInfoComponent, registryApp, repositoryRuleInfoComponent, ruleInfoComponent, settingsAppearanceComponent, settingsSelect, symbolInfoComponent, toastSuccess } = goog.require('soy.centrl.app'); const { moduleVersionsListComponent } = goog.require('soy.registry');
+const { aspectInfoComponent, bodySelect, docsSelect, documentationInfoListComponent, documentationInfoSelect, fileInfoListComponent, fileInfoSelect, functionInfoComponent, homeOverviewComponent, homeSelect, macroInfoComponent, maintainerComponent, maintainersMapComponent, maintainersMapSelectNav, maintainersSelect, moduleBlankslateComponent, moduleExtensionInfoComponent, moduleSelect, moduleVersionBlankslateComponent, moduleVersionComponent, moduleVersionList, moduleVersionSelectNav, moduleVersionsFilterSelect, modulesMapSelect, modulesMapSelectNav, navItem, notFoundComponent, providerInfoComponent, registryApp, repositoryRuleInfoComponent, ruleInfoComponent, settingsAppearanceComponent, settingsSelect, symbolInfoComponent, toastSuccess } = goog.require('soy.centrl.app'); const { moduleVersionsListComponent } = goog.require('soy.registry');
 
 const HIGHLIGHT_SYNTAX = true;
 const FORMAT_MARKDOWN = true;
@@ -60,6 +60,7 @@ const LocalStorageKey = {
 const TabName = {
     ALL: "all",
     APPEARANCE: 'appearance',
+    DOCS: "docs",
     HOME: "home",
     LIST: "list",
     MAINTAINERS: "maintainers",
@@ -470,6 +471,11 @@ class BodySelect extends ContentSelect {
     selectFail(name, route) {
         // install the maintainers tab lazily as it loads quite a few images
         // from github.
+        if (name === TabName.DOCS) {
+            this.addTab(TabName.DOCS, new DocsSelect(this.registry_, this.dom_));
+            this.select(name, route);
+            return;
+        }
         if (name === TabName.MAINTAINERS) {
             this.addTab(TabName.MAINTAINERS, new MaintainersSelect(this.registry_, this.dom_));
             this.select(name, route);
@@ -759,6 +765,66 @@ class ModuleVersionBlankslateComponent extends Component {
         }));
     }
 }
+
+
+class DocsSelect extends ContentSelect {
+    /**
+     * @param {!Registry} registry
+     * @param {?dom.DomHelper=} opt_domHelper
+     */
+    constructor(registry, opt_domHelper) {
+        super(opt_domHelper);
+
+        /** @private @const @type {!Registry} */
+        this.registry_ = registry;
+
+        // /** @private @const @type {!Map<string,!Maintainer>} */
+        // this.maintainers_ = createMaintainersMap(registry);
+    }
+
+    /**
+     * @override
+     */
+    createDom() {
+        this.setElementInternal(soy.renderAsElement(docsSelect));
+    }
+
+    /**
+     * @override
+     * @param {!Route} route
+     */
+    goHere(route) {
+        this.select(TabName.LIST, route.add(TabName.LIST));
+    }
+
+    /**
+     * @override
+     * @param {string} name
+     * @param {!Route} route
+     */
+    selectFail(name, route) {
+        if (name === TabName.LIST) {
+            this.addTab(
+                TabName.LIST,
+                new NotFoundComponent(this.dom_),
+            );
+            this.select(name, route);
+            return;
+        }
+
+        // const maintainer = this.maintainers_.get(name);
+        // if (maintainer) {
+        //     this.addTab(name, new MaintainerComponent(this.registry_, name, maintainer));
+        //     this.select(name, route);
+        //     return;
+        // } else {
+        //     console.warn(`failed to get maintainer for ${name}`, this.maintainers_.keys());
+        // }
+
+        super.selectFail(name, route);
+    }
+}
+
 
 class MaintainersSelect extends ContentSelect {
     /**

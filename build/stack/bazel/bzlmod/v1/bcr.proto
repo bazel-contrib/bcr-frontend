@@ -418,8 +418,15 @@ enum DocumentationSource {
     BEST_EFFORT = 2;
 }
 
-// Set of files.
+// Set of documented bzl files for a module.
 message DocumentationInfo {
-    repeated FileInfo file = 1;
-    DocumentationSource source = 2;
+    string module_name = 1;
+    string version = 2;
+    repeated FileInfo file = 3;
+    DocumentationSource source = 4;
+}
+
+// Set of documented modules.
+message DocumentationRegistry {
+    repeated DocumentationInfo documentation = 1;
 }
