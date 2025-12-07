@@ -65,3 +65,11 @@
   background-color: rgba(82, 82, 82, 0.1);
   color: green;
 }
+
+.marked {
+  font-size: 14px !important;
+  overflow-x: auto;
+  overflow-wrap: break-word;
+  word-break: break-word;
+  max-width: 100%
+}

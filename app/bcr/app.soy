@@ -14,6 +14,8 @@ import {
     octiconFile16,
     octiconGear16,
     octiconGitCommit16,
+    octiconMarkGithub16,
+    octiconMarkGithub24,
     octiconPaintbrush16,
     octiconPerson16,
     octiconSparkleFill16,
@@ -243,7 +245,7 @@ import {
       <div class="Box-header">
         <div class="Box-title">About</div>
       </div>
-      <div class="Box-body markdown-body {css('marked')}">
+      <div class="Box-body {css('marked')} markdown-body">
         <h1>Bazel Central Registry</h1>
         <p>
           The Bazel Central Registry (BCR) is the official registry for Bazel modules. It serves as a centralized repository
@@ -630,6 +632,22 @@ https://github.com/{$org}/{$repo}/blob/{$commitSha}/{$path}?plain=1{if $location
 {/if}
 {/template}
 
+{template githubRawUrl kind="uri"}
+  {@param moduleVersion: ModuleVersion}
+  {@param label: Label}
+{if $moduleVersion.getRepositoryMetadata()?.getType() == 1 /* GITHUB */}
+{let $org: $moduleVersion.getRepositoryMetadata().getOrganization() /}
+{let $repo: $moduleVersion.getRepositoryMetadata().getName() /}
+{let $pkg: $label.getPkg() /}
+{let $name: $label.getName() /}
+{let $path: $pkg ? $pkg + '/' + $name : $name /}
+{let $commitSha: $moduleVersion.getSource()?.getCommitSha() /}
+{if $commitSha}
+https://raw.githubusercontent.com/{$org}/{$repo}/{$commitSha}/{$path}
+{/if}
+{/if}
+{/template}
+
 
 {template documentationInfoListComponent}
   {@inject baseUrl: string}
@@ -681,7 +699,7 @@ https://github.com/{$org}/{$repo}/blob/{$commitSha}/{$path}?plain=1{if $location
     </div>
     {if $file.getDescription()}
       <div class="Subhead-description mt-1 pt-2 border-top">
-        <div class="markdown-body {css('marked')}" style="font-size: 14px; overflow-x: auto; overflow-wrap: break-word; word-break: break-word; max-width: 100%">
+        <div class="{css('marked')} markdown-body">
           {$file.getDescription()}
         </div>
       </div>
@@ -780,6 +798,20 @@ https://github.com/{$org}/{$repo}/blob/{$commitSha}/{$path}?plain=1{if $location
         {octiconDotFill16(fill: 'var(' + $color + ')')}
       </span>
       <span>{$sym.getName()}</span>
+      {if $location && $location.getStart()}
+        {let $fileLabel: $file.getLabel() /}
+        {if $fileLabel}
+          {let $githubUrl: githubSourceUrl(moduleVersion: $moduleVersion, label: $fileLabel, location: $location) /}
+          {if $githubUrl}
+            <a href="{$githubUrl}" target="_blank" rel="noopener noreferrer" class="anim-pulse-in btn btn-sm btn-octicon ml-1 d-inline-flex flex-items-center" title="View source on GitHub">
+              {octiconMarkGithub24(fill: 'var(' + $color + ')')}
+              <span class="ml-1">
+                Ln {$location.getStart().getLine()}
+              </span>
+            </a>
+          {/if}
+        {/if}
+      {/if}
     </h3>
     <div class="d-flex flex-items-center">
       {let $labelColor: symbolColor(type: $sym.getType()) /}
@@ -789,7 +821,7 @@ https://github.com/{$org}/{$repo}/blob/{$commitSha}/{$path}?plain=1{if $location
   </div>
   {if $sym.getDescription()}
     <div class="Subhead-description mt-1 pt-2 border-top">
-      <div class="markdown-body {css('marked')}" style="font-size: 14px">
+      <div class="{css('marked')} markdown-body">
         {$sym.getDescription()}
       </div>
     </div>
@@ -805,37 +837,6 @@ https://github.com/{$org}/{$repo}/blob/{$commitSha}/{$path}?plain=1{if $location
         {if $originKey.getName()}
           {if $originKey.getFile()}:{/if}
           <code>{$originKey.getName()}</code>
-        {/if}
-      </div>
-    </div>
-  {/if}
-  {if $location}
-    <div class="Subhead-description mt-1 pt-2 border-top">
-      <div class="text-small color-fg-muted">
-        <strong>Location:</strong>
-        {sp}
-        {let $fileLabel: $file.getLabel() /}
-        {if $location.getStart() && $fileLabel}
-          {let $githubUrl: githubSourceUrl(moduleVersion: $moduleVersion, label: $fileLabel, location: $location) /}
-          {if $githubUrl}
-            <a href="{$githubUrl}" target="_blank" rel="noopener noreferrer" class="Link--primary">
-              Line {$location.getStart().getLine()}
-              {if $location.getStart().getCharacter() > 0}
-                , Column {$location.getStart().getCharacter()}
-              {/if}
-              {if $location.getEnd() && $location.getEnd().getLine() != $location.getStart().getLine()}
-                {sp}- Line {$location.getEnd().getLine()}
-              {/if}
-            </a>
-          {else}
-            Line {$location.getStart().getLine()}
-            {if $location.getStart().getCharacter() > 0}
-              , Column {$location.getStart().getCharacter()}
-            {/if}
-            {if $location.getEnd() && $location.getEnd().getLine() != $location.getStart().getLine()}
-              {sp}- Line {$location.getEnd().getLine()}
-            {/if}
-          {/if}
         {/if}
       </div>
     </div>
@@ -1047,7 +1048,7 @@ https://github.com/{$org}/{$repo}/blob/{$commitSha}/{$path}?plain=1{if $location
     <span class="Label Label--secondary flex-shrink-0">Tag Class</span>
   </div>
   {if $tagClass.getDocString()}
-    <div class="markdown-body text-light {css('marked')} mb-2" style="font-size: 14px; overflow-x: auto">
+    <div class="{css('marked')} markdown-body text-light mb-2">
       {$tagClass.getDocString()}
     </div>
   {/if}
@@ -1095,7 +1096,7 @@ https://github.com/{$org}/{$repo}/blob/{$commitSha}/{$path}?plain=1{if $location
       <span class="text-semibold text-mono">{$field.getName()}</span>
     </div>
     {if $field.getDocString()}
-      <div class="markdown-body text-light {css('marked')} mt-3" style="font-size: 14px; overflow-x: auto">
+      <div class="{css('marked')} markdown-body text-light mt-3">
         {$field.getDocString()}
       </div>
     {/if}
@@ -1145,7 +1146,7 @@ https://github.com/{$org}/{$repo}/blob/{$commitSha}/{$path}?plain=1{if $location
       {/if}
     </div>
     {if $param.getDocString()}
-      <div class="markdown-body text-light {css('marked')} mt-3" style="font-size: 14px; overflow-x: auto">
+      <div class="{css('marked')} markdown-body text-light mt-3">
         {$param.getDocString()}
       </div>
     {/if}
@@ -1170,7 +1171,7 @@ https://github.com/{$org}/{$repo}/blob/{$commitSha}/{$path}?plain=1{if $location
 <div class="Box-row">
   <div class="d-flex flex-column">
     {if $returnInfo.getDocString()}
-      <div class="markdown-body text-light {css('marked')}" style="font-size: 14px; overflow-x: auto">
+      <div class="{css('marked')} markdown-body text-light">
         {$returnInfo.getDocString()}
       </div>
     {/if}
@@ -1207,7 +1208,7 @@ https://github.com/{$org}/{$repo}/blob/{$commitSha}/{$path}?plain=1{if $location
       {/if}
     </div>
     {if $attr.getDocString()}
-      <div class="markdown-body text-light {css('marked')} mt-3" style="font-size: 14px; overflow-x: auto">
+      <div class="{css('marked')} markdown-body text-light mt-3">
         {$attr.getDocString()}
       </div>
     {/if}

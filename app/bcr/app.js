@@ -2015,6 +2015,16 @@ class NavigableSelect extends ContentSelect {
     }
 }
 
+/**
+ * Sorts file-symbol pairs by symbol name alphabetically.
+ * @param {!FileSymbol} a
+ * @param {!FileSymbol} b
+ * @return {number}
+ */
+function bySymbolName(a, b) {
+    return a.sym.getName().localeCompare(b.sym.getName());
+}
+
 class DocumentationInfoSelect extends ContentSelect {
     /**
      * @param {!ModuleVersion} moduleVersion
@@ -2099,6 +2109,14 @@ class DocumentationInfoSelect extends ContentSelect {
                 }
             }
         }
+
+        rules.sort(bySymbolName);
+        funcs.sort(bySymbolName);
+        providers.sort(bySymbolName);
+        aspects.sort(bySymbolName);
+        moduleExtensions.sort(bySymbolName);
+        repositoryRules.sort(bySymbolName);
+        macros.sort(bySymbolName);
 
         this.setElementInternal(soy.renderAsElement(documentationInfoSelect, {
             info: this.docs_,
