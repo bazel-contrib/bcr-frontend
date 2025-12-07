@@ -132,7 +132,8 @@ class SearchComponent extends EventTarget {
                 return;
             }
 
-            this.acListenerKey_ = ac.listenOnce(
+            // Listen to UPDATE events for both navigation and selection
+            this.acListenerKey_ = ac.listen(
                 AutoComplete.EventType.UPDATE,
                 this.handleAcUpdate,
                 false,
@@ -175,14 +176,22 @@ class SearchComponent extends EventTarget {
     }
 
     /**
-     * @param {{row:string,index:number}} e the event to respond to.
+     * @param {{type:string,row:string,index:number}} e the event to respond to.
      *
      */
     handleAcUpdate(e) {
+        console.log('handleAcUpdate', e);
+
         if (e.row) {
             this.submit(e.row);
         }
-        this.blurAndClear();
+
+        // Only blur and clear if this was a selection (Enter key), not navigation
+        // Navigation events don't trigger dismiss
+        if (e.type === 'update' || !e.row) {
+            // This was a final selection, blur and clear
+            this.blurAndClear();
+        }
     }
 
     /**

@@ -498,13 +498,13 @@ unknown
   {sectionHeader(title: 'About')}
   <p class="f4 mb-3 color-fg-muted">
     {if $repositoryMetadata?.getDescription()}
-        {$repositoryMetadata.getDescription()|cleanHtml}
+        {$repositoryMetadata.getDescription()}
     {else}
       No description provided.
     {/if}
   </p>
   {if $repositoryMetadata?.getType() === 1} // GITHUB
-    {githubRepoAvatar(org: $repositoryMetadata?.getOrganization(), name: $repositoryMetadata?.getName())}
+    {githubRepoAvatar(org: $repositoryMetadata?.getOrganization(), name: $repositoryMetadata?.getName(), title: true)}
   {/if}
   <div class="mt-3">
     {if $module.getMetadata()?.getHomepage()}
@@ -641,9 +641,12 @@ unknown
   {@param org: string}
   {@param name: string}
   {@param? size: int}
+  {@param? title: bool}
 <a class="d-inline-flex flex-items-center" href="{githubRepoUrl(org: $org, name: $name)}" title="@{$org}">
-    <img class="avatar flex-shrink-0 rounded" style="padding: 2px" width="{$size ? $size : 42}" height="{$size ? $size : 42}" src="{githubAvatarUrl(name: $org)}" alt="@{$org}">
-    <span class="text-small ml-2 color-fg-muted" style="min-width: 0; word-break: break-all">@{$org}/{$name}</span>
+  {if $title}
+    <span class="text-small mr-2 color-fg-muted" style="min-width: 0; word-break: break-all">@{$org}/{$name}</span>
+  {/if}  
+    <img class="avatar mr-2 flex-shrink-0 rounded" style="padding: 2px" width="{$size ? $size : 42}" height="{$size ? $size : 42}" src="{githubAvatarUrl(name: $org)}" alt="@{$org}">
 </a>
 {/template}
 
@@ -738,15 +741,17 @@ unknown
   {@param? isLatest: bool}
 {let $lang: $moduleVersion.getRepositoryMetadata()?.getPrimaryLanguage() /}
 {let $sanitizedLang: sanitizeLangName(lang: $lang) /}
-<div class="f2-light">
-  <span class="f1 text-semibold">{$moduleVersion.getName()}</span>
-  {sp}
-  <span class="f2 d-inline-block">
-    {$moduleVersion.getVersion()}
-    {if $isLatest}
-        <span class="Label Label--success ml-2" style="transform: translateY(-3px)">Latest {octiconCheck16()}</span>
-    {/if}
+<div class="f2-light d-flex flex-justify-between">
+  <div>
+    <span class="f1 text-semibold">{$moduleVersion.getName()}</span>
+    {sp}
+    <span class="f2 d-inline-block">
+      {$moduleVersion.getVersion()}
+      {if $isLatest}
+          <span class="Label Label--success ml-2" style="transform: translateY(-3px)">Latest {octiconCheck16()}</span>
+      {/if}
     </span>
+  </div>
 </div>
 
 {if $metadata.getYankedVersionsMap()}

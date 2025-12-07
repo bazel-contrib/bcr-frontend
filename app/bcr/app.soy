@@ -253,13 +253,13 @@ import {
       {largeStatDisplay(value: $totalModuleVersions, label: 'Module Versions')}
       {largeStatDisplay(value: $totalMaintainers, label: 'Maintainers')}
     </div>
-    <div class="d-flex flex-row flex-items-center flex-justify-center mt-3" style="gap: 2rem">
+    <div class="d-flex flex-row flex-items-center flex-justify-center mt-5" style="gap: 2rem">
       {statDisplay(value: $totalRules, label: 'Rules', color: symbolColor(type: 1))}
       {statDisplay(value: $totalFunctions, label: 'Functions', color: symbolColor(type: 2))}
       {statDisplay(value: $totalProviders, label: 'Providers', color: symbolColor(type: 3))}
+      {statDisplay(value: $totalModuleExtensions, label: 'Extensions', color: symbolColor(type: 5))}
+      {statDisplay(value: $totalRepositoryRules, label: 'Repo Rules', color: symbolColor(type: 6))}
       {statDisplay(value: $totalAspects, label: 'Aspects', color: symbolColor(type: 4))}
-      {statDisplay(value: $totalModuleExtensions, label: 'Module Extensions', color: symbolColor(type: 5))}
-      {statDisplay(value: $totalRepositoryRules, label: 'Repository Rules', color: symbolColor(type: 6))}
       {statDisplay(value: $totalMacros, label: 'Macros', color: symbolColor(type: 7))}
     </div>
     <div class="Box Box--condensed mt-4" style="width: 100%; max-width: 800px">
@@ -314,14 +314,14 @@ import {
   {@param value: ?}
   {@param label: string}
   {@param? color: string}
-<div class="d-flex flex-column flex-items-right anim-scale-in">
+<div class="d-flex flex-column flex-items-center anim-scale-in">
   <div class="f2-mktg d-flex flex-items-center">
     {$value}
-    {if $color}
-      {octiconDotFill16(fill: 'var(' + $color + ')')}
-    {/if}
   </div>
-  <div class="f4-light color-fg-muted d-flex flex-items-center">
+  {if $color}
+    {octiconDotFill16(fill: 'var(' + $color + ')')}
+  {/if}
+  <div class="f4-light color-fg-muted">
     {$label}
   </div>
 </div>
@@ -710,7 +710,7 @@ https://raw.githubusercontent.com/{$org}/{$repo}/{$commitSha}/{$path}
           <a href="{fileInfoUrl(label: $file.getLabel())}" class="flex-auto {if $hasError}Link--muted{else}Link--primary{/if}">
             <span class="text-semibold">{$pkg ? $pkg + '/' : ''}{$name}</span>
           </a>
-        <span class="text-small text-light ml-2">{$file.getDescription()|cleanHtml|truncate:63}</span>
+        <span class="text-small text-light ml-2">{$file.getDescription()|truncate:63}</span>
       </div>
     {/for}
   </div>
@@ -745,7 +745,7 @@ https://raw.githubusercontent.com/{$org}/{$repo}/{$commitSha}/{$path}
     {if $file.getDescription()}
       <div class="Subhead-description mt-1 pt-2 border-top">
         <div class="{css('marked')} markdown-body">
-          {$file.getDescription()|cleanHtml}
+          {$file.getDescription()}
         </div>
       </div>
     {/if}
@@ -905,7 +905,7 @@ https://raw.githubusercontent.com/{$org}/{$repo}/{$commitSha}/{$path}
   <a href="{symbolInfoUrl(file: $file, sym: $sym)}" class="flex-auto Link--primary">
     <span class="text-semibold">{$sym.getName()}</span>
   </a>
-  <span class="markdown-body text-small text-light ml-2">{$sym.getDescription()|cleanHtml|truncate:63}</span>
+  <span class="markdown-body text-small text-light ml-2">{$sym.getDescription()|truncate:63}</span>
 </div>
 {/template}
 
@@ -967,7 +967,7 @@ https://raw.githubusercontent.com/{$org}/{$repo}/{$commitSha}/{$path}
   {if $sym.getDescription()}
     <div class="Subhead-description mt-1 pt-2 border-top">
       <div class="{css('marked')} markdown-body">
-        {$sym.getDescription()|cleanHtml}
+        {$sym.getDescription()}
       </div>
     </div>
   {/if}
@@ -1223,7 +1223,7 @@ https://raw.githubusercontent.com/{$org}/{$repo}/{$commitSha}/{$path}
   </div>
   {if $tagClass.getDocString()}
     <div class="{css('marked')} markdown-body text-light mb-2">
-      {$tagClass.getDocString()|cleanHtml}
+      {$tagClass.getDocString()}
     </div>
   {/if}
   {if length($tagClass.getAttributeList()) > 0}
@@ -1271,7 +1271,7 @@ https://raw.githubusercontent.com/{$org}/{$repo}/{$commitSha}/{$path}
     </div>
     {if $field.getDocString()}
       <div class="{css('marked')} markdown-body text-light mt-3">
-        {$field.getDocString()|cleanHtml}
+        {$field.getDocString()}
       </div>
     {/if}
   </div>
@@ -1321,7 +1321,7 @@ https://raw.githubusercontent.com/{$org}/{$repo}/{$commitSha}/{$path}
     </div>
     {if $param.getDocString()}
       <div class="{css('marked')} markdown-body text-light mt-3">
-        {$param.getDocString()|cleanHtml}
+        {$param.getDocString()}
       </div>
     {/if}
   </div>
@@ -1346,7 +1346,7 @@ https://raw.githubusercontent.com/{$org}/{$repo}/{$commitSha}/{$path}
   <div class="d-flex flex-column">
     {if $returnInfo.getDocString()}
       <div class="{css('marked')} markdown-body text-light">
-        {$returnInfo.getDocString()|cleanHtml}
+        {$returnInfo.getDocString()}
       </div>
     {/if}
   </div>
@@ -1383,7 +1383,7 @@ https://raw.githubusercontent.com/{$org}/{$repo}/{$commitSha}/{$path}
     </div>
     {if $attr.getDocString()}
       <div class="{css('marked')} markdown-body text-light mt-3">
-        {$attr.getDocString()|cleanHtml}
+        {$attr.getDocString()}
       </div>
     {/if}
     {if length($attr.getProviderNameGroupList()) > 0}
