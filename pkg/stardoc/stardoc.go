@@ -315,4 +315,6 @@ func ModuleToFileInfo(file *bzpb.FileInfo, module *slpb.Module) {
 	}
 	file.Description = Truncate(module.Info.ModuleDocstring)
 	file.Symbol = ParseModuleSymbolsWithLocation(module)
+	file.Load = module.Load
+	file.Global = module.Global
 }

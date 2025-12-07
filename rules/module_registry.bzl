@@ -171,7 +171,7 @@ def _compile_bzl_for_module_version(ctx, mv, all_mv_by_id):
     args.add("--server_jar_file", ctx.file._starlarkserverjar)
 
     # use these for development
-    args.add("--port", 3535)  # e.g. java -jar ./cmd/bzlcompiler/constellate.jar --listen_port=3535
+    # args.add("--port", 3535)  # e.g. java -jar ./cmd/bzlcompiler/constellate.jar --listen_port=3535
     args.add("--log_file", "/tmp/bzlcompiler.log")
 
     # Add bzl_files and module_deps without flattening depsets
@@ -206,7 +206,7 @@ def _compile_bzl_for_module_version(ctx, mv, all_mv_by_id):
         mnemonic = "CompileModuleInfo",
         progress_message = "Extracting docs for %s@%s (%d files)" % (mv.name, mv.version, len(mv.bzl_src.srcs)),
         execution_requirements = {
-            "supports-workers": "0",
+            "supports-workers": "1",
             "requires-worker-protocol": "proto",
         },
         executable = ctx.executable._bzlcompiler,

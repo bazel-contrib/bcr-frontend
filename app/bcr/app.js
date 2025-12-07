@@ -2025,6 +2025,23 @@ function bySymbolName(a, b) {
     return a.sym.getName().localeCompare(b.sym.getName());
 }
 
+/**
+ * Returns true if the file should be included in public documentation.
+ * Filters out files in /private/ or /internal/ directories.
+ * @param {!FileInfo} file
+ * @return {boolean}
+ */
+function isPublicFile(file) {
+    const label = file.getLabel();
+    if (!label) {
+        return true;
+    }
+    const pkg = label.getPkg() || '';
+    const name = label.getName() || '';
+    const path = pkg ? `${pkg}/${name}` : name;
+    return !path.includes('/private/') && !path.includes('/internal/');
+}
+
 class DocumentationInfoSelect extends ContentSelect {
     /**
      * @param {!ModuleVersion} moduleVersion
@@ -2083,6 +2100,11 @@ class DocumentationInfoSelect extends ContentSelect {
         const macros = [];
 
         for (const file of this.docs_.getFileList()) {
+            // Skip files in /private/ or /internal/ directories
+            if (!isPublicFile(file)) {
+                continue;
+            }
+
             for (const sym of file.getSymbolList()) {
                 switch (sym.getType()) {
                     case 1: // SYMBOL_TYPE_RULE

@@ -414,6 +414,10 @@ message FileInfo {
     // an error message, if the symbols from the file could not be
     // extracted.ArchiveOverride
     string error = 5;
+    // load statements from the file
+    repeated build.stack.starlark.v1beta1.LoadStmt load = 6;
+    // global symbols (constants, etc) from the file
+    map<string, build.stack.starlark.v1beta1.ValueInfo> global = 7;
 }
 
 enum DocumentationSource {

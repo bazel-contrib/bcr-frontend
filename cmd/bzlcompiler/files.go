@@ -10,6 +10,7 @@ import (
 	"github.com/bazelbuild/bazel-gazelle/label"
 	"github.com/bazelbuild/buildtools/build"
 	bzpb "github.com/stackb/centrl/build/stack/bazel/bzlmod/v1"
+	"google.golang.org/grpc/status"
 )
 
 func prepareBzlFiles(cfg *config, bzlFiles []*bzlFile) (map[string]*bzlFile, error) {
@@ -160,15 +161,23 @@ func listFiles(logger *log.Logger, dir string) error {
 	})
 }
 
-// cleanErrorMessage removes the absolute working directory prefix from error messages
+// cleanErrorMessage removes the absolute working directory prefix and unwraps gRPC errors
 func cleanErrorMessage(err error, cwd string) error {
 	if err == nil {
 		return nil
 	}
+
+	// Unwrap gRPC status errors to get the actual message
+	if s, ok := status.FromError(err); ok {
+		err = fmt.Errorf("%s", s.Message())
+	}
+
+	msg := err.Error()
+
 	// Build the prefix to remove: cwd/work/
 	prefix := filepath.Join(cwd, workDir) + string(filepath.Separator)
-	msg := err.Error()
 	cleanMsg := strings.ReplaceAll(msg, prefix, "")
+
 	return fmt.Errorf("%s", cleanMsg)
 }
 

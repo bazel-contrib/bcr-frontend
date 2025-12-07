@@ -37,7 +37,11 @@ import {
   StarlarkFunctionInfo
 } from 'stardoc_output/stardoc_output.proto';
 import {
-  SymbolLocation
+  Function,
+  LoadStmt,
+  MacroFunction,
+  SymbolLocation,
+  ValueInfo
 } from 'build/stack/starlark/v1beta1/starlark_server.proto';
 import {
   DocumentationInfo,
@@ -673,7 +677,7 @@ https://raw.githubusercontent.com/{$org}/{$repo}/{$commitSha}/{$path}
           <a href="{fileInfoUrl(label: $file.getLabel())}" class="flex-auto {if $hasError}Link--muted{else}Link--primary{/if}">
             <span class="text-semibold">{$pkg ? $pkg + '/' : ''}{$name}</span>
           </a>
-        <span class="text-small text-light ml-2">{$file.getDescription()|truncate:63}</span>
+        <span class="text-small text-light ml-2">{$file.getDescription()|cleanHtml|truncate:63}</span>
       </div>
     {/for}
   </div>
@@ -700,7 +704,7 @@ https://raw.githubusercontent.com/{$org}/{$repo}/{$commitSha}/{$path}
     {if $file.getDescription()}
       <div class="Subhead-description mt-1 pt-2 border-top">
         <div class="{css('marked')} markdown-body">
-          {$file.getDescription()}
+          {$file.getDescription()|cleanHtml}
         </div>
       </div>
     {/if}
@@ -712,6 +716,12 @@ https://raw.githubusercontent.com/{$org}/{$repo}/{$commitSha}/{$path}
     {fileErrorBlankslate(file: $file)}
   {else}
     <div class="mt-2">
+      {if length($file.getLoadList()) > 0}
+        {loadStmtListBox(loads: $file.getLoadList())}
+      {/if}
+      {if $file.getGlobalMap().size > 0}
+        {globalSymbolListBox(globals: $file.getGlobalMap())}
+      {/if}
       {if length($rules) > 0}
         {symbolListBox(file: $file, symbols: $rules, title: 'Rules')}
       {/if}
@@ -732,6 +742,90 @@ https://raw.githubusercontent.com/{$org}/{$repo}/{$commitSha}/{$path}
       {/if}
     </div>
   {/if}
+</div>
+{/template}
+
+{template loadStmtListBox}
+  {@param loads: list<LoadStmt>}
+<div class="Box Box--condensed mb-3">
+  <div class="Box-header">
+    <div class="Box-title">Imports {counterLabel(count: length($loads))}</div>
+  </div>
+  {for $load in $loads}
+    {loadStmtItem(load: $load)}
+  {/for}
+</div>
+{/template}
+
+{template loadStmtItem}
+  {@param load: LoadStmt}
+<div class="Box-row">
+  <div class="text-mono text-small">
+    <span class="color-fg-muted">load(</span>
+    <span class="color-fg-accent">"{$load.getLabel()}"</span>
+    <span class="color-fg-muted">,</span>
+    {let $symbolList: $load.getSymbolList() /}
+    {for $symbol, $index in $symbolList}
+      {if $index > 0}
+        <span class="color-fg-muted">,</span>
+      {/if}
+      {sp}
+      {if $symbol.getFrom() != $symbol.getTo()}
+        <span class="color-fg-default">{$symbol.getTo()}</span>
+        <span class="color-fg-muted">{sp}={sp}</span>
+        <span class="color-fg-accent">"{$symbol.getFrom()}"</span>
+      {else}
+        <span class="color-fg-accent">"{$symbol.getFrom()}"</span>
+      {/if}
+    {/for}
+    <span class="color-fg-muted">)</span>
+  </div>
+</div>
+{/template}
+
+{template globalSymbolListBox}
+  {@param globals: map<string, ValueInfo>}
+<div class="Box Box--condensed mb-3">
+  <div class="Box-header">
+    <div class="Box-title">Global Symbols {counterLabel(count: $globals.size)}</div>
+  </div>
+  {for $name in $globals.keys()}
+    {let $value: $globals.get($name) /}
+    {if $value}
+      {globalSymbolItem(name: $name, value: $value)}
+    {/if}
+  {/for}
+</div>
+{/template}
+
+{template globalSymbolItem}
+  {@param name: string}
+  {@param value: ValueInfo}
+<div class="Box-row d-flex flex-items-center">
+  <div class="text-mono text-small flex-auto">
+    <span class="color-fg-emphasis">{$name}</span>
+    <span class="color-fg-muted">{sp}={sp}</span>
+    {if $value.getString()}
+      <span class="color-fg-accent">"{$value.getString()}"</span>
+    {elseif $value.getInt()}
+      <span class="color-fg-done">{$value.getInt()}</span>
+    {elseif $value.hasBool()}
+      <span class="color-fg-done">{$value.getBool() ? 'True' : 'False'}</span>
+    {elseif $value.getMacro()}
+      <span class="color-fg-severe">macro</span>
+      {let $receivers: $value.getMacro().getKwargsReceiverList() /}
+      {if length($receivers) > 0}
+        <span class="color-fg-muted">{sp}(forwards **kwargs to:{sp}</span>
+        {for $receiver, $index in $receivers}
+          {if $index > 0}, {/if}
+          <span class="color-fg-default">{$receiver}</span>
+        {/for}
+        <span class="color-fg-muted">)</span>
+      {/if}
+    {else}
+      <span class="color-fg-muted">unknown</span>
+    {/if}
+  </div>
 </div>
 {/template}
 
@@ -760,7 +854,7 @@ https://raw.githubusercontent.com/{$org}/{$repo}/{$commitSha}/{$path}
   <a href="{symbolInfoUrl(file: $file, sym: $sym)}" class="flex-auto Link--primary">
     <span class="text-semibold">{$sym.getName()}</span>
   </a>
-  <span class="markdown-body text-small text-light ml-2">{$sym.getDescription()|truncate:63}</span>
+  <span class="markdown-body text-small text-light ml-2">{$sym.getDescription()|cleanHtml|truncate:63}</span>
 </div>
 {/template}
 
@@ -822,7 +916,7 @@ https://raw.githubusercontent.com/{$org}/{$repo}/{$commitSha}/{$path}
   {if $sym.getDescription()}
     <div class="Subhead-description mt-1 pt-2 border-top">
       <div class="{css('marked')} markdown-body">
-        {$sym.getDescription()}
+        {$sym.getDescription()|cleanHtml}
       </div>
     </div>
   {/if}
@@ -919,12 +1013,41 @@ https://raw.githubusercontent.com/{$org}/{$repo}/{$commitSha}/{$path}
   {/if}
 
   {if $sym.getFunc()}
-    {let $func: $sym.getFunc()?.getInfo() /}
-    {if $func && length($func.getParameterList()) > 0}
-      {parameterListBox(parameters: $func.getParameterList(), title: 'Parameters')}
+    {let $func: $sym.getFunc() /}
+    {let $funcInfo: $func?.getInfo() /}
+
+    {let $callsList: $func?.getCallsRuleOrMacroList() /}
+    {let $kwargsToList: $func?.getForwardsKwargsToList() /}
+    {if (length($callsList) > 0) || (length($kwargsToList) > 0)}
+      <div class="flash flash-warn mb-3">
+        {if length($callsList) > 0}
+          <div class="mb-2">
+            <strong>Calls:</strong>
+            {sp}
+            {for $target, $index in $callsList}
+              {if $index > 0}, {/if}
+              <code>{$target}</code>
+            {/for}
+          </div>
+        {/if}
+        {if length($kwargsToList) > 0}
+          <div>
+            <strong>Forwards **kwargs to:</strong>
+            {sp}
+            {for $target, $index in $kwargsToList}
+              {if $index > 0}, {/if}
+              <code>{$target}</code>
+            {/for}
+          </div>
+        {/if}
+      </div>
     {/if}
-    {if $func && $func.getReturn()}
-      {returnInfoBox(returnInfo: $func.getReturn())}
+
+    {if $funcInfo && length($funcInfo.getParameterList()) > 0}
+      {parameterListBox(parameters: $funcInfo.getParameterList(), title: 'Parameters')}
+    {/if}
+    {if $funcInfo && $funcInfo.getReturn()}
+      {returnInfoBox(returnInfo: $funcInfo.getReturn())}
     {/if}
   {/if}
 </div>
@@ -1049,7 +1172,7 @@ https://raw.githubusercontent.com/{$org}/{$repo}/{$commitSha}/{$path}
   </div>
   {if $tagClass.getDocString()}
     <div class="{css('marked')} markdown-body text-light mb-2">
-      {$tagClass.getDocString()}
+      {$tagClass.getDocString()|cleanHtml}
     </div>
   {/if}
   {if length($tagClass.getAttributeList()) > 0}
@@ -1097,7 +1220,7 @@ https://raw.githubusercontent.com/{$org}/{$repo}/{$commitSha}/{$path}
     </div>
     {if $field.getDocString()}
       <div class="{css('marked')} markdown-body text-light mt-3">
-        {$field.getDocString()}
+        {$field.getDocString()|cleanHtml}
       </div>
     {/if}
   </div>
@@ -1147,7 +1270,7 @@ https://raw.githubusercontent.com/{$org}/{$repo}/{$commitSha}/{$path}
     </div>
     {if $param.getDocString()}
       <div class="{css('marked')} markdown-body text-light mt-3">
-        {$param.getDocString()}
+        {$param.getDocString()|cleanHtml}
       </div>
     {/if}
   </div>
@@ -1172,7 +1295,7 @@ https://raw.githubusercontent.com/{$org}/{$repo}/{$commitSha}/{$path}
   <div class="d-flex flex-column">
     {if $returnInfo.getDocString()}
       <div class="{css('marked')} markdown-body text-light">
-        {$returnInfo.getDocString()}
+        {$returnInfo.getDocString()|cleanHtml}
       </div>
     {/if}
   </div>
@@ -1209,7 +1332,7 @@ https://raw.githubusercontent.com/{$org}/{$repo}/{$commitSha}/{$path}
     </div>
     {if $attr.getDocString()}
       <div class="{css('marked')} markdown-body text-light mt-3">
-        {$attr.getDocString()}
+        {$attr.getDocString()|cleanHtml}
       </div>
     {/if}
     {if length($attr.getProviderNameGroupList()) > 0}
@@ -1450,23 +1573,17 @@ https://raw.githubusercontent.com/{$org}/{$repo}/{$commitSha}/{$path}
 
 {template fileErrorBlankslate}
   {@param file: FileInfo}
-<div class="blankslate">
-  <div class="blankslate-icon">
-    {octiconSkip24(class: 'color-fg-attention')}
-  </div>
-  <div class="blankslate-heading">
-    Documentation Extraction Error
-  </div>
-  <p>The documentation for <code>{$file.getLabel()?.getPkg() ? $file.getLabel()?.getPkg() + '/' : ''}{$file.getLabel()?.getName()}</code> could not be extracted.</p>
-  <div class="mt-3">
-    <details class="details-reset">
-      <summary class="btn btn-sm">Show error details</summary>
-      <div class="mt-2">
-        <pre class="flash flash-error p-3 overflow-auto"><code>{$file.getError()}</code></pre>
-      </div>
-    </details>
+<div class="blankslate-container">
+  <div class="blankslate">
+    <div class="blankslate-heading">
+      Extraction Error
+    </div>
+    <p>
+      The documentation for <span class="text-mono text-semibold mx-1">{$file.getLabel()?.getPkg() ? $file.getLabel()?.getPkg() + '/' : ''}{$file.getLabel()?.getName()}</span> could not be extracted.
+    </p>
   </div>
 </div>
+<pre class="p-3 border rounded-2 text-left" style="overflow-x: auto; text-align: left"><code>{$file.getError()}</code></pre>
 {/template}
 
 

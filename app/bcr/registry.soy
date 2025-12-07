@@ -498,7 +498,7 @@ unknown
   {sectionHeader(title: 'About')}
   <p class="f4 mb-3 color-fg-muted">
     {if $repositoryMetadata?.getDescription()}
-        {$repositoryMetadata.getDescription()}
+        {$repositoryMetadata.getDescription()|cleanHtml}
     {else}
       No description provided.
     {/if}

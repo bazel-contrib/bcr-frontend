@@ -1969,11 +1969,13 @@ func (*SymbolInfo_RepositoryRule) isSymbolInfo_Info() {}
 func (*SymbolInfo_Macro) isSymbolInfo_Info() {}
 
 type FileInfo struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Label         *Label                 `protobuf:"bytes,1,opt,name=label,proto3" json:"label,omitempty"`
-	Symbol        []*SymbolInfo          `protobuf:"bytes,2,rep,name=symbol,proto3" json:"symbol,omitempty"`
-	Description   string                 `protobuf:"bytes,3,opt,name=description,proto3" json:"description,omitempty"`
-	Error         string                 `protobuf:"bytes,5,opt,name=error,proto3" json:"error,omitempty"`
+	state         protoimpl.MessageState        `protogen:"open.v1"`
+	Label         *Label                        `protobuf:"bytes,1,opt,name=label,proto3" json:"label,omitempty"`
+	Symbol        []*SymbolInfo                 `protobuf:"bytes,2,rep,name=symbol,proto3" json:"symbol,omitempty"`
+	Description   string                        `protobuf:"bytes,3,opt,name=description,proto3" json:"description,omitempty"`
+	Error         string                        `protobuf:"bytes,5,opt,name=error,proto3" json:"error,omitempty"`
+	Load          []*v1beta1.LoadStmt           `protobuf:"bytes,6,rep,name=load,proto3" json:"load,omitempty"`
+	Global        map[string]*v1beta1.ValueInfo `protobuf:"bytes,7,rep,name=global,proto3" json:"global,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2034,6 +2036,20 @@ func (x *FileInfo) GetError() string {
 		return x.Error
 	}
 	return ""
+}
+
+func (x *FileInfo) GetLoad() []*v1beta1.LoadStmt {
+	if x != nil {
+		return x.Load
+	}
+	return nil
+}
+
+func (x *FileInfo) GetGlobal() map[string]*v1beta1.ValueInfo {
+	if x != nil {
+		return x.Global
+	}
+	return nil
 }
 
 type DocumentationInfo struct {
@@ -2614,12 +2630,17 @@ const file_build_stack_bazel_bzlmod_v1_bcr_proto_rawDesc = "" +
 	"\x0frepository_rule\x18\n" +
 	" \x01(\v2,.build.stack.starlark.v1beta1.RepositoryRuleH\x00R\x0erepositoryRule\x12;\n" +
 	"\x05macro\x18\v \x01(\v2#.build.stack.starlark.v1beta1.MacroH\x00R\x05macroB\x06\n" +
-	"\x04info\"\xbd\x01\n" +
+	"\x04info\"\xa8\x03\n" +
 	"\bFileInfo\x128\n" +
 	"\x05label\x18\x01 \x01(\v2\".build.stack.bazel.bzlmod.v1.LabelR\x05label\x12?\n" +
 	"\x06symbol\x18\x02 \x03(\v2'.build.stack.bazel.bzlmod.v1.SymbolInfoR\x06symbol\x12 \n" +
 	"\vdescription\x18\x03 \x01(\tR\vdescription\x12\x14\n" +
-	"\x05error\x18\x05 \x01(\tR\x05error\"\xd3\x01\n" +
+	"\x05error\x18\x05 \x01(\tR\x05error\x12:\n" +
+	"\x04load\x18\x06 \x03(\v2&.build.stack.starlark.v1beta1.LoadStmtR\x04load\x12I\n" +
+	"\x06global\x18\a \x03(\v21.build.stack.bazel.bzlmod.v1.FileInfo.GlobalEntryR\x06global\x1ab\n" +
+	"\vGlobalEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12=\n" +
+	"\x05value\x18\x02 \x01(\v2'.build.stack.starlark.v1beta1.ValueInfoR\x05value:\x028\x01\"\xd3\x01\n" +
 	"\x11DocumentationInfo\x12\x1f\n" +
 	"\vmodule_name\x18\x01 \x01(\tR\n" +
 	"moduleName\x12\x18\n" +
@@ -2662,7 +2683,7 @@ func file_build_stack_bazel_bzlmod_v1_bcr_proto_rawDescGZIP() []byte {
 }
 
 var file_build_stack_bazel_bzlmod_v1_bcr_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
-var file_build_stack_bazel_bzlmod_v1_bcr_proto_msgTypes = make([]protoimpl.MessageInfo, 35)
+var file_build_stack_bazel_bzlmod_v1_bcr_proto_msgTypes = make([]protoimpl.MessageInfo, 36)
 var file_build_stack_bazel_bzlmod_v1_bcr_proto_goTypes = []any{
 	(RepositoryType)(0),               // 0: build.stack.bazel.bzlmod.v1.RepositoryType
 	(SymbolType)(0),                   // 1: build.stack.bazel.bzlmod.v1.SymbolType
@@ -2702,13 +2723,16 @@ var file_build_stack_bazel_bzlmod_v1_bcr_proto_goTypes = []any{
 	(*Presubmit_PresubmitTask)(nil),   // 35: build.stack.bazel.bzlmod.v1.Presubmit.PresubmitTask
 	nil,                               // 36: build.stack.bazel.bzlmod.v1.Presubmit.TasksEntry
 	nil,                               // 37: build.stack.bazel.bzlmod.v1.Presubmit.BcrTestModule.TasksEntry
-	(*v1beta1.Rule)(nil),              // 38: build.stack.starlark.v1beta1.Rule
-	(*v1beta1.Function)(nil),          // 39: build.stack.starlark.v1beta1.Function
-	(*v1beta1.Provider)(nil),          // 40: build.stack.starlark.v1beta1.Provider
-	(*v1beta1.Aspect)(nil),            // 41: build.stack.starlark.v1beta1.Aspect
-	(*v1beta1.ModuleExtension)(nil),   // 42: build.stack.starlark.v1beta1.ModuleExtension
-	(*v1beta1.RepositoryRule)(nil),    // 43: build.stack.starlark.v1beta1.RepositoryRule
-	(*v1beta1.Macro)(nil),             // 44: build.stack.starlark.v1beta1.Macro
+	nil,                               // 38: build.stack.bazel.bzlmod.v1.FileInfo.GlobalEntry
+	(*v1beta1.Rule)(nil),              // 39: build.stack.starlark.v1beta1.Rule
+	(*v1beta1.Function)(nil),          // 40: build.stack.starlark.v1beta1.Function
+	(*v1beta1.Provider)(nil),          // 41: build.stack.starlark.v1beta1.Provider
+	(*v1beta1.Aspect)(nil),            // 42: build.stack.starlark.v1beta1.Aspect
+	(*v1beta1.ModuleExtension)(nil),   // 43: build.stack.starlark.v1beta1.ModuleExtension
+	(*v1beta1.RepositoryRule)(nil),    // 44: build.stack.starlark.v1beta1.RepositoryRule
+	(*v1beta1.Macro)(nil),             // 45: build.stack.starlark.v1beta1.Macro
+	(*v1beta1.LoadStmt)(nil),          // 46: build.stack.starlark.v1beta1.LoadStmt
+	(*v1beta1.ValueInfo)(nil),         // 47: build.stack.starlark.v1beta1.ValueInfo
 }
 var file_build_stack_bazel_bzlmod_v1_bcr_proto_depIdxs = []int32{
 	4,  // 0: build.stack.bazel.bzlmod.v1.Registry.modules:type_name -> build.stack.bazel.bzlmod.v1.Module
@@ -2743,28 +2767,31 @@ var file_build_stack_bazel_bzlmod_v1_bcr_proto_depIdxs = []int32{
 	34, // 29: build.stack.bazel.bzlmod.v1.Presubmit.matrix:type_name -> build.stack.bazel.bzlmod.v1.Presubmit.PresubmitMatrix
 	36, // 30: build.stack.bazel.bzlmod.v1.Presubmit.tasks:type_name -> build.stack.bazel.bzlmod.v1.Presubmit.TasksEntry
 	1,  // 31: build.stack.bazel.bzlmod.v1.SymbolInfo.type:type_name -> build.stack.bazel.bzlmod.v1.SymbolType
-	38, // 32: build.stack.bazel.bzlmod.v1.SymbolInfo.rule:type_name -> build.stack.starlark.v1beta1.Rule
-	39, // 33: build.stack.bazel.bzlmod.v1.SymbolInfo.func:type_name -> build.stack.starlark.v1beta1.Function
-	40, // 34: build.stack.bazel.bzlmod.v1.SymbolInfo.provider:type_name -> build.stack.starlark.v1beta1.Provider
-	41, // 35: build.stack.bazel.bzlmod.v1.SymbolInfo.aspect:type_name -> build.stack.starlark.v1beta1.Aspect
-	42, // 36: build.stack.bazel.bzlmod.v1.SymbolInfo.module_extension:type_name -> build.stack.starlark.v1beta1.ModuleExtension
-	43, // 37: build.stack.bazel.bzlmod.v1.SymbolInfo.repository_rule:type_name -> build.stack.starlark.v1beta1.RepositoryRule
-	44, // 38: build.stack.bazel.bzlmod.v1.SymbolInfo.macro:type_name -> build.stack.starlark.v1beta1.Macro
+	39, // 32: build.stack.bazel.bzlmod.v1.SymbolInfo.rule:type_name -> build.stack.starlark.v1beta1.Rule
+	40, // 33: build.stack.bazel.bzlmod.v1.SymbolInfo.func:type_name -> build.stack.starlark.v1beta1.Function
+	41, // 34: build.stack.bazel.bzlmod.v1.SymbolInfo.provider:type_name -> build.stack.starlark.v1beta1.Provider
+	42, // 35: build.stack.bazel.bzlmod.v1.SymbolInfo.aspect:type_name -> build.stack.starlark.v1beta1.Aspect
+	43, // 36: build.stack.bazel.bzlmod.v1.SymbolInfo.module_extension:type_name -> build.stack.starlark.v1beta1.ModuleExtension
+	44, // 37: build.stack.bazel.bzlmod.v1.SymbolInfo.repository_rule:type_name -> build.stack.starlark.v1beta1.RepositoryRule
+	45, // 38: build.stack.bazel.bzlmod.v1.SymbolInfo.macro:type_name -> build.stack.starlark.v1beta1.Macro
 	22, // 39: build.stack.bazel.bzlmod.v1.FileInfo.label:type_name -> build.stack.bazel.bzlmod.v1.Label
 	23, // 40: build.stack.bazel.bzlmod.v1.FileInfo.symbol:type_name -> build.stack.bazel.bzlmod.v1.SymbolInfo
-	24, // 41: build.stack.bazel.bzlmod.v1.DocumentationInfo.file:type_name -> build.stack.bazel.bzlmod.v1.FileInfo
-	2,  // 42: build.stack.bazel.bzlmod.v1.DocumentationInfo.source:type_name -> build.stack.bazel.bzlmod.v1.DocumentationSource
-	25, // 43: build.stack.bazel.bzlmod.v1.DocumentationRegistry.documentation:type_name -> build.stack.bazel.bzlmod.v1.DocumentationInfo
-	31, // 44: build.stack.bazel.bzlmod.v1.Attestations.AttestationsEntry.value:type_name -> build.stack.bazel.bzlmod.v1.Attestations.Attestation
-	34, // 45: build.stack.bazel.bzlmod.v1.Presubmit.BcrTestModule.matrix:type_name -> build.stack.bazel.bzlmod.v1.Presubmit.PresubmitMatrix
-	37, // 46: build.stack.bazel.bzlmod.v1.Presubmit.BcrTestModule.tasks:type_name -> build.stack.bazel.bzlmod.v1.Presubmit.BcrTestModule.TasksEntry
-	35, // 47: build.stack.bazel.bzlmod.v1.Presubmit.TasksEntry.value:type_name -> build.stack.bazel.bzlmod.v1.Presubmit.PresubmitTask
-	35, // 48: build.stack.bazel.bzlmod.v1.Presubmit.BcrTestModule.TasksEntry.value:type_name -> build.stack.bazel.bzlmod.v1.Presubmit.PresubmitTask
-	49, // [49:49] is the sub-list for method output_type
-	49, // [49:49] is the sub-list for method input_type
-	49, // [49:49] is the sub-list for extension type_name
-	49, // [49:49] is the sub-list for extension extendee
-	0,  // [0:49] is the sub-list for field type_name
+	46, // 41: build.stack.bazel.bzlmod.v1.FileInfo.load:type_name -> build.stack.starlark.v1beta1.LoadStmt
+	38, // 42: build.stack.bazel.bzlmod.v1.FileInfo.global:type_name -> build.stack.bazel.bzlmod.v1.FileInfo.GlobalEntry
+	24, // 43: build.stack.bazel.bzlmod.v1.DocumentationInfo.file:type_name -> build.stack.bazel.bzlmod.v1.FileInfo
+	2,  // 44: build.stack.bazel.bzlmod.v1.DocumentationInfo.source:type_name -> build.stack.bazel.bzlmod.v1.DocumentationSource
+	25, // 45: build.stack.bazel.bzlmod.v1.DocumentationRegistry.documentation:type_name -> build.stack.bazel.bzlmod.v1.DocumentationInfo
+	31, // 46: build.stack.bazel.bzlmod.v1.Attestations.AttestationsEntry.value:type_name -> build.stack.bazel.bzlmod.v1.Attestations.Attestation
+	34, // 47: build.stack.bazel.bzlmod.v1.Presubmit.BcrTestModule.matrix:type_name -> build.stack.bazel.bzlmod.v1.Presubmit.PresubmitMatrix
+	37, // 48: build.stack.bazel.bzlmod.v1.Presubmit.BcrTestModule.tasks:type_name -> build.stack.bazel.bzlmod.v1.Presubmit.BcrTestModule.TasksEntry
+	35, // 49: build.stack.bazel.bzlmod.v1.Presubmit.TasksEntry.value:type_name -> build.stack.bazel.bzlmod.v1.Presubmit.PresubmitTask
+	35, // 50: build.stack.bazel.bzlmod.v1.Presubmit.BcrTestModule.TasksEntry.value:type_name -> build.stack.bazel.bzlmod.v1.Presubmit.PresubmitTask
+	47, // 51: build.stack.bazel.bzlmod.v1.FileInfo.GlobalEntry.value:type_name -> build.stack.starlark.v1beta1.ValueInfo
+	52, // [52:52] is the sub-list for method output_type
+	52, // [52:52] is the sub-list for method input_type
+	52, // [52:52] is the sub-list for extension type_name
+	52, // [52:52] is the sub-list for extension extendee
+	0,  // [0:52] is the sub-list for field type_name
 }
 
 func init() { file_build_stack_bazel_bzlmod_v1_bcr_proto_init() }
@@ -2793,7 +2820,7 @@ func file_build_stack_bazel_bzlmod_v1_bcr_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_build_stack_bazel_bzlmod_v1_bcr_proto_rawDesc), len(file_build_stack_bazel_bzlmod_v1_bcr_proto_rawDesc)),
 			NumEnums:      3,
-			NumMessages:   35,
+			NumMessages:   36,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
