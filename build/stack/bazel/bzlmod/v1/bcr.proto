@@ -417,7 +417,7 @@ message FileInfo {
     // load statements from the file
     repeated build.stack.starlark.v1beta1.LoadStmt load = 6;
     // global symbols (constants, etc) from the file
-    map<string, build.stack.starlark.v1beta1.ValueInfo> global = 7;
+    map<string, build.stack.starlark.v1beta1.Value> global = 7;
 }
 
 enum DocumentationSource {

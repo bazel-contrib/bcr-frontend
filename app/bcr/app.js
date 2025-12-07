@@ -3043,6 +3043,17 @@ class FileInfoListComponent extends MarkdownComponent {
     /** @override */
     enterDocument() {
         super.enterDocument();
+
+        this.enterSyntaxHighlighting();
+    }
+
+    enterSyntaxHighlighting() {
+        if (HIGHLIGHT_SYNTAX) {
+            const rootEl = this.getElementStrict();
+            const className = goog.getCssName('shiki');
+            const preEls = dom.findElements(rootEl, el => el.classList.contains(className));
+            arrays.forEach(preEls, preEl => syntaxHighlight(this.dom_.getWindow(), preEl));
+        }
     }
 }
 

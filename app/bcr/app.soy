@@ -42,7 +42,7 @@ import {
   LoadStmt,
   MacroFunction,
   SymbolLocation,
-  ValueInfo
+  Value
 } from 'build/stack/starlark/v1beta1/starlark_server.proto';
 import {
   DocumentationInfo,
@@ -732,7 +732,15 @@ https://raw.githubusercontent.com/{$org}/{$repo}/{$commitSha}/{$path}
       <h3>
         <span class="text-light f3-light">{$file.getLabel()?.getPkg() ? $file.getLabel()?.getPkg() + '/' : ''}</span>
         {$file.getLabel()?.getName()}</h3>
-      <a class="Link--muted btn btn-sm btn-octicon" href="{moduleVersionUrl(name: $moduleVersion.getName(), version: $moduleVersion.getVersion())}/docs">{octiconChevronUp24()}</a>
+      {let $fileLabel: $file.getLabel() /}
+      {if $fileLabel}
+        {let $githubUrl: githubSourceUrl(moduleVersion: $moduleVersion, label: $fileLabel) /}
+        {if $githubUrl}
+          <a href="{$githubUrl}" target="_blank" rel="noopener noreferrer" class="anim-pulse-in btn btn-sm btn-octicon ml-1 d-inline-flex flex-items-center" title="View source on GitHub">
+            {octiconMarkGithub24()}
+          </a>
+        {/if}
+      {/if}
     </div>
     {if $file.getDescription()}
       <div class="Subhead-description mt-1 pt-2 border-top">
@@ -742,6 +750,7 @@ https://raw.githubusercontent.com/{$org}/{$repo}/{$commitSha}/{$path}
       </div>
     {/if}
     <div class="Subhead-actions">
+      <a class="Link--muted btn btn-sm btn-octicon" href="{moduleVersionUrl(name: $moduleVersion.getName(), version: $moduleVersion.getVersion())}/docs">{octiconChevronUp24()}</a>
     </div>
   </div>
 
@@ -753,7 +762,7 @@ https://raw.githubusercontent.com/{$org}/{$repo}/{$commitSha}/{$path}
         {loadStmtListBox(loads: $file.getLoadList())}
       {/if}
       {if $file.getGlobalMap().size > 0}
-        {globalSymbolListBox(globals: $file.getGlobalMap())}
+        {globalSymbolListBox(file: $file)}
       {/if}
       {if length($rules) > 0}
         {symbolListBox(file: $file, symbols: $rules, title: 'Rules')}
@@ -782,7 +791,7 @@ https://raw.githubusercontent.com/{$org}/{$repo}/{$commitSha}/{$path}
   {@param loads: list<LoadStmt>}
 <div class="Box Box--condensed mb-3">
   <div class="Box-header">
-    <div class="Box-title">Imports {counterLabel(count: length($loads))}</div>
+    <div class="Box-title">Load Statements {counterLabel(count: length($loads))}</div>
   </div>
   {for $load in $loads}
     {loadStmtItem(load: $load)}
@@ -817,13 +826,13 @@ https://raw.githubusercontent.com/{$org}/{$repo}/{$commitSha}/{$path}
 {/template}
 
 {template globalSymbolListBox}
-  {@param globals: map<string, ValueInfo>}
+  {@param file: FileInfo}
 <div class="Box Box--condensed mb-3">
   <div class="Box-header">
-    <div class="Box-title">Global Symbols {counterLabel(count: $globals.size)}</div>
+    <div class="Box-title">Global Symbols {counterLabel(count: $file.getGlobalMap().size)}</div>
   </div>
-  {for $name in $globals.keys()}
-    {let $value: $globals.get($name) /}
+  {for $name in $file.getGlobalMap().keys()}
+    {let $value: $file.getGlobalMap().get($name) /}
     {if $value}
       {globalSymbolItem(name: $name, value: $value)}
     {/if}
@@ -833,33 +842,42 @@ https://raw.githubusercontent.com/{$org}/{$repo}/{$commitSha}/{$path}
 
 {template globalSymbolItem}
   {@param name: string}
-  {@param value: ValueInfo}
-<div class="Box-row d-flex flex-items-center">
-  <div class="text-mono text-small flex-auto">
-    <span class="color-fg-emphasis">{$name}</span>
-    <span class="color-fg-muted">{sp}={sp}</span>
-    {if $value.getString()}
-      <span class="color-fg-accent">"{$value.getString()}"</span>
-    {elseif $value.getInt()}
-      <span class="color-fg-done">{$value.getInt()}</span>
-    {elseif $value.hasBool()}
-      <span class="color-fg-done">{$value.getBool() ? 'True' : 'False'}</span>
-    {elseif $value.getMacro()}
-      <span class="color-fg-severe">macro</span>
-      {let $receivers: $value.getMacro().getKwargsReceiverList() /}
-      {if length($receivers) > 0}
-        <span class="color-fg-muted">{sp}(forwards **kwargs to:{sp}</span>
-        {for $receiver, $index in $receivers}
-          {if $index > 0}, {/if}
-          <span class="color-fg-default">{$receiver}</span>
-        {/for}
-        <span class="color-fg-muted">)</span>
-      {/if}
-    {else}
-      <span class="color-fg-muted">unknown</span>
-    {/if}
+  {@param value: Value}
+<div class="Box-row d-flex flex-items-start">
+  <div class="flex-auto">
+    <pre class="{css('shiki')}"><code lang="py">{$name} = {call renderValueAsCode}{param value: $value /}{/call}</code></pre>
   </div>
 </div>
+{/template}
+
+{template renderValueAsCode kind="text"}
+  {@param value: Value}
+  {if $value.getString()}
+    "{$value.getString()}"
+  {elseif $value.getInt()}
+    {$value.getInt()}
+  {elseif $value.hasBool()}
+    {$value.getBool() ? 'True' : 'False'}
+  {elseif $value.getMacro()}
+    # macro
+    {let $receivers: $value.getMacro().getKwargsReceiverList() /}
+    {if length($receivers) > 0}
+      {sp}(forwards **kwargs to: {for $receiver, $index in $receivers}{if $index > 0}, {/if}{$receiver}{/for})
+    {/if}
+  {elseif $value.getList()}
+    {let $items: $value.getList().getValueList() /}
+    {if length($items) == 0}
+      []
+    {else}
+      [{\n}
+      {for $item, $index in $items}
+        {'    '}{call renderValueAsCode}{param value: $item /}{/call}{if $index < length($items) - 1},{/if}{\n}
+      {/for}
+      ]
+    {/if}
+  {else}
+    # unknown
+  {/if}
 {/template}
 
 {template symbolListBox}
@@ -931,7 +949,7 @@ https://raw.githubusercontent.com/{$org}/{$repo}/{$commitSha}/{$path}
           {let $githubUrl: githubSourceUrl(moduleVersion: $moduleVersion, label: $fileLabel, location: $location) /}
           {if $githubUrl}
             <a href="{$githubUrl}" target="_blank" rel="noopener noreferrer" class="anim-pulse-in btn btn-sm btn-octicon ml-1 d-inline-flex flex-items-center" title="View source on GitHub">
-              {octiconMarkGithub24(fill: 'var(' + $color + ')')}
+              {octiconMarkGithub24()}
               <span class="ml-1">
                 Ln {$location.getStart().getLine()}
               </span>

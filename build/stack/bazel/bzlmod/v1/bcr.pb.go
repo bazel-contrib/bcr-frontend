@@ -1969,13 +1969,13 @@ func (*SymbolInfo_RepositoryRule) isSymbolInfo_Info() {}
 func (*SymbolInfo_Macro) isSymbolInfo_Info() {}
 
 type FileInfo struct {
-	state         protoimpl.MessageState        `protogen:"open.v1"`
-	Label         *Label                        `protobuf:"bytes,1,opt,name=label,proto3" json:"label,omitempty"`
-	Symbol        []*SymbolInfo                 `protobuf:"bytes,2,rep,name=symbol,proto3" json:"symbol,omitempty"`
-	Description   string                        `protobuf:"bytes,3,opt,name=description,proto3" json:"description,omitempty"`
-	Error         string                        `protobuf:"bytes,5,opt,name=error,proto3" json:"error,omitempty"`
-	Load          []*v1beta1.LoadStmt           `protobuf:"bytes,6,rep,name=load,proto3" json:"load,omitempty"`
-	Global        map[string]*v1beta1.ValueInfo `protobuf:"bytes,7,rep,name=global,proto3" json:"global,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	state         protoimpl.MessageState    `protogen:"open.v1"`
+	Label         *Label                    `protobuf:"bytes,1,opt,name=label,proto3" json:"label,omitempty"`
+	Symbol        []*SymbolInfo             `protobuf:"bytes,2,rep,name=symbol,proto3" json:"symbol,omitempty"`
+	Description   string                    `protobuf:"bytes,3,opt,name=description,proto3" json:"description,omitempty"`
+	Error         string                    `protobuf:"bytes,5,opt,name=error,proto3" json:"error,omitempty"`
+	Load          []*v1beta1.LoadStmt       `protobuf:"bytes,6,rep,name=load,proto3" json:"load,omitempty"`
+	Global        map[string]*v1beta1.Value `protobuf:"bytes,7,rep,name=global,proto3" json:"global,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2045,7 +2045,7 @@ func (x *FileInfo) GetLoad() []*v1beta1.LoadStmt {
 	return nil
 }
 
-func (x *FileInfo) GetGlobal() map[string]*v1beta1.ValueInfo {
+func (x *FileInfo) GetGlobal() map[string]*v1beta1.Value {
 	if x != nil {
 		return x.Global
 	}
@@ -2630,17 +2630,17 @@ const file_build_stack_bazel_bzlmod_v1_bcr_proto_rawDesc = "" +
 	"\x0frepository_rule\x18\n" +
 	" \x01(\v2,.build.stack.starlark.v1beta1.RepositoryRuleH\x00R\x0erepositoryRule\x12;\n" +
 	"\x05macro\x18\v \x01(\v2#.build.stack.starlark.v1beta1.MacroH\x00R\x05macroB\x06\n" +
-	"\x04info\"\xa8\x03\n" +
+	"\x04info\"\xa4\x03\n" +
 	"\bFileInfo\x128\n" +
 	"\x05label\x18\x01 \x01(\v2\".build.stack.bazel.bzlmod.v1.LabelR\x05label\x12?\n" +
 	"\x06symbol\x18\x02 \x03(\v2'.build.stack.bazel.bzlmod.v1.SymbolInfoR\x06symbol\x12 \n" +
 	"\vdescription\x18\x03 \x01(\tR\vdescription\x12\x14\n" +
 	"\x05error\x18\x05 \x01(\tR\x05error\x12:\n" +
 	"\x04load\x18\x06 \x03(\v2&.build.stack.starlark.v1beta1.LoadStmtR\x04load\x12I\n" +
-	"\x06global\x18\a \x03(\v21.build.stack.bazel.bzlmod.v1.FileInfo.GlobalEntryR\x06global\x1ab\n" +
+	"\x06global\x18\a \x03(\v21.build.stack.bazel.bzlmod.v1.FileInfo.GlobalEntryR\x06global\x1a^\n" +
 	"\vGlobalEntry\x12\x10\n" +
-	"\x03key\x18\x01 \x01(\tR\x03key\x12=\n" +
-	"\x05value\x18\x02 \x01(\v2'.build.stack.starlark.v1beta1.ValueInfoR\x05value:\x028\x01\"\xd3\x01\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x129\n" +
+	"\x05value\x18\x02 \x01(\v2#.build.stack.starlark.v1beta1.ValueR\x05value:\x028\x01\"\xd3\x01\n" +
 	"\x11DocumentationInfo\x12\x1f\n" +
 	"\vmodule_name\x18\x01 \x01(\tR\n" +
 	"moduleName\x12\x18\n" +
@@ -2732,7 +2732,7 @@ var file_build_stack_bazel_bzlmod_v1_bcr_proto_goTypes = []any{
 	(*v1beta1.RepositoryRule)(nil),    // 44: build.stack.starlark.v1beta1.RepositoryRule
 	(*v1beta1.Macro)(nil),             // 45: build.stack.starlark.v1beta1.Macro
 	(*v1beta1.LoadStmt)(nil),          // 46: build.stack.starlark.v1beta1.LoadStmt
-	(*v1beta1.ValueInfo)(nil),         // 47: build.stack.starlark.v1beta1.ValueInfo
+	(*v1beta1.Value)(nil),             // 47: build.stack.starlark.v1beta1.Value
 }
 var file_build_stack_bazel_bzlmod_v1_bcr_proto_depIdxs = []int32{
 	4,  // 0: build.stack.bazel.bzlmod.v1.Registry.modules:type_name -> build.stack.bazel.bzlmod.v1.Module
@@ -2786,7 +2786,7 @@ var file_build_stack_bazel_bzlmod_v1_bcr_proto_depIdxs = []int32{
 	37, // 48: build.stack.bazel.bzlmod.v1.Presubmit.BcrTestModule.tasks:type_name -> build.stack.bazel.bzlmod.v1.Presubmit.BcrTestModule.TasksEntry
 	35, // 49: build.stack.bazel.bzlmod.v1.Presubmit.TasksEntry.value:type_name -> build.stack.bazel.bzlmod.v1.Presubmit.PresubmitTask
 	35, // 50: build.stack.bazel.bzlmod.v1.Presubmit.BcrTestModule.TasksEntry.value:type_name -> build.stack.bazel.bzlmod.v1.Presubmit.PresubmitTask
-	47, // 51: build.stack.bazel.bzlmod.v1.FileInfo.GlobalEntry.value:type_name -> build.stack.starlark.v1beta1.ValueInfo
+	47, // 51: build.stack.bazel.bzlmod.v1.FileInfo.GlobalEntry.value:type_name -> build.stack.starlark.v1beta1.Value
 	52, // [52:52] is the sub-list for method output_type
 	52, // [52:52] is the sub-list for method input_type
 	52, // [52:52] is the sub-list for extension type_name
