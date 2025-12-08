@@ -1,0 +1,111 @@
+{namespace soy.centrl.treeview}
+
+import {DependencyTree, DependencyTreeNode} from 'build/stack/bazel/bzlmod/v1/bcr.proto';
+
+/**
+ * Renders a Primer-style TreeView for a DependencyTree.
+ */
+{template dependencyTree}
+  {@param tree: DependencyTree}
+  {@param? expanded: bool}
+  <ul class="treeview-root" role="tree">
+    <li class="treeview-item" role="treeitem" style="--level: 0">
+      <div class="treeview-item-content">
+        {if $tree.getChildrenList() && length($tree.getChildrenList()) > 0}
+          <button class="treeview-expand-button"
+                  aria-label="{$expanded ? 'Collapse' : 'Expand'}"
+                  type="button">
+            <svg class="treeview-chevron {$expanded ? 'treeview-chevron-expanded' : ''}"
+                 xmlns="http://www.w3.org/2000/svg"
+                 viewBox="0 0 12 12"
+                 width="12"
+                 height="12">
+              <path fill="currentColor" d="M4.7 10c-.2 0-.4-.1-.5-.2-.3-.3-.3-.8 0-1.1L6.9 6 4.2 3.3c-.3-.3-.3-.8 0-1.1.3-.3.8-.3 1.1 0l3.3 3.2c.3.3.3.8 0 1.1L5.3 9.7c-.2.2-.4.3-.6.3Z"></path>
+            </svg>
+          </button>
+        {else}
+          <span class="treeview-spacer"></span>
+        {/if}
+        <span class="treeview-label">
+          {$tree.getModuleVersion()?.getName()}@{$tree.getModuleVersion()?.getVersion()}
+        </span>
+      </div>
+      {if $tree.getChildrenList() && length($tree.getChildrenList()) > 0}
+        <ul class="treeview-children {$expanded ? 'treeview-children-expanded' : 'treeview-children-collapsed'}"
+            role="group">
+          {for $child in $tree.getChildrenList()}
+            {call dependencyTreeNode}
+              {param node: $child /}
+              {param level: 1 /}
+              {param expanded: $expanded /}
+            {/call}
+          {/for}
+        </ul>
+      {/if}
+    </li>
+  </ul>
+{/template}
+
+/**
+ * Renders a single dependency tree node recursively.
+ */
+{template dependencyTreeNode visibility="private"}
+  {@param node: DependencyTreeNode}
+  {@param level: int}
+  {@param? expanded: bool}
+
+  {let $hasChildren: $node.getChildrenList() && length($node.getChildrenList()) > 0 /}
+  {let $isExpanded: $expanded ? true : false /}
+
+  <li class="treeview-item" role="treeitem"
+      data-tree-id="{$node.getModuleVersion()?.getName()}@{$node.getModuleVersion()?.getVersion()}"
+      {if $hasChildren}
+        aria-expanded="{$isExpanded ? 'true' : 'false'}"
+      {/if}
+      style="--level: {$level}">
+
+    <div class="treeview-item-content">
+      {if $hasChildren}
+        <button class="treeview-expand-button"
+                aria-label="{$isExpanded ? 'Collapse' : 'Expand'}"
+                type="button">
+          <svg class="treeview-chevron {$isExpanded ? 'treeview-chevron-expanded' : ''}"
+               xmlns="http://www.w3.org/2000/svg"
+               viewBox="0 0 12 12"
+               width="12"
+               height="12">
+            <path fill="currentColor" d="M4.7 10c-.2 0-.4-.1-.5-.2-.3-.3-.3-.8 0-1.1L6.9 6 4.2 3.3c-.3-.3-.3-.8 0-1.1.3-.3.8-.3 1.1 0l3.3 3.2c.3.3.3.8 0 1.1L5.3 9.7c-.2.2-.4.3-.6.3Z"></path>
+          </svg>
+        </button>
+      {else}
+        <span class="treeview-spacer"></span>
+      {/if}
+
+      <span class="treeview-label">
+        {$node.getModuleVersion()?.getName()}@{$node.getModuleVersion()?.getVersion()}
+        {if $node.getUpgraded() && $node.getRequestedVersion() != $node.getModuleVersion()?.getVersion()}
+          {sp}(requested {$node.getRequestedVersion()})
+        {/if}
+        {if $node.getDev()}
+          <span class="treeview-metadata treeview-metadata-dev">[dev]</span>
+        {/if}
+        {if $node.getUpgraded()}
+          <span class="treeview-metadata treeview-metadata-upgraded">[upgraded]</span>
+        {/if}
+      </span>
+    </div>
+
+    {if $hasChildren}
+      <ul class="treeview-children {$isExpanded ? 'treeview-children-expanded' : 'treeview-children-collapsed'}"
+          role="group">
+        {for $child in $node.getChildrenList()}
+          {call dependencyTreeNode}
+            {param node: $child /}
+            {param level: $level + 1 /}
+            {param expanded: $expanded /}
+          {/call}
+        {/for}
+      </ul>
+    {/if}
+  </li>
+{/template}

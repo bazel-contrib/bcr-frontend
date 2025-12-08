@@ -470,6 +470,32 @@ import {
       </div>
     {/if}
 
+    {if length($deps)}
+      <div class="mt-3">
+        <div class="Box Box--condensed">
+          <div class="Box-header">
+            <span class="Box-title">MVS Dependency Tree</span>
+          </div>
+          <div class="Box-body">
+            <div class="{css('mvs-tree-reg')}"></div>
+          </div>
+        </div>
+      </div>
+    {/if}
+
+    {if length($devDeps)}
+      <div class="mt-3">
+        <div class="Box Box--condensed">
+          <div class="Box-header">
+            <span class="Box-title">MVS Dev Dependency Tree</span>
+          </div>
+          <div class="Box-body">
+            <div class="{css('mvs-tree-dev')}"></div>
+          </div>
+        </div>
+      </div>
+    {/if}
+
     {for $override in $moduleVersion.getOverrideList()}
       <div class="mt-3">
         {call moduleDependencyOverride}

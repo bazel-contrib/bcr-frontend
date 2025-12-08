@@ -1,49 +1,52 @@
 goog.module("centrl.App");
 
-const AspectInfo = goog.require("proto.stardoc_output.AspectInfo");
-const AttributeInfo = goog.require("proto.stardoc_output.AttributeInfo");
-const AttributeType = goog.require("proto.stardoc_output.AttributeType");
-const ComponentEventType = goog.require("goog.ui.Component.EventType");
-const DocumentationInfo = goog.require("proto.build.stack.bazel.bzlmod.v1.DocumentationInfo");
-const FileInfo = goog.require("proto.build.stack.bazel.bzlmod.v1.FileInfo");
-const FunctionParamInfo = goog.require("proto.stardoc_output.FunctionParamInfo");
-const FunctionParamRole = goog.require("proto.stardoc_output.FunctionParamRole");
-const Label = goog.require("proto.build.stack.bazel.bzlmod.v1.Label");
-const Maintainer = goog.require("proto.build.stack.bazel.bzlmod.v1.Maintainer");
-const Message = goog.require("jspb.Message");
-const Module = goog.require("proto.build.stack.bazel.bzlmod.v1.Module");
-const ModuleDependency = goog.require("proto.build.stack.bazel.bzlmod.v1.ModuleDependency");
-const ModuleExtensionInfo = goog.require("proto.stardoc_output.ModuleExtensionInfo");
-const ModuleExtensionTagClassInfo = goog.require("proto.stardoc_output.ModuleExtensionTagClassInfo");
-const ModuleInfo = goog.require("proto.stardoc_output.ModuleInfo");
-const ModuleMetadata = goog.require("proto.build.stack.bazel.bzlmod.v1.ModuleMetadata");
-const ModuleVersion = goog.require("proto.build.stack.bazel.bzlmod.v1.ModuleVersion");
-const ProviderFieldInfo = goog.require("proto.stardoc_output.ProviderFieldInfo");
-const ProviderInfo = goog.require("proto.stardoc_output.ProviderInfo");
-const Registry = goog.require("proto.build.stack.bazel.bzlmod.v1.Registry");
-const RepositoryMetadata = goog.require("proto.build.stack.bazel.bzlmod.v1.RepositoryMetadata");
-const RepositoryRuleInfo = goog.require("proto.stardoc_output.RepositoryRuleInfo");
-const RuleInfo = goog.require("proto.stardoc_output.RuleInfo");
-const Select = goog.require("stack.ui.Select");
-const StarlarkFunctionInfo = goog.require("proto.stardoc_output.StarlarkFunctionInfo");
-const SymbolInfo = goog.require("proto.build.stack.bazel.bzlmod.v1.SymbolInfo");
-const Trie = goog.require("goog.structs.Trie");
-const arrays = goog.require("goog.array");
-const asserts = goog.require("goog.asserts");
-const dataset = goog.require("goog.dom.dataset");
-const date = goog.require("goog.date");
-const dom = goog.require("goog.dom");
-const events = goog.require("goog.events");
-const path = goog.require("goog.string.path");
-const relative = goog.require("goog.date.relative");
-const soy = goog.require("goog.soy");
-const strings = goog.require("goog.string");
-const { App, Component, Route, RouteEvent, RouteEventType } = goog.require("stack.ui");
-const { Application, SearchProvider, Searchable } = goog.require("centrl.common");
-const { DocumentationSearchHandler } = goog.require("centrl.documentation_search");
-const { ModuleSearchHandler } = goog.require("centrl.module_search");
+const AspectInfo = goog.require('proto.stardoc_output.AspectInfo');
+const AttributeInfo = goog.require('proto.stardoc_output.AttributeInfo');
+const AttributeType = goog.require('proto.stardoc_output.AttributeType');
+const ComponentEventType = goog.require('goog.ui.Component.EventType');
+const DocumentationInfo = goog.require('proto.build.stack.bazel.bzlmod.v1.DocumentationInfo');
+const FileInfo = goog.require('proto.build.stack.bazel.bzlmod.v1.FileInfo');
+const FunctionParamInfo = goog.require('proto.stardoc_output.FunctionParamInfo');
+const FunctionParamRole = goog.require('proto.stardoc_output.FunctionParamRole');
+const Label = goog.require('proto.build.stack.bazel.bzlmod.v1.Label');
+const Maintainer = goog.require('proto.build.stack.bazel.bzlmod.v1.Maintainer');
+const Message = goog.require('jspb.Message');
+const Module = goog.require('proto.build.stack.bazel.bzlmod.v1.Module');
+const ModuleDependency = goog.require('proto.build.stack.bazel.bzlmod.v1.ModuleDependency');
+const ModuleExtensionInfo = goog.require('proto.stardoc_output.ModuleExtensionInfo');
+const ModuleExtensionTagClassInfo = goog.require('proto.stardoc_output.ModuleExtensionTagClassInfo');
+const ModuleInfo = goog.require('proto.stardoc_output.ModuleInfo');
+const ModuleMetadata = goog.require('proto.build.stack.bazel.bzlmod.v1.ModuleMetadata');
+const ModuleVersion = goog.require('proto.build.stack.bazel.bzlmod.v1.ModuleVersion');
+const ProviderFieldInfo = goog.require('proto.stardoc_output.ProviderFieldInfo');
+const ProviderInfo = goog.require('proto.stardoc_output.ProviderInfo');
+const Registry = goog.require('proto.build.stack.bazel.bzlmod.v1.Registry');
+const RepositoryMetadata = goog.require('proto.build.stack.bazel.bzlmod.v1.RepositoryMetadata');
+const RepositoryRuleInfo = goog.require('proto.stardoc_output.RepositoryRuleInfo');
+const RuleInfo = goog.require('proto.stardoc_output.RuleInfo');
+const Select = goog.require('stack.ui.Select');
+const StarlarkFunctionInfo = goog.require('proto.stardoc_output.StarlarkFunctionInfo');
+const SymbolInfo = goog.require('proto.build.stack.bazel.bzlmod.v1.SymbolInfo');
+const Trie = goog.require('goog.structs.Trie');
+const arrays = goog.require('goog.array');
+const asserts = goog.require('goog.asserts');
+const dataset = goog.require('goog.dom.dataset');
+const date = goog.require('goog.date');
+const dom = goog.require('goog.dom');
+const events = goog.require('goog.events');
+const path = goog.require('goog.string.path');
+const relative = goog.require('goog.date.relative');
+const soy = goog.require('goog.soy');
+const strings = goog.require('goog.string');
+const { App, Component, Route, RouteEvent, RouteEventType } = goog.require('stack.ui');
+const { Application, SearchProvider, Searchable, getApplication } = goog.require('centrl.common');
+const { DocumentationSearchHandler } = goog.require('centrl.documentation_search');
+const { MVS } = goog.require('centrl.mvs');
+const { ModuleSearchHandler } = goog.require('centrl.module_search');
+const { MvsDependencyTree } = goog.require('centrl.mvs_tree');
 const { SearchComponent } = goog.require('centrl.search');
-const { aspectInfoComponent, bodySelect, docsMapComponent, docsMapSelectNav, docsSelect, documentationInfoListComponent, documentationInfoSelect, fileErrorBlankslate, fileInfoListComponent, fileInfoSelect, functionInfoComponent, homeOverviewComponent, homeSelect, macroInfoComponent, maintainerComponent, maintainersMapComponent, maintainersMapSelectNav, maintainersSelect, moduleBlankslateComponent, moduleExtensionInfoComponent, moduleSelect, moduleVersionBlankslateComponent, moduleVersionComponent, moduleVersionList, moduleVersionSelectNav, moduleVersionsFilterSelect, modulesMapSelect, modulesMapSelectNav, navItem, notFoundComponent, providerInfoComponent, registryApp, repositoryRuleInfoComponent, ruleInfoComponent, settingsAppearanceComponent, settingsSelect, symbolInfoComponent, toastSuccess } = goog.require('soy.centrl.app'); const { moduleVersionsListComponent } = goog.require('soy.registry');
+const { aspectInfoComponent, bodySelect, docsMapComponent, docsMapSelectNav, docsSelect, documentationInfoListComponent, documentationInfoSelect, fileErrorBlankslate, fileInfoListComponent, fileInfoSelect, functionInfoComponent, homeOverviewComponent, homeSelect, macroInfoComponent, maintainerComponent, maintainersMapComponent, maintainersMapSelectNav, maintainersSelect, moduleBlankslateComponent, moduleExtensionInfoComponent, moduleSelect, moduleVersionBlankslateComponent, moduleVersionComponent, moduleVersionList, moduleVersionSelectNav, moduleVersionsFilterSelect, modulesMapSelect, modulesMapSelectNav, navItem, notFoundComponent, providerInfoComponent, registryApp, repositoryRuleInfoComponent, ruleInfoComponent, settingsAppearanceComponent, settingsSelect, symbolInfoComponent, toastSuccess } = goog.require('soy.centrl.app');
+const { moduleVersionsListComponent } = goog.require('soy.registry');
 
 const HIGHLIGHT_SYNTAX = true;
 const FORMAT_MARKDOWN = true;
@@ -1892,16 +1895,42 @@ class ModuleVersionComponent extends Component {
         super.enterDocument();
 
         this.enterSyntaxHighlighting();
+        this.enterMvsTrees();
     }
 
     enterSyntaxHighlighting() {
         if (HIGHLIGHT_SYNTAX) {
             const rootEl = this.getElementStrict();
             const className = goog.getCssName('shiki');
-            const preEls = dom.findElements(rootEl, (el) => {
-                return el.tagName === 'PRE' && el.classList.contains(className);
-            });
+            const preEls = dom.findElements(rootEl, el => el.classList.contains(className));
             arrays.forEach(preEls, preEl => syntaxHighlight(this.dom_.getWindow(), preEl));
+        }
+    }
+
+    enterMvsTrees() {
+        // Get the MVS instance from the app
+        const app = /** @type {!RegistryApp} */(getApplication(this));
+
+        const mvs = app.getMvs();
+        const moduleName = this.moduleVersion_.getName();
+        const version = this.moduleVersion_.getVersion();
+
+        // Add regular dependency tree if there are dependencies
+        const deps = this.moduleVersion_.getDepsList().filter(d => !d.getDev());
+        if (deps.length > 0) {
+            const regularTreeContainer = dom.getRequiredElementByClass(goog.getCssName('mvs-tree-reg'), this.getElementStrict());
+            const regularTree = new MvsDependencyTree(moduleName, version, mvs, false, this.dom_, true);
+            this.addChild(regularTree, false);
+            regularTree.render(regularTreeContainer);
+        }
+
+        // Add dev dependency tree if there are dev dependencies
+        const devDeps = this.moduleVersion_.getDepsList().filter(d => d.getDev());
+        if (devDeps.length > 0) {
+            const devTreeContainer = dom.getRequiredElementByClass(goog.getCssName('mvs-tree-dev'), this.getElementStrict());
+            const devTree = new MvsDependencyTree(moduleName, version, mvs, true, this.dom_, true);
+            this.addChild(devTree, false);
+            devTree.render(devTreeContainer);
         }
     }
 
@@ -3436,7 +3465,7 @@ function formatDate(value) {
 
 /**
  * Top-level app component.
- * 
+ *
  * @implements {Application}
  */
 class RegistryApp extends App {
@@ -3467,6 +3496,13 @@ class RegistryApp extends App {
 
         /** @private @type {?SearchComponent} */
         this.search_ = null;
+
+        // Build MVS maps from registry
+        const { moduleVersionMap, moduleMetadataMap } = MVS.buildMaps(registry);
+        console.log(`Built MVS maps: ${moduleVersionMap.size} module versions, ${moduleMetadataMap.size} modules`);
+
+        /** @private @const @type {!MVS} */
+        this.mvs_ = new MVS(moduleVersionMap, moduleMetadataMap);
     }
 
     /**
@@ -3477,6 +3513,14 @@ class RegistryApp extends App {
      */
     getOptions() {
         return this.options_;
+    }
+
+    /**
+     * Returns the MVS instance.
+     * @return {!MVS}
+     */
+    getMvs() {
+        return this.mvs_;
     }
 
     /** @override */

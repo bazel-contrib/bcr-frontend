@@ -24,7 +24,7 @@ string_flag(
 
 string_flag(
     name = "docs_release",
-    build_setting_default = "skip",
+    build_setting_default = "production",
     values = [
         "skip",
         "production",
@@ -78,6 +78,7 @@ closure_js_template_library(
         "app.soy",
         "octicons.soy",
         "registry.soy",
+        "treeview.soy",
     ],
     deps = [
         "//build/stack/bazel/bzlmod/v1:bzpb_js",
@@ -125,7 +126,10 @@ closure_js_library(
         "documentation_search.js",
         "main.js",
         "module_search.js",
+        "mvs.js",
+        "mvs_tree.js",
         "search.js",
+        "treeview.js",
         ":shiki",
     ],
     deps = [
@@ -142,14 +146,18 @@ closure_js_library(
         "@stackb_rules_closure//closure/goog/dom",
         "@stackb_rules_closure//closure/goog/dom:dataset",
         "@stackb_rules_closure//closure/goog/events",
+        "@stackb_rules_closure//closure/goog/events:eventtype",
         "@stackb_rules_closure//closure/goog/events:listenable",
         "@stackb_rules_closure//closure/goog/soy",
         "@stackb_rules_closure//closure/goog/string",
         "@stackb_rules_closure//closure/goog/string:path",
+        "@stackb_rules_closure//closure/goog/structs:treenode",
         "@stackb_rules_closure//closure/goog/structs:trie",
         "@stackb_rules_closure//closure/goog/ui:component",
         "@stackb_rules_closure//closure/goog/ui/ac:autocomplete",
         "@stackb_rules_closure//closure/goog/ui/ac:renderer",
+        "@stackb_rules_closure//closure/goog/ui/tree:treecontrol",
+        "@stackb_rules_closure//closure/goog/ui/tree:treenode",
         "@stackb_rules_closure//closure/protobuf:jspb",
         "@stackb_ui_js//js/ui:core",
         "@stackb_ui_js//js/ui:select",

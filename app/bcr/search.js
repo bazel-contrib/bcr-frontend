@@ -180,8 +180,6 @@ class SearchComponent extends EventTarget {
      *
      */
     handleAcUpdate(e) {
-        console.log('handleAcUpdate', e);
-
         if (e.row) {
             this.submit(e.row);
         }

@@ -438,3 +438,25 @@ message DocumentationInfo {
 message DocumentationRegistry {
     repeated DocumentationInfo documentation = 1;
 }
+
+// Represents a node in the dependency tree computed by MVS algorithm.
+message DependencyTreeNode {
+    // The resolved module version for this dependency
+    ModuleVersion module_version = 1;
+    // The originally requested version (may differ from module_version.version if upgraded)
+    string requested_version = 2;
+    // Whether this version was upgraded by MVS
+    bool upgraded = 3;
+    // Whether this is a dev dependency
+    bool dev = 4;
+    // Child dependencies of this node
+    repeated DependencyTreeNode children = 5;
+}
+
+// Represents the complete dependency tree for a module version.
+message DependencyTree {
+    // The root module version
+    ModuleVersion module_version = 1;
+    // Child dependencies of the root module
+    repeated DependencyTreeNode children = 2;
+}

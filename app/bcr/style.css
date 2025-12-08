@@ -18,3 +18,144 @@
     user-select: none;
     speak: none;
 }
+
+/* MVS Dependency Tree Styles */
+.mvs-tree-container {
+    overflow: auto;
+}
+
+.mvs-tree-dev-dep {
+    color: var(--color-attention-fg);
+    font-style: italic;
+}
+
+.mvs-tree-upgraded {
+    color: var(--color-success-fg);
+    font-weight: 600;
+}
+
+.mvs-tree-controls {
+    margin-bottom: 8px;
+    display: flex;
+    gap: 8px;
+}
+
+
+/* ========================================
+ * TreeView Component (Primer-style)
+ * ======================================== */
+
+.treeview-root {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif;
+    font-size: 14px;
+    line-height: 20px;
+    color: var(--color-fg-default);
+}
+
+.treeview-item {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.treeview-item-content {
+    display: flex;
+    align-items: center;
+    padding: 4px 8px;
+    padding-left: calc(8px + var(--level, 0) * 16px);
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+.treeview-item-content:hover {
+    background-color: var(--color-neutral-subtle);
+}
+
+.treeview-expand-button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    padding: 0;
+    margin: 0;
+    margin-right: 4px;
+    border: none;
+    background: none;
+    cursor: pointer;
+    color: var(--color-fg-muted);
+    transition: color 0.2s ease;
+}
+
+.treeview-expand-button:hover {
+    color: var(--color-fg-default);
+}
+
+.treeview-spacer {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    margin-right: 4px;
+}
+
+.treeview-chevron {
+    display: block;
+    width: 12px;
+    height: 12px;
+    transition: transform 0.2s ease;
+    transform: rotate(0deg);
+}
+
+.treeview-chevron-expanded {
+    transform: rotate(90deg);
+}
+
+.treeview-label {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    user-select: none;
+}
+
+.treeview-metadata {
+    margin-left: 6px;
+    padding: 2px 6px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 500;
+    background-color: var(--color-neutral-muted);
+    color: var(--color-fg-muted);
+}
+
+.treeview-metadata-dev {
+    background-color: var(--color-accent-subtle);
+    color: var(--color-accent-fg);
+}
+
+.treeview-metadata-upgraded {
+    background-color: var(--color-attention-subtle);
+    color: var(--color-attention-fg);
+}
+
+.treeview-children {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    transition: max-height 0.3s ease, opacity 0.2s ease;
+}
+
+.treeview-children-collapsed {
+    max-height: 0;
+    opacity: 0;
+}
+
+.treeview-children-expanded {
+    max-height: none;
+    opacity: 1;
+}
