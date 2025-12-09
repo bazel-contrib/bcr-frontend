@@ -85,7 +85,7 @@ bazel_dep(name = "{$name}", version = "{$version}")
 
 {template moduleVersionModuleBazel}
   {@param moduleVersion: ModuleVersion}
-<div class="Box Box--condensed">
+<div class="Box Box--condensed hide-sm">
   <div class="Box-header">
       <div class="Box-title d-flex flex-items-center flex-justify-between">
         <div class="text-mono">
@@ -686,7 +686,7 @@ unknown
 <a class="d-inline-flex flex-items-center" href="{githubRepoUrl(org: $org, name: $name)}" title="@{$org}">
   {if $title}
     <span class="text-small mr-2 color-fg-muted" style="min-width: 0; word-break: break-all">@{$org}/{$name}</span>
-  {/if}  
+  {/if}=------------------------------------------------------------------------------------------------------------
     <img class="avatar mr-2 flex-shrink-0 rounded" style="padding: 2px" width="{$size ? $size : 42}" height="{$size ? $size : 42}" src="{githubAvatarUrl(name: $org)}" alt="@{$org}">
 </a>
 {/template}
