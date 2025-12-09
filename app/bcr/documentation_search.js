@@ -7,6 +7,7 @@ const asserts = goog.require("goog.asserts");
 const AutoComplete = goog.require("goog.ui.ac.AutoComplete");
 const AutoCompleteMatcher = goog.require("dossier.AutoCompleteMatcher");
 const dom = goog.require("goog.dom");
+const events = goog.require("goog.events");
 const EventTarget = goog.require("goog.events.EventTarget");
 const InputHandler = goog.require("goog.ui.ac.InputHandler");
 const Renderer = goog.require("goog.ui.ac.Renderer");
@@ -125,11 +126,12 @@ class DocumentationSearchHandler extends EventTarget {
     getSearchProvider() {
         /** @type {!SearchProvider} */
         const provider = {
-            name: 'docs',
+            name: 'symbol',
             desc: `Search ${this.symbols_.size} symbols in documentation`,
             incremental: false,
             inputHandler: this.inputHandler_,
             onsubmit: goog.bind(this.handleSearchOnSubmit, this),
+            keyCode: events.KeyCodes.PERIOD,
         };
         return provider;
     }

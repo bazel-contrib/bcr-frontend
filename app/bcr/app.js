@@ -4308,7 +4308,7 @@ class RegistryApp extends App {
             this.documentationSearchHandler_.getSearchProvider(),
         );
 
-        this.search_.setCurrentSearchProviderByName('modules');
+        this.search_.setCurrentSearchProviderByName('module');
     }
 
 
@@ -4331,9 +4331,23 @@ class RegistryApp extends App {
      */
     onKeyDown(e) {
         if (this.search_.isActive()) {
+            const inputValue = this.search_.getValue();
+
             switch (e.keyCode) {
                 case events.KeyCodes.ESC:
                     this.blurSearchBox(e);
+                    break;
+                case events.KeyCodes.SLASH:
+                    // If input is empty, switch to module search
+                    if (inputValue.length === 0) {
+                        this.focusSearchBox(e, this.moduleSearchHandler_.getSearchProvider());
+                    }
+                    break;
+                case events.KeyCodes.PERIOD:
+                    // If input is empty, switch to documentation search
+                    if (inputValue.length === 0) {
+                        this.focusSearchBox(e, this.documentationSearchHandler_.getSearchProvider());
+                    }
                     break;
             }
             return;
@@ -4468,6 +4482,11 @@ class RegistryApp extends App {
                 if (clippy) {
                     copyToClipboard(clippy);
                     this.toastSuccess(`copied: ${clippy}`);
+                    return true;
+                }
+                const searchprovider = dataset.get(node, "searchprovider");
+                if (searchprovider) {
+                    this.search_.setCurrentSearchProviderByName(searchprovider);
                     return true;
                 }
                 return false;

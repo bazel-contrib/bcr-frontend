@@ -374,5 +374,12 @@ class SearchComponent extends EventTarget {
     isActive() {
         return this.inputEl_.ownerDocument.activeElement === this.inputEl_;
     }
+
+    /**
+     * @return {string} The current value of the search input.
+     */
+    getValue() {
+        return this.inputEl_.value || '';
+    }
 }
 exports.SearchComponent = SearchComponent;

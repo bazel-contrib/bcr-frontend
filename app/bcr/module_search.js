@@ -7,6 +7,7 @@ const asserts = goog.require("goog.asserts");
 const AutoComplete = goog.require("goog.ui.ac.AutoComplete");
 const AutoCompleteMatcher = goog.require("dossier.AutoCompleteMatcher");
 const dom = goog.require("goog.dom");
+const events = goog.require("goog.events");
 const EventTarget = goog.require("goog.events.EventTarget");
 const InputHandler = goog.require("goog.ui.ac.InputHandler");
 const Module = goog.require("proto.build.stack.bazel.bzlmod.v1.Module");
@@ -67,11 +68,12 @@ class ModuleSearchHandler extends EventTarget {
     getSearchProvider() {
         /** @type {!SearchProvider} */
         const provider = {
-            name: 'modules',
+            name: 'module',
             desc: `Search ${this.modules_.size} modules in registry`,
             incremental: false,
             inputHandler: this.inputHandler_,
             onsubmit: goog.bind(this.handleSearchOnSubmit, this),
+            keyCode: events.KeyCodes.SLASH,
         };
         return provider;
     }
