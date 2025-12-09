@@ -67,8 +67,8 @@ class ModuleSearchHandler extends EventTarget {
     getSearchProvider() {
         /** @type {!SearchProvider} */
         const provider = {
-            name: DefaultSearchHandlerName,
-            desc: `Search ${this.modules_.size} modules in registry (kbd shortcut SLASH: '/')`,
+            name: 'modules',
+            desc: `Search ${this.modules_.size} modules in registry`,
             incremental: false,
             inputHandler: this.inputHandler_,
             onsubmit: goog.bind(this.handleSearchOnSubmit, this),

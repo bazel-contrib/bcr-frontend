@@ -13,15 +13,18 @@ import {
     octiconCode16,
     octiconDotFill16,
     octiconDotFill24,
+    octiconFeedPerson16,
     octiconFile16,
     octiconGear16,
     octiconGitCommit16,
     octiconMarkGithub16,
     octiconMarkGithub24,
     octiconPaintbrush16,
+    octiconPackage16,
     octiconPerson16,
     octiconSparkleFill16,
     octiconSquareFill16,
+    octiconSun16,
     octiconTable16,
     octiconWorkflow16
 } from 'app/bcr/octicons.soy';
@@ -114,33 +117,51 @@ import {
 </div>
 {/template}
 
-
 {template headerLink kind="html<a>"}
   {@param path: string}
+  {@param octicon: html}
   {@param? label: string}
-  {@param? octicon: html}
-<a href="/#/{$path}" class="btn mx-1" style="border: none; box-shadow: none">
-  {if $octicon}<span class="color-fg-subtle{if $label} mr-2{/if}">{$octicon}</span>{/if}
-  {if $label}<span class="hide-sm">{$label}</span>{/if}
+<a href="/#/{$path}" class="BtnGroup-item btn btn-sm" {if $label}data-label="{$label}"{/if}>
+  <span class="color-fg-subtle{if $label}{/if}">{$octicon}</span>
+  {if $label}<span class="ml-2 hide-sm">{$label}</span>{/if}
 </a>
 {/template}
 
 
+{template kbd}
+  {@param key: string}
+  <kbd>{$key}</kbd>
+{/template}
+
+
 {template header}
-<div class="{css('app-header')} Header" style="background-color: unset">
+<div class="Header" style="background-color: unset">
   <div class="Header-item" style="max-width: 54px">
     <a href="/#/home">{logo()}</a>
   </div>
-  <div class="Header-item Header-item--full" style="position: relative">
-    <form class="FormControl col-12">
-      <input class="form-control col-12 input-hide-webkit-autofill border" type="text" placeholder="Search..."/>
-    </form>
+  <div class="Header-item Header-item--full">
+    <div class="width-full" style="position: relative">
+      <form class="FormControl col-12">
+        <input class="form-control col-12 input-hide-webkit-autofill border width-full" type="text" placeholder="Search..." style="background-color: var(--button-default-bgColor-rest, var(--color-btn-bg));"/>
+      </form>
+      <div style="position: absolute; top: 100%; right: 0; z-index: 1;">
+        <div class="BtnGroup d-inline-flex markdown-body" style="margin-top: 0px; background: transparent;">
+          <button class="BtnGroup-item btn btn-sm btn-octicon {css('search-scope-modules')}" type="button">
+            <span class="f6 text-light hide-sm">Module Search</span> <span class="f6 text-light hide-md hide-lg hide-xl">Modules</span> {kbd(key: '/')}
+          </button>
+          <button class="BtnGroup-item btn btn-sm btn-octicon {css('search-scope-docs')}" type="button">
+            <span class="f6 text-light hide-sm">Symbol Search</span> <span class="f6 text-light hide-md hide-lg hide-xl">Symbols</span> {kbd(key: '.')}
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
   <div class="Header-item">
-    {headerLink(path: "docs", label: "Docs", octicon: octiconBook16())}
-    {headerLink(path: "modules", label: "Modules", octicon: octiconSquareFill16())}
-    {headerLink(path: "maintainers", label: "Maintainers", octicon: octiconPerson16())}
-    {headerLink(path: "settings", octicon: octiconGear16())}
+    <div class="BtnGroup">
+      {headerLink(path: "modules", label: "Modules", octicon: octiconPackage16())}
+      {headerLink(path: "maintainers", label: "Maintainers", octicon: octiconFeedPerson16())}
+      {headerLink(path: "docs", label: "Stardoc", octicon: octiconSun16())}
+    </div>
   </div>
 </div>
 {/template}
@@ -158,10 +179,13 @@ import {
 {template bodySelect}
   {@param registry: Registry}
   {@param lastUpdated: string}
-<div class="PageLayout px-3">
-  {header()}
-  <div class="{css('content')} PageLayout-content"></div>
-  {footer(registry: $registry, lastUpdated: $lastUpdated)}
+<div style="position: relative">
+  <a href="/#/settings" class="btn-octicon color-fg-muted" title="Settings" style="position: absolute; right: 12px; top: 12px; z-index: 100;">{octiconGear16()}</a>
+  <div class="PageLayout px-3">
+    {header()}
+    <div class="{css('content')} PageLayout-content"></div>
+    {footer(registry: $registry, lastUpdated: $lastUpdated)}
+  </div>
 </div>
 {/template}
 
@@ -251,12 +275,12 @@ import {
       {sp}
       {octiconChevronLeft16()}
     </div>
-    <div class="d-flex flex-row flex-items-center flex-justify-center mt-3" style="gap: 3rem">
+    <div class="d-flex flex-row flex-wrap flex-items-center flex-justify-center mt-3" style="gap: 2rem">
       {largeStatDisplay(value: $totalModules, label: 'Modules')}
       {largeStatDisplay(value: $totalModuleVersions, label: 'Module Versions')}
       {largeStatDisplay(value: $totalMaintainers, label: 'Maintainers')}
     </div>
-    <div class="d-flex flex-row flex-items-center flex-justify-center mt-5" style="gap: 2rem">
+    <div class="d-flex flex-row flex-wrap flex-items-center flex-justify-center mt-5" style="gap: 1.5rem">
       {statDisplay(value: $totalRules, label: 'Rules', color: symbolColor(type: 1))}
       {statDisplay(value: $totalFunctions, label: 'Functions', color: symbolColor(type: 2))}
       {statDisplay(value: $totalProviders, label: 'Providers', color: symbolColor(type: 3))}

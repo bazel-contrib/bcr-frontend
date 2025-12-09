@@ -220,6 +220,7 @@ pre code {
     0% {
         mask-position: 200%;
     }
+
     to {
         mask-position: 0;
     }

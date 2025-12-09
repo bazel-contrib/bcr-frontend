@@ -125,8 +125,8 @@ class DocumentationSearchHandler extends EventTarget {
     getSearchProvider() {
         /** @type {!SearchProvider} */
         const provider = {
-            name: DefaultSearchHandlerName,
-            desc: `Search ${this.symbols_.size} symbols in documentation (kbd shortcut COMMA: ',')`,
+            name: 'docs',
+            desc: `Search ${this.symbols_.size} symbols in documentation`,
             incremental: false,
             inputHandler: this.inputHandler_,
             onsubmit: goog.bind(this.handleSearchOnSubmit, this),

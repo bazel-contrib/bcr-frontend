@@ -58,8 +58,8 @@ class SearchComponent extends EventTarget {
         /**
          * A mapping from name to SearchProvider.  This is rebuilt each time
          * a new active component routing occurs.
-         * @private @const @type {!Array<!SearchProvider>} */
-        this.providers_ = [];
+         * @private @const @type {!Map<string,!SearchProvider>} */
+        this.providers_ = new Map();
 
         /**
          * The current provider
@@ -140,7 +140,6 @@ class SearchComponent extends EventTarget {
                 this,
             );
         } catch (e) {
-            console.log(`handleInputFocus<error>`, e);
             throw e;
         }
     }
@@ -198,8 +197,6 @@ class SearchComponent extends EventTarget {
      * @param {?Component} c
      */
     findSearchProviders(c) {
-        this.providers_.length = 0;
-
         let current = c;
         while (current) {
             if (current instanceof SearchableSelect) {
@@ -222,17 +219,19 @@ class SearchComponent extends EventTarget {
      * @param {!SearchProvider} provider
      */
     addSearchProvider(provider) {
-        if (this.providers_.indexOf(provider) === -1) {
-            this.providers_.push(provider);
-        }
+        this.providers_.set(provider.name, provider);
+        console.info(`added search provider: ${provider.name}`);
     }
 
     /**
      * @param {string} name
      */
     setCurrentSearchProviderByName(name) {
-        this.currentProviderName_ = name;
-        this.setCurrentProvider(this.providers_.find((p) => p.name === name));
+        const provider = this.providers_.get(name);
+        if (provider) {
+            this.setCurrentProvider(provider);
+        } else {
+        }
     }
 
     /**
@@ -240,10 +239,10 @@ class SearchComponent extends EventTarget {
      * @param {?SearchProvider|undefined} provider
      */
     setCurrentProvider(provider) {
-        if (provider === this.currentProvider_) {
+        if (!provider) {
             return;
         }
-        if (!provider) {
+        if (provider === this.currentProvider_) {
             return;
         }
         this.detachCurrentProvider();
@@ -270,13 +269,14 @@ class SearchComponent extends EventTarget {
      * @param {!SearchProvider} provider
      */
     attachProvider(provider) {
-        if (this.attachProviderInputHandler(provider)) {
+        if (this.didAttachProviderInputHandler(provider)) {
             return;
         }
-        if (this.attachProviderOnChange(provider)) {
+        if (this.didAttachProviderOnChange(provider)) {
             return;
         }
         this.disableInput();
+
     }
 
     /**
@@ -286,7 +286,7 @@ class SearchComponent extends EventTarget {
      * @param {!SearchProvider} provider
      * @returns {boolean}
      */
-    attachProviderInputHandler(provider) {
+    didAttachProviderInputHandler(provider) {
         if (!provider.inputHandler) {
             return false;
         }
@@ -312,7 +312,7 @@ class SearchComponent extends EventTarget {
      * @param {!SearchProvider} provider
      * @returns {boolean}
      */
-    attachProviderOnChange(provider) {
+    didAttachProviderOnChange(provider) {
         this.enableInput(provider);
         return true;
     }
@@ -334,6 +334,7 @@ class SearchComponent extends EventTarget {
         this.inputEl_.placeholder = `${provider.desc}...`;
         this.inputEl_.disabled = false;
         this.currentProvider_ = provider;
+        this.currentProviderName_ = provider.name;
     }
 
     /**

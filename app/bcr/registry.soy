@@ -665,12 +665,16 @@ unknown
 
 {template maintainerCard}
   {@param maintainer: Maintainer}
-<a class="d-flex flex-column flex-items-center Link--primary text-center no-underline anim-hover-grow" href="{maintainerUrl(maintainer: $maintainer)}" style="width: 120px">
-    <img class="avatar mb-2" width="80" height="80" src="{githubAvatarUrl(name: $maintainer.getGithub())}" alt="@{$maintainer.getGithub()}" style="border-radius: 6px">
-    <div class="f6 lh-condensed">
-        {$maintainer.getName() || '@' + $maintainer.getGithub()}
+<div class="d-flex flex-column flex-items-center text-center anim-hover-grow" style="width: 96px">
+    <div class="mb-2">
+        {maintainerAvatar(maintainer: $maintainer, size: 80)}
     </div>
-</a>
+    <div class="f6 lh-condensed">
+        <a class="Link--primary no-underline" href="{maintainerUrl(maintainer: $maintainer)}">
+            {$maintainer.getName() || '@' + $maintainer.getGithub()}
+        </a>
+    </div>
+</div>
 {/template}
 
 

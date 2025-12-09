@@ -4308,7 +4308,7 @@ class RegistryApp extends App {
             this.documentationSearchHandler_.getSearchProvider(),
         );
 
-        this.rebuildSearch();
+        this.search_.setCurrentSearchProviderByName('modules');
     }
 
 
@@ -4353,7 +4353,7 @@ class RegistryApp extends App {
                     this.focusSearchBox(e, this.moduleSearchHandler_.getSearchProvider());
                 }
                 break;
-            case events.KeyCodes.COMMA:
+            case events.KeyCodes.PERIOD:
                 if (this.getKbd().isEnabled()) {
                     this.focusSearchBox(e, this.documentationSearchHandler_.getSearchProvider());
                 }
@@ -4408,8 +4408,8 @@ class RegistryApp extends App {
     handleRouteDone(e) {
         const routeEvent = /** @type {!RouteEvent} */ (e);
         this.activeComponent_ = routeEvent.component || null;
-        this.rebuildSearch();
-        // console.info(`route done.  active component:`, this.activeComponent_);
+        const route = /** @type {!Route} */ (e.target);
+        console.log('done:', route.getPath());
     }
 
     /**
@@ -4429,7 +4429,6 @@ class RegistryApp extends App {
         this.activeComponent_ = null;
         console.error('not found:', route.getPath());
         // this.route("/" + TabName.NOT_FOUND + route.getPath());
-        this.rebuildSearch();
     }
 
     /** 
@@ -4475,11 +4474,6 @@ class RegistryApp extends App {
             },
             true,
         );
-    }
-
-    rebuildSearch() {
-        this.search_.findSearchProviders(this.activeComponent_);
-        this.search_.rebuild();
     }
 
     /**
