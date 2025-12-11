@@ -220,7 +220,6 @@ class SearchComponent extends EventTarget {
      */
     addSearchProvider(provider) {
         this.providers_.set(provider.name, provider);
-        console.info(`added search provider: ${provider.name}`);
     }
 
     /**

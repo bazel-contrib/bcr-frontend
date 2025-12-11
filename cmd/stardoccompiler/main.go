@@ -44,7 +44,7 @@ func run(args []string) error {
 		if err := protoutil.ReadFile(file, &module); err != nil {
 			return fmt.Errorf("reading %s: %v", file, err)
 		}
-		fileInfo := stardoc.ParseModuleFile(&module)
+		fileInfo := stardoc.ModuleInfoToFileInfo(&module)
 		result.File = append(result.File, fileInfo)
 	}
 

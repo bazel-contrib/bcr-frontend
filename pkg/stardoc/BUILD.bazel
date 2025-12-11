@@ -1,8 +1,13 @@
-load("@rules_go//go:def.bzl", "go_library")
+load("@rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
     name = "stardoc",
-    srcs = ["stardoc.go"],
+    srcs = [
+        "dedent.go",
+        "label.go",
+        "stardoc.go",
+        "symbols.go",
+    ],
     importpath = "github.com/stackb/centrl/pkg/stardoc",
     visibility = ["//visibility:public"],
     deps = [
@@ -11,4 +16,10 @@ go_library(
         "//stardoc_output",
         "@bazel_gazelle//label:go_default_library",
     ],
+)
+
+go_test(
+    name = "stardoc_test",
+    srcs = ["dedent_test.go"],
+    embed = [":stardoc"],
 )

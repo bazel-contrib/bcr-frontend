@@ -664,9 +664,7 @@ import {
         <div class="PageLayout-pane pl-2">
           <nav class="SideNav" style="background-color: transparent; border: none">
 
-            {call documentationAboutSection}
-              {param info: $info /}
-            {/call}
+            {documentationAboutSection(info: $info)}
 
             {if length($funcs) + length($rules) + length($aspects) + length($providers) + length($moduleExtensions) + length($repositoryRules) + length($macros) + length($ruleMacros) > 0}
               <div class="pb-2 d-inline-block">
@@ -724,13 +722,6 @@ import {
 {fileInfoUrl(label: $file.getLabel())}/{$sym.getName()}
 {/template}
 
-{template providerUrl kind="uri"}
-  {@inject baseUrl: string}
-  {@param file: string}
-  {@param name: string}
-/#/{$baseUrl}/{$file}/{$name}
-{/template}
-
 {template githubSourceUrl kind="uri"}
   {@param moduleVersion: ModuleVersion}
   {@param? label: Label}
@@ -769,12 +760,13 @@ https://raw.githubusercontent.com/{$org}/{$repo}/{$commitSha}/{$path}
   {@inject baseUrl: string}
   {@param moduleVersion: ModuleVersion}
   {@param docs: DocumentationInfo}
+  {@param files: list<FileInfo>}
 <div class="Box Box--condensed">
   <div class="Box-header">
-    <div class="Box-title">Files {counterLabel(count: length($docs.getFileList()))}</div>
+    <div class="Box-title">Files {counterLabel(count: length($files))}</div>
   </div>
   <div>
-    {for $file in $docs.getFileList()}
+    {for $file in $files}
       {let $pkg: $file.getLabel()?.getPkg() /}
       {let $name: $file.getLabel()?.getName() /}
       {let $hasError: $file.getError() ? true : false /}
@@ -1370,7 +1362,7 @@ https://raw.githubusercontent.com/{$org}/{$repo}/{$commitSha}/{$path}
 <div class="Box Box--condensed mt-3">
   <div class="Box-header">
     <div class="d-flex flex-justify-between flex-items-center">
-      <div class="Box-title">Example</div>
+      <div class="Box-title">Complete Example</div>
       {copyToClipboardButton(content: $exampleCode)}
     </div>
   </div>
@@ -1519,32 +1511,26 @@ https://raw.githubusercontent.com/{$org}/{$repo}/{$commitSha}/{$path}
         {$attr.getDocString()}
       </div>
     {/if}
-    {if length($attr.getProviderNameGroupList()) > 0}
-      <div class="mt-1">
-        {for $group, $groupIndex in $attr.getProviderNameGroupList()}
-          {if $groupIndex > 0}
-            <span class="text-small text-light"> or </span>
-          {/if}
-          <span class="text-small">
-            {for $providerName, $index in $group.getProviderNameList()}
-              {if $index > 0}
-                <span class="text-light">, </span>
-              {/if}
-              {if $group.getOriginKeyList()[$index] && $group.getOriginKeyList()[$index].getFile() && $group.getOriginKeyList()[$index].getName()}
-                {let $originKey: $group.getOriginKeyList()[$index] /}
-                <a class="Label Label--primary" href="{providerUrl(file: $originKey.getFile(), name: $originKey.getName())}">{$providerName}</a>
-              {else}
-                <span class="Label Label--secondary">{$providerName}</span>
-              {/if}
-            {/for}
-          </span>
-        {/for}
-      </div>
-    {/if}
   </div>
   {if $attr.getType()}
     <div class="flex-shrink-0 ml-2">
       <span class="Label" style="background-color: var({attrColor(type: $attr.getType())}); color: var(--color-fg-on-emphasis)">{attrName(type: $attr.getType())}</span>
+      {if length($attr.getProviderNameGroupList()) > 0}
+        <span class="text-light"> providing </span>
+        {for $group, $groupIndex in $attr.getProviderNameGroupList()}
+          {if $groupIndex > 0}
+            <span class="text-small text-light"> or</span>
+          {/if}
+          {sp}
+          {for $providerName, $index in $group.getProviderNameList()}
+            {if $index > 0}
+              <span class="text-light">, </span>
+            {/if}
+            {let $providerColor: symbolColor(type: 3) /}
+            <label class="Label text-mono text-sm">{octiconDotFill16(fill: 'var(' + $providerColor + ')')} {$providerName}</label>
+          {/for}
+        {/for}
+      {/if}
     </div>
   {/if}
 </div>

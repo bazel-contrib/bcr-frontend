@@ -48,7 +48,7 @@ const { MvsDependencyTree } = goog.require('centrl.mvs_tree');
 const { SafeHtml, htmlEscape, sanitizeHtml } = goog.require('google3.third_party.javascript.safevalues.index');
 const { SearchComponent } = goog.require('centrl.search');
 const { aspectInfoComponent, bodySelect, docsMapComponent, docsMapSelectNav, docsSelect, documentationInfoListComponent, documentationInfoSelect, fileErrorBlankslate, fileInfoListComponent, fileInfoSelect, functionInfoComponent, homeOverviewComponent, homeSelect, macroInfoComponent, maintainerComponent, maintainersMapComponent, maintainersMapSelectNav, maintainersSelect, moduleBlankslateComponent, moduleExtensionInfoComponent, moduleSelect, moduleVersionBlankslateComponent, moduleVersionComponent, moduleVersionDependenciesComponent, moduleVersionDependentsComponent, moduleVersionList, moduleVersionSelectNav, moduleVersionsFilterSelect, modulesMapSelect, modulesMapSelectNav, navItem, notFoundComponent, providerInfoComponent, registryApp, repositoryRuleInfoComponent, ruleInfoComponent, ruleMacroInfoComponent, settingsAppearanceComponent, settingsSelect, symbolInfoComponent, toastSuccess } = goog.require('soy.centrl.app');
-const { moduleDependencyRow, moduleVersionsListComponent } = goog.require('soy.registry');
+const { copyToClipboardButton, moduleDependencyRow, moduleVersionsListComponent } = goog.require('soy.registry');
 const { setElementInnerHtml } = goog.require('google3.third_party.javascript.safevalues.dom.elements.element');
 
 
@@ -158,28 +158,52 @@ function getParameterExampleValue(param) {
         return defaultValue;
     }
 
-    // Generic example values based on parameter name patterns
     const name = param.getName().toLowerCase();
+    const docString = param.getDocString() ? param.getDocString().toLowerCase() : '';
+
+    // Check for string type indicators in name or docstring
+    const likelyString = name.includes('name') ||
+        name.includes('label') ||
+        name.includes('path') ||
+        name.includes('url') ||
+        name.includes('msg') ||
+        name.includes('message') ||
+        name.includes('text') ||
+        name.includes('str') ||
+        name.includes('tag') ||
+        name.includes('version') ||
+        name.includes('prefix') ||
+        name.includes('suffix') ||
+        docString.includes('string') ||
+        docString.includes('str');
+
+    // Specific patterns first
     if (name.includes('name')) {
-        return '"my_target"';
+        return '"my_' + param.getName() + '"';
     }
     if (name.includes('label') || name.includes('target')) {
         return '"//path/to:target"';
     }
-    if (name.includes('list') || name.includes('files') || name.includes('deps')) {
+    if (name.includes('list') || name.includes('files') || name.includes('deps') || name.includes('srcs')) {
         return '[]';
     }
-    if (name.includes('dict') || name.includes('map')) {
+    if (name.includes('dict') || name.includes('map') || name.includes('kwargs')) {
         return '{}';
     }
     if (name.includes('bool') || name.includes('enabled') || name.includes('flag')) {
-        return 'True';
+        return 'True or False';
     }
     if (name.includes('int') || name.includes('count') || name.includes('size')) {
         return '1';
     }
 
-    return '""';
+    // If it looks like a string based on heuristics, return empty string
+    if (likelyString) {
+        return '""';
+    }
+
+    // Default placeholder - None is valid Starlark and indicates missing value
+    return 'None';
 }
 
 /**
@@ -1771,8 +1795,8 @@ function getCachedVersionData(registry, module) {
         return versionDataCache.get(cacheKey);
     }
 
-    console.log(`Computing version data for ${module.getName()}...`);
-    const startTime = performance.now();
+    // console.log(`Computing version data for ${module.getName()}...`);
+    // const startTime = performance.now();
 
     /** @type {!Array<!VersionData>} */
     const versionData = [];
@@ -1824,8 +1848,8 @@ function getCachedVersionData(registry, module) {
     const result = { versionData, totalDeps };
     versionDataCache.set(cacheKey, result);
 
-    const endTime = performance.now();
-    console.log(`Computed version data for ${module.getName()} in ${(endTime - startTime).toFixed(2)}ms`);
+    // const endTime = performance.now();
+    // console.log(`Computed version data for ${module.getName()} in ${(endTime - startTime).toFixed(2)}ms`);
 
     return result;
 }
@@ -2066,7 +2090,7 @@ class ModuleVersionComponent extends Component {
             const rootEl = this.getElementStrict();
             const className = goog.getCssName('shiki');
             const preEls = dom.findElements(rootEl, el => el.classList.contains(className));
-            arrays.forEach(preEls, preEl => syntaxHighlight(this.dom_.getWindow(), preEl));
+            arrays.forEach(preEls, syntaxHighlight);
         }
     }
 
@@ -2150,7 +2174,7 @@ class ModuleVersionDependenciesComponent extends ContentComponent {
             const rootEl = this.getElementStrict();
             const className = goog.getCssName('shiki');
             const preEls = dom.findElements(rootEl, el => el.classList.contains(className));
-            arrays.forEach(preEls, preEl => syntaxHighlight(this.dom_.getWindow(), preEl));
+            arrays.forEach(preEls, syntaxHighlight);
         }
     }
 
@@ -2746,7 +2770,11 @@ function isPublicFile(file) {
     const pkg = label.getPkg() || '';
     const name = label.getName() || '';
     const path = pkg ? `${pkg}/${name}` : name;
-    return !path.includes('/private/') && !path.includes('/internal/');
+
+    return !path.includes('/private/')
+        && !path.includes('/internal/')
+        && !path.includes('/tests/')
+        && !path.includes('/test/');
 }
 
 class DocumentationInfoSelect extends ContentSelect {
@@ -3052,6 +3080,161 @@ class MarkdownComponent extends Component {
     }
 }
 
+/**
+ * Helper class for building Starlark function call examples
+ */
+class StarlarkCallBuilder {
+    /**
+     * @param {string} funcName - The function/rule/macro name
+     * @param {string=} resultPrefix - Optional prefix (e.g., "result = ")
+     */
+    constructor(funcName, resultPrefix = '') {
+        /** @private @const {string} */
+        this.funcName_ = funcName;
+
+        /** @private @const {string} */
+        this.resultPrefix_ = resultPrefix;
+
+        /** @private @const {!Array<string>} */
+        this.positionalArgs_ = [];
+
+        /** @private @const {!Array<{name: string, value: string, required: boolean}>} */
+        this.keywordArgs_ = [];
+
+        /** @private {?string} */
+        this.varargs_ = null;
+
+        /** @private {?string} */
+        this.kwargs_ = null;
+    }
+
+    /**
+     * Add a positional argument
+     * @param {string} value
+     * @return {!StarlarkCallBuilder}
+     */
+    addPositional(value) {
+        this.positionalArgs_.push(value);
+        return this;
+    }
+
+    /**
+     * Add a keyword argument
+     * @param {string} name
+     * @param {string} value
+     * @param {boolean=} required
+     * @return {!StarlarkCallBuilder}
+     */
+    addKeyword(name, value, required = false) {
+        this.keywordArgs_.push({ name, value, required });
+        return this;
+    }
+
+    /**
+     * Set varargs (*args)
+     * @param {string} name
+     * @return {!StarlarkCallBuilder}
+     */
+    setVarargs(name) {
+        this.varargs_ = name;
+        return this;
+    }
+
+    /**
+     * Set kwargs (**kwargs)
+     * @param {string} name
+     * @return {!StarlarkCallBuilder}
+     */
+    setKwargs(name) {
+        this.kwargs_ = name;
+        return this;
+    }
+
+    /**
+     * Build the function call string
+     * @return {string}
+     */
+    build() {
+        const lines = [];
+
+        // Count total arguments
+        const totalArgs = this.positionalArgs_.length +
+            this.keywordArgs_.length +
+            (this.varargs_ ? 1 : 0) +
+            (this.kwargs_ ? 1 : 0);
+
+        // No arguments - single line
+        if (totalArgs === 0) {
+            return `${this.resultPrefix_}${this.funcName_}()`;
+        }
+
+        // Single argument - format on one line without "required" comment
+        if (totalArgs === 1) {
+            if (this.positionalArgs_.length === 1) {
+                return `${this.resultPrefix_}${this.funcName_}(${this.positionalArgs_[0]})`;
+            }
+            if (this.keywordArgs_.length === 1) {
+                const arg = this.keywordArgs_[0];
+                return `${this.resultPrefix_}${this.funcName_}(${arg.name} = ${arg.value})`;
+            }
+            if (this.varargs_) {
+                return `${this.resultPrefix_}${this.funcName_}(*${this.varargs_})`;
+            }
+            if (this.kwargs_) {
+                return `${this.resultPrefix_}${this.funcName_}(**${this.kwargs_})`;
+            }
+        }
+
+        // Multiple arguments - format multi-line with comments
+        lines.push(`${this.resultPrefix_}${this.funcName_}(`);
+
+        // Collect all argument lines first
+        /** @type {!Array<string>} */
+        const argLines = [];
+
+        // Positional arguments
+        this.positionalArgs_.forEach((value) => {
+            argLines.push(`    ${value}`);
+        });
+
+        // Keyword arguments
+        this.keywordArgs_.forEach((arg) => {
+            // Suppress "# required" comment for "name" attribute (implicitly required)
+            const comment = (arg.required && arg.name !== 'name') ? '  # required' : '';
+            argLines.push(`    ${arg.name} = ${arg.value}${comment}`);
+        });
+
+        // Varargs
+        if (this.varargs_) {
+            argLines.push(`    *${this.varargs_}`);
+        }
+
+        // Kwargs
+        if (this.kwargs_) {
+            argLines.push(`    **${this.kwargs_}`);
+        }
+
+        // Add commas to all arguments, except no trailing comma after **kwargs-style args
+        for (let i = 0; i < argLines.length; i++) {
+            const isLast = i === argLines.length - 1;
+            const argLine = argLines[i];
+            const endsWithKwargs = isLast && argLine.trim().startsWith('**');
+
+            if (endsWithKwargs) {
+                // No trailing comma after **kwargs (or any **parameter)
+                lines.push(argLine);
+            } else {
+                // All other arguments get trailing commas
+                lines.push(argLine + ',');
+            }
+        }
+
+        lines.push(')');
+
+        return lines.join('\n');
+    }
+}
+
 class SymbolInfoComponent extends MarkdownComponent {
     /**
      * @param {!ModuleVersion} moduleVersion
@@ -3111,7 +3294,7 @@ class SymbolInfoComponent extends MarkdownComponent {
             const rootEl = this.getElementStrict();
             const className = goog.getCssName('shiki');
             const preEls = dom.findElements(rootEl, el => el.classList.contains(className));
-            arrays.forEach(preEls, preEl => syntaxHighlight(this.dom_.getWindow(), preEl));
+            arrays.forEach(preEls, syntaxHighlight);
         }
     }
 
@@ -3173,29 +3356,17 @@ class RuleInfoComponent extends SymbolInfoComponent {
         }
 
         const ruleName = this.sym_.getName();
-        const lines = [this.generateLoadStatement(ruleName), ''];
-
-        // Rule invocation
-        lines.push(`${ruleName}(`);
+        const builder = new StarlarkCallBuilder(ruleName);
 
         // Add attributes
         const attrs = rule.getInfo().getAttributeList();
-        const requiredAttrs = attrs.filter(attr => attr.getMandatory() || attr.getName() === 'name');
-        const optionalAttrs = attrs.filter(attr => !attr.getMandatory() && attr.getName() !== 'name');
-
-        // Required attributes first (including 'name')
-        requiredAttrs.forEach((attr) => {
+        attrs.forEach((attr) => {
             const value = getAttributeExampleValue(attr, this.sym_.getName());
-            lines.push(`    ${attr.getName()} = ${value},`);
-        });
-        optionalAttrs.forEach((attr) => {
-            const value = getAttributeExampleValue(attr, this.sym_.getName());
-            lines.push(`    # ${attr.getName()} = ${value},`);
+            const isRequired = attr.getMandatory() || attr.getName() === 'name';
+            builder.addKeyword(attr.getName(), value, isRequired);
         });
 
-        lines.push(')');
-
-        return lines.join('\n');
+        return this.generateLoadStatement(ruleName) + '\n\n' + builder.build();
     }
 }
 
@@ -3237,60 +3408,59 @@ class FunctionInfoComponent extends SymbolInfoComponent {
         }
 
         const funcName = this.sym_.getName();
-        const lines = [this.generateLoadStatement(funcName), ''];
-
-        // Function invocation with role-aware parameter formatting
-        const params = func.getInfo().getParameterList();
         const hasReturn = func.getInfo().getReturn() != null;
         const resultPrefix = hasReturn ? 'result = ' : '';
 
-        // Separate parameters by role
-        const positionalParams = params.filter(p => {
-            const role = p.getRole();
-            return (role === FunctionParamRole.PARAM_ROLE_UNSPECIFIED ||
-                role === FunctionParamRole.PARAM_ROLE_ORDINARY ||
-                role === FunctionParamRole.PARAM_ROLE_POSITIONAL_ONLY) && p.getMandatory();
-        });
-        const keywordOnlyParams = params.filter(p => {
-            const role = p.getRole();
-            return role === FunctionParamRole.PARAM_ROLE_KEYWORD_ONLY && p.getMandatory();
-        });
-        const varargsParam = params.find(p => p.getRole() === FunctionParamRole.PARAM_ROLE_VARARGS);
-        const kwargsParam = params.find(p => p.getRole() === FunctionParamRole.PARAM_ROLE_KWARGS);
+        const builder = new StarlarkCallBuilder(funcName, resultPrefix);
+        const params = func.getInfo().getParameterList();
 
-        const hasParams = positionalParams.length > 0 || keywordOnlyParams.length > 0 || varargsParam || kwargsParam;
+        // Process parameters according to their role
+        params.forEach((param, index) => {
+            const role = param.getRole();
+            const paramName = param.getName();
+            const value = getParameterExampleValue(param);
+            const isMandatory = param.getMandatory();
 
-        if (!hasParams) {
-            lines.push(`${resultPrefix}${funcName}()`);
-        } else {
-            lines.push(`${resultPrefix}${funcName}(`);
+            // Special case: first parameter named "ctx" or "repository_ctx" should be positional
+            const isContextParam = index === 0 && (paramName === 'ctx' || paramName === 'repository_ctx');
 
-            // Positional/ordinary parameters (can be passed by position or keyword)
-            positionalParams.forEach((param) => {
-                const value = getParameterExampleValue(param);
-                lines.push(`    ${param.getName()} = ${value},`);
-            });
+            switch (role) {
+                case FunctionParamRole.PARAM_ROLE_POSITIONAL_ONLY:
+                    // Positional-only: show as positional argument (rare in Starlark)
+                    if (isMandatory) {
+                        builder.addPositional(value);
+                    }
+                    break;
 
-            // Keyword-only parameters
-            keywordOnlyParams.forEach((param) => {
-                const value = getParameterExampleValue(param);
-                lines.push(`    ${param.getName()} = ${value},`);
-            });
+                case FunctionParamRole.PARAM_ROLE_ORDINARY:
+                case FunctionParamRole.PARAM_ROLE_UNSPECIFIED:
+                    // Ordinary parameters can be positional or keyword
+                    // Show ctx/repository_ctx as positional (use param name), others as keyword
+                    if (isContextParam) {
+                        builder.addPositional(paramName);
+                    } else {
+                        builder.addKeyword(paramName, value, isMandatory);
+                    }
+                    break;
 
-            // Varargs (*args) - show as comment since it's optional
-            if (varargsParam) {
-                lines.push(`    # *${varargsParam.getName()},`);
+                case FunctionParamRole.PARAM_ROLE_KEYWORD_ONLY:
+                    // Keyword-only: must use keyword syntax
+                    builder.addKeyword(paramName, value, isMandatory);
+                    break;
+
+                case FunctionParamRole.PARAM_ROLE_VARARGS:
+                    // *args
+                    builder.setVarargs(paramName);
+                    break;
+
+                case FunctionParamRole.PARAM_ROLE_KWARGS:
+                    // **kwargs
+                    builder.setKwargs(paramName);
+                    break;
             }
+        });
 
-            // Kwargs (**kwargs) - show as comment since it's optional
-            if (kwargsParam) {
-                lines.push(`    # **${kwargsParam.getName()},`);
-            }
-
-            lines.push(')');
-        }
-
-        return lines.join('\n');
+        return this.generateLoadStatement(funcName) + '\n\n' + builder.build();
     }
 }
 
@@ -3390,29 +3560,17 @@ class RepositoryRuleInfoComponent extends SymbolInfoComponent {
         }
 
         const ruleName = this.sym_.getName();
-        const lines = [this.generateLoadStatement(ruleName), ''];
-
-        // Repository rule invocation
-        lines.push(`${ruleName}(`);
+        const builder = new StarlarkCallBuilder(ruleName);
 
         // Add attributes
         const attrs = repoRule.getInfo().getAttributeList();
-        const requiredAttrs = attrs.filter(attr => attr.getMandatory() || attr.getName() === 'name');
-        const optionalAttrs = attrs.filter(attr => !attr.getMandatory() && attr.getName() !== 'name');
-
-        // Required attributes first (including 'name')
-        requiredAttrs.forEach((attr) => {
+        attrs.forEach((attr) => {
             const value = getAttributeExampleValue(attr, this.sym_.getName());
-            lines.push(`    ${attr.getName()} = ${value},`);
-        });
-        optionalAttrs.forEach((attr) => {
-            const value = getAttributeExampleValue(attr, this.sym_.getName());
-            lines.push(`    # ${attr.getName()} = ${value},`);
+            const isRequired = attr.getMandatory() || attr.getName() === 'name';
+            builder.addKeyword(attr.getName(), value, isRequired);
         });
 
-        lines.push(')');
-
-        return lines.join('\n');
+        return this.generateLoadStatement(ruleName) + '\n\n' + builder.build();
     }
 }
 
@@ -3459,7 +3617,7 @@ class AspectInfoComponent extends SymbolInfoComponent {
         // Aspect usage (typically used in a rule's aspects parameter)
         lines.push('# Example: Apply aspect to a target');
         lines.push('my_rule(');
-        lines.push('    name = "my_target",');
+        lines.push('    name = "my_target",  # required');
         lines.push(`    aspects = [${aspectName}],`);
         lines.push(')');
 
@@ -3505,29 +3663,17 @@ class MacroInfoComponent extends SymbolInfoComponent {
         }
 
         const macroName = this.sym_.getName();
-        const lines = [this.generateLoadStatement(macroName), ''];
-
-        // Macro invocation
-        lines.push(`${macroName}(`);
+        const builder = new StarlarkCallBuilder(macroName);
 
         // Add attributes
         const attrs = macro.getInfo().getAttributeList();
-        const requiredAttrs = attrs.filter(attr => attr.getMandatory() || attr.getName() === 'name');
-        const optionalAttrs = attrs.filter(attr => !attr.getMandatory() && attr.getName() !== 'name');
-
-        // Required attributes first (including 'name')
-        requiredAttrs.forEach((attr) => {
+        attrs.forEach((attr) => {
             const value = getAttributeExampleValue(attr, this.sym_.getName());
-            lines.push(`    ${attr.getName()} = ${value},`);
-        });
-        optionalAttrs.forEach((attr) => {
-            const value = getAttributeExampleValue(attr, this.sym_.getName());
-            lines.push(`    # ${attr.getName()} = ${value},`);
+            const isRequired = attr.getMandatory() || attr.getName() === 'name';
+            builder.addKeyword(attr.getName(), value, isRequired);
         });
 
-        lines.push(')');
-
-        return lines.join('\n');
+        return this.generateLoadStatement(macroName) + '\n\n' + builder.build();
     }
 }
 
@@ -3569,32 +3715,20 @@ class RuleMacroInfoComponent extends SymbolInfoComponent {
         }
 
         const macroName = this.sym_.getName();
-        const lines = [this.generateLoadStatement(macroName), ''];
-
-        // Rule macro invocation (looks like the underlying rule)
-        lines.push(`${macroName}(`);
+        const builder = new StarlarkCallBuilder(macroName);
 
         // Add attributes from the underlying rule
         const rule = ruleMacro.getRule();
         if (rule && rule.getInfo()) {
             const attrs = rule.getInfo().getAttributeList();
-            const requiredAttrs = attrs.filter(attr => attr.getMandatory() || attr.getName() === 'name');
-            const optionalAttrs = attrs.filter(attr => !attr.getMandatory() && attr.getName() !== 'name');
-
-            // Required attributes first (including 'name')
-            requiredAttrs.forEach((attr) => {
+            attrs.forEach((attr) => {
                 const value = getAttributeExampleValue(attr, this.sym_.getName());
-                lines.push(`    ${attr.getName()} = ${value},`);
-            });
-            optionalAttrs.forEach((attr) => {
-                const value = getAttributeExampleValue(attr, this.sym_.getName());
-                lines.push(`    # ${attr.getName()} = ${value},`);
+                const isRequired = attr.getMandatory() || attr.getName() === 'name';
+                builder.addKeyword(attr.getName(), value, isRequired);
             });
         }
 
-        lines.push(')');
-
-        return lines.join('\n');
+        return this.generateLoadStatement(macroName) + '\n\n' + builder.build();
     }
 }
 
@@ -3648,33 +3782,21 @@ class ModuleExtensionInfoComponent extends SymbolInfoComponent {
         // Generate example for each tag class
         tagClasses.forEach((tagClass, index) => {
             const tagName = tagClass.getTagName();
-            const attrs = tagClass.getAttributeList();
-            const requiredAttrs = attrs.filter(attr => attr.getMandatory() || attr.getName() === 'name');
-            const optionalAttrs = attrs.filter(attr => !attr.getMandatory() && attr.getName() !== 'name');
+            const builder = new StarlarkCallBuilder(`${extName}.${tagName}`);
 
             if (index > 0) {
                 lines.push('');
             }
 
-            if (requiredAttrs.length === 0 && optionalAttrs.length === 0) {
-                lines.push(`${extName}.${tagName}()`);
-            } else {
-                lines.push(`${extName}.${tagName}(`);
+            // Add attributes for this tag class
+            const attrs = tagClass.getAttributeList();
+            attrs.forEach((attr) => {
+                const value = getAttributeExampleValue(attr, this.sym_.getName());
+                const isRequired = attr.getMandatory() || attr.getName() === 'name';
+                builder.addKeyword(attr.getName(), value, isRequired);
+            });
 
-                // Required attributes (including 'name')
-                requiredAttrs.forEach((attr) => {
-                    const value = getAttributeExampleValue(attr, this.sym_.getName());
-                    lines.push(`    ${attr.getName()} = ${value},`);
-                });
-
-                // Optional attributes (commented out)
-                optionalAttrs.forEach((attr) => {
-                    const value = getAttributeExampleValue(attr, this.sym_.getName());
-                    lines.push(`    # ${attr.getName()} = ${value},`);
-                });
-
-                lines.push(')');
-            }
+            lines.push(builder.build());
         });
 
         return lines.join('\n');
@@ -3702,16 +3824,16 @@ class DocumentationInfoListComponent extends MarkdownComponent {
      * @override
      */
     createDom() {
+        const files = this.docs_.getFileList().filter(isPublicFile);
         this.setElementInternal(soy.renderAsElement(documentationInfoListComponent, {
             moduleVersion: this.moduleVersion_,
             docs: this.docs_,
+            files: files,
         }, {
             baseUrl: path.dirname(this.getPathUrl()),
         }));
     }
 }
-
-
 
 class FileInfoListComponent extends MarkdownComponent {
     /**
@@ -3800,7 +3922,7 @@ class FileInfoListComponent extends MarkdownComponent {
             const rootEl = this.getElementStrict();
             const className = goog.getCssName('shiki');
             const preEls = dom.findElements(rootEl, el => el.classList.contains(className));
-            arrays.forEach(preEls, preEl => syntaxHighlight(this.dom_.getWindow(), preEl));
+            arrays.forEach(preEls, syntaxHighlight);
         }
     }
 }
@@ -3897,20 +4019,20 @@ function maintainerModuleVersions(registry, maintainer) {
 /**
  * Builds a mapping of module versions from a module.
  *
- * @param {!Window} window
- * @param {!Element} preEl The element to highlight
+ * @param {!Element} preEl The element to highlight, typically PRE
  * @suppress {reportUnknownTypes, missingSourcesWarnings}
  */
-async function syntaxHighlight(window, preEl) {
-    const codeEl = preEl.firstElementChild;
-    const lang = codeEl.getAttribute('lang');
+async function syntaxHighlight(preEl) {
+    const codeEl = preEl.firstElementChild || preEl;
+    const lang = codeEl.getAttribute('lang') || 'py';
     const text = codeEl.textContent;
     const theme = 'github-' + getEffectiveColorMode(asserts.assertObject(preEl.ownerDocument));
-    const html = await window['codeToHtml'](text, {
+    const html = await dom.getWindow()['codeToHtml'](text, {
         'lang': lang,
         'theme': theme,
     });
     preEl.outerHTML = html;
+    dom.dataset.set(preEl, 'highlighted', lang);
 }
 
 /**
@@ -3920,7 +4042,6 @@ async function syntaxHighlight(window, preEl) {
 function formatMarkdownAll(rootEl) {
     if (FORMAT_MARKDOWN) {
         const divEls = dom.findElements(rootEl, el => dom.classlist.contains(el, goog.getCssName('marked')));
-        console.log('formatting as markdown:', divEls);
         arrays.forEach(divEls, formatMarkdown);
     }
 }
@@ -3933,7 +4054,7 @@ function formatMarkdownAll(rootEl) {
  */
 function renderDocstring(el) {
     const text = el.textContent;
-    // markdown format this, then sanitize the result
+    console.log(`rendering docstring:`, text);
     const htmlText = parseMarkdownToHTML(text);
     return sanitizeHtml(htmlText);
 }
@@ -3943,7 +4064,7 @@ function renderDocstring(el) {
 *
 * @param {!Element} el The element to convert
 */
-function formatMarkdown(el) {
+async function formatMarkdown(el) {
     setElementInnerHtml(el, renderDocstring(el));
 
     // Trim whitespace from code blocks in the rendered HTML
@@ -3952,7 +4073,42 @@ function formatMarkdown(el) {
         code.textContent = code.textContent.trim();
     }
 
-    // 
+    // Syntax highlight code blocks that have <pre><code> structure
+    let preElements = el.querySelectorAll('pre');
+    for (const pre of preElements) {
+        if (pre.firstElementChild && pre.firstElementChild.tagName === 'CODE') {
+            if (!pre.firstElementChild.hasAttribute('lang')) {
+                pre.firstElementChild.setAttribute('lang', 'py');
+            }
+        } else {
+            pre.setAttribute('lang', 'py');
+        }
+        await syntaxHighlight(pre);
+    }
+
+    preElements = el.querySelectorAll('pre');
+    for (const pre of preElements) {
+        pre.style.position = "relative";
+        dom.classlist.addAll(pre, ["border", "color-bg-subtle"]);
+        const button = soy.renderAsElement(copyToClipboardButton, {
+            content: pre.firstChild.textContent,
+        });
+        button.style.position = "absolute";
+        button.style.right = "4px";
+        button.style.top = "4px";
+        dom.classlist.addAll(button, ["float-right"]);
+        dom.insertChildAt(pre, button, 0);
+    }
+
+    // Find and log non-http links for linkification
+    const links = el.querySelectorAll('a[href]');
+    for (const link of links) {
+        const href = link.getAttribute('href');
+        if (href && !href.startsWith('http://') && !href.startsWith('https://')) {
+            console.log('Non-http link:', href, 'text:', link.textContent);
+        }
+    }
+
     dom.dataset.set(el, "formatted", "markdown");
 }
 
@@ -4032,12 +4188,8 @@ let cachedReverseDepsCommit = null;
 function getModuleDirectDeps(registry, module, version) {
     // Build/refresh index if needed
     if (!cachedReverseDepsIndex || cachedReverseDepsCommit !== registry.getCommitSha()) {
-        console.log('Building reverse dependency index...');
-        const startTime = performance.now();
         cachedReverseDepsIndex = buildReverseDependencyIndex(registry);
         cachedReverseDepsCommit = registry.getCommitSha();
-        const endTime = performance.now();
-        console.log(`Built index in ${(endTime - startTime).toFixed(2)}ms`);
     }
 
     const key = `${module.getName()}@${version}`;

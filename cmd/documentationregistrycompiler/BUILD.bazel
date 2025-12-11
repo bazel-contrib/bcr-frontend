@@ -7,7 +7,6 @@ go_library(
     visibility = ["//visibility:private"],
     deps = [
         "//build/stack/bazel/bzlmod/v1:bzlmod",
-        "//build/stack/starlark/v1beta1",
         "//pkg/protoutil",
     ],
 )
