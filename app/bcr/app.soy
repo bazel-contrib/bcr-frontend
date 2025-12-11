@@ -45,7 +45,7 @@ import {
 } from 'stardoc_output/stardoc_output.proto';
 import {
   Function,
-  LoadStmt,
+  LoadSymbol,
   MacroFunction,
   SymbolLocation,
   Value
@@ -54,8 +54,12 @@ import {
   DocumentationInfo,
   DocumentationSource,
   FileInfo,
+  FileLoadTree,
+  FileLoadTreeNode,
   Label,
+  LoadInfo,
   SymbolInfo,
+  SymbolType,
   Maintainer,
   Module,
   ModuleDependency,
@@ -160,7 +164,7 @@ import {
     <div class="BtnGroup">
       {headerLink(path: "modules", label: "Modules", octicon: octiconPackage16())}
       {headerLink(path: "maintainers", label: "Maintainers", octicon: octiconFeedPerson16())}
-      {headerLink(path: "docs", label: "Stardoc", octicon: octiconSun16())}
+      {headerLink(path: "docs", label: "Documentation", octicon: octiconSun16())}
     </div>
   </div>
 </div>
@@ -188,7 +192,6 @@ import {
   </div>
 </div>
 {/template}
-
 
 {template homeSelect}
 <div>
@@ -657,7 +660,7 @@ import {
   {@param repositoryRules: list<[file: FileInfo, sym: SymbolInfo]>}
   {@param rules: list<[file: FileInfo, sym: SymbolInfo]>}
 <div>
-  <div class="PageLayout PageLayout--panePos-end PageLayout--hasPaneDivider PageLayout--responsive-stackRegions" style="--Layout-template-columns: unset">
+  <div class="PageLayout PageLayout--panePos-end PageLayout--hasPaneDivider PageLayout--responsive-stackRegions" style2="--Layout-template-columns: unset">
     <div class="PageLayout-wrapper">
       <div class="PageLayout-columns">
         <div class="PageLayout-content {css('content')}"></div>
@@ -666,26 +669,26 @@ import {
 
             {documentationAboutSection(info: $info)}
 
-            {if length($funcs) + length($rules) + length($aspects) + length($providers) + length($moduleExtensions) + length($repositoryRules) + length($macros) + length($ruleMacros) > 0}
-              <div class="pb-2 d-inline-block">
-                {if length($funcs) > 0}{symbolCount(type: $funcs[0].sym.getType(), n: length($funcs))} {sp}{/if}
-                {if length($macros) > 0}{symbolCount(type: $macros[0].sym.getType(), n: length($macros))} {sp}{/if}
-                {if length($ruleMacros) > 0}{symbolCount(type: $ruleMacros[0].sym.getType(), n: length($ruleMacros))} {sp}{/if}
-                {if length($rules) > 0}{symbolCount(type: $rules[0].sym.getType(), n: length($rules))} {sp}{/if}
-                {if length($aspects) > 0}{symbolCount(type: $aspects[0].sym.getType(), n: length($aspects))} {sp}{/if}
-                {if length($providers) > 0}{symbolCount(type: $providers[0].sym.getType(), n: length($providers))} {sp}{/if}
-                {if length($moduleExtensions) > 0}{symbolCount(type: $moduleExtensions[0].sym.getType(), n: length($moduleExtensions))} {sp}{/if}
-                {if length($repositoryRules) > 0}{symbolCount(type: $repositoryRules[0].sym.getType(), n: length($repositoryRules))}{/if}
-              </div>
-            {/if}
-            {symbolSection(title: 'Rules', items: $rules)}
-            {symbolSection(title: 'Macros', items: $macros)}
-            {symbolSection(title: 'Rule Macros', items: $ruleMacros)}
-            {symbolSection(title: 'Functions', items: $funcs)}
-            {symbolSection(title: 'Providers', items: $providers)}
-            {symbolSection(title: 'Aspects', items: $aspects)}
-            {symbolSection(title: 'Repository Rules', items: $repositoryRules)}
-            {symbolSection(title: 'Module Extensions', items: $moduleExtensions)}
+            // {if length($funcs) + length($rules) + length($aspects) + length($providers) + length($moduleExtensions) + length($repositoryRules) + length($macros) + length($ruleMacros) > 0}
+            //   <div class="pb-2 d-inline-block">
+            //     {if length($funcs) > 0}{symbolCount(type: $funcs[0].sym.getType(), n: length($funcs))} {sp}{/if}
+            //     {if length($macros) > 0}{symbolCount(type: $macros[0].sym.getType(), n: length($macros))} {sp}{/if}
+            //     {if length($ruleMacros) > 0}{symbolCount(type: $ruleMacros[0].sym.getType(), n: length($ruleMacros))} {sp}{/if}
+            //     {if length($rules) > 0}{symbolCount(type: $rules[0].sym.getType(), n: length($rules))} {sp}{/if}
+            //     {if length($aspects) > 0}{symbolCount(type: $aspects[0].sym.getType(), n: length($aspects))} {sp}{/if}
+            //     {if length($providers) > 0}{symbolCount(type: $providers[0].sym.getType(), n: length($providers))} {sp}{/if}
+            //     {if length($moduleExtensions) > 0}{symbolCount(type: $moduleExtensions[0].sym.getType(), n: length($moduleExtensions))} {sp}{/if}
+            //     {if length($repositoryRules) > 0}{symbolCount(type: $repositoryRules[0].sym.getType(), n: length($repositoryRules))}{/if}
+            //   </div>
+            // {/if}
+            // {symbolSection(title: 'Rules', items: $rules)}
+            // {symbolSection(title: 'Macros', items: $macros)}
+            // {symbolSection(title: 'Rule Macros', items: $ruleMacros)}
+            // {symbolSection(title: 'Functions', items: $funcs)}
+            // {symbolSection(title: 'Providers', items: $providers)}
+            // {symbolSection(title: 'Aspects', items: $aspects)}
+            // {symbolSection(title: 'Repository Rules', items: $repositoryRules)}
+            // {symbolSection(title: 'Module Extensions', items: $moduleExtensions)}
           </nav>
 
         </div>
@@ -760,28 +763,42 @@ https://raw.githubusercontent.com/{$org}/{$repo}/{$commitSha}/{$path}
   {@inject baseUrl: string}
   {@param moduleVersion: ModuleVersion}
   {@param docs: DocumentationInfo}
-  {@param files: list<FileInfo>}
+  {@param fileSymbols: list<[
+    file: FileInfo,
+    symbolGroups: list<[
+      type: SymbolType,
+      typeName: string,
+      symbols: list<SymbolInfo>
+    ]>
+  ]>}
 <div class="Box Box--condensed">
   <div class="Box-header">
-    <div class="Box-title">Files {counterLabel(count: length($files))}</div>
+    <div class="Box-title">Files {counterLabel(count: length($fileSymbols))}</div>
   </div>
   <div>
-    {for $file in $files}
+    {for $item in $fileSymbols}
+      {let $file: $item.file /}
+      {let $symbolGroups: $item.symbolGroups /}
       {let $pkg: $file.getLabel()?.getPkg() /}
       {let $name: $file.getLabel()?.getName() /}
       {let $hasError: $file.getError() ? true : false /}
-      <div class="Box-row d-flex flex-items-center">
-        <div class="flex-shrink-0 mr-2">
-          {if $hasError}
-            {octiconSkip16(class: 'color-fg-attention')}
-          {else}
-            {octiconFile16()}
-          {/if}
+      <div class="Box-row">
+        <div class="d-flex flex-items-start">
+          <div class="flex-shrink-0 mr-2">
+            {if $hasError}
+              {octiconSkip16(class: 'color-fg-attention')}
+            {else}
+              {octiconFile16()}
+            {/if}
+          </div>
+          <div class="flex-auto">
+            <a href="{fileInfoUrl(label: $file.getLabel())}" class="{if $hasError}Link--muted{else}Link--primary{/if}">
+              <span class="text-semibold">{$pkg ? $pkg + '/' : ''}{$name}</span>
+            </a>
+          </div>
+          <span class="text-small text-light ml-2">{$file.getDescription()|truncate:63}</span>
         </div>
-          <a href="{fileInfoUrl(label: $file.getLabel())}" class="flex-auto {if $hasError}Link--muted{else}Link--primary{/if}">
-            <span class="text-semibold">{$pkg ? $pkg + '/' : ''}{$name}</span>
-          </a>
-        <span class="text-small text-light ml-2">{$file.getDescription()|truncate:63}</span>
+        {fileSymbolTree(moduleVersion: $moduleVersion, file: $file, symbolGroups: $symbolGroups)}
       </div>
     {/for}
   </div>
@@ -832,7 +849,7 @@ https://raw.githubusercontent.com/{$org}/{$repo}/{$commitSha}/{$path}
   {else}
     <div class="mt-2">
       {if length($file.getLoadList()) > 0}
-        {loadStmtListBox(loads: $file.getLoadList())}
+        {loadInfoListBox(loads: $file.getLoadList())}
       {/if}
       {if $file.getGlobalMap().size > 0}
         {globalSymbolListBox(file: $file)}
@@ -866,24 +883,126 @@ https://raw.githubusercontent.com/{$org}/{$repo}/{$commitSha}/{$path}
 </div>
 {/template}
 
-{template loadStmtListBox}
-  {@param loads: list<LoadStmt>}
+{template fileInfoTreeComponent}
+  {@param moduleVersion: ModuleVersion}
+  {@param tree: FileLoadTree}
+<div style="min-width: 0">
+  <div class="Subhead mb-2" style="border-bottom: none;">
+    <div class="Subhead-heading d-flex flex-items-center">
+      <h3>File Load Graph</h3>
+    </div>
+    <div class="Subhead-description mt-1 pt-2 border-top">
+      <p class="text-small text-light">
+        Files organized by their load dependencies within this module.
+        Root files (not loaded by others) are shown at the top.
+      </p>
+    </div>
+    <div class="Subhead-actions">
+      <a class="Link--muted btn btn-sm btn-octicon" href="{moduleVersionUrl(name: $moduleVersion.getName(), version: $moduleVersion.getVersion())}/docs">{octiconChevronUp24()}</a>
+    </div>
+  </div>
+
+  <div class="treeview-root" role="tree">
+    {if $tree.getRootsList() && length($tree.getRootsList()) > 0}
+      {for $root in $tree.getRootsList()}
+        {call fileTreeNode}
+          {param node: $root /}
+          {param level: 0 /}
+          {param isLast: false /}
+        {/call}
+      {/for}
+    {else}
+      <div class="blankslate">
+        <p>No files found in this module.</p>
+      </div>
+    {/if}
+  </div>
+</div>
+{/template}
+
+{template fileTreeNode visibility="private"}
+  {@param node: FileLoadTreeNode}
+  {@param level: int}
+  {@param isLast: bool}
+
+  {let $file: $node.getFile() /}
+  {let $hasChildren: $node.getChildrenList() && length($node.getChildrenList()) > 0 /}
+  {let $label: $file?.getLabel() /}
+
+  <div class="treeview-item {$isLast ? 'treeview-item-last' : ''}" role="treeitem"
+      style="--level: {$level}; --is-last: {$isLast ? '1' : '0'};">
+
+    <div class="treeview-item-row">
+      {if $level > 0}
+        <svg class="treeview-line" width="24" height="24" xmlns="http://www.w3.org/2000/svg">
+          <!-- Horizontal line -->
+          <line x1="0" y1="12" x2="18" y2="12" stroke="var(--color-border-default)" stroke-width="1.5"/>
+
+          <!-- Vertical line coming from above -->
+          <line x1="0" y1="0" x2="0" y2="12" stroke="var(--color-border-default)" stroke-width="1.5"/>
+
+          <!-- Vertical line continuing below (only if not last item) -->
+          {if !$isLast}
+            <line x1="0" y1="12" x2="0" y2="24" stroke="var(--color-border-default)" stroke-width="1.5"/>
+          {/if}
+
+          <!-- Indicator dot for nodes with children -->
+          {if $hasChildren}
+            <circle cx="18" cy="12" r="2.5" fill="var(--color-border-default)"/>
+          {/if}
+        </svg>
+      {/if}
+
+      <a class="treeview-label" href="{fileInfoUrl(label: $label)}">
+        {if $label?.getPkg()}
+          <span class="text-light text-small">{$label.getPkg()}/</span>
+        {/if}
+        <span class="text-semibold">{$label?.getName()}</span>
+        {if $file && length($file.getSymbolList()) > 0}
+          <span class="ml-1 text-light text-small">
+            ({length($file.getSymbolList())} symbol{length($file.getSymbolList()) != 1 ? 's' : ''})
+          </span>
+        {/if}
+      </a>
+    </div>
+
+    {if $hasChildren}
+      <div class="treeview-children" role="group">
+        {for $child, $index in $node.getChildrenList()}
+          {call fileTreeNode}
+            {param node: $child /}
+            {param level: $level + 1 /}
+            {param isLast: $index == length($node.getChildrenList()) - 1 /}
+          {/call}
+        {/for}
+      </div>
+    {/if}
+  </div>
+{/template}
+
+{template loadInfoListBox}
+  {@param loads: list<LoadInfo>}
 <div class="Box Box--condensed mb-3">
   <div class="Box-header">
     <div class="Box-title">Load Statements {counterLabel(count: length($loads))}</div>
   </div>
   {for $load in $loads}
-    {loadStmtItem(load: $load)}
+    {loadInfoItem(load: $load)}
   {/for}
 </div>
 {/template}
 
-{template loadStmtItem}
-  {@param load: LoadStmt}
+{template loadInfoItem}
+  {@param load: LoadInfo}
 <div class="Box-row">
   <div class="text-mono text-small">
     <span class="color-fg-muted">load(</span>
-    <span class="color-fg-accent">"{$load.getLabel()}"</span>
+    {let $label: $load.getLabel() /}
+    {if $label?.getRepo()}
+      <span class="color-fg-accent">"@{$label.getRepo()}//{$label.getPkg()}{$label.getPkg() ? '/' : ''}{$label.getName()}"</span>
+    {else}
+      <span class="color-fg-accent">"//{$label?.getPkg()}{$label?.getPkg() ? '/' : ''}{$label?.getName()}"</span>
+    {/if}
     <span class="color-fg-muted">,</span>
     {let $symbolList: $load.getSymbolList() /}
     {for $symbol, $index in $symbolList}
@@ -902,6 +1021,74 @@ https://raw.githubusercontent.com/{$org}/{$repo}/{$commitSha}/{$path}
     <span class="color-fg-muted">)</span>
   </div>
 </div>
+{/template}
+
+{template fileSymbolTree}
+  {@param moduleVersion: ModuleVersion}
+  {@param file: FileInfo}
+  {@param symbolGroups: list<[
+      type: SymbolType,
+      typeName: string,
+      symbols: list<SymbolInfo>
+  ]>}
+
+  {if length($symbolGroups) > 0}
+    <div class="treeview-root treeview-compact mt-1 ml-1" role="tree">
+      {for $group, $groupIndex in $symbolGroups}
+        {call fileSymbolTreeGroup}
+          {param file: $file /}
+          {param type: $group.type /}
+          {param typeName: $group.typeName /}
+          {param symbols: $group.symbols /}
+          {param isLastGroup: $groupIndex == length($symbolGroups) - 1 /}
+        {/call}
+      {/for}
+    </div>
+  {/if}
+{/template}
+
+{template fileSymbolTreeGroup visibility="private"}
+  {@param file: FileInfo}
+  {@param type: SymbolType}
+  {@param typeName: string}
+  {@param symbols: list<SymbolInfo>}
+  {@param isLastGroup: bool}
+  <div class="treeview-item" role="treeitem">
+    <div class="treeview-item-row d-flex flex-items-center" style="padding: 0.25rem 0;">
+      <span class="color-fg-muted" style="margin-right: 0.25rem; font-family: monospace; user-select: none; flex-shrink: 0;">
+        {if $isLastGroup}
+          └─
+        {else}
+          ├─
+        {/if}
+      </span>
+      {let $color: symbolColor(type: $type) /}
+      <span class="Label Label--small flex-shrink-0" style="background-color: var({$color}); color: var(--color-fg-on-emphasis);">
+        {$typeName} ({length($symbols)})
+      </span>
+    </div>
+    <div class="treeview-children ml-1" role="group">
+      {for $symbol, $index in $symbols}
+        {let $isLast: $index == length($symbols) - 1 /}
+        <div class="treeview-item" role="treeitem">
+          <div class="treeview-item-row d-flex flex-items-center" style="padding: 0.15rem 0; margin-left: 1.5rem;">
+            <span class="color-fg-muted" style="margin-right: 0.25rem; font-family: monospace; user-select: none; flex-shrink: 0;">
+              {if $isLast}
+                └─
+              {else}
+                ├─
+              {/if}
+            </span>
+            <span style="flex-shrink: 0;">{octiconDotFill16(fill: 'var(' + $color + ')')}</span>
+            <a class="Link--primary flex-auto" href="{symbolInfoUrl(file: $file, sym: $symbol)}" style="margin-left: 0.25rem;">
+              {$symbol.getName()}
+            </a>
+            <span class="text-small text-light ml-2 flex-shrink-0">{$symbol.getDescription()|truncate:63}</span>
+          </div>
+        </div>
+      {/for}
+    </div>
+  </div>
 {/template}
 
 {template globalSymbolListBox}
@@ -1362,7 +1549,7 @@ https://raw.githubusercontent.com/{$org}/{$repo}/{$commitSha}/{$path}
 <div class="Box Box--condensed mt-3">
   <div class="Box-header">
     <div class="d-flex flex-justify-between flex-items-center">
-      <div class="Box-title">Complete Example</div>
+      <div class="Box-title">Generated Example</div>
       {copyToClipboardButton(content: $exampleCode)}
     </div>
   </div>
@@ -1514,23 +1701,24 @@ https://raw.githubusercontent.com/{$org}/{$repo}/{$commitSha}/{$path}
   </div>
   {if $attr.getType()}
     <div class="flex-shrink-0 ml-2">
-      <span class="Label" style="background-color: var({attrColor(type: $attr.getType())}); color: var(--color-fg-on-emphasis)">{attrName(type: $attr.getType())}</span>
       {if length($attr.getProviderNameGroupList()) > 0}
-        <span class="text-light"> providing </span>
-        {for $group, $groupIndex in $attr.getProviderNameGroupList()}
-          {if $groupIndex > 0}
-            <span class="text-small text-light"> or</span>
-          {/if}
-          {sp}
-          {for $providerName, $index in $group.getProviderNameList()}
-            {if $index > 0}
-              <span class="text-light">, </span>
+        <span class="mr-1">
+          {for $group, $groupIndex in $attr.getProviderNameGroupList()}
+            {if $groupIndex > 0}
+              <span class="text-small text-light"> or</span>
             {/if}
-            {let $providerColor: symbolColor(type: 3) /}
-            <label class="Label text-mono text-sm">{octiconDotFill16(fill: 'var(' + $providerColor + ')')} {$providerName}</label>
+            {sp}
+            {for $providerName, $index in $group.getProviderNameList()}
+              {if $index > 0}
+                <span class="text-light">, </span>
+              {/if}
+              {let $providerColor: symbolColor(type: 3) /}
+              <label class="Label text-mono text-sm">{octiconDotFill16(fill: 'var(' + $providerColor + ')')} {$providerName}</label>
+            {/for}
           {/for}
-        {/for}
+        </span>
       {/if}
+      <span class="Label" style="background-color: var({attrColor(type: $attr.getType())}); color: var(--color-fg-on-emphasis)">{attrName(type: $attr.getType())}</span>
     </div>
   {/if}
 </div>
@@ -1880,24 +2068,39 @@ https://raw.githubusercontent.com/{$org}/{$repo}/{$commitSha}/{$path}
   {@param info: DocumentationInfo}
 <div>
   {sectionHeader(title: 'About')}
-
-  <div class="text-small color-fg-muted mb-3 px-2">
+  
+  <div class="f4 mb-3 color-fg-muted">
     {if $info.getSource() == DocumentationSource.PUBLISHED}
-      <div class="d-flex flex-items-start">
-        <div class="mr-2 mt-1">{octiconSparkleFill16(fill: 'var(--color-success-fg)')}</div>
-        <div>Official published documentation for <strong>{$info.getModuleName()}</strong> version <strong>{$info.getVersion()}</strong>.</div>
-      </div>
+      Official published documentation for <strong>{$info.getModuleName()}</strong> version <strong>{$info.getVersion()}</strong>.
     {elseif $info.getSource() == DocumentationSource.BEST_EFFORT}
-      <div class="d-flex flex-items-start">
-        <div class="mr-2 mt-1">{octiconCode16(fill: 'var(--color-attention-fg)')}</div>
-        <div>Auto-generated documentation using best-effort extraction method.</div>
-      </div>
+      Auto-generated documentation using best-effort extraction method.
     {else}
-      <div class="d-flex flex-items-start">
-        <div class="mr-2 mt-1">{octiconCode16()}</div>
-        <div>Documentation for <strong>{$info.getModuleName()}</strong> version <strong>{$info.getVersion()}</strong>.</div>
-      </div>
+      Documentation for <strong>{$info.getModuleName()}</strong> version <strong>{$info.getVersion()}</strong>.
     {/if}
   </div>
+
+  <div class="mt-3">
+    <div class="d-flex flex-items-center mb-2 color-fg-muted">
+      <span class="mr-2">
+        {if $info.getSource() == DocumentationSource.PUBLISHED}
+          {octiconSparkleFill16(fill: 'var(--color-success-fg)')}
+        {elseif $info.getSource() == DocumentationSource.BEST_EFFORT}
+          {octiconCode16(fill: 'var(--color-attention-fg)')}
+        {else}
+          {octiconCode16()}
+        {/if}
+      </span>
+      <span class="mr-1 text-bold">
+        {if $info.getSource() == DocumentationSource.PUBLISHED}
+          Published By Module Author(s).
+        {elseif $info.getSource() == DocumentationSource.BEST_EFFORT}
+          Autogenerated from source.
+        {else}
+          Documentation.
+        {/if}
+      </span>
+    </div>
+  </div>
+
 </div>
 {/template}

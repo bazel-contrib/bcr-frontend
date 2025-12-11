@@ -6,6 +6,8 @@ const AttributeType = goog.require('proto.stardoc_output.AttributeType');
 const ComponentEventType = goog.require('goog.ui.Component.EventType');
 const DocumentationInfo = goog.require('proto.build.stack.bazel.bzlmod.v1.DocumentationInfo');
 const FileInfo = goog.require('proto.build.stack.bazel.bzlmod.v1.FileInfo');
+const FileLoadTree = goog.require('proto.build.stack.bazel.bzlmod.v1.FileLoadTree');
+const FileLoadTreeNode = goog.require('proto.build.stack.bazel.bzlmod.v1.FileLoadTreeNode');
 const FunctionParamInfo = goog.require('proto.stardoc_output.FunctionParamInfo');
 const FunctionParamRole = goog.require('proto.stardoc_output.FunctionParamRole');
 const Label = goog.require('proto.build.stack.bazel.bzlmod.v1.Label');
@@ -27,6 +29,7 @@ const RuleInfo = goog.require('proto.stardoc_output.RuleInfo');
 const Select = goog.require('stack.ui.Select');
 const StarlarkFunctionInfo = goog.require('proto.stardoc_output.StarlarkFunctionInfo');
 const SymbolInfo = goog.require('proto.build.stack.bazel.bzlmod.v1.SymbolInfo');
+const SymbolType = goog.require('proto.build.stack.bazel.bzlmod.v1.SymbolType');
 const Trie = goog.require('goog.structs.Trie');
 const arrays = goog.require('goog.array');
 const asserts = goog.require('goog.asserts');
@@ -47,7 +50,7 @@ const { ModuleSearchHandler } = goog.require('centrl.module_search');
 const { MvsDependencyTree } = goog.require('centrl.mvs_tree');
 const { SafeHtml, htmlEscape, sanitizeHtml } = goog.require('google3.third_party.javascript.safevalues.index');
 const { SearchComponent } = goog.require('centrl.search');
-const { aspectInfoComponent, bodySelect, docsMapComponent, docsMapSelectNav, docsSelect, documentationInfoListComponent, documentationInfoSelect, fileErrorBlankslate, fileInfoListComponent, fileInfoSelect, functionInfoComponent, homeOverviewComponent, homeSelect, macroInfoComponent, maintainerComponent, maintainersMapComponent, maintainersMapSelectNav, maintainersSelect, moduleBlankslateComponent, moduleExtensionInfoComponent, moduleSelect, moduleVersionBlankslateComponent, moduleVersionComponent, moduleVersionDependenciesComponent, moduleVersionDependentsComponent, moduleVersionList, moduleVersionSelectNav, moduleVersionsFilterSelect, modulesMapSelect, modulesMapSelectNav, navItem, notFoundComponent, providerInfoComponent, registryApp, repositoryRuleInfoComponent, ruleInfoComponent, ruleMacroInfoComponent, settingsAppearanceComponent, settingsSelect, symbolInfoComponent, toastSuccess } = goog.require('soy.centrl.app');
+const { aspectInfoComponent, bodySelect, docsMapComponent, docsMapSelectNav, docsSelect, documentationInfoListComponent, documentationInfoSelect, fileErrorBlankslate, fileInfoListComponent, fileInfoSelect, fileInfoTreeComponent, functionInfoComponent, homeOverviewComponent, homeSelect, macroInfoComponent, maintainerComponent, maintainersMapComponent, maintainersMapSelectNav, maintainersSelect, moduleBlankslateComponent, moduleExtensionInfoComponent, moduleSelect, moduleVersionBlankslateComponent, moduleVersionComponent, moduleVersionDependenciesComponent, moduleVersionDependentsComponent, moduleVersionList, moduleVersionSelectNav, moduleVersionsFilterSelect, modulesMapSelect, modulesMapSelectNav, navItem, notFoundComponent, providerInfoComponent, registryApp, repositoryRuleInfoComponent, ruleInfoComponent, ruleMacroInfoComponent, settingsAppearanceComponent, settingsSelect, symbolInfoComponent, symbolTypeName, toastSuccess } = goog.require('soy.centrl.app');
 const { copyToClipboardButton, moduleDependencyRow, moduleVersionsListComponent } = goog.require('soy.registry');
 const { setElementInnerHtml } = goog.require('google3.third_party.javascript.safevalues.dom.elements.element');
 
@@ -638,6 +641,7 @@ class HomeOverviewComponent extends Component {
             moduleExtensions: 0,
             repositoryRules: 0,
             macros: 0,
+            ruleMacros: 0,
         };
 
         for (const module of modules.values()) {
@@ -657,13 +661,14 @@ class HomeOverviewComponent extends Component {
                     for (const sym of file.getSymbolList()) {
                         const type = sym.getType();
                         switch (type) {
-                            case 1: symbolCounts.rules++; break;
-                            case 2: symbolCounts.functions++; break;
-                            case 3: symbolCounts.providers++; break;
-                            case 4: symbolCounts.aspects++; break;
-                            case 5: symbolCounts.moduleExtensions++; break;
-                            case 6: symbolCounts.repositoryRules++; break;
-                            case 7: symbolCounts.macros++; break;
+                            case SymbolType.SYMBOL_TYPE_RULE: symbolCounts.rules++; break;
+                            case SymbolType.SYMBOL_TYPE_FUNCTION: symbolCounts.functions++; break;
+                            case SymbolType.SYMBOL_TYPE_PROVIDER: symbolCounts.providers++; break;
+                            case SymbolType.SYMBOL_TYPE_ASPECT: symbolCounts.aspects++; break;
+                            case SymbolType.SYMBOL_TYPE_MODULE_EXTENSION: symbolCounts.moduleExtensions++; break;
+                            case SymbolType.SYMBOL_TYPE_REPOSITORY_RULE: symbolCounts.repositoryRules++; break;
+                            case SymbolType.SYMBOL_TYPE_MACRO: symbolCounts.macros++; break;
+                            case SymbolType.SYMBOL_TYPE_RULE_MACRO: symbolCounts.ruleMacros++; break;
                         }
                     }
                 }
@@ -676,7 +681,7 @@ class HomeOverviewComponent extends Component {
             totalModules: modules.size,
             totalModuleVersions: totalModuleVersions,
             totalMaintainers: maintainers.size,
-            totalRules: symbolCounts.rules,
+            totalRules: symbolCounts.rules + symbolCounts.ruleMacros,
             totalFunctions: symbolCounts.functions,
             totalProviders: symbolCounts.providers,
             totalAspects: symbolCounts.aspects,
@@ -2771,10 +2776,17 @@ function isPublicFile(file) {
     const name = label.getName() || '';
     const path = pkg ? `${pkg}/${name}` : name;
 
-    return !path.includes('/private/')
-        && !path.includes('/internal/')
-        && !path.includes('/tests/')
-        && !path.includes('/test/');
+    return !(
+        path.includes('private/')
+        || path.includes('internal/')
+        || path.includes('thirdparty/')
+        || path.includes('third_party/')
+        || path.includes('examples/')
+        || path.includes('example/')
+        || path.includes('tests/')
+        || path.includes('vendor/')
+        || path.includes('test/')
+    );
 }
 
 class DocumentationInfoSelect extends ContentSelect {
@@ -2844,28 +2856,28 @@ class DocumentationInfoSelect extends ContentSelect {
 
             for (const sym of file.getSymbolList()) {
                 switch (sym.getType()) {
-                    case 1: // SYMBOL_TYPE_RULE
+                    case SymbolType.SYMBOL_TYPE_RULE:
                         rules.push({ file, sym });
                         break;
-                    case 2: // SYMBOL_TYPE_FUNCTION
+                    case SymbolType.SYMBOL_TYPE_FUNCTION:
                         funcs.push({ file, sym });
                         break;
-                    case 3: // SYMBOL_TYPE_PROVIDER
+                    case SymbolType.SYMBOL_TYPE_PROVIDER:
                         providers.push({ file, sym });
                         break;
-                    case 4: // SYMBOL_TYPE_ASPECT
+                    case SymbolType.SYMBOL_TYPE_ASPECT:
                         aspects.push({ file, sym });
                         break;
-                    case 5: // SYMBOL_TYPE_MODULE_EXTENSION
+                    case SymbolType.SYMBOL_TYPE_MODULE_EXTENSION:
                         moduleExtensions.push({ file, sym });
                         break;
-                    case 6: // SYMBOL_TYPE_REPOSITORY_RULE
+                    case SymbolType.SYMBOL_TYPE_REPOSITORY_RULE:
                         repositoryRules.push({ file, sym });
                         break;
-                    case 7: // SYMBOL_TYPE_MACRO
+                    case SymbolType.SYMBOL_TYPE_MACRO:
                         macros.push({ file, sym });
                         break;
-                    case 8: // SYMBOL_TYPE_RULE_MACRO
+                    case SymbolType.SYMBOL_TYPE_RULE_MACRO:
                         ruleMacros.push({ file, sym });
                         break;
                 }
@@ -2915,7 +2927,11 @@ class DocumentationInfoSelect extends ContentSelect {
             this.select(name, route);
             return;
         }
-
+        if (name === TabName.TREE) {
+            this.addTab(name, new DocumentationInfoTreeComponent(this.moduleVersion_, this.docs_, this.dom_));
+            this.select(name, route);
+            return;
+        }
         // try to find the longest matching prefix by popping path elements off
         // the remaining part of the route URL.
         const unmatched = route.unmatchedPath();
@@ -3041,21 +3057,21 @@ class FileInfoSelect extends ContentSelect {
      */
     createSymbolComponent(sym) {
         switch (sym.getType()) {
-            case 1: // SYMBOL_TYPE_RULE
+            case SymbolType.SYMBOL_TYPE_RULE:
                 return new RuleInfoComponent(this.moduleVersion_, this.file_, sym, this.dom_);
-            case 2: // SYMBOL_TYPE_FUNCTION
+            case SymbolType.SYMBOL_TYPE_FUNCTION:
                 return new FunctionInfoComponent(this.moduleVersion_, this.file_, sym, this.dom_);
-            case 3: // SYMBOL_TYPE_PROVIDER
+            case SymbolType.SYMBOL_TYPE_PROVIDER:
                 return new ProviderInfoComponent(this.moduleVersion_, this.file_, sym, this.dom_);
-            case 4: // SYMBOL_TYPE_ASPECT
+            case SymbolType.SYMBOL_TYPE_ASPECT:
                 return new AspectInfoComponent(this.moduleVersion_, this.file_, sym, this.dom_);
-            case 5: // SYMBOL_TYPE_MODULE_EXTENSION
+            case SymbolType.SYMBOL_TYPE_MODULE_EXTENSION:
                 return new ModuleExtensionInfoComponent(this.moduleVersion_, this.file_, sym, this.dom_);
-            case 6: // SYMBOL_TYPE_REPOSITORY_RULE
+            case SymbolType.SYMBOL_TYPE_REPOSITORY_RULE:
                 return new RepositoryRuleInfoComponent(this.moduleVersion_, this.file_, sym, this.dom_);
-            case 7: // SYMBOL_TYPE_MACRO
+            case SymbolType.SYMBOL_TYPE_MACRO:
                 return new MacroInfoComponent(this.moduleVersion_, this.file_, sym, this.dom_);
-            case 8: // SYMBOL_TYPE_RULE_MACRO
+            case SymbolType.SYMBOL_TYPE_RULE_MACRO:
                 return new RuleMacroInfoComponent(this.moduleVersion_, this.file_, sym, this.dom_);
             default:
                 return new SymbolInfoComponent(this.moduleVersion_, this.file_, sym, this.dom_);
@@ -3803,6 +3819,22 @@ class ModuleExtensionInfoComponent extends SymbolInfoComponent {
     }
 }
 
+/**
+ * @typedef {{
+ * type: SymbolType,
+ * typeName: string,
+ * symbols: !Array<!SymbolInfo>
+ * }}
+ */
+var SymbolGroup;
+
+/**
+ * @typedef {{
+ * file: !FileInfo,
+ * symbolGroups: !Array<SymbolGroup>}
+ * }}
+ */
+var FileSymbolGroupList;
 
 class DocumentationInfoListComponent extends MarkdownComponent {
     /**
@@ -3825,13 +3857,242 @@ class DocumentationInfoListComponent extends MarkdownComponent {
      */
     createDom() {
         const files = this.docs_.getFileList().filter(isPublicFile);
+
+        // Build symbol groups for each file
+        /** @type {!Array<FileSymbolGroupList>} */
+        const fileSymbols = files.map(file => ({
+            file,
+            symbolGroups: this.buildSymbolGroups_(file),
+        }));
+        fileSymbols.sort(
+            /**
+             * @param {FileSymbolGroupList} a
+             * @param {FileSymbolGroupList} b
+             * @returns {number}
+             */
+            (a, b) => {
+                const aHasError = a.file.getError() ? 1 : 0;
+                const bHasError = b.file.getError() ? 1 : 0;
+
+                // Files with errors go to the end
+                if (aHasError !== bHasError) {
+                    return aHasError - bHasError;
+                }
+
+                // Otherwise, stable sort (return 0 to maintain original order)
+                return 0;
+            }
+        );
         this.setElementInternal(soy.renderAsElement(documentationInfoListComponent, {
             moduleVersion: this.moduleVersion_,
             docs: this.docs_,
-            files: files,
+            fileSymbols,
         }, {
             baseUrl: path.dirname(this.getPathUrl()),
         }));
+    }
+
+
+    /**
+     * Build symbol groups for a file, organized by type.
+     * @param {!FileInfo} file
+     * @return {!Array<SymbolGroup>}
+     * @private
+     */
+    buildSymbolGroups_(file) {
+        /** @type {!Array<SymbolGroup>} */
+        const symbolGroups = [];
+
+        /** @type {!Map<SymbolType,SymbolGroup>} */
+        const symbolsByType = new Map();
+
+        // Group symbols by type
+        for (const sym of file.getSymbolList()) {
+            const type = sym.getType();
+            let group = symbolsByType.get(type);
+            if (!group) {
+                const typeName = soy.renderAsText(symbolTypeName, { type });
+                group = { type, typeName, symbols: [] };
+                symbolsByType.set(type, group);
+            }
+            group.symbols.push(sym);
+        }
+
+        // Build groups array with only non-empty groups
+        for (const group of symbolsByType.values()) {
+            if (group.symbols.length > 0) {
+                group.typeName += 's';
+                symbolGroups.push(group);
+            }
+        }
+
+        return symbolGroups;
+    }
+}
+
+class DocumentationInfoTreeComponent extends Component {
+    /**
+     * @param {!ModuleVersion} moduleVersion
+     * @param {!DocumentationInfo} docs
+     * @param {?dom.DomHelper=} opt_domHelper
+     */
+    constructor(moduleVersion, docs, opt_domHelper) {
+        super(opt_domHelper);
+
+        /** @private @const */
+        this.moduleVersion_ = moduleVersion;
+
+        /** @private @const */
+        this.docs_ = docs;
+    }
+
+    /**
+     * @override
+     */
+    createDom() {
+        // Build a tree structure from the files based on load dependencies
+        const tree = this.buildFileTree_();
+
+        this.setElementInternal(soy.renderAsElement(fileInfoTreeComponent, {
+            moduleVersion: this.moduleVersion_,
+            tree: tree,
+        }, {
+            baseUrl: path.dirname(this.getPathUrl()),
+        }));
+    }
+
+    /**
+     * Build a tree structure from files based on load dependencies.
+     * @return {!FileLoadTree} Tree structure with root files and their dependencies
+     * @private
+     */
+    buildFileTree_() {
+        const files = this.docs_.getFileList().filter(isPublicFile);
+        // const files = this.docs_.getFileList();
+
+        // Create a map of file label to FileInfo for quick lookup
+        /** @type {!Map<string, !FileInfo>} */
+        const fileMap = new Map();
+        for (const file of files) {
+            const label = file.getLabel();
+            if (label) {
+                const key = this.getLabelKey_(label);
+                fileMap.set(key, file);
+            }
+        }
+
+        // Build adjacency list for load dependencies (within module only)
+        /** @type {!Map<string, !Array<string>>} */
+        const dependencies = new Map();
+        /** @type {!Map<string, !Array<string>>} */
+        const dependents = new Map();
+
+        for (const file of files) {
+            const fileKey = this.getLabelKey_(file.getLabel());
+            dependencies.set(fileKey, []);
+
+            for (const load of file.getLoadList()) {
+                const loadLabel = load.getLabel();
+                // Only include loads from the same package (within module)
+                if (loadLabel && this.isInternalLoad_(file.getLabel(), loadLabel)) {
+                    const loadKey = this.getLabelKey_(loadLabel);
+                    console.log('Processing load:', {
+                        file: fileKey,
+                        loadKey: loadKey,
+                        hasFile: fileMap.has(loadKey),
+                        availableFiles: Array.from(fileMap.keys())
+                    });
+                    if (fileMap.has(loadKey)) {
+                        dependencies.get(fileKey).push(loadKey);
+
+                        if (!dependents.has(loadKey)) {
+                            dependents.set(loadKey, []);
+                        }
+                        dependents.get(loadKey).push(fileKey);
+                    }
+                }
+            }
+        }
+
+        // Find root files (files that are not loaded by any other file in the module)
+        /** @type {!Array<!FileLoadTreeNode>} */
+        const rootNodes = [];
+        for (const file of files) {
+            const fileKey = this.getLabelKey_(file.getLabel());
+            if (!dependents.has(fileKey) || dependents.get(fileKey).length === 0) {
+                const node = this.buildTreeNode_(file, fileKey, dependencies, fileMap, new Set());
+                rootNodes.push(node);
+            }
+        }
+
+        const tree = new FileLoadTree();
+        tree.setRootsList(rootNodes);
+        return tree;
+    }
+
+    /**
+     * Recursively build a file tree node.
+     * @param {!FileInfo} file
+     * @param {string} fileKey
+     * @param {!Map<string, !Array<string>>} dependencies
+     * @param {!Map<string, !FileInfo>} fileMap
+     * @param {!Set<string>} visited
+     * @return {!FileLoadTreeNode}
+     * @private
+     */
+    buildTreeNode_(file, fileKey, dependencies, fileMap, visited) {
+        const node = new FileLoadTreeNode();
+        node.setFile(file);
+
+        if (visited.has(fileKey)) {
+            node.setPruned(true);
+            return node;
+        }
+
+        visited.add(fileKey);
+        /** @type {!Array<!FileLoadTreeNode>} */
+        const children = [];
+        const deps = dependencies.get(fileKey) || [];
+
+        for (const depKey of deps) {
+            const childFile = fileMap.get(depKey);
+            if (childFile) {
+                const childNode = this.buildTreeNode_(childFile, depKey, dependencies, fileMap, new Set(visited));
+                children.push(childNode);
+            }
+        }
+
+        node.setChildrenList(children);
+        return node;
+    }
+
+    /**
+     * Get a normalized key for a label.
+     * @param {?Label} label
+     * @return {string}
+     * @private
+     */
+    getLabelKey_(label) {
+        if (!label) return '';
+        const pkg = label.getPkg() || '';
+        const name = label.getName() || '';
+        return pkg ? `${pkg}/${name}` : name;
+    }
+
+    /**
+     * Check if a load is internal to the module (same repo, no external deps).
+     * @param {?Label} fileLabel
+     * @param {?Label} loadLabel
+     * @return {boolean}
+     * @private
+     */
+    isInternalLoad_(fileLabel, loadLabel) {
+        if (!loadLabel) return false;
+        if (fileLabel.getRepo() !== loadLabel.getRepo()) {
+            return false;
+        }
+        // Internal loads should have the same package structure
+        return true;
     }
 }
 
@@ -3926,6 +4187,7 @@ class FileInfoListComponent extends MarkdownComponent {
         }
     }
 }
+
 
 class NotFoundComponent extends Component {
     /**

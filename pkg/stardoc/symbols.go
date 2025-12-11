@@ -303,7 +303,7 @@ func makeMacroSymbol(info *sdpb.MacroInfo, macro *slpb.Macro) *bzpb.SymbolInfo {
 	}
 }
 
-func makeRuleMacro(ruleMacro *slpb.RuleMacro) *bzpb.SymbolInfo {
+func makeRuleMacroSymbol(ruleMacro *slpb.RuleMacro) *bzpb.SymbolInfo {
 	// Get description from rule or function
 	description := ruleMacro.Function.Info.DocString
 	if description == "" {
@@ -368,46 +368,64 @@ func makeSymbolsFromModule(module *slpb.Module) []*bzpb.SymbolInfo {
 		return nil
 	}
 
+	symbolNames := make(map[string]bool)
+
 	var symbols []*bzpb.SymbolInfo
 
 	// Process rules
 	for _, rule := range module.Rule {
-		symbols = append(symbols, makeRuleSymbol(rule.Info, rule))
-	}
-
-	// Process functions (skip if there's a RuleMacro with the same name)
-	for _, fn := range module.Function {
-		symbols = append(symbols, makeFunctionSymbol(fn.Info, fn))
-	}
-
-	// Process providers
-	for _, provider := range module.Provider {
-		symbols = append(symbols, makeProviderSymbol(provider.Info, provider))
-	}
-
-	// Process aspects
-	for _, aspect := range module.Aspect {
-		symbols = append(symbols, makeAspectSymbol(aspect.Info, aspect))
-	}
-
-	// Process repository rules
-	for _, repoRule := range module.RepositoryRule {
-		symbols = append(symbols, makeRepositoryRuleSymbol(repoRule.Info, repoRule))
-	}
-
-	// Process module extensions
-	for _, ext := range module.ModuleExtension {
-		symbols = append(symbols, makeModuleExtensionSymbol(ext.Info, ext))
-	}
-
-	// Process macros
-	for _, macro := range module.Macro {
-		symbols = append(symbols, makeMacroSymbol(macro.Info, macro))
+		symbol := makeRuleSymbol(rule.Info, rule)
+		symbols = append(symbols, symbol)
+		symbolNames[symbol.Name] = true
 	}
 
 	// Process rule macros
 	for _, ruleMacro := range module.RuleMacro {
-		symbols = append(symbols, makeRuleMacro(ruleMacro))
+		symbol := makeRuleMacroSymbol(ruleMacro)
+		if symbolNames[symbol.Name] {
+			continue
+		}
+		symbols = append(symbols, symbol)
+		symbolNames[symbol.Name] = true
+	}
+
+	// Process functions (skip if there's a RuleMacro with the same name)
+	for _, fn := range module.Function {
+		symbol := makeFunctionSymbol(fn.Info, fn)
+		if symbolNames[symbol.Name] {
+			continue
+		}
+		symbols = append(symbols, symbol)
+	}
+
+	// Process providers
+	for _, provider := range module.Provider {
+		symbol := makeProviderSymbol(provider.Info, provider)
+		symbols = append(symbols, symbol)
+	}
+
+	// Process aspects
+	for _, aspect := range module.Aspect {
+		symbol := makeAspectSymbol(aspect.Info, aspect)
+		symbols = append(symbols, symbol)
+	}
+
+	// Process repository rules
+	for _, repoRule := range module.RepositoryRule {
+		symbol := makeRepositoryRuleSymbol(repoRule.Info, repoRule)
+		symbols = append(symbols, symbol)
+	}
+
+	// Process module extensions
+	for _, ext := range module.ModuleExtension {
+		symbol := makeModuleExtensionSymbol(ext.Info, ext)
+		symbols = append(symbols, symbol)
+	}
+
+	// Process macros
+	for _, macro := range module.Macro {
+		symbol := makeMacroSymbol(macro.Info, macro)
+		symbols = append(symbols, symbol)
 	}
 
 	return symbols

@@ -17,8 +17,26 @@ func ModuleInfoToFileInfo(module *sdpb.ModuleInfo) *bzpb.FileInfo {
 
 // ModuleToFileInfo converts a slpb.Module to a bzpb.FileInfo
 func ModuleToFileInfo(file *bzpb.FileInfo, module *slpb.Module) {
-	file.Load = module.Load
+	file.Load = makeLoadInfoList(module.Load)
 	file.Global = module.Global
 	file.Symbol = makeSymbolsFromModule(module)
 	file.Description = processDocString(module.ModuleDocstring)
+}
+
+func makeLoadInfoList(loadStmts []*slpb.LoadStmt) []*bzpb.LoadInfo {
+	if len(loadStmts) == 0 {
+		return nil
+	}
+	loads := make([]*bzpb.LoadInfo, len(loadStmts))
+	for i, load := range loadStmts {
+		loads[i] = makeLoadInfo(load)
+	}
+	return loads
+}
+
+func makeLoadInfo(load *slpb.LoadStmt) *bzpb.LoadInfo {
+	return &bzpb.LoadInfo{
+		Label:  ParseLabel(load.Label),
+		Symbol: load.Symbol,
+	}
 }

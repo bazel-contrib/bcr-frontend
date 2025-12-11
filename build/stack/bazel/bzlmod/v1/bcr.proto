@@ -482,9 +482,14 @@ message FileInfo {
     // extracted.ArchiveOverride
     string error = 5;
     // load statements from the file
-    repeated build.stack.starlark.v1beta1.LoadStmt load = 6;
+    repeated LoadInfo load = 6;
     // global symbols (constants, etc) from the file
     map<string, build.stack.starlark.v1beta1.Value> global = 7;
+}
+
+message LoadInfo {
+    Label label = 1;
+    repeated build.stack.starlark.v1beta1.LoadSymbol symbol = 2;
 }
 
 enum DocumentationSource {
@@ -531,4 +536,20 @@ message DependencyTree {
     ModuleVersion module_version = 1;
     // Child dependencies of the root module
     repeated DependencyTreeNode children = 2;
+}
+
+// Represents a node in the file load graph showing load dependencies.
+message FileLoadTreeNode {
+    // The file at this node
+    FileInfo file = 1;
+    // Files that this file loads (load dependencies)
+    repeated FileLoadTreeNode children = 2;
+    // Whether this node's children were pruned to avoid cycles
+    bool pruned = 3;
+}
+
+// Represents the complete file load graph for a module.
+message FileLoadTree {
+    // Root files (files not loaded by any other file in the module)
+    repeated FileLoadTreeNode roots = 1;
 }

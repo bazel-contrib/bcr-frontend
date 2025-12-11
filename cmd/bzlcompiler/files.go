@@ -33,8 +33,10 @@ func prepareShimBzlFiles(cfg *config) {
 	mustWriteWorkDirFile(cfg, "external/bazel_features_version/version.bzl", "version = '8.4.2'")
 	mustWriteWorkDirFile(cfg, "external/bazel_features_globals/globals.bzl", bazel_features_globals_globals_bzl)
 	mustWriteWorkDirFile(cfg, "external/bazel_tools/tools/cpp/lib_cc_configure.bzl", lib_cc_configure_bzl)
-	mustWriteWorkDirFile(cfg, "external/compatibility_proxy/proxy.bzl", compatibility_proxy_bzl)
 	mustWriteWorkDirFile(cfg, "external/rules_java/java/java_binary.bzl", java_binary_bzl)
+	mustWriteWorkDirFile(cfg, "external/compatibility_proxy/proxy.bzl", java_compatibility_proxy_bzl)
+	mustWriteWorkDirFile(cfg, "external/cc_compatibility_proxy/proxy.bzl", cc_compatibility_proxy_bzl)
+	mustWriteWorkDirFile(cfg, "external/cc_compatibility_proxy/symbols.bzl", cc_compatibility_symbols_bzl)
 }
 
 const java_binary_bzl = `
@@ -202,7 +204,56 @@ func sanitizeRepoName(name string) string {
 	return name
 }
 
-const compatibility_proxy_bzl = `
+const cc_compatibility_proxy_bzl = `
+load("@rules_cc//cc/private/rules_impl:cc_binary.bzl", _cc_binary = "cc_binary")
+load("@rules_cc//cc/private/rules_impl:cc_import.bzl", _cc_import = "cc_import")
+load("@rules_cc//cc/private/rules_impl:cc_library.bzl", _cc_library = "cc_library")
+load("@rules_cc//cc/private/rules_impl:cc_shared_library.bzl", _cc_shared_library = "cc_shared_library")
+load("@rules_cc//cc/private/rules_impl:cc_static_library.bzl", _cc_static_library = "cc_static_library")
+load("@rules_cc//cc/private/rules_impl:cc_test.bzl", _cc_test = "cc_test")
+load("@rules_cc//cc/private/rules_impl:objc_import.bzl", _objc_import = "objc_import")
+load("@rules_cc//cc/private/rules_impl:objc_library.bzl", _objc_library = "objc_library")
+load("@rules_cc//cc/private/rules_impl/fdo:fdo_prefetch_hints.bzl", _fdo_prefetch_hints = "fdo_prefetch_hints")
+load("@rules_cc//cc/private/rules_impl/fdo:fdo_profile.bzl", _fdo_profile = "fdo_profile")
+load("@rules_cc//cc/private/rules_impl/fdo:memprof_profile.bzl", _memprof_profile = "memprof_profile")
+load("@rules_cc//cc/private/rules_impl/fdo:propeller_optimize.bzl", _propeller_optimize = "propeller_optimize")
+load("@rules_cc//cc/private/rules_impl:cc_toolchain.bzl", _cc_toolchain = "cc_toolchain")
+load("@rules_cc//cc/private/rules_impl:cc_toolchain_alias.bzl", _cc_toolchain_alias = "cc_toolchain_alias")
+
+cc_binary = _cc_binary
+cc_import = _cc_import
+cc_library = _cc_library
+cc_shared_library = _cc_shared_library
+cc_static_library = _cc_static_library
+cc_test = _cc_test
+objc_import = _objc_import
+objc_library = _objc_library
+fdo_prefetch_hints = _fdo_prefetch_hints
+fdo_profile = _fdo_profile
+memprof_profile = _memprof_profile
+propeller_optimize = _propeller_optimize
+cc_toolchain = _cc_toolchain
+cc_toolchain_alias = _cc_toolchain_alias
+`
+
+const cc_compatibility_symbols_bzl = `
+load("@rules_cc//cc/private:cc_common.bzl", _cc_common = "cc_common")
+load("@rules_cc//cc/private:cc_info.bzl", _CcInfo = "CcInfo")
+load("@rules_cc//cc/private:cc_shared_library_info.bzl", _CcSharedLibraryInfo = "CcSharedLibraryInfo")
+load("@rules_cc//cc/private:debug_package_info.bzl", _DebugPackageInfo = "DebugPackageInfo")
+load("@rules_cc//cc/private:objc_info.bzl", _ObjcInfo = "ObjcInfo")
+load("@rules_cc//cc/private/toolchain_config:cc_toolchain_config_info.bzl", _CcToolchainConfigInfo = "CcToolchainConfigInfo")
+
+cc_common = _cc_common
+CcInfo = _CcInfo
+DebugPackageInfo = _DebugPackageInfo
+CcToolchainConfigInfo = _CcToolchainConfigInfo
+ObjcInfo = _ObjcInfo
+new_objc_provider = _ObjcInfo
+CcSharedLibraryInfo = _CcSharedLibraryInfo
+`
+
+const java_compatibility_proxy_bzl = `
 load("@rules_java//java/bazel/rules:bazel_java_binary_wrapper.bzl", _java_binary = "java_binary")
 load("@rules_java//java/bazel/rules:bazel_java_import.bzl", _java_import = "java_import")
 load("@rules_java//java/bazel/rules:bazel_java_library.bzl", _java_library = "java_library")
