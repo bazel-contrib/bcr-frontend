@@ -1,16 +1,14 @@
 {namespace soy.centrl.app}
 
 import {
+    octiconAlert16,
     octiconBook16,
     octiconBook24,
     octiconCheck16,
     octiconChevronLeft16,
     octiconChevronLeft24,
-    octiconChevronUp24,
     octiconChevronRight16,
-    octiconListUnordered16,
-    octiconSkip16,
-    octiconSkip24,
+    octiconChevronUp24,
     octiconCode16,
     octiconDotFill16,
     octiconDotFill24,
@@ -18,11 +16,14 @@ import {
     octiconFile16,
     octiconGear16,
     octiconGitCommit16,
+    octiconListUnordered16,
     octiconMarkGithub16,
     octiconMarkGithub24,
-    octiconPaintbrush16,
     octiconPackage16,
+    octiconPaintbrush16,
     octiconPerson16,
+    octiconSkip16,
+    octiconSkip24,
     octiconSparkleFill16,
     octiconSquareFill16,
     octiconSun16,
@@ -38,14 +39,16 @@ import {
   ModuleExtensionTagClassInfo,
   ModuleInfo,
   OriginKey,
-  ProviderInfo,
   ProviderFieldInfo,
+  ProviderInfo,
   RepositoryRuleInfo,
   RuleInfo,
   StarlarkFunctionInfo
 } from 'stardoc_output/stardoc_output.proto';
 import {
   Function,
+  Label,
+  LoadStmt,
   LoadSymbol,
   MacroFunction,
   SymbolLocation,
@@ -57,17 +60,16 @@ import {
   FileInfo,
   FileLoadTree,
   FileLoadTreeNode,
-  Label,
-  LoadInfo,
-  SymbolInfo,
-  SymbolType,
   Maintainer,
   Module,
   ModuleDependency,
   ModuleDependencyOverride,
   ModuleMetadata,
   ModuleVersion,
-  Registry
+  Registry,
+  RepositoryType,
+  SymbolInfo,
+  SymbolType
 } from 'build/stack/bazel/bzlmod/v1/bcr.proto';
 import {
   attestationsTable,
@@ -81,13 +83,14 @@ import {
   maintainersList,
   maintainersTable,
   moduleDependencyOverride,
-  moduleDependencyTable,
   moduleDependencyRow,
+  moduleDependencyTable,
   moduleLanguageTable,
   moduleSourceTable,
+  moduleVersionAboutTable,
   moduleVersionBreadcrumb,
   moduleVersionButton,
-  moduleVersionAboutTable,
+  moduleVersionDocsUrl,
   moduleVersionHeader,
   moduleVersionModuleBazel,
   moduleVersions,
@@ -651,7 +654,9 @@ import {
 {/template}
 
 {template documentationInfoSelect}
-  {@param info: DocumentationInfo}
+  {@param module: Module}
+  {@param moduleVersion: ModuleVersion}
+  {@param? info: DocumentationInfo}
   {@param aspects: list<[file: FileInfo, sym: SymbolInfo]>}
   {@param funcs: list<[file: FileInfo, sym: SymbolInfo]>}
   {@param macros: list<[file: FileInfo, sym: SymbolInfo]>}
@@ -660,15 +665,16 @@ import {
   {@param providers: list<[file: FileInfo, sym: SymbolInfo]>}
   {@param repositoryRules: list<[file: FileInfo, sym: SymbolInfo]>}
   {@param rules: list<[file: FileInfo, sym: SymbolInfo]>}
+  {@param fileSymbols: list<[file: FileInfo, symbolGroups: list<[type: SymbolType, typeName: string, symbols: list<SymbolInfo>]>]>}
 <div>
-  <div class="PageLayout PageLayout--panePos-end PageLayout--hasPaneDivider PageLayout--responsive-stackRegions" style2="--Layout-template-columns: unset">
+  <div class="PageLayout PageLayout--panePos-start PageLayout--hasPaneDivider PageLayout--responsive-stackRegions" style2="--Layout-template-columns: unset">
     <div class="PageLayout-wrapper">
       <div class="PageLayout-columns">
-        <div class="PageLayout-content {css('content')}"></div>
-        <div class="PageLayout-pane pl-2">
+        <div class="PageLayout-content PageLayout-pane--sticky {css('content')}"></div>
+        <div class="PageLayout-pane pl-2 overflow-x-hidden">
           <nav class="SideNav" style="background-color: transparent; border: none">
 
-            {documentationAboutSection(info: $info)}
+            {documentationAboutSection(module: $module, moduleVersion: $moduleVersion, info: $info, fileSymbols: $fileSymbols)}
 
             // {if length($funcs) + length($rules) + length($aspects) + length($providers) + length($moduleExtensions) + length($repositoryRules) + length($macros) + length($ruleMacros) > 0}
             //   <div class="pb-2 d-inline-block">
@@ -730,7 +736,7 @@ import {
   {@param moduleVersion: ModuleVersion}
   {@param? label: Label}
   {@param? location: SymbolLocation}
-{if $moduleVersion.getRepositoryMetadata()?.getType() == 1 /* GITHUB */ && $label}
+{if $moduleVersion.getRepositoryMetadata()?.getType() == RepositoryType.GITHUB && $label}
 {let $org: $moduleVersion.getRepositoryMetadata().getOrganization() /}
 {let $repo: $moduleVersion.getRepositoryMetadata().getName() /}
 {let $pkg: $label.getPkg() /}
@@ -746,7 +752,7 @@ https://github.com/{$org}/{$repo}/blob/{$commitSha}/{$path}?plain=1{if $location
 {template githubRawUrl kind="uri"}
   {@param moduleVersion: ModuleVersion}
   {@param label: Label}
-{if $moduleVersion.getRepositoryMetadata()?.getType() == 1 /* GITHUB */}
+{if $moduleVersion.getRepositoryMetadata()?.getType() == RepositoryType.GITHUB}
 {let $org: $moduleVersion.getRepositoryMetadata().getOrganization() /}
 {let $repo: $moduleVersion.getRepositoryMetadata().getName() /}
 {let $pkg: $label.getPkg() /}
@@ -799,7 +805,7 @@ https://raw.githubusercontent.com/{$org}/{$repo}/{$commitSha}/{$path}
           </div>
           <span class="text-small text-light ml-2">{$file.getDescription()|truncate:63}</span>
         </div>
-        {fileSymbolTree(moduleVersion: $moduleVersion, file: $file, symbolGroups: $symbolGroups)}
+        {fileSymbolTree(moduleVersion: $moduleVersion, file: $file, symbolGroups: $symbolGroups, showDocstrings: true)}
       </div>
     {/for}
   </div>
@@ -817,6 +823,8 @@ https://raw.githubusercontent.com/{$org}/{$repo}/{$commitSha}/{$path}
   {@param repositoryRules: list<SymbolInfo>}
   {@param macros: list<SymbolInfo>}
   {@param ruleMacros: list<SymbolInfo>}
+  {@param loads: list<SymbolInfo>}
+  {@param values: list<SymbolInfo>}
 <div style="min-width: 0">
   <div class="Subhead mb-2" style="border-bottom: none;">
     <div class="Subhead-heading d-flex flex-items-center">
@@ -841,7 +849,7 @@ https://raw.githubusercontent.com/{$org}/{$repo}/{$commitSha}/{$path}
       </div>
     {/if}
     <div class="Subhead-actions">
-      <a class="Link--muted btn btn-sm btn-octicon" href="{moduleVersionUrl(name: $moduleVersion.getName(), version: $moduleVersion.getVersion())}/docs">{octiconChevronUp24()}</a>
+      <a class="Link--muted btn btn-sm btn-octicon" href="{moduleVersionDocsUrl(name: $moduleVersion.getName(), version: $moduleVersion.getVersion())}">{octiconChevronUp24()}</a>
     </div>
   </div>
 
@@ -849,11 +857,11 @@ https://raw.githubusercontent.com/{$org}/{$repo}/{$commitSha}/{$path}
     {fileErrorBlankslate(file: $file)}
   {else}
     <div class="mt-2">
-      {if length($file.getLoadList()) > 0}
-        {loadInfoListBox(loads: $file.getLoadList())}
+      {if length($loads) > 0}
+        {symbolListBox(file: $file, symbols: $loads, title: 'Load Statements')}
       {/if}
-      {if $file.getGlobalMap().size > 0}
-        {globalSymbolListBox(file: $file)}
+      {if length($values) > 0}
+        {symbolListBox(file: $file, symbols: $values, title: 'Global Values')}
       {/if}
       {if length($rules) > 0}
         {symbolListBox(file: $file, symbols: $rules, title: 'Rules')}
@@ -899,7 +907,7 @@ https://raw.githubusercontent.com/{$org}/{$repo}/{$commitSha}/{$path}
       </p>
     </div>
     <div class="Subhead-actions">
-      <a class="Link--muted btn btn-sm btn-octicon" href="{moduleVersionUrl(name: $moduleVersion.getName(), version: $moduleVersion.getVersion())}/docs">{octiconChevronUp24()}</a>
+      <a class="Link--muted btn btn-sm btn-octicon" href="{moduleVersionDocsUrl(name: $moduleVersion.getName(), version: $moduleVersion.getVersion())}">{octiconChevronUp24()}</a>
     </div>
   </div>
 
@@ -981,20 +989,20 @@ https://raw.githubusercontent.com/{$org}/{$repo}/{$commitSha}/{$path}
   </div>
 {/template}
 
-{template loadInfoListBox}
-  {@param loads: list<LoadInfo>}
+{template loadStmtListBox}
+  {@param loads: list<LoadStmt>}
 <div class="Box Box--condensed mb-3">
   <div class="Box-header">
     <div class="Box-title">Load Statements {counterLabel(count: length($loads))}</div>
   </div>
   {for $load in $loads}
-    {loadInfoItem(load: $load)}
+    {loadStmtItem(load: $load)}
   {/for}
 </div>
 {/template}
 
-{template loadInfoItem}
-  {@param load: LoadInfo}
+{template loadStmtItem}
+  {@param load: LoadStmt}
 <div class="Box-row">
   <div class="text-mono text-small">
     <span class="color-fg-muted">load(</span>
@@ -1032,6 +1040,7 @@ https://raw.githubusercontent.com/{$org}/{$repo}/{$commitSha}/{$path}
       typeName: string,
       symbols: list<SymbolInfo>
   ]>}
+  {@param showDocstrings: bool}
 
   {if length($symbolGroups) > 0}
     <div class="treeview-root treeview-compact mt-1 ml-1" role="tree">
@@ -1042,6 +1051,7 @@ https://raw.githubusercontent.com/{$org}/{$repo}/{$commitSha}/{$path}
           {param typeName: $group.typeName /}
           {param symbols: $group.symbols /}
           {param isLastGroup: $groupIndex == length($symbolGroups) - 1 /}
+          {param showDocstrings: $showDocstrings /}
         {/call}
       {/for}
     </div>
@@ -1054,8 +1064,9 @@ https://raw.githubusercontent.com/{$org}/{$repo}/{$commitSha}/{$path}
   {@param typeName: string}
   {@param symbols: list<SymbolInfo>}
   {@param isLastGroup: bool}
+  {@param showDocstrings: bool}
   <div class="treeview-item" role="treeitem">
-    <div class="treeview-item-row d-flex flex-items-center" style="padding: 0.25rem 0;">
+    <div class="treeview-item-row d-flex flex-items-center" style="padding: 0.25rem 0 0.10rem 0;">
       <span class="color-fg-muted" style="margin-right: 0.25rem; font-family: monospace; user-select: none; flex-shrink: 0;">
         {if $isLastGroup}
           └─
@@ -1064,15 +1075,15 @@ https://raw.githubusercontent.com/{$org}/{$repo}/{$commitSha}/{$path}
         {/if}
       </span>
       {let $color: symbolColor(type: $type) /}
-      <span class="Label Label--small flex-shrink-0" style="background-color: var({$color}); color: var(--color-fg-on-emphasis);">
-        {$typeName} ({length($symbols)})
+      <span class="ml-1 text-small flex-shrink-0" style="opacity: 0.64">
+        <span style="color: var({$color});">{$typeName}</span>
       </span>
     </div>
     <div class="treeview-children ml-1" role="group">
       {for $symbol, $index in $symbols}
         {let $isLast: $index == length($symbols) - 1 /}
         <div class="treeview-item" role="treeitem">
-          <div class="treeview-item-row d-flex flex-items-center" style="padding: 0.15rem 0; margin-left: 1.5rem;">
+          <div class="treeview-item-row d-flex flex-items-center" style="margin-left: 1.2rem;">
             <span class="color-fg-muted" style="margin-right: 0.25rem; font-family: monospace; user-select: none; flex-shrink: 0;">
               {if $isLast}
                 └─
@@ -1084,7 +1095,9 @@ https://raw.githubusercontent.com/{$org}/{$repo}/{$commitSha}/{$path}
             <a class="Link--primary flex-auto" href="{symbolInfoUrl(file: $file, sym: $symbol)}" style="margin-left: 0.25rem;">
               {$symbol.getName()}
             </a>
-            <span class="text-small text-light ml-2 flex-shrink-0">{$symbol.getDescription()|truncate:63}</span>
+            {if $showDocstrings}
+              <span class="text-small text-light ml-2 flex-shrink-0">{$symbol.getDescription()|truncate:63}</span>
+            {/if}
           </div>
         </div>
       {/for}
@@ -1092,30 +1105,6 @@ https://raw.githubusercontent.com/{$org}/{$repo}/{$commitSha}/{$path}
   </div>
 {/template}
 
-{template globalSymbolListBox}
-  {@param file: FileInfo}
-<div class="Box Box--condensed mb-3">
-  <div class="Box-header">
-    <div class="Box-title">Global Symbols {counterLabel(count: $file.getGlobalMap().size)}</div>
-  </div>
-  {for $name in $file.getGlobalMap().keys()}
-    {let $value: $file.getGlobalMap().get($name) /}
-    {if $value}
-      {globalSymbolItem(name: $name, value: $value)}
-    {/if}
-  {/for}
-</div>
-{/template}
-
-{template globalSymbolItem}
-  {@param name: string}
-  {@param value: Value}
-<div class="Box-row d-flex flex-items-start">
-  <div class="flex-auto">
-    <pre class="{css('shiki')}"><code lang="py">{$name} = {call renderValueAsCode}{param value: $value /}{/call}</code></pre>
-  </div>
-</div>
-{/template}
 
 {template renderValueAsCode kind="text"}
   {@param value: Value}
@@ -1204,11 +1193,8 @@ https://raw.githubusercontent.com/{$org}/{$repo}/{$commitSha}/{$path}
 <div class="Subhead mb-2" style="border-bottom: none;">
   <div class="Subhead-heading d-flex flex-items-center flex-justify-between">
     <h3 class="d-flex flex-items-center">
-      <a class="Link--muted text-light f3-light" href="{fileInfoUrl(label: $file.getLabel())}">{$file.getLabel()?.getPkg() ? $file.getLabel()?.getPkg() + '/' + $file.getLabel()?.getName() : $file.getLabel()?.getName()}</a>
-      <span class="mx-2 d-flex flex-items-center">
-        {let $color: symbolColor(type: $sym.getType()) /}
-        {octiconDotFill16(fill: 'var(' + $color + ')')}
-      </span>
+      {let $labelColor: symbolColor(type: $sym.getType()) /}
+      <span class="Label mr-2" style="background-color: var({$labelColor}); color: var(--color-fg-on-emphasis)">{symbolTypeName(type: $sym.getType())}</span>
       <span>{$sym.getName()}</span>
       {if $location && $location.getStart()}
         {let $fileLabel: $file.getLabel() /}
@@ -1225,10 +1211,8 @@ https://raw.githubusercontent.com/{$org}/{$repo}/{$commitSha}/{$path}
         {/if}
       {/if}
     </h3>
-    <div class="d-flex flex-items-center">
-      {let $labelColor: symbolColor(type: $sym.getType()) /}
-      <span class="Label" style="background-color: var({$labelColor}); color: var(--color-fg-on-emphasis)">{symbolTypeName(type: $sym.getType())}</span>
-      <a class="Link--muted btn btn-sm btn-octicon ml-2" href="{fileInfoUrl(label: $file.getLabel())}">{octiconChevronUp24()}</a>
+    <div class="d-flex flex-row flex-items-center">
+      <a class="Link--muted text-light f3-light" href="{fileInfoUrl(label: $file.getLabel())}">{$file.getLabel()?.getPkg() ? $file.getLabel()?.getPkg() + '/' + $file.getLabel()?.getName() : $file.getLabel()?.getName()}</a>
     </div>
   </div>
   {if $sym.getDescription()}
@@ -1354,6 +1338,32 @@ https://raw.githubusercontent.com/{$org}/{$repo}/{$commitSha}/{$path}
         </div>
       </div>
     {/if}
+  {/if}
+</div>
+{/template}
+
+{template valueInfoComponent}
+  {@param moduleVersion: ModuleVersion}
+  {@param file: FileInfo}
+  {@param sym: SymbolInfo}
+<div style="min-width: 0">
+  {call symbolInfoHeader}
+    {param moduleVersion: $moduleVersion /}
+    {param file: $file /}
+    {param sym: $sym /}
+    {param location: $sym.getValue()?.getLocation() /}
+  {/call}
+
+  {if $sym.getValue()}
+    {let $value: $sym.getValue() /}
+    <div class="Box mt-3">
+      <div class="Box-header">
+        <h3 class="Box-title">Value</h3>
+      </div>
+      <div class="Box-row">
+        <pre class="{css('shiki')}"><code class="language-python">{$sym.getName()} = {call renderValueAsCode}{param value: $value /}{/call}</code></pre>
+      </div>
+    </div>
   {/if}
 </div>
 {/template}
@@ -1850,6 +1860,10 @@ https://raw.githubusercontent.com/{$org}/{$repo}/{$commitSha}/{$path}
     --color-prettylights-syntax-markup-heading
   {case 8} /* SYMBOL_TYPE_RULE_MACRO */
     --color-prettylights-syntax-markup-heading
+  {case 9} /* SYMBOL_TYPE_LOAD */
+    --color-prettylights-syntax-storage-modifier-import
+  {case 10} /* SYMBOL_TYPE_VALUE */
+    --color-prettylights-syntax-markup-list
   {default}
     --color-fg-default
 {/switch}
@@ -1874,6 +1888,10 @@ https://raw.githubusercontent.com/{$org}/{$repo}/{$commitSha}/{$path}
     Macro
   {case 8} /* SYMBOL_TYPE_RULE_MACRO */
     Rule Macro
+  {case 9} /* SYMBOL_TYPE_LOAD */
+    Load
+  {case 10} /* SYMBOL_TYPE_VALUE */
+    Value
   {default}
     Unknown
 {/switch}
@@ -1905,6 +1923,14 @@ https://raw.githubusercontent.com/{$org}/{$repo}/{$commitSha}/{$path}
 {let $pkg: $label.substring($dblslash+2, $colon) /}
 {let $name: $label.substring($colon+1) /}
 <a href="{labelUri(repo: $repo, pkg: $pkg, name: $name)}">{$name}</a>
+{/template}
+
+{template renderLabel kind="text"}
+  {@param label: Label}
+{let $repo: $label.getRepo() /}
+{let $pkg: $label.getPkg() /}
+{let $name: $label.getName() /}
+{if $repo}@{$repo}//{/if}{if $pkg}{$pkg}:{/if}{$name}
 {/template}
 
 {template moduleBlankslateComponent}
@@ -1948,9 +1974,94 @@ https://raw.githubusercontent.com/{$org}/{$repo}/{$commitSha}/{$path}
       Auto-generated documentation is only available for the latest version. Modules may optionally publish documentation for older versions by including a <code>.docs.tar.gz</code> archive in their release.
     </p>
     <p>
-      <a class="btn btn-primary" href="{moduleVersionUrl(name: $moduleVersion.getName(), version: $moduleVersion.getVersion())}">View Latest</a>
+      <a class="btn btn-primary" href="{moduleVersionDocsUrl(name: $moduleVersion.getName(), version: $moduleVersion.getVersion())}">View Latest</a>
     </p>
   </div>
+</div>
+{/template}
+
+
+{template documentationReadmeComponent}
+  {@param moduleVersion: ModuleVersion}
+  {@param loading: bool}
+  {@param? error: string}
+  {@param? content: string}
+<div style="min-width: 0">
+  {if $loading}
+    <div class="Box Box--condensed">
+      <div class="Box-row text-center py-4">
+        <div class="AnimatedEllipsis">Loading README</div>
+      </div>
+    </div>
+  {elseif $error}
+    <div class="flash flash-warn">
+      {octiconAlert16()}
+      <span class="ml-2">{$error}</span>
+    </div>
+  {elseif $content}
+    <div class="Box Box--condensed">
+      <div class="Box-header">
+        <div class="Box-title">README.md</div>
+      </div>
+      <div class="Box-row">
+        <div class="{css('marked')} markdown-body">
+          {$content}
+        </div>
+      </div>
+    </div>
+  {else}
+    <div class="blankslate">
+      <div class="blankslate-heading">No README</div>
+      <p>No README.md file found in this repository.</p>
+    </div>
+  {/if}
+</div>
+{/template}
+
+
+{template bzlFileSourceComponent}
+  {@param moduleVersion: ModuleVersion}
+  {@param file: FileInfo}
+  {@param loading: bool}
+  {@param? error: string}
+  {@param? content: string}
+<div style="min-width: 0">
+  {if $loading}
+    <div class="Box Box--condensed">
+      <div class="Box-row text-center py-4">
+        <div class="AnimatedEllipsis">Loading source file</div>
+      </div>
+    </div>
+  {elseif $error}
+    <div class="flash flash-warn">
+      {octiconAlert16()}
+      <span class="ml-2">{$error}</span>
+    </div>
+  {elseif $content}
+    <div class="Box Box--condensed">
+      <div class="Box-header d-flex flex-items-center flex-justify-between">
+        <div class="Box-title">{let $label: $file.getLabel() /}{if $label}{renderLabel(label: $label)}{/if}</div>
+        {let $fileLabel: $file.getLabel() /}
+        {if $fileLabel}
+          {let $githubUrl: githubSourceUrl(moduleVersion: $moduleVersion, label: $fileLabel) /}
+          {if $githubUrl}
+            <a href="{$githubUrl}" target="_blank" rel="noopener noreferrer" class="Link--muted d-flex flex-items-center" title="View on GitHub">
+              {octiconMarkGithub16()}
+              <span class="ml-1">{$fileLabel.getPkg() ? $fileLabel.getPkg() + '/' : ''}{$fileLabel.getName()}</span>
+            </a>
+          {/if}
+        {/if}
+      </div>
+      <div class="Box-row">
+        <pre class="{css('shiki')}"><code class="py" linenumbers="true">{$content}</code></pre>
+      </div>
+    </div>
+  {else}
+    <div class="blankslate">
+      <div class="blankslate-heading">No Source</div>
+      <p>Source file not available.</p>
+    </div>
+  {/if}
 </div>
 {/template}
 
@@ -2087,42 +2198,66 @@ https://raw.githubusercontent.com/{$org}/{$repo}/{$commitSha}/{$path}
 
 
 {template documentationAboutSection}
-  {@param info: DocumentationInfo}
+  {@param module: Module}
+  {@param moduleVersion: ModuleVersion}
+  {@param? info: DocumentationInfo}
+  {@param fileSymbols: list<[file: FileInfo, symbolGroups: list<[type: SymbolType, typeName: string, symbols: list<SymbolInfo>]>]>}
 <div>
   {sectionHeader(title: 'About')}
-  
-  <div class="f4 mb-3 color-fg-muted">
-    {if $info.getSource() == DocumentationSource.PUBLISHED}
-      Official published documentation for <strong>{$info.getModuleName()}</strong> version <strong>{$info.getVersion()}</strong>.
-    {elseif $info.getSource() == DocumentationSource.BEST_EFFORT}
-      Auto-generated documentation using best-effort extraction method.
-    {else}
-      Documentation for <strong>{$info.getModuleName()}</strong> version <strong>{$info.getVersion()}</strong>.
-    {/if}
-  </div>
 
-  <div class="mt-3">
-    <div class="d-flex flex-items-center mb-2 color-fg-muted">
-      <span class="mr-2">
-        {if $info.getSource() == DocumentationSource.PUBLISHED}
-          {octiconSparkleFill16(fill: 'var(--color-success-fg)')}
-        {elseif $info.getSource() == DocumentationSource.BEST_EFFORT}
-          {octiconCode16(fill: 'var(--color-attention-fg)')}
-        {else}
-          {octiconCode16()}
-        {/if}
-      </span>
-      <span class="mr-1 text-bold">
-        {if $info.getSource() == DocumentationSource.PUBLISHED}
-          Published By Module Author(s).
-        {elseif $info.getSource() == DocumentationSource.BEST_EFFORT}
-          Autogenerated from source.
-        {else}
-          Documentation.
-        {/if}
-      </span>
+  {if $info}
+    <div class="f4 mb-3 color-fg-muted">
+      {if $info.getSource() == DocumentationSource.PUBLISHED}
+        Official published documentation for <strong>{$info.getModuleName()}</strong> version <strong>{$info.getVersion()}</strong>.
+      {elseif $info.getSource() == DocumentationSource.BEST_EFFORT}
+        Auto-generated documentation using best-effort extraction method.
+      {else}
+        Documentation for <strong>{$info.getModuleName()}</strong> version <strong>{$info.getVersion()}</strong>.
+      {/if}
     </div>
-  </div>
+
+    <div class="mb-3">
+      <a class="Link--primary" href="{moduleVersionDocsUrl(name: $moduleVersion.getName(), version: $moduleVersion.getVersion())}">View README</a>
+    </div>
+
+    {if length($fileSymbols) > 0}
+      <div class="mt-4">
+        {for $fileSymbol in $fileSymbols}
+          {let $file: $fileSymbol.file /}
+          {let $pkg: $file.getLabel()?.getPkg() /}
+          {let $name: $file.getLabel()?.getName() /}
+          {let $hasError: $file.getError() ? true : false /}
+          <div class="mb-3">
+            <div class="d-flex flex-items-start mb-1">
+              <div class="flex-shrink-0 mr-2">
+                {if $hasError}
+                  {octiconSkip16(class: 'color-fg-attention')}
+                {else}
+                  {octiconFile16()}
+                {/if}
+              </div>
+              <div class="flex-auto">
+                <a href="{fileInfoUrl(label: $file.getLabel())}" class="{if $hasError}Link--muted{else}Link--primary{/if}">
+                  <span class="text-semibold">{$pkg ? $pkg + '/' : ''}{$name}</span>
+                </a>
+              </div>
+            </div>
+            {fileSymbolTree(moduleVersion: $moduleVersion, file: $file, symbolGroups: $fileSymbol.symbolGroups, showDocstrings: false)}
+          </div>
+        {/for}
+      </div>
+    {/if}
+  {else}
+    <div class="f4 mb-3 color-fg-muted">
+      <p>
+        Auto-generated documentation is only available for the latest version. Modules may optionally publish documentation for older versions by including a <code>.docs.tar.gz</code> archive in their release.
+      </p>
+      <p class="mt-3">
+        {let $latestVersion: $module.getVersionsList()[0].getVersion() /}
+        <a class="btn btn-sm btn-primary" href="{moduleVersionDocsUrl(name: $moduleVersion.getName(), version: $latestVersion)}">View Latest</a>
+      </p>
+    </div>
+  {/if}
 
 </div>
 {/template}

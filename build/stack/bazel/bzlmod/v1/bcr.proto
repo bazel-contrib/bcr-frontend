@@ -429,13 +429,6 @@ message Presubmit {
     map<string, PresubmitTask> tasks = 3;
 }
 
-// Label represents a Bazel label
-message Label {
-    string repo = 1;
-    string pkg = 2;
-    string name = 3;
-}
-
 // SymbolType represents the type of symbol
 enum SymbolType {
     SYMBOL_TYPE_UNKNOWN = 0;
@@ -447,6 +440,8 @@ enum SymbolType {
     SYMBOL_TYPE_REPOSITORY_RULE = 6;
     SYMBOL_TYPE_MACRO = 7;
     SYMBOL_TYPE_RULE_MACRO = 8;
+    SYMBOL_TYPE_LOAD_STMT = 9;
+    SYMBOL_TYPE_VALUE = 10;
 }
 
 // SymbolInfo represents information about a symbol in a Bazel module
@@ -467,13 +462,15 @@ message SymbolInfo {
         build.stack.starlark.v1beta1.RepositoryRule repository_rule = 10;
         build.stack.starlark.v1beta1.Macro macro = 11;
         build.stack.starlark.v1beta1.RuleMacro rule_macro = 12;
+        build.stack.starlark.v1beta1.Value value = 13;
+        build.stack.starlark.v1beta1.LoadStmt load = 14;
     }
 }
 
 // Set of symbols in a file.
 message FileInfo {
     // label that provides the symbols (e.g. //lib/private:copy_file.bzl)
-    Label label = 1;
+    build.stack.starlark.v1beta1.Label label = 1;
     // a list of symbols
     repeated SymbolInfo symbol = 2;
     // a truncated description from the ModuleInfo.module_docstring
@@ -481,15 +478,6 @@ message FileInfo {
     // an error message, if the symbols from the file could not be
     // extracted.ArchiveOverride
     string error = 5;
-    // load statements from the file
-    repeated LoadInfo load = 6;
-    // global symbols (constants, etc) from the file
-    map<string, build.stack.starlark.v1beta1.Value> global = 7;
-}
-
-message LoadInfo {
-    Label label = 1;
-    repeated build.stack.starlark.v1beta1.LoadSymbol symbol = 2;
 }
 
 enum DocumentationSource {

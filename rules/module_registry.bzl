@@ -201,7 +201,7 @@ def _compile_bzl_for_module_version(ctx, mv, all_mv_by_id):
     # use these for development
     # args.add("--port", 3535)  # e.g. java -jar ./cmd/bzlcompiler/constellate.jar --listen_port=3535
     # args.add("--error_limit=0")
-    # args.add("--log_file", "/tmp/bzlcompiler.log")
+    args.add("--log_file", "/tmp/bzlcompiler.log")
 
     # Add bzl_files and module_deps without flattening depsets
 

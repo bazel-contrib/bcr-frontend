@@ -110,7 +110,7 @@ func parseConfig(args []string) (*config, error) {
 type bzlFile struct {
 	RepoName string // the name of the repo to which the file belongs (e.g. "rules_go")
 	Path     string // the original path
-	Label    *bzpb.Label
+	Label    *slpb.Label
 }
 
 // bzlFileSlice is a custom flag type for repeatable --mapping flags
@@ -140,7 +140,7 @@ func (s *bzlFileSlice) Set(value string) error {
 	*s = append(*s, &bzlFile{
 		RepoName: repoName,
 		Path:     path,
-		Label:    &bzpb.Label{Repo: repoName, Pkg: lbl.Pkg, Name: filepath.Base(path)},
+		Label:    &slpb.Label{Repo: repoName, Pkg: lbl.Pkg, Name: filepath.Base(path)},
 	})
 
 	return nil

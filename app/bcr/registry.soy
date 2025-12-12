@@ -349,6 +349,11 @@ bazel_dep(name = "{$name}", version = "{$version}")
 {moduleUrl(name: $name)}/{$version}
 {/template}
 
+{template moduleVersionDocsUrl kind="uri"}
+  {@param name: string}
+  {@param version: string}
+{moduleVersionUrl(name: $name, version: $version)}/docs
+{/template}
 
 {template maintainerUrl kind="uri"}
   {@param maintainer: Maintainer}
@@ -761,7 +766,7 @@ unknown
         {let $docs: $docsMap.get($key) /}
         {if $docs}
           <li class="Box-row">
-            <a href="{modulesUrl()}/{$docs.getModuleName()}/{$docs.getVersion()}/docs">
+            <a href="{moduleVersionDocsUrl(name: $docs.getModuleName(), version: $docs.getVersion())}">
               <strong>{$docs.getModuleName()}@{$docs.getVersion()}</strong>
               <span class="text-small text-gray ml-2">
                 ({$docs.getFileList().length} file{if $docs.getFileList().length != 1}s{/if})

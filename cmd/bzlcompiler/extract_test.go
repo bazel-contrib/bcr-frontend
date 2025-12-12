@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	bzpb "github.com/stackb/centrl/build/stack/bazel/bzlmod/v1"
+	slpb "github.com/stackb/centrl/build/stack/starlark/v1beta1"
 )
 
 func TestRewriteFile(t *testing.T) {
@@ -17,7 +17,7 @@ func TestRewriteFile(t *testing.T) {
 		fileContent   string
 		expectedLoads map[string]string // original -> expected
 		wantErr       bool
-		expectedLabel *bzpb.Label
+		expectedLabel *slpb.Label
 	}{
 		{
 			name: "simple load from same repo",
@@ -36,7 +36,7 @@ def my_rule():
 			expectedLoads: map[string]string{
 				"//go:def.bzl": "@rules_go//go:def.bzl",
 			},
-			expectedLabel: &bzpb.Label{
+			expectedLabel: &slpb.Label{
 				Repo: "rules_go",
 				Pkg:  "go/private",
 				Name: "rules.bzl",
@@ -61,7 +61,7 @@ def my_rule():
 			expectedLoads: map[string]string{
 				"@bazel_skylib//lib:paths.bzl": "@bazel_skylib//lib:paths.bzl",
 			},
-			expectedLabel: &bzpb.Label{
+			expectedLabel: &slpb.Label{
 				Repo: "rules_proto",
 				Pkg:  "proto",
 				Name: "defs.bzl",
@@ -84,7 +84,7 @@ def foo():
 			expectedLoads: map[string]string{
 				":bar.bzl": "@my_repo//pkg:bar.bzl",
 			},
-			expectedLabel: &bzpb.Label{
+			expectedLabel: &slpb.Label{
 				Repo: "my_repo",
 				Pkg:  "pkg",
 				Name: "foo.bzl",
@@ -107,7 +107,7 @@ def my_rule():
 			expectedLoads: map[string]string{
 				"@bazel_tools//tools/build_defs/repo:http.bzl": "@bazel_tools//tools/build_defs/repo:http.bzl",
 			},
-			expectedLabel: &bzpb.Label{
+			expectedLabel: &slpb.Label{
 				Repo: "my_repo",
 				Pkg:  "",
 				Name: "defs.bzl",
@@ -137,7 +137,7 @@ def my_rule():
 				"@rules_cc//cc:defs.bzl":       "@rules_cc//cc:defs.bzl",
 				":private.bzl":                 "@rules_proto//proto:private.bzl",
 			},
-			expectedLabel: &bzpb.Label{
+			expectedLabel: &slpb.Label{
 				Repo: "rules_proto",
 				Pkg:  "proto",
 				Name: "defs.bzl",
@@ -162,7 +162,7 @@ def my_rule():
 			expectedLoads: map[string]string{
 				"@bazel_skylib~1.0.0//lib:paths.bzl": "@bazel_skylib//lib:paths.bzl",
 			},
-			expectedLabel: &bzpb.Label{
+			expectedLabel: &slpb.Label{
 				Repo: "rules_proto",
 				Pkg:  "proto",
 				Name: "defs.bzl",

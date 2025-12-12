@@ -137,6 +137,7 @@ closure_js_library(
         ":common",
         ":soy",
         "//build/stack/bazel/bzlmod/v1:bzpb_js",
+        "//build/stack/starlark/v1beta1:v1beta1_proto_js",
         "//stardoc_output:stardoc_output_js",
         "@stackb_rules_closure//closure/goog/array",
         "@stackb_rules_closure//closure/goog/asserts",

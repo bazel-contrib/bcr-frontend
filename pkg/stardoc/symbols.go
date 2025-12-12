@@ -319,6 +319,56 @@ func makeRuleMacroSymbol(ruleMacro *slpb.RuleMacro) *bzpb.SymbolInfo {
 	}
 }
 
+func processLoadStmt(load *slpb.LoadStmt) {
+	processSymbolLocation(load.Location)
+	for _, sym := range load.Symbol {
+		processSymbolLocation(sym.Location)
+	}
+}
+
+func makeLoadStmtSymbol(load *slpb.LoadStmt) *bzpb.SymbolInfo {
+	processLoadStmt(load)
+	// Use the label as the name for load statements
+	name := ""
+	if load.Label != nil {
+		if load.Label.Pkg != "" {
+			name = "//" + load.Label.Pkg + ":" + load.Label.Name
+		} else {
+			name = ":" + load.Label.Name
+		}
+	}
+	return &bzpb.SymbolInfo{
+		Type:        bzpb.SymbolType_SYMBOL_TYPE_LOAD,
+		Name:        name,
+		Description: "", // Load statements don't have descriptions
+		Info:        &bzpb.SymbolInfo_Load{Load: load},
+	}
+}
+
+func processValue(value *slpb.Value) {
+	processSymbolLocation(value.Location)
+}
+
+func makeValueSymbol(name string, value *slpb.Value) *bzpb.SymbolInfo {
+	processValue(value)
+	// Create a description based on the value type
+	description := ""
+	switch v := value.Value.(type) {
+	case *slpb.Value_String_:
+		description = v.String_
+	case *slpb.Value_Int:
+		description = ""
+	case *slpb.Value_Bool:
+		description = ""
+	}
+	return &bzpb.SymbolInfo{
+		Type:        bzpb.SymbolType_SYMBOL_TYPE_VALUE,
+		Name:        name,
+		Description: description,
+		Info:        &bzpb.SymbolInfo_Value{Value: value},
+	}
+}
+
 // makeSymbolsFromModuleInfo extracts all symbols from a ModuleInfo
 func makeSymbolsFromModuleInfo(module *sdpb.ModuleInfo) []*bzpb.SymbolInfo {
 	var symbols []*bzpb.SymbolInfo
@@ -425,6 +475,18 @@ func makeSymbolsFromModule(module *slpb.Module) []*bzpb.SymbolInfo {
 	// Process macros
 	for _, macro := range module.Macro {
 		symbol := makeMacroSymbol(macro.Info, macro)
+		symbols = append(symbols, symbol)
+	}
+
+	// Process load statements
+	for _, load := range module.Load {
+		symbol := makeLoadStmtSymbol(load)
+		symbols = append(symbols, symbol)
+	}
+
+	// Process global values
+	for name, value := range module.Global {
+		symbol := makeValueSymbol(name, value)
 		symbols = append(symbols, symbol)
 	}
 

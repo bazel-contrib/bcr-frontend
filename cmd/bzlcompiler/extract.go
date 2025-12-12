@@ -23,11 +23,10 @@ func extractDocumentationInfo(cfg *config, bzlFileByPath map[string]*bzlFile, fi
 			return nil, fmt.Errorf("file not found: %q (was in also included as a --bzl_file?)", filePath)
 		}
 
-		// if bzlFile.Label.Repo != "rules_java" || bzlFile.Label.Pkg != "java" || bzlFile.Label.Name != "java_binary.bzl" {
+		// if bzlFile.Label.Repo != "aspect_rules_js" || bzlFile.Label.Pkg != "contrib/nextjs" || bzlFile.Label.Name != "defs.bzl" {
 		// 	cfg.Logger.Printf("skipping %s", filePath)
 		// 	continue
 		// }
-
 		// cfg.Logger.Panicf("extracting %s: %+v", filePath, bzlFile.Label)
 
 		file := &bzpb.FileInfo{Label: bzlFile.Label}
@@ -43,7 +42,7 @@ func extractDocumentationInfo(cfg *config, bzlFileByPath map[string]*bzlFile, fi
 			errors++
 		} else {
 			stardoc.ModuleToFileInfo(file, module)
-			cfg.Logger.Printf("🟢 successfully extracted %s", bzlFile.Label)
+			// cfg.Logger.Printf("🟢 successfully extracted %s", bzlFile.Label)
 			// cfg.Logger.Panicf("extracted %s: %+v", filePath, module)
 		}
 
@@ -63,8 +62,11 @@ func extractModule(cfg *config, file *bzlFile) (*slpb.Module, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
+	targetFileLabel := stardoc.LabelFromProto(file.Label).String()
+	// log.Printf("targetFileLabel: %s", targetFileLabel)
+
 	response, err := cfg.Client.ModuleInfo(ctx, &slpb.ModuleInfoRequest{
-		TargetFileLabel: stardoc.FromLabel(file.Label).String(),
+		TargetFileLabel: targetFileLabel,
 		BuiltinsBzlPath: filepath.Join(cfg.Cwd, workDir, "external/_builtins/src/main/starlark/builtins_bzl"),
 		DepRoots: []string{
 			filepath.Join(cfg.Cwd, workDir),
