@@ -5,6 +5,7 @@ const AttributeInfo = goog.require('proto.stardoc_output.AttributeInfo');
 const AttributeType = goog.require('proto.stardoc_output.AttributeType');
 const ComponentEventType = goog.require('goog.ui.Component.EventType');
 const DocumentationInfo = goog.require('proto.build.stack.bazel.bzlmod.v1.DocumentationInfo');
+const DocumentationSource = goog.require('proto.build.stack.bazel.bzlmod.v1.DocumentationSource');
 const FileInfo = goog.require('proto.build.stack.bazel.bzlmod.v1.FileInfo');
 const FileLoadTree = goog.require('proto.build.stack.bazel.bzlmod.v1.FileLoadTree');
 const FileLoadTreeNode = goog.require('proto.build.stack.bazel.bzlmod.v1.FileLoadTreeNode');
@@ -1135,8 +1136,8 @@ class DocsMapSelectNav extends SelectNav {
         const result = new Map();
         this.docsMap_.forEach((moduleVersion, key) => {
             const docs = moduleVersion.getSource()?.getDocumentation();
-            // Published = source 1, and only latest versions
-            if (docs && docs.getSource() === 1 && moduleVersion.getIsLatestVersion()) {
+            // Published docs only, and only latest versions
+            if (docs && docs.getSource() === DocumentationSource.PUBLISHED && moduleVersion.getIsLatestVersion()) {
                 result.set(key, docs);
             }
         });
@@ -1150,7 +1151,7 @@ class DocsMapSelectNav extends SelectNav {
         const result = new Map();
         this.docsMap_.forEach((moduleVersion, key) => {
             const docs = moduleVersion.getSource()?.getDocumentation();
-            if (docs && docs.getSource() === 2) { // BEST_EFFORT = 2
+            if (docs && docs.getSource() === DocumentationSource.BEST_EFFORT) {
                 result.set(key, docs);
             }
         });
@@ -4380,7 +4381,7 @@ class DocumentationReadmeComponent extends MarkdownComponent {
         const metadata = this.moduleVersion_.getRepositoryMetadata();
 
         // Only fetch if it's a GitHub repo
-        if (!metadata || metadata.getType() !== 1 /* GITHUB */) {
+        if (!metadata || metadata.getType() !== RepositoryType.GITHUB) {
             this.error_ = 'README is only available for GitHub repositories';
             this.loading_ = false;
             this.updateDom_();
@@ -4538,7 +4539,7 @@ class DocumentationReadmeComponent extends MarkdownComponent {
      */
     rewriteReadmeLinks_() {
         const metadata = this.moduleVersion_.getRepositoryMetadata();
-        if (!metadata || metadata.getType() !== 1 /* GITHUB */) {
+        if (!metadata || metadata.getType() !== RepositoryType.GITHUB) {
             return;
         }
 
@@ -4660,7 +4661,7 @@ class BzlFileSourceComponent extends Component {
         const metadata = this.moduleVersion_.getRepositoryMetadata();
 
         // Only fetch if it's a GitHub repo
-        if (!metadata || metadata.getType() !== 1 /* GITHUB */) {
+        if (!metadata || metadata.getType() !== RepositoryType.GITHUB) {
             this.error_ = 'Source is only available for GitHub repositories';
             this.loading_ = false;
             this.updateDom_();

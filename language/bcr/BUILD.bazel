@@ -57,6 +57,7 @@ go_library(
         "@com_github_bazelbuild_buildtools//build:go_default_library",
         "@com_github_dominikbraun_graph//:go_default_library",
         "@com_github_google_go_github_v66//github:go_default_library",
+        "@com_github_schollz_progressbar_v3//:go_default_library",
     ],
 )
 

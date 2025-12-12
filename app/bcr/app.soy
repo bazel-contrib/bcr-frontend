@@ -33,6 +33,7 @@ import {
 import {
   AspectInfo,
   AttributeInfo,
+  AttributeType,
   FunctionParamInfo,
   FunctionReturnInfo,
   ModuleExtensionInfo,
@@ -289,13 +290,13 @@ import {
       {largeStatDisplay(value: $totalMaintainers, label: 'Maintainers')}
     </div>
     <div class="d-flex flex-row flex-wrap flex-items-center flex-justify-center mt-5" style="gap: 1.5rem">
-      {statDisplay(value: $totalRules, label: 'Rules', color: symbolColor(type: 1))}
-      {statDisplay(value: $totalFunctions, label: 'Functions', color: symbolColor(type: 2))}
-      {statDisplay(value: $totalProviders, label: 'Providers', color: symbolColor(type: 3))}
-      {statDisplay(value: $totalModuleExtensions, label: 'Extensions', color: symbolColor(type: 5))}
-      {statDisplay(value: $totalRepositoryRules, label: 'Repo Rules', color: symbolColor(type: 6))}
-      {statDisplay(value: $totalAspects, label: 'Aspects', color: symbolColor(type: 4))}
-      {statDisplay(value: $totalMacros, label: 'Macros', color: symbolColor(type: 7))}
+      {statDisplay(value: $totalRules, label: 'Rules', color: symbolColor(type: SymbolType.SYMBOL_TYPE_RULE))}
+      {statDisplay(value: $totalFunctions, label: 'Functions', color: symbolColor(type: SymbolType.SYMBOL_TYPE_FUNCTION))}
+      {statDisplay(value: $totalProviders, label: 'Providers', color: symbolColor(type: SymbolType.SYMBOL_TYPE_PROVIDER))}
+      {statDisplay(value: $totalModuleExtensions, label: 'Extensions', color: symbolColor(type: SymbolType.SYMBOL_TYPE_MODULE_EXTENSION))}
+      {statDisplay(value: $totalRepositoryRules, label: 'Repo Rules', color: symbolColor(type: SymbolType.SYMBOL_TYPE_REPOSITORY_RULE))}
+      {statDisplay(value: $totalAspects, label: 'Aspects', color: symbolColor(type: SymbolType.SYMBOL_TYPE_ASPECT))}
+      {statDisplay(value: $totalMacros, label: 'Macros', color: symbolColor(type: SymbolType.SYMBOL_TYPE_MACRO))}
     </div>
     <div class="Box Box--condensed mt-4" style="width: 100%; max-width: 800px">
       <div class="Box-header">
@@ -1788,7 +1789,7 @@ https://raw.githubusercontent.com/{$org}/{$repo}/{$commitSha}/{$path}
               {if $index > 0}
                 <span class="text-light">, </span>
               {/if}
-              {let $providerColor: symbolColor(type: 3) /}
+              {let $providerColor: symbolColor(type: SymbolType.SYMBOL_TYPE_PROVIDER) /}
               <label class="Label text-mono text-sm">{octiconDotFill16(fill: 'var(' + $providerColor + ')')} {$providerName}</label>
             {/for}
           {/for}
@@ -1803,35 +1804,35 @@ https://raw.githubusercontent.com/{$org}/{$repo}/{$commitSha}/{$path}
 {template attrName kind="text"}
   {@param type: int}
 {switch $type}
-  {case 0} /* UNKNOWN */
+  {case AttributeType.UNKNOWN}
     unknown
-  {case 1} /* NAME */
+  {case AttributeType.NAME}
     name
-  {case 2} /* INT */
+  {case AttributeType.INT}
     int
-  {case 3} /* LABEL */
+  {case AttributeType.LABEL}
     label
-  {case 4} /* STRING */
+  {case AttributeType.STRING}
     string
-  {case 5} /* STRING_LIST */
+  {case AttributeType.STRING_LIST}
     string_list
-  {case 6} /* INT_LIST */
+  {case AttributeType.INT_LIST}
     int_list
-  {case 7} /* LABEL_LIST */
+  {case AttributeType.LABEL_LIST}
     label_list
-  {case 8} /* BOOLEAN */
+  {case AttributeType.BOOLEAN}
     bool
-  {case 9} /* LABEL_STRING_DICT */
+  {case AttributeType.LABEL_STRING_DICT}
     label_string_dict
-  {case 10} /* STRING_DICT */
+  {case AttributeType.STRING_DICT}
     string_dict
-  {case 11} /* STRING_LIST_DICT */
+  {case AttributeType.STRING_LIST_DICT}
     string_list_dict
-  {case 12} /* OUTPUT */
+  {case AttributeType.OUTPUT}
     output
-  {case 13} /* OUTPUT_LIST */
+  {case AttributeType.OUTPUT_LIST}
     output_list
-  {case 14} /* LABEL_DICT_UNARY */
+  {case AttributeType.LABEL_DICT_UNARY}
     label_dict_unary
   {default}
     type-{$type}
@@ -1841,35 +1842,35 @@ https://raw.githubusercontent.com/{$org}/{$repo}/{$commitSha}/{$path}
 {template attrColor kind="text"}
   {@param type: int}
 {switch $type}
-  {case 0} /* UNKNOWN */
+  {case AttributeType.UNKNOWN}
     --color-prettylights-syntax-comment
-  {case 1} /* NAME */
+  {case AttributeType.NAME}
     --color-prettylights-syntax-entity
-  {case 2} /* INT */
+  {case AttributeType.INT}
     --color-prettylights-syntax-constant
-  {case 3} /* LABEL */
+  {case AttributeType.LABEL}
     --color-prettylights-syntax-entity-tag
-  {case 4} /* STRING */
+  {case AttributeType.STRING}
     --color-prettylights-syntax-string
-  {case 5} /* STRING_LIST */
+  {case AttributeType.STRING_LIST}
     --color-prettylights-syntax-string
-  {case 6} /* INT_LIST */
+  {case AttributeType.INT_LIST}
     --color-prettylights-syntax-constant
-  {case 7} /* LABEL_LIST */
+  {case AttributeType.LABEL_LIST}
     --color-prettylights-syntax-entity-tag
-  {case 8} /* BOOLEAN */
+  {case AttributeType.BOOLEAN}
     --color-prettylights-syntax-keyword
-  {case 9} /* LABEL_STRING_DICT */
+  {case AttributeType.LABEL_STRING_DICT}
     --color-prettylights-syntax-meta-diff-range
-  {case 10} /* STRING_DICT */
+  {case AttributeType.STRING_DICT}
     --color-prettylights-syntax-meta-diff-range
-  {case 11} /* STRING_LIST_DICT */
+  {case AttributeType.STRING_LIST_DICT}
     --color-prettylights-syntax-meta-diff-range
-  {case 12} /* OUTPUT */
+  {case AttributeType.OUTPUT}
     --color-prettylights-syntax-markup-changed-text
-  {case 13} /* OUTPUT_LIST */
+  {case AttributeType.OUTPUT_LIST}
     --color-prettylights-syntax-markup-changed-text
-  {case 14} /* LABEL_DICT_UNARY */
+  {case AttributeType.LABEL_DICT_UNARY}
     --color-prettylights-syntax-meta-diff-range
   {default}
     --color-fg-default
@@ -1909,25 +1910,25 @@ https://raw.githubusercontent.com/{$org}/{$repo}/{$commitSha}/{$path}
 {template symbolColor kind="text"}
   {@param type: int}
 {switch $type}
-  {case 1} /* SYMBOL_TYPE_RULE */
+  {case SymbolType.SYMBOL_TYPE_RULE}
     --color-prettylights-syntax-entity
-  {case 2} /* SYMBOL_TYPE_FUNCTION */
+  {case SymbolType.SYMBOL_TYPE_FUNCTION}
     --color-prettylights-syntax-variable
-  {case 3} /* SYMBOL_TYPE_PROVIDER */
+  {case SymbolType.SYMBOL_TYPE_PROVIDER}
     --color-prettylights-syntax-constant
-  {case 4} /* SYMBOL_TYPE_ASPECT */
+  {case SymbolType.SYMBOL_TYPE_ASPECT}
     --color-prettylights-syntax-string
-  {case 5} /* SYMBOL_TYPE_MODULE_EXTENSION */
+  {case SymbolType.SYMBOL_TYPE_MODULE_EXTENSION}
     --color-prettylights-syntax-keyword
-  {case 6} /* SYMBOL_TYPE_REPOSITORY_RULE */
+  {case SymbolType.SYMBOL_TYPE_REPOSITORY_RULE}
     --color-prettylights-syntax-entity-tag
-  {case 7} /* SYMBOL_TYPE_MACRO */
+  {case SymbolType.SYMBOL_TYPE_MACRO}
     --color-prettylights-syntax-markup-heading
-  {case 8} /* SYMBOL_TYPE_RULE_MACRO */
+  {case SymbolType.SYMBOL_TYPE_RULE_MACRO}
     --color-prettylights-syntax-markup-heading
-  {case 9} /* SYMBOL_TYPE_LOAD */
+  {case SymbolType.SYMBOL_TYPE_LOAD_STMT}
     --color-prettylights-syntax-storage-modifier-import
-  {case 10} /* SYMBOL_TYPE_VALUE */
+  {case SymbolType.SYMBOL_TYPE_VALUE}
     --color-prettylights-syntax-markup-list
   {default}
     --color-fg-default
@@ -1937,25 +1938,25 @@ https://raw.githubusercontent.com/{$org}/{$repo}/{$commitSha}/{$path}
 {template symbolTypeName kind="text"}
   {@param type: int}
 {switch $type}
-  {case 1} /* SYMBOL_TYPE_RULE */
+  {case SymbolType.SYMBOL_TYPE_RULE}
     Rule
-  {case 2} /* SYMBOL_TYPE_FUNCTION */
+  {case SymbolType.SYMBOL_TYPE_FUNCTION}
     Function
-  {case 3} /* SYMBOL_TYPE_PROVIDER */
+  {case SymbolType.SYMBOL_TYPE_PROVIDER}
     Provider
-  {case 4} /* SYMBOL_TYPE_ASPECT */
+  {case SymbolType.SYMBOL_TYPE_ASPECT}
     Aspect
-  {case 5} /* SYMBOL_TYPE_MODULE_EXTENSION */
+  {case SymbolType.SYMBOL_TYPE_MODULE_EXTENSION}
     Module Extension
-  {case 6} /* SYMBOL_TYPE_REPOSITORY_RULE */
+  {case SymbolType.SYMBOL_TYPE_REPOSITORY_RULE}
     Repository Rule
-  {case 7} /* SYMBOL_TYPE_MACRO */
+  {case SymbolType.SYMBOL_TYPE_MACRO}
     Macro
-  {case 8} /* SYMBOL_TYPE_RULE_MACRO */
+  {case SymbolType.SYMBOL_TYPE_RULE_MACRO}
     Rule Macro
-  {case 9} /* SYMBOL_TYPE_LOAD */
+  {case SymbolType.SYMBOL_TYPE_LOAD_STMT}
     Load
-  {case 10} /* SYMBOL_TYPE_VALUE */
+  {case SymbolType.SYMBOL_TYPE_VALUE}
     Value
   {default}
     Unknown
@@ -2217,11 +2218,11 @@ https://raw.githubusercontent.com/{$org}/{$repo}/{$commitSha}/{$path}
   {@param module: Module}
   {@param? lang: string}
   {@param? description: string}
-  <div>
+  <div class="d-flex flex-items-center">
     {octiconSquareFill16(class: 'mr-2', fill: 'var(--lang-' + $lang + '-bg)')}
     <span class="text-semibold">{$module.getName()}</span>
     {if $description}
-      <span class="ml-1 text-small" style="color: var(--color-fg-muted)">
+      <span class="ml-auto text-small overflow-x-hidden" style="color: var(--color-fg-muted)">
         {$description|truncate:96}
       </span>
     {/if}
@@ -2231,15 +2232,22 @@ https://raw.githubusercontent.com/{$org}/{$repo}/{$commitSha}/{$path}
 
 {template symbolSearchRow kind="html<div>"}
   {@param sym: SymbolInfo}
-  {@param moduleVersion: string}
-  {@param filePath: string}
+  {@param? label: Label}
+  {@param? description: string}
   <div class="d-flex flex-items-center">
-    <span class="text-semibold flex-auto">{$sym.getName()}</span>
-    <span class="Label Label--secondary ml-2" style="font-size: 11px;">{$moduleVersion}</span>
-    <span class="color-fg-muted text-small ml-2">{$filePath}</span>
-    <span class="Label ml-2" style="background-color: var({symbolColor(type: $sym.getType())}); color: var(--color-fg-on-emphasis); font-size: 11px;">
-      {symbolTypeName(type: $sym.getType())}
+    <span style="color: var({symbolColor(type: $sym.getType())})">
+      {let $name: symbolTypeName(type: $sym.getType()) /}
+      {$name.toAsciiLowerCase()}
     </span>
+    <span class="text-semibold ml-1">{$sym.getName()}</span>
+    {if $label}
+      <span class="color-fg-muted text-small ml-2">{renderLabel(label: $label)}</span>
+    {/if}
+    {if $description}
+      <span class="ml-auto text-small overflow-x-hidden" style="color: var(--color-fg-muted)">
+        {$description|truncate:96}
+      </span>
+    {/if}
   </div>
 {/template}
 

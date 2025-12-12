@@ -18,6 +18,7 @@ const { symbolSearchRow } = goog.require('soy.centrl.app');
 const FileInfo = goog.require("proto.build.stack.bazel.bzlmod.v1.FileInfo");
 const Registry = goog.require("proto.build.stack.bazel.bzlmod.v1.Registry");
 const SymbolInfo = goog.require("proto.build.stack.bazel.bzlmod.v1.SymbolInfo");
+const SymbolType = goog.require('proto.build.stack.bazel.bzlmod.v1.SymbolType');
 
 /** @typedef {{file: !FileInfo, sym: !SymbolInfo, moduleVersion: string}} */
 let FileSymbol;
@@ -106,6 +107,12 @@ class DocumentationSearchHandler extends EventTarget {
                     const filePath = pkg ? `${pkg}/${name}` : name;
 
                     for (const sym of file.getSymbolList()) {
+                        const symType = sym.getType();
+                        // Skip LOAD (9) and VALUE (10) symbols from search
+                        if (symType === SymbolType.SYMBOL_TYPE_LOAD_STMT || symType === SymbolType.SYMBOL_TYPE_VALUE) {
+                            continue;
+                        }
+
                         const symName = sym.getName();
                         const key = `${symName} (${moduleVersion}:${filePath})`;
 
@@ -229,16 +236,13 @@ class SymbolRowRenderer {
      * @param {!Element} row
      */
     renderSymbol(fileSymbol, entry, val, row) {
-        const { file, sym, moduleVersion } = fileSymbol;
+        const { file, sym } = fileSymbol;
         const label = file.getLabel();
-        const pkg = label?.getPkg() || '';
-        const name = label?.getName() || '';
-        const filePath = pkg ? `${pkg}/${name}` : name;
 
         const el = soy.renderAsElement(symbolSearchRow, {
             sym,
-            moduleVersion,
-            filePath,
+            label: label || undefined,
+            description: sym.getDescription(),
         });
 
         // Add a dataset entry on the element for testing
