@@ -440,8 +440,8 @@ enum SymbolType {
     SYMBOL_TYPE_REPOSITORY_RULE = 6;
     SYMBOL_TYPE_MACRO = 7;
     SYMBOL_TYPE_RULE_MACRO = 8;
-    SYMBOL_TYPE_LOAD_STMT = 9;
-    SYMBOL_TYPE_VALUE = 10;
+    SYMBOL_TYPE_VALUE = 9;
+    SYMBOL_TYPE_LOAD_STMT = 10;
 }
 
 // SymbolInfo represents information about a symbol in a Bazel module

@@ -132,8 +132,8 @@ const (
 	SymbolType_SYMBOL_TYPE_REPOSITORY_RULE  SymbolType = 6
 	SymbolType_SYMBOL_TYPE_MACRO            SymbolType = 7
 	SymbolType_SYMBOL_TYPE_RULE_MACRO       SymbolType = 8
-	SymbolType_SYMBOL_TYPE_LOAD             SymbolType = 9
-	SymbolType_SYMBOL_TYPE_VALUE            SymbolType = 10
+	SymbolType_SYMBOL_TYPE_VALUE            SymbolType = 9
+	SymbolType_SYMBOL_TYPE_LOAD_STMT        SymbolType = 10
 )
 
 // Enum value maps for SymbolType.
@@ -148,8 +148,8 @@ var (
 		6:  "SYMBOL_TYPE_REPOSITORY_RULE",
 		7:  "SYMBOL_TYPE_MACRO",
 		8:  "SYMBOL_TYPE_RULE_MACRO",
-		9:  "SYMBOL_TYPE_LOAD",
-		10: "SYMBOL_TYPE_VALUE",
+		9:  "SYMBOL_TYPE_VALUE",
+		10: "SYMBOL_TYPE_LOAD_STMT",
 	}
 	SymbolType_value = map[string]int32{
 		"SYMBOL_TYPE_UNKNOWN":          0,
@@ -161,8 +161,8 @@ var (
 		"SYMBOL_TYPE_REPOSITORY_RULE":  6,
 		"SYMBOL_TYPE_MACRO":            7,
 		"SYMBOL_TYPE_RULE_MACRO":       8,
-		"SYMBOL_TYPE_LOAD":             9,
-		"SYMBOL_TYPE_VALUE":            10,
+		"SYMBOL_TYPE_VALUE":            9,
+		"SYMBOL_TYPE_LOAD_STMT":        10,
 	}
 )
 
@@ -3463,7 +3463,7 @@ const file_build_stack_bazel_bzlmod_v1_bcr_proto_rawDesc = "" +
 	"\x12BazelHelpParseMode\x12\t\n" +
 	"\x05USAGE\x10\x00\x12\f\n" +
 	"\bCATEGORY\x10\x01\x12\b\n" +
-	"\x04FLAG\x10\x02*\xaa\x02\n" +
+	"\x04FLAG\x10\x02*\xaf\x02\n" +
 	"\n" +
 	"SymbolType\x12\x17\n" +
 	"\x13SYMBOL_TYPE_UNKNOWN\x10\x00\x12\x14\n" +
@@ -3474,9 +3474,9 @@ const file_build_stack_bazel_bzlmod_v1_bcr_proto_rawDesc = "" +
 	"\x1cSYMBOL_TYPE_MODULE_EXTENSION\x10\x05\x12\x1f\n" +
 	"\x1bSYMBOL_TYPE_REPOSITORY_RULE\x10\x06\x12\x15\n" +
 	"\x11SYMBOL_TYPE_MACRO\x10\a\x12\x1a\n" +
-	"\x16SYMBOL_TYPE_RULE_MACRO\x10\b\x12\x14\n" +
-	"\x10SYMBOL_TYPE_LOAD\x10\t\x12\x15\n" +
-	"\x11SYMBOL_TYPE_VALUE\x10\n" +
+	"\x16SYMBOL_TYPE_RULE_MACRO\x10\b\x12\x15\n" +
+	"\x11SYMBOL_TYPE_VALUE\x10\t\x12\x19\n" +
+	"\x15SYMBOL_TYPE_LOAD_STMT\x10\n" +
 	"*W\n" +
 	"\x13DocumentationSource\x12 \n" +
 	"\x1cDOCUMENTATION_SOURCE_UNKNOWN\x10\x00\x12\r\n" +

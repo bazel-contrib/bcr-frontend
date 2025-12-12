@@ -2024,6 +2024,7 @@ class ModuleVersionComponent extends Component {
         this.enterDevDependencies();
         this.enterDependents();
         this.enterNextVersion();
+        this.enterReadme();
     }
 
     enterDependencies() {
@@ -2061,6 +2062,13 @@ class ModuleVersionComponent extends Component {
             this.addChild(depsComponent, false);
             depsComponent.render(depsEl);
         }
+    }
+
+    enterReadme() {
+        const readmeEl = dom.getRequiredElementByClass(goog.getCssName('readme'), this.getElementStrict());
+        const component = new DocumentationReadmeComponent(this.module_, this.moduleVersion_, this.dom_);
+        this.addChild(component, false);
+        component.render(readmeEl);
     }
 
     enterNextVersion() {

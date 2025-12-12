@@ -338,7 +338,7 @@ func makeLoadStmtSymbol(load *slpb.LoadStmt) *bzpb.SymbolInfo {
 		}
 	}
 	return &bzpb.SymbolInfo{
-		Type:        bzpb.SymbolType_SYMBOL_TYPE_LOAD,
+		Type:        bzpb.SymbolType_SYMBOL_TYPE_LOAD_STMT,
 		Name:        name,
 		Description: "", // Load statements don't have descriptions
 		Info:        &bzpb.SymbolInfo_Load{Load: load},
