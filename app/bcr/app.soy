@@ -19,6 +19,7 @@ import {
     octiconListUnordered16,
     octiconMarkGithub16,
     octiconMarkGithub24,
+    octiconNorthStar16,
     octiconPackage16,
     octiconPaintbrush16,
     octiconPerson16,
@@ -26,7 +27,6 @@ import {
     octiconSkip24,
     octiconSparkleFill16,
     octiconSquareFill16,
-    octiconSun16,
     octiconTable16,
     octiconWorkflow16
 } from 'app/bcr/octicons.soy';
@@ -78,6 +78,7 @@ import {
   copyToClipboardButton,
   counterLabel,
   docsList,
+  documentationSourceOcticon,
   maintainerBreadcrumb,
   maintainerModuleVersionTable,
   maintainerProfile,
@@ -170,7 +171,7 @@ import {
     <div class="BtnGroup">
       {headerLink(path: "modules", label: "Modules", octicon: octiconPackage16())}
       {headerLink(path: "maintainers", label: "Maintainers", octicon: octiconFeedPerson16())}
-      {headerLink(path: "docs", label: "Documentation", octicon: octiconSun16())}
+      {headerLink(path: "docs", label: "Documentation", octicon: octiconNorthStar16())}
     </div>
   </div>
 </div>
@@ -201,7 +202,62 @@ import {
 
 {template homeSelect}
 <div>
-  <div class="{css('content')}"></div>
+  <div class="{css('content')}" style="display: flex; justify-content: center; align-items: center; min-height: 50vh;">
+    <svg width="200" height="200" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+      <!-- Cat body -->
+      <ellipse cx="100" cy="120" rx="50" ry="45" fill="#f4a460"/>
+
+      <!-- Cat head -->
+      <circle cx="100" cy="70" r="40" fill="#f4a460"/>
+
+      <!-- Left ear -->
+      <polygon points="70,45 75,25 85,45" fill="#f4a460"/>
+      <polygon points="73,42 76,30 82,42" fill="#ffc0cb"/>
+
+      <!-- Right ear -->
+      <polygon points="115,45 125,25 130,45" fill="#f4a460"/>
+      <polygon points="118,42 124,30 127,42" fill="#ffc0cb"/>
+
+      <!-- Left eye -->
+      <ellipse cx="85" cy="65" rx="8" ry="12" fill="#fff"/>
+      <ellipse cx="85" cy="68" rx="5" ry="8" fill="#000"/>
+      <ellipse cx="86" cy="66" rx="2" ry="3" fill="#fff"/>
+
+      <!-- Right eye -->
+      <ellipse cx="115" cy="65" rx="8" ry="12" fill="#fff"/>
+      <ellipse cx="115" cy="68" rx="5" ry="8" fill="#000"/>
+      <ellipse cx="116" cy="66" rx="2" ry="3" fill="#fff"/>
+
+      <!-- Nose -->
+      <polygon points="100,78 97,83 103,83" fill="#ff69b4"/>
+
+      <!-- Mouth -->
+      <path d="M 100 83 Q 95 88 90 85" stroke="#8b4513" stroke-width="1.5" fill="none"/>
+      <path d="M 100 83 Q 105 88 110 85" stroke="#8b4513" stroke-width="1.5" fill="none"/>
+
+      <!-- Whiskers left -->
+      <line x1="65" y1="72" x2="40" y2="70" stroke="#8b4513" stroke-width="1"/>
+      <line x1="65" y1="77" x2="40" y2="78" stroke="#8b4513" stroke-width="1"/>
+      <line x1="65" y1="82" x2="40" y2="86" stroke="#8b4513" stroke-width="1"/>
+
+      <!-- Whiskers right -->
+      <line x1="135" y1="72" x2="160" y2="70" stroke="#8b4513" stroke-width="1"/>
+      <line x1="135" y1="77" x2="160" y2="78" stroke="#8b4513" stroke-width="1"/>
+      <line x1="135" y1="82" x2="160" y2="86" stroke="#8b4513" stroke-width="1"/>
+
+      <!-- Tail -->
+      <path d="M 145 135 Q 165 130 175 145 Q 180 155 170 160" stroke="#f4a460" stroke-width="12" fill="none" stroke-linecap="round"/>
+
+      <!-- Left front paw -->
+      <ellipse cx="80" cy="160" rx="10" ry="15" fill="#f4a460"/>
+
+      <!-- Right front paw -->
+      <ellipse cx="120" cy="160" rx="10" ry="15" fill="#f4a460"/>
+
+      <!-- Belly patch -->
+      <ellipse cx="100" cy="130" rx="25" ry="20" fill="#ffe4b5"/>
+    </svg>
+  </div>
 </div>
 {/template}
 
@@ -2283,6 +2339,8 @@ https://raw.githubusercontent.com/{$org}/{$repo}/{$commitSha}/{$path}
 <div>
   <div class="f4 color-fg-muted">
   {if $info}
+    <span class="mr-1">{documentationSourceOcticon(source: $info.getSource())}</span>
+
     {if $info.getSource() == DocumentationSource.PUBLISHED}
       Official published documentation for <strong>{$info.getModuleName()}</strong> version <strong>{$info.getVersion()}</strong>.
     {elseif $info.getSource() == DocumentationSource.BEST_EFFORT}
