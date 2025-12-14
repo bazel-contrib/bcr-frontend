@@ -183,7 +183,6 @@ starlark_repository_internal = use_extension("@build_stack_rules_proto//extensio
 starlark_repository_internal.archive(
     name = "bzl.bazel_tools",
     build_directives = [
-        "gazelle:starlarkrepository_log_file /Users/pcj/go/src/github.com/stackb/centrl/starlark_repository-gazelle.bazel_tools.log",
         "gazelle:starlarkrepository_root tools",
         "gazelle:starlarkrepository_root src/main/starlark/builtins_bzl",
     ],
