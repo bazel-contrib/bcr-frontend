@@ -1,0 +1,107 @@
+{namespace soy.centrl.treeview}
+
+import {DependencyTree, DependencyTreeNode} from 'build/stack/bazel/bzlmod/v1/bcr.proto';
+import {moduleVersionUrl} from 'app/bcr/registry.soy';
+
+/**
+ * Renders a TreeView with SVG tree lines for a DependencyTree.
+ */
+{template dependencyTree}
+  {@param tree: DependencyTree}
+  <div class="treeview-root" role="tree">
+    <div class="treeview-item treeview-item-root" role="treeitem">
+      <div class="treeview-item-row">
+        {let $rootVersion: checkNotNull($tree.getModuleVersion()) /}
+        <a class="treeview-label" href="{moduleVersionUrl(name: $rootVersion.getName(), version: $rootVersion.getVersion())}">
+          {$rootVersion.getName()}
+          <span class="ml-1 text-light text-small">
+            {$rootVersion.getVersion()}
+          </span>
+        </a>
+      </div>
+      {if $tree.getChildrenList() && length($tree.getChildrenList()) > 0}
+        <div class="treeview-children" role="group">
+          {for $child, $index in $tree.getChildrenList()}
+            {call dependencyTreeNode}
+              {param node: $child /}
+              {param level: 1 /}
+              {param isLast: $index == length($tree.getChildrenList()) - 1 /}
+            {/call}
+          {/for}
+        </div>
+      {/if}
+    </div>
+  </div>
+{/template}
+
+/**
+ * Renders a single dependency tree node recursively with SVG lines.
+ */
+{template dependencyTreeNode visibility="private"}
+  {@param node: DependencyTreeNode}
+  {@param level: int}
+  {@param isLast: bool}
+
+  {let $hasChildren: $node.getChildrenList() && length($node.getChildrenList()) > 0 /}
+
+  <div class="treeview-item {$isLast ? 'treeview-item-last' : ''}" role="treeitem"
+      data-tree-id="{$node.getModuleVersion()?.getName()}@{$node.getModuleVersion()?.getVersion()}"
+      style="--level: {$level}; --is-last: {$isLast ? '1' : '0'};">
+
+    <div class="treeview-item-row">
+      <svg class="treeview-line" width="24" height="24" xmlns="http://www.w3.org/2000/svg">
+        <!-- Horizontal line -->
+        <line x1="0" y1="12" x2="18" y2="12" stroke="var(--color-border-default)" stroke-width="1.5"/>
+
+        <!-- Vertical line coming from above -->
+        <line x1="0" y1="0" x2="0" y2="12" stroke="var(--color-border-default)" stroke-width="1.5"/>
+
+        <!-- Vertical line continuing below (only if not last item) -->
+        {if !$isLast}
+          <line x1="0" y1="12" x2="0" y2="24" stroke="var(--color-border-default)" stroke-width="1.5"/>
+        {/if}
+
+        <!-- Indicator dot for nodes with children or pruned -->
+        {if $hasChildren || $node.getPruned()}
+          <circle cx="18" cy="12" r="2.5" fill="var(--color-border-default)"/>
+        {/if}
+      </svg>
+
+      {let $nodeVersion: checkNotNull($node.getModuleVersion()) /}
+      <a class="treeview-label" href="{moduleVersionUrl(name: $nodeVersion.getName(), version: $nodeVersion.getVersion())}">
+        {$nodeVersion.getName()}
+        <span class="ml-1 text-light text-small">
+          {if $node.getUpgraded() && $node.getRequestedVersion() != $nodeVersion.getVersion()}
+            <span class="mr-1" style="text-decoration: line-through;">{$node.getRequestedVersion()}</span>
+            <span class="text-bold" style="color: var(--fgColor-attention, var(--color-attention-fg));">{$nodeVersion.getVersion()}</span>
+          {else}
+            {$nodeVersion.getVersion()}
+          {/if}
+        </span>
+        {if $node.getDev()}
+          <span class="ml-1 text-light text-small">[dev]</span>
+        {/if}
+        {if $node.getPruned()}
+          <span class="ml-1 text-light text-small">*</span>
+        {/if}
+        {if $node.getOverrideType()}
+          <a class="ml-1 text-light text-small treeview-override-badge" href="#{$nodeVersion.getName()}-override">
+            [override: {$node.getOverrideType()}]
+          </a>
+        {/if}
+      </a>
+    </div>
+
+    {if $hasChildren}
+      <div class="treeview-children" role="group">
+        {for $child, $index in $node.getChildrenList()}
+          {call dependencyTreeNode}
+            {param node: $child /}
+            {param level: $level + 1 /}
+            {param isLast: $index == length($node.getChildrenList()) - 1 /}
+          {/call}
+        {/for}
+      </div>
+    {/if}
+  </div>
+{/template}

@@ -1,4 +1,4 @@
-"provides the module_maintainer rule"
+"""Provides the module_maintainer rule."""
 
 load("//rules:providers.bzl", "ModuleMaintainerInfo")
 
@@ -14,13 +14,24 @@ def _module_maintainer_impl(ctx):
     ]
 
 module_maintainer = rule(
+    doc = "Defines a module maintainer with contact information.",
     implementation = _module_maintainer_impl,
     attrs = {
-        "email": attr.string(),
-        "username": attr.string(),
-        "github": attr.string(),
-        "do_not_notify": attr.bool(),
-        "github_user_id": attr.int(),
+        "email": attr.string(
+            doc = "str: Maintainer email address",
+        ),
+        "username": attr.string(
+            doc = "str: Maintainer username",
+        ),
+        "github": attr.string(
+            doc = "str: GitHub username",
+        ),
+        "do_not_notify": attr.bool(
+            doc = "bool: Whether to suppress notifications to this maintainer",
+        ),
+        "github_user_id": attr.int(
+            doc = "int: GitHub user ID",
+        ),
     },
     provides = [ModuleMaintainerInfo],
 )

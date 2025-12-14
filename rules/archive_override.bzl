@@ -1,4 +1,4 @@
-"provides the archive_override rule"
+"""Provides the archive_override rule."""
 
 load("//rules:providers.bzl", "ArchiveOverrideInfo", "ModuleOverrideInfo")
 
@@ -18,14 +18,29 @@ def _archive_override_impl(ctx):
     ]
 
 archive_override = rule(
+    doc = "Defines an archive-based module override configuration.",
     implementation = _archive_override_impl,
     attrs = {
-        "module_name": attr.string(mandatory = True),
-        "integrity": attr.string(),
-        "patch_strip": attr.int(default = 0),
-        "patches": attr.string_list(),
-        "strip_prefix": attr.string(),
-        "urls": attr.string_list(),
+        "module_name": attr.string(
+            doc = "str: Name of the module being overridden (required)",
+            mandatory = True,
+        ),
+        "integrity": attr.string(
+            doc = "str: Archive integrity hash",
+        ),
+        "patch_strip": attr.int(
+            doc = "int: Number of leading path components to strip from patches",
+            default = 0,
+        ),
+        "patches": attr.string_list(
+            doc = "list[str]: Patch file paths",
+        ),
+        "strip_prefix": attr.string(
+            doc = "str: Directory prefix to strip from the archive",
+        ),
+        "urls": attr.string_list(
+            doc = "list[str]: Archive URLs",
+        ),
     },
     provides = [ModuleOverrideInfo, ArchiveOverrideInfo],
 )

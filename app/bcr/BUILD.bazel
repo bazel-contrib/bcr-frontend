@@ -22,6 +22,23 @@ string_flag(
     visibility = ["//visibility:public"],
 )
 
+string_flag(
+    name = "docs_release",
+    build_setting_default = "production",
+    values = [
+        "skip",
+        "production",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+config_setting(
+    name = "is_docs_release",
+    flag_values = {
+        ":docs_release": "production",
+    },
+)
+
 config_setting(
     name = "is_debug_release",
     flag_values = {
@@ -61,9 +78,11 @@ closure_js_template_library(
         "app.soy",
         "octicons.soy",
         "registry.soy",
+        "treeview.soy",
     ],
     deps = [
         "//build/stack/bazel/bzlmod/v1:bzpb_js",
+        "//build/stack/starlark/v1beta1:v1beta1_proto_js",
         "//stardoc_output:stardoc_output_js",
     ],
 )
@@ -104,8 +123,13 @@ closure_js_library(
     name = "app",
     srcs = [
         "app.js",
+        "documentation_search.js",
         "main.js",
+        "module_search.js",
+        "mvs.js",
+        "mvs_tree.js",
         "search.js",
+        "treeview.js",
         ":shiki",
     ],
     deps = [
@@ -113,6 +137,7 @@ closure_js_library(
         ":common",
         ":soy",
         "//build/stack/bazel/bzlmod/v1:bzpb_js",
+        "//build/stack/starlark/v1beta1:v1beta1_proto_js",
         "//stardoc_output:stardoc_output_js",
         "@stackb_rules_closure//closure/goog/array",
         "@stackb_rules_closure//closure/goog/asserts",
@@ -120,17 +145,25 @@ closure_js_library(
         "@stackb_rules_closure//closure/goog/date",
         "@stackb_rules_closure//closure/goog/date:relative",
         "@stackb_rules_closure//closure/goog/dom",
+        "@stackb_rules_closure//closure/goog/dom:classlist",
         "@stackb_rules_closure//closure/goog/dom:dataset",
         "@stackb_rules_closure//closure/goog/events",
+        "@stackb_rules_closure//closure/goog/events:eventtype",
         "@stackb_rules_closure//closure/goog/events:listenable",
         "@stackb_rules_closure//closure/goog/soy",
         "@stackb_rules_closure//closure/goog/string",
         "@stackb_rules_closure//closure/goog/string:path",
+        "@stackb_rules_closure//closure/goog/structs:treenode",
         "@stackb_rules_closure//closure/goog/structs:trie",
+        "@stackb_rules_closure//closure/goog/style",
         "@stackb_rules_closure//closure/goog/ui:component",
         "@stackb_rules_closure//closure/goog/ui/ac:autocomplete",
         "@stackb_rules_closure//closure/goog/ui/ac:renderer",
+        "@stackb_rules_closure//closure/goog/ui/tree:treecontrol",
+        "@stackb_rules_closure//closure/goog/ui/tree:treenode",
         "@stackb_rules_closure//closure/protobuf:jspb",
+        "@stackb_rules_closure//google3/third_party/javascript/safevalues",
+        "@stackb_rules_closure//google3/third_party/javascript/safevalues/dom/elements",
         "@stackb_ui_js//js/ui:core",
         "@stackb_ui_js//js/ui:select",
     ],
@@ -165,6 +198,7 @@ closure_js_binary(
         "sitemap_xml",
         "robots_txt",
         "registry_pb",
+        "documentation_registry_pb",
     ]
 ]
 
@@ -194,6 +228,10 @@ release_archive(
         ":is_debug_release": ["bcr.js.map"],
         "//conditions:default": [],
     }),
+    # documentation_registry_file = select({
+    #     "//app/bcr:is_docs_release": ":documentation_registry_pb",
+    #     "//conditions:default": None,
+    # }),
     hashed_srcs = [
         ":bcr.css",
         ":bcr.js",

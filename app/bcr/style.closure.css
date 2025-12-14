@@ -3,16 +3,9 @@
  * closure_css_binary and renaming.
  */
 
-:root {
-  --header-bgColor: white;
-  --color-header-text: black;
-  --color-header-logo: black;
-  --color-header-search-bg: rgba(255, 255, 255, 0.90);
-}
-
 .app-container {
-  background: #333;
-  color: #f6f6f6;
+  background: var(--color-canvas-default);
+  color: var(--color-fg-default);
   font-family: sans-serif;
   margin: 1em auto;
   padding: 0 1em;
@@ -24,22 +17,19 @@
   max-width: 120px;
 }
 
-.app-emphasis {
-  color: #f63333;
-}
-
 
 /* Dossier-inspired autocomplete */
 
 .dossier-ac {
-  z-index: 2;
+  z-index: 200;
 }
 
 .ac-renderer {
+  z-index: 200;
   position: absolute;
-  background: #fff;
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  box-shadow: 4px 4px 4px rgba(102, 102, 102, 0.4);
+  background: var(--color-canvas-overlay);
+  border: 1px solid var(--color-border-default);
+  box-shadow: var(--color-shadow-medium);
   /* width: 300px; */
   margin-top: 8px;
   padding: 8px;
@@ -58,10 +48,170 @@
 }
 
 .ac-highlighted {
-  background-color: rgba(0, 0, 0, 0.18);
+  background-color: var(--color-neutral-muted);
 }
 
 .ac-active {
-  background-color: rgba(82, 82, 82, 0.1);
-  color: green;
+  background-color: var(--color-action-list-item-default-selected-bg);
+  color: var(--color-fg-default);
+}
+
+/* Highlighted search text in autocomplete */
+.ac-renderer b,
+.ac-row b {
+  background-color: var(--color-search-keyword-hl);
+  font-weight: 600;
+}
+
+.marked {
+  font-size: 14px !important;
+  overflow-x: auto;
+  overflow-wrap: break-word;
+  word-break: break-word;
+  max-width: 100%
+}
+
+
+/*
+ * Copyright 2007 The Closure Library Authors. All Rights Reserved.
+ *
+ * Use of this source code is governed by the Apache License, Version 2.0.
+ * See the COPYING file for details.
+ */
+
+/*
+   TODO(arv): Currently the sprite image has the height 16px. We should make the
+   image taller which would allow better flexibility when it comes to the height
+   of a tree row.
+ */
+
+.goog-tree-root:focus {
+  outline: none;
+}
+
+.goog-tree-row {
+  white-space: nowrap;
+  font: icon;
+  line-height: 16px;
+  height: 24px;
+}
+
+.goog-tree-row span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.goog-tree-children {
+  background-repeat: repeat-y;
+  background-image: url(//ssl.gstatic.com/closure/tree/I.png) !important;
+  background-position-y: 1px !important;
+  /* IE only */
+  font: icon;
+}
+
+.goog-tree-children-nolines {
+  font: icon;
+}
+
+.goog-tree-icon {
+  background-image: url(//ssl.gstatic.com/closure/tree/tree.png);
+}
+
+.goog-tree-expand-icon {
+  vertical-align: middle;
+  height: 16px;
+  width: 16px;
+  cursor: default;
+}
+
+.goog-tree-expand-icon-plus {
+  width: 19px;
+  background-position: 0 0;
+}
+
+.goog-tree-expand-icon-minus {
+  width: 19px;
+  background-position: -24px 0;
+}
+
+.goog-tree-expand-icon-tplus {
+  width: 19px;
+  background-position: -48px 0;
+}
+
+.goog-tree-expand-icon-tminus {
+  width: 19px;
+  background-position: -72px 0;
+}
+
+.goog-tree-expand-icon-lplus {
+  width: 19px;
+  background-position: -96px 0;
+}
+
+.goog-tree-expand-icon-lminus {
+  width: 19px;
+  background-position: -120px 0;
+}
+
+.goog-tree-expand-icon-t {
+  width: 19px;
+  background-position: -144px 0;
+}
+
+.goog-tree-expand-icon-l {
+  width: 19px;
+  background-position: -168px 0;
+}
+
+.goog-tree-expand-icon-blank {
+  width: 19px;
+  background-position: -168px -24px;
+}
+
+.goog-tree-collapsed-folder-icon {
+  vertical-align: middle;
+  height: 16px;
+  width: 16px;
+  background-position: -0px -24px;
+}
+
+.goog-tree-expanded-folder-icon {
+  vertical-align: middle;
+  height: 16px;
+  width: 16px;
+  background-position: -24px -24px;
+}
+
+.goog-tree-file-icon {
+  vertical-align: middle;
+  height: 16px;
+  width: 16px;
+  background-position: -48px -24px;
+}
+
+.goog-tree-item-label {
+  margin-left: 3px;
+  padding: 1px 2px 1px 2px;
+  text-decoration: none;
+  color: WindowText;
+  cursor: default;
+}
+
+.goog-tree-item-label:hover {
+  text-decoration: underline;
+}
+
+.selected .goog-tree-item-label {
+  background-color: ButtonFace;
+  color: ButtonText;
+}
+
+.focused .selected .goog-tree-item-label {
+  background-color: Highlight;
+  color: HighlightText;
+}
+
+.goog-tree-hide-root {
+  display: none;
 }

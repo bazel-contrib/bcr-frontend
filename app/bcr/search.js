@@ -1,23 +1,16 @@
 /**
- * @fileoverview A class that facilitates autocompletion search for a set of
- * Module objects.
+ * @fileoverview SearchComponent widget for controlling the top navigation bar's search box.
  */
 goog.module("centrl.search");
 
 const asserts = goog.require("goog.asserts");
 const AutoComplete = goog.require("goog.ui.ac.AutoComplete");
-const AutoCompleteMatcher = goog.require("dossier.AutoCompleteMatcher");
-const dom = goog.require("goog.dom");
 const events = goog.require("goog.events");
 const EventTarget = goog.require("goog.events.EventTarget");
-const InputHandler = goog.require("goog.ui.ac.InputHandler");
 const ListenableKey = goog.require("goog.events.ListenableKey");
-const Module = goog.require("proto.build.stack.bazel.bzlmod.v1.Module");
-const Registry = goog.require("proto.build.stack.bazel.bzlmod.v1.Registry");
 const Renderer = goog.require("goog.ui.ac.Renderer");
-const soy = goog.require("goog.soy");
-const { Application, DefaultSearchHandlerName, Searchable, SearchableSelect, SearchProvider } = goog.require("centrl.common");
-const { moduleSearchRow } = goog.require('soy.centrl.app');
+const { Application, DefaultSearchHandlerName, SearchableSelect, SearchProvider } = goog.require("centrl.common");
+const { Searchable } = goog.requireType("centrl.common");
 const { Component } = goog.require("stack.ui");
 
 
@@ -65,8 +58,8 @@ class SearchComponent extends EventTarget {
         /**
          * A mapping from name to SearchProvider.  This is rebuilt each time
          * a new active component routing occurs.
-         * @private @const @type {!Array<!SearchProvider>} */
-        this.providers_ = [];
+         * @private @const @type {!Map<string,!SearchProvider>} */
+        this.providers_ = new Map();
 
         /**
          * The current provider
@@ -115,6 +108,7 @@ class SearchComponent extends EventTarget {
     /**
      * @param {!events.Event} e the event to respond to.
      * @private
+     * @suppress {reportUnknownTypes}
      */
     handleInputFocus(e) {
         setTimeout(() => {
@@ -127,22 +121,27 @@ class SearchComponent extends EventTarget {
             return;
         }
 
-        const inputHandler = this.currentProvider_.inputHandler;
-        if (!inputHandler) {
-            return;
-        }
+        try {
+            const inputHandler = this.currentProvider_.inputHandler;
+            if (!inputHandler) {
+                return;
+            }
 
-        const ac = inputHandler.getAutoComplete();
-        if (!ac) {
-            return;
-        }
+            const ac = inputHandler.getAutoComplete();
+            if (!ac) {
+                return;
+            }
 
-        this.acListenerKey_ = ac.listenOnce(
-            AutoComplete.EventType.UPDATE,
-            this.handleAcUpdate,
-            false,
-            this,
-        );
+            // Listen to UPDATE events for both navigation and selection
+            this.acListenerKey_ = ac.listen(
+                AutoComplete.EventType.UPDATE,
+                this.handleAcUpdate,
+                false,
+                this,
+            );
+        } catch (e) {
+            throw e;
+        }
     }
 
     /**
@@ -176,14 +175,20 @@ class SearchComponent extends EventTarget {
     }
 
     /**
-     * @param {{row:string,index:number}} e the event to respond to.
+     * @param {{type:string,row:string,index:number}} e the event to respond to.
      *
      */
     handleAcUpdate(e) {
         if (e.row) {
             this.submit(e.row);
         }
-        this.blurAndClear();
+
+        // Only blur and clear if this was a selection (Enter key), not navigation
+        // Navigation events don't trigger dismiss
+        if (e.type === 'update' || !e.row) {
+            // This was a final selection, blur and clear
+            this.blurAndClear();
+        }
     }
 
     /**
@@ -192,8 +197,6 @@ class SearchComponent extends EventTarget {
      * @param {?Component} c
      */
     findSearchProviders(c) {
-        this.providers_.length = 0;
-
         let current = c;
         while (current) {
             if (current instanceof SearchableSelect) {
@@ -216,17 +219,18 @@ class SearchComponent extends EventTarget {
      * @param {!SearchProvider} provider
      */
     addSearchProvider(provider) {
-        if (this.providers_.indexOf(provider) === -1) {
-            this.providers_.push(provider);
-        }
+        this.providers_.set(provider.name, provider);
     }
 
     /**
      * @param {string} name
      */
     setCurrentSearchProviderByName(name) {
-        this.currentProviderName_ = name;
-        this.setCurrentProvider(this.providers_.find((p) => p.name === name));
+        const provider = this.providers_.get(name);
+        if (provider) {
+            this.setCurrentProvider(provider);
+        } else {
+        }
     }
 
     /**
@@ -234,10 +238,10 @@ class SearchComponent extends EventTarget {
      * @param {?SearchProvider|undefined} provider
      */
     setCurrentProvider(provider) {
-        if (provider === this.currentProvider_) {
+        if (!provider) {
             return;
         }
-        if (!provider) {
+        if (provider === this.currentProvider_) {
             return;
         }
         this.detachCurrentProvider();
@@ -264,13 +268,14 @@ class SearchComponent extends EventTarget {
      * @param {!SearchProvider} provider
      */
     attachProvider(provider) {
-        if (this.attachProviderInputHandler(provider)) {
+        if (this.didAttachProviderInputHandler(provider)) {
             return;
         }
-        if (this.attachProviderOnChange(provider)) {
+        if (this.didAttachProviderOnChange(provider)) {
             return;
         }
         this.disableInput();
+
     }
 
     /**
@@ -280,7 +285,7 @@ class SearchComponent extends EventTarget {
      * @param {!SearchProvider} provider
      * @returns {boolean}
      */
-    attachProviderInputHandler(provider) {
+    didAttachProviderInputHandler(provider) {
         if (!provider.inputHandler) {
             return false;
         }
@@ -306,7 +311,7 @@ class SearchComponent extends EventTarget {
      * @param {!SearchProvider} provider
      * @returns {boolean}
      */
-    attachProviderOnChange(provider) {
+    didAttachProviderOnChange(provider) {
         this.enableInput(provider);
         return true;
     }
@@ -328,6 +333,7 @@ class SearchComponent extends EventTarget {
         this.inputEl_.placeholder = `${provider.desc}...`;
         this.inputEl_.disabled = false;
         this.currentProvider_ = provider;
+        this.currentProviderName_ = provider.name;
     }
 
     /**
@@ -367,224 +373,12 @@ class SearchComponent extends EventTarget {
     isActive() {
         return this.inputEl_.ownerDocument.activeElement === this.inputEl_;
     }
+
+    /**
+     * @return {string} The current value of the search input.
+     */
+    getValue() {
+        return this.inputEl_.value || '';
+    }
 }
 exports.SearchComponent = SearchComponent;
-
-
-/**
- * Provider implementation that handles autocompletion of Module instances.
- *
- * @implements {Searchable}
- */
-class ModuleSearchHandler extends EventTarget {
-    /**
-     * Construct a new ModuleSearchHandler
-     * @param {!Registry} registry
-     */
-    constructor(registry) {
-        super();
-
-        /** @private @const */
-        this.registry_ = registry;
-
-        /** @private @const @type {!Map<string, string>} */
-        this.links_ = new Map();
-
-        /** @private @const @type {!Map<string, !Module>} */
-        this.modules_ = new Map();
-
-        /** @private @const @type {!ModuleRowRenderer} */
-        this.rowRenderer_ = new ModuleRowRenderer(this.modules_);
-
-        /** @private @const @type {!Renderer} */
-        this.renderer_ = new Renderer(null, {
-            renderRow: goog.bind(this.rowRenderer_.renderRow, this.rowRenderer_),
-        });
-
-        this.renderer_.setAutoPosition(true);
-        this.renderer_.setShowScrollbarsIfTooLarge(true);
-        this.renderer_.setUseStandardHighlighting(true);
-
-        /** @private @const @type {?InputHandler} */
-        this.inputHandler_ = new InputHandler(null, null, false);
-
-        /** @private @type {?AutoComplete} */
-        this.ac_ = null;
-    }
-
-    /**
-     * getSearchProvider implements part of the Searchable interface.
-     *
-     * @override
-     * @returns {!SearchProvider}
-     */
-    getSearchProvider() {
-        /** @type {!SearchProvider} */
-        const provider = {
-            name: DefaultSearchHandlerName,
-            desc: `Search ${this.modules_.size} modules (kbd shortcut: '/')`,
-            incremental: false,
-            inputHandler: this.inputHandler_,
-            onsubmit: goog.bind(this.handleSearchOnSubmit, this),
-        };
-        return provider;
-    }
-
-    /**
-     * @param {!Application} app
-     * @param {string} value
-     */
-    handleSearchOnSubmit(app, value) {
-        const href = this.links_.get(value);
-        if (href) {
-            app.setLocation(href.split("/"));
-        }
-    }
-
-    /**
-     * @param {!Array<string>} data The input data array.
-     */
-    createAutoComplete(data) {
-        const matcher = new AutoCompleteMatcher(data);
-
-        const ac = (this.ac_ = new AutoComplete(
-            matcher,
-            this.renderer_,
-            this.inputHandler_,
-        ));
-        ac.setMaxMatches(15);
-
-        this.inputHandler_.attachAutoComplete(ac);
-        // this.renderer_.setWidthProvider(input);
-    }
-
-    /**
-     * @override
-     */
-    disposeInternal() {
-        this.disposeAutoComplete();
-        this.inputHandler_.dispose();
-        this.renderer_.dispose();
-
-        super.disposeInternal();
-    }
-
-    /**
-     * Dispose of the current autocomplete.
-     */
-    disposeAutoComplete() {
-        this.inputHandler_.attachAutoComplete(null);
-        if (this.ac_) {
-            this.ac_.dispose();
-            this.ac_ = null;
-        }
-    }
-
-    // /**
-    //  * @param {!events.Event} e the event to respond to.
-    //  * @private
-    //  */
-    // onUpdate_(e) {
-    //     e.preventDefault();
-    //     e.stopPropagation();
-
-    //     let uri = this.nameToHref_.get(this.inputEl_.value);
-    //     if (uri) {
-    //         this.dispatchEvent(new exports.SelectionEvent(uri));
-    //     }
-
-    //     // setTimeout(() => {
-    //     //     document.execCommand("selectall", null, false);
-    //     // }, 50);
-    // }
-
-    /**
-     * Add a batch of modules to the search box.
-     * 
-     * @param {!Array<!Module>} modules
-     */
-    addModules(modules) {
-        modules.forEach(module => this.addModule(module));
-        this.createAutoComplete(Array.from(this.modules_.keys()));
-    }
-
-    /**
-     * @param {!Module} module
-     */
-    addModule(module) {
-        const name = module.getName();
-        this.modules_.set(name, module);
-        this.links_.set(name, `modules/${name}`);
-    }
-}
-exports.ModuleSearchHandler = ModuleSearchHandler;
-
-class ModuleRowRenderer {
-    /**
-     * Mapping of module versions by key (e.g. 'abseil-cpp')
-     * @param {!Map<string,!Module>} modules
-     * */
-    constructor(modules) {
-        /** @private @const */
-        this.modules_ = modules;
-    }
-
-    /**
-     * Callback from autocompleter.
-     *
-     * @param {!{data:string}} entry
-     * @param {string} val
-     * @param {!Element} row
-     */
-    renderRow(entry, val, row) {
-        // console.log(`renderRow(${val})`, entry, row);
-        const key = asserts.assertString(entry.data);
-
-        const module = this.modules_.get(key);
-        if (module) {
-            this.renderModule(module, entry, val, row);
-        } else {
-            debugger;
-            dom.append(row, dom.createTextNode(val));
-        }
-    }
-
-    /**
-     * @param {!Module} module
-     * @param {!{data:string}} entry
-     * @param {string} val
-     * @param {!Element} row
-     */
-    renderModule(module, entry, val, row) {
-        let el = soy.renderAsElement(moduleSearchRow, {
-            module,
-            lang: sanitizeLanguageName(module.getRepositoryMetadata()?.getPrimaryLanguage()),
-            description: module.getRepositoryMetadata()?.getDescription(),
-        });
-        // Add a dataset entry on the element for testing
-        dom.dataset.set(el, "cy", entry.data);
-        dom.append(row, el);
-    }
-}
-
-/**
- * Sanitize a language name for use as a CSS identifier
- * Matches the logic in pkg/css/identifier.go SanitizeIdentifier
- * @param {string|undefined} name
- * @return {string}
- */
-function sanitizeLanguageName(name) {
-    if (!name) {
-        return '';
-    }
-    // Replace spaces and special characters
-    let sanitized = name
-        .replace(/ /g, '-')
-        .replace(/\+/g, 'plus')
-        .replace(/#/g, 'sharp');
-
-    // Remove any remaining invalid characters (keep only alphanumeric, hyphen, underscore)
-    sanitized = sanitized.replace(/[^a-zA-Z0-9\-_]/g, '');
-
-    return sanitized;
-}

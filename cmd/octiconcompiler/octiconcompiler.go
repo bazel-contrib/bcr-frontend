@@ -5,7 +5,9 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"maps"
 	"os"
+	"slices"
 	"sort"
 	"strings"
 
@@ -98,11 +100,7 @@ func run(args []string) error {
 	fmt.Fprintf(&out, "{namespace octicons}\n\n")
 
 	// Sort icon names for deterministic output
-	names := make([]string, 0, len(cfg.Icons))
-	for name := range cfg.Icons {
-		names = append(names, name)
-	}
-	sort.Strings(names)
+	names := slices.Sorted(maps.Keys(cfg.Icons))
 
 	// Generate a template for each icon and size combination
 	for _, name := range names {
@@ -186,11 +184,7 @@ func renderNode(out *strings.Builder, node ASTNode, indent string, isRoot bool) 
 
 	// Render attributes
 	// Sort attribute names for deterministic output
-	attrNames := make([]string, 0, len(node.Attributes))
-	for name := range node.Attributes {
-		attrNames = append(attrNames, name)
-	}
-	sort.Strings(attrNames)
+	attrNames := slices.Sorted(maps.Keys(node.Attributes))
 
 	for _, name := range attrNames {
 		value := node.Attributes[name]

@@ -8,7 +8,7 @@ proto_library(
     name = "bzpb_proto",
     srcs = ["bcr.proto"],
     visibility = ["//visibility:public"],
-    deps = ["//stardoc_output:stardoc_output_proto"],
+    deps = ["//build/stack/starlark/v1beta1:v1beta1_proto"],
 )
 
 proto_compiled_sources(
@@ -26,7 +26,7 @@ go_library(
     importpath = "github.com/stackb/centrl/build/stack/bazel/bzlmod/v1",
     visibility = ["//visibility:public"],
     deps = [
-        "//stardoc_output",
+        "//build/stack/starlark/v1beta1",
         "@org_golang_google_protobuf//reflect/protoreflect:go_default_library",
         "@org_golang_google_protobuf//runtime/protoimpl:go_default_library",
     ],
@@ -44,5 +44,7 @@ closure_jspb_library(
     srcs = [":bzpb_js_proto"],
     internal_descriptors = [":bzpb_proto"],
     visibility = ["//visibility:public"],
-    deps = ["//stardoc_output:stardoc_output_js"],
+    deps = [
+        "//build/stack/starlark/v1beta1:v1beta1_proto_js",
+    ],
 )

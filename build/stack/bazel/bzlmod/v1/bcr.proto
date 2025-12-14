@@ -6,7 +6,7 @@ package build.stack.bazel.bzlmod.v1;
 
 option go_package = "github.com/stackb/centrl/build/stack/bazel/bzlmod/v1;bzpb";
 
-import "stardoc_output/stardoc_output.proto";
+import "build/stack/starlark/v1beta1/starlark.proto";
 
 // Aggregate type about a module registry and all it's modules
 message Registry {
@@ -86,6 +86,88 @@ message RepositoryMetadata {
     string canonical_name = 8;
 }
 
+message RepositoryMetadataSet {
+    repeated RepositoryMetadata repository_metadata = 1;
+}
+
+// Metadata about a source repository.
+message BazelRepositoryMetadata {
+    RepositoryMetadata repository_metadata = 1;
+    repeated BazelRelease release = 2;
+}
+
+message BazelRelease {
+    // bazel version tag name
+    string version = 1;
+    // source URL of the .tar.gz asset
+    string url = 2;
+    // commit details fetched from the release
+    ModuleCommit commit = 3;
+}
+
+message BazelReleaseSet {
+    repeated BazelRelease release = 1;
+}
+
+message BazelOption {
+  string name = 1;
+  string type = 2;
+  string default = 3;
+  repeated string description = 4;
+  bool repeatable = 5;
+  bool toggle = 6;
+  string short = 7;
+  repeated string tag = 8;
+  // bazel_version represents which bazel version this flag is present in
+  repeated string bazel_version = 9;
+  // category represents which bazel version this flag is present in
+  repeated string category = 10;
+}
+
+message BazelHelpCategory {
+  string title = 1;
+  repeated BazelOption option = 2;
+}
+
+
+message BazelHelpCommand {
+    string command = 1;
+    repeated BazelHelpCategory category = 2;
+    repeated string usage = 3;
+}
+
+enum BazelHelpParseMode {
+  // Parsing has seen Usage statement but not the first category
+  USAGE = 0;
+  // Within a categoy
+  CATEGORY = 1;
+  // Within a Flag
+  FLAG = 2;
+}
+
+
+message BazelHelpVersion {
+    string version = 1;
+    repeated BazelHelpCommand command = 2;
+}
+
+message BazelHelpRegistry {
+    repeated BazelHelpVersion version = 1;
+}
+
+message ResourceStatus {
+    // url is the resource locator
+    string url = 1;
+    // status represents HTTP status message
+    int32 code = 2;
+    // status represents HTTP status message
+    string message = 3; 
+}
+
+message ResourceStatusSet {
+    repeated ResourceStatus status = 1;
+}
+
 // Source represents a source.json file for a module version
 message ModuleSource {
     // URL to the source archive
@@ -112,6 +194,12 @@ message ModuleSource {
     string commit = 12;
     // optional stardoc derived data
     DocumentationInfo documentation = 13;
+    // the http response for the docs_url
+    ResourceStatus docs_url_status = 14;
+    // the http response for the source_url
+    ResourceStatus url_status = 15;
+     // the git commit SHA for the source URL (resolved from tags/releases, only from github for now)
+    string commit_sha = 16;
 }
 
 // Attestations represents an attestations.json file for a module version
@@ -151,7 +239,7 @@ message ModuleVersion {
     Presubmit presubmit = 9;
     // optional toolchains to be registered
     repeated string toolchains_to_register = 10;
-    // Optional overrides
+    // Optional overrides, indexed by module name
     repeated ModuleDependencyOverride override = 11; 
     // information about when the MODULE.bazel file for the version was committed.
     ModuleCommit commit = 12;
@@ -159,6 +247,8 @@ message ModuleVersion {
     // parent Module, but for the sake of the UI, can be attached to the
     // ModuleVersion for easier template rendering.
     RepositoryMetadata repository_metadata = 13;
+    // flag that marks if the current version is the latest one
+    bool is_latest_version = 14;
 }
 
 // ModuleCommit captures metadata about a git commit for the MODULE.bazel file.
@@ -339,13 +429,6 @@ message Presubmit {
     map<string, PresubmitTask> tasks = 3;
 }
 
-// Label represents a Bazel label
-message Label {
-    string repo = 1;
-    string pkg = 2;
-    string name = 3;
-}
-
 // SymbolType represents the type of symbol
 enum SymbolType {
     SYMBOL_TYPE_UNKNOWN = 0;
@@ -356,6 +439,9 @@ enum SymbolType {
     SYMBOL_TYPE_MODULE_EXTENSION = 5;
     SYMBOL_TYPE_REPOSITORY_RULE = 6;
     SYMBOL_TYPE_MACRO = 7;
+    SYMBOL_TYPE_RULE_MACRO = 8;
+    SYMBOL_TYPE_VALUE = 9;
+    SYMBOL_TYPE_LOAD_STMT = 10;
 }
 
 // SymbolInfo represents information about a symbol in a Bazel module
@@ -368,27 +454,90 @@ message SymbolInfo {
     string description = 3;
     // the underlying actual info data
     oneof info {
-        stardoc_output.RuleInfo rule = 4;
-        stardoc_output.StarlarkFunctionInfo func = 5;
-        stardoc_output.ProviderInfo provider = 6;
-        stardoc_output.AspectInfo aspect = 7;
-        stardoc_output.ModuleExtensionInfo module_extension = 9;
-        stardoc_output.RepositoryRuleInfo repository_rule = 10;
-        stardoc_output.MacroInfo macro = 11;
+        build.stack.starlark.v1beta1.Rule rule = 4;
+        build.stack.starlark.v1beta1.Function func = 5;
+        build.stack.starlark.v1beta1.Provider provider = 6;
+        build.stack.starlark.v1beta1.Aspect aspect = 7;
+        build.stack.starlark.v1beta1.ModuleExtension module_extension = 9;
+        build.stack.starlark.v1beta1.RepositoryRule repository_rule = 10;
+        build.stack.starlark.v1beta1.Macro macro = 11;
+        build.stack.starlark.v1beta1.RuleMacro rule_macro = 12;
+        build.stack.starlark.v1beta1.Value value = 13;
+        build.stack.starlark.v1beta1.LoadStmt load = 14;
     }
 }
 
 // Set of symbols in a file.
 message FileInfo {
     // label that provides the symbols (e.g. //lib/private:copy_file.bzl)
-    Label label = 1;
+    build.stack.starlark.v1beta1.Label label = 1;
     // a list of symbols
     repeated SymbolInfo symbol = 2;
     // a truncated description from the ModuleInfo.module_docstring
     string description = 3;
+    // an error message, if the symbols from the file could not be
+    // extracted.ArchiveOverride
+    string error = 5;
 }
 
-// Set of files.
+enum DocumentationSource {
+    DOCUMENTATION_SOURCE_UNKNOWN = 0;
+    PUBLISHED = 1;
+    BEST_EFFORT = 2;
+}
+
+// Set of documented bzl files for a module.
 message DocumentationInfo {
-    repeated FileInfo file = 1;
+    string module_name = 1;
+    string version = 2;
+    repeated FileInfo file = 3;
+    DocumentationSource source = 4;
+}
+
+// Set of documented modules.
+message DocumentationRegistry {
+    repeated DocumentationInfo documentation = 1;
+}
+
+// Represents a node in the dependency tree computed by MVS algorithm.
+message DependencyTreeNode {
+    // The resolved module version for this dependency
+    ModuleVersion module_version = 1;
+    // The originally requested version (may differ from module_version.version if upgraded)
+    string requested_version = 2;
+    // Whether this version was upgraded by MVS
+    bool upgraded = 3;
+    // Whether this is a dev dependency
+    bool dev = 4;
+    // Child dependencies of this node
+    repeated DependencyTreeNode children = 5;
+    // Whether this node's children were pruned because the node was already visited in the tree
+    bool pruned = 6;
+    // The type of override applied to this dependency (empty string if no override)
+    // Possible values: "single_version", "git", "archive", "local_path"
+    string override_type = 7;
+}
+
+// Represents the complete dependency tree for a module version.
+message DependencyTree {
+    // The root module version
+    ModuleVersion module_version = 1;
+    // Child dependencies of the root module
+    repeated DependencyTreeNode children = 2;
+}
+
+// Represents a node in the file load graph showing load dependencies.
+message FileLoadTreeNode {
+    // The file at this node
+    FileInfo file = 1;
+    // Files that this file loads (load dependencies)
+    repeated FileLoadTreeNode children = 2;
+    // Whether this node's children were pruned to avoid cycles
+    bool pruned = 3;
+}
+
+// Represents the complete file load graph for a module.
+message FileLoadTree {
+    // Root files (files not loaded by any other file in the module)
+    repeated FileLoadTreeNode roots = 1;
 }

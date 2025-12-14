@@ -24,8 +24,8 @@
     window.marked = marked;
 
     window.marked.setOptions({
-      breaks: true,  // GFM line breaks
       gfm: true,     // GitHub Flavored Markdown
+      breaks: false,  // but not with GFM line breaks
     });
 
     bcr.main(REGISTRY_DATA);

@@ -7,18 +7,20 @@ import (
 	bzpb "github.com/stackb/centrl/build/stack/bazel/bzlmod/v1"
 )
 
+const moduleMaintainerKind = "module_maintainer"
+
 // moduleMaintainerLoadInfo returns load info for the module_maintainer rule
 func moduleMaintainerLoadInfo() rule.LoadInfo {
 	return rule.LoadInfo{
 		Name:    "//rules:module_maintainer.bzl",
-		Symbols: []string{"module_maintainer"},
+		Symbols: []string{moduleMaintainerKind},
 	}
 }
 
 // moduleMaintainerKinds returns kind info for the module_maintainer rule
 func moduleMaintainerKinds() map[string]rule.KindInfo {
 	return map[string]rule.KindInfo{
-		"module_maintainer": {
+		moduleMaintainerKind: {
 			MatchAttrs: []string{"name", "email"},
 		},
 	}
@@ -35,7 +37,7 @@ func makeModuleMaintainerRules(maintainers []*bzpb.Maintainer) []*rule.Rule {
 			name = m.Email
 		}
 
-		r := rule.NewRule("module_maintainer", name)
+		r := rule.NewRule(moduleMaintainerKind, name)
 		if m.Email != "" {
 			r.SetAttr("email", m.Email)
 		}

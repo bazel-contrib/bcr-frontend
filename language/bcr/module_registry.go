@@ -13,27 +13,30 @@ import (
 	gitpkg "github.com/stackb/centrl/pkg/git"
 )
 
+const moduleRegistryKind = "module_registry"
+
 func moduleRegistryLoadInfo() rule.LoadInfo {
 	return rule.LoadInfo{
 		Name:    "//rules:module_registry.bzl",
-		Symbols: []string{"module_registry"},
+		Symbols: []string{moduleRegistryKind},
 	}
 }
 
 func moduleRegistryKinds() map[string]rule.KindInfo {
 	return map[string]rule.KindInfo{
-		"module_registry": {
+		moduleRegistryKind: {
 			MatchAny: true,
 			ResolveAttrs: map[string]bool{
-				"deps":   true,
-				"cycles": true,
+				"deps":           true,
+				"cycles":         true,
+				"bazel_versions": true,
 			},
 		},
 	}
 }
 
 func makeModuleRegistryRule(name string, subdirs []string, registryURL string, cycleRules []*rule.Rule, cfg *config.Config) *rule.Rule {
-	r := rule.NewRule("module_registry", name)
+	r := rule.NewRule(moduleRegistryKind, name)
 	if len(cycleRules) > 0 {
 		cycles := make([]string, len(cycleRules))
 		for i, mr := range cycleRules {
@@ -61,8 +64,8 @@ func makeModuleRegistryRule(name string, subdirs []string, registryURL string, c
 	return r
 }
 
-// resolveModuleRegistryRule resolves the deps attribute for a module_registry rule
-// by looking up module_metadata rules for each subdir (module name)
+// resolveModuleRegistryRule resolves the deps and bazel_versions attributes for
+// a module_registry rule by looking up module_metadata and bazel_version rules
 func resolveModuleRegistryRule(r *rule.Rule, ix *resolve.RuleIndex) {
 	// Get the subdirs private attribute
 	subdirsRaw := r.PrivateAttr("subdirs")
@@ -89,6 +92,7 @@ func resolveModuleRegistryRule(r *rule.Rule, ix *resolve.RuleIndex) {
 		results := ix.FindRulesByImport(importSpec, bcrLangName)
 		if len(results) == 0 {
 			log.Printf("No module_metadata found for module %s", moduleName)
+			continue
 		}
 
 		deps = append(deps, results[0].Label.String())
@@ -97,6 +101,21 @@ func resolveModuleRegistryRule(r *rule.Rule, ix *resolve.RuleIndex) {
 	// Set the deps attr
 	if len(deps) > 0 {
 		r.SetAttr("deps", deps)
+	}
+
+	// Resolve bazel_version rules
+	bazelVersionImportSpec := resolve.ImportSpec{
+		Lang: bcrLangName,
+		Imp:  bazelVersionKind,
+	}
+
+	results := ix.FindRulesByImport(bazelVersionImportSpec, bcrLangName)
+	if len(results) > 0 {
+		bazelVersions := make([]string, 0, len(results))
+		for _, res := range results {
+			bazelVersions = append(bazelVersions, res.Label.String())
+		}
+		r.SetAttr("bazel_versions", bazelVersions)
 	}
 }
 

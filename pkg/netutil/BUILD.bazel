@@ -5,4 +5,5 @@ go_library(
     srcs = ["netutil.go"],
     importpath = "github.com/stackb/centrl/pkg/netutil",
     visibility = ["//visibility:public"],
+    deps = ["@com_github_schollz_progressbar_v3//:go_default_library"],
 )

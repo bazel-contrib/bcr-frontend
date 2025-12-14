@@ -9,18 +9,20 @@ import (
 	bzpb "github.com/stackb/centrl/build/stack/bazel/bzlmod/v1"
 )
 
+const moduleMetadataKind = "module_metadata"
+
 // moduleMetadataLoadInfo returns load info for the module_metadata rule
 func moduleMetadataLoadInfo() rule.LoadInfo {
 	return rule.LoadInfo{
 		Name:    "//rules:module_metadata.bzl",
-		Symbols: []string{"module_metadata"},
+		Symbols: []string{moduleMetadataKind},
 	}
 }
 
 // moduleMetadataKinds returns kind info for the module_metadata rule
 func moduleMetadataKinds() map[string]rule.KindInfo {
 	return map[string]rule.KindInfo{
-		"module_metadata": {
+		moduleMetadataKind: {
 			MatchAny: true,
 			ResolveAttrs: map[string]bool{
 				"maintainers":         true,
@@ -34,7 +36,8 @@ func moduleMetadataKinds() map[string]rule.KindInfo {
 // makeModuleMetadataRule creates a module_metadata rule from protobuf metadata
 // If ext is provided, it will track the repositories for later generation
 func makeModuleMetadataRule(name string, md *bzpb.ModuleMetadata, maintainerRules []*rule.Rule, metadataJsonFile string, ext *bcrExtension) *rule.Rule {
-	r := rule.NewRule("module_metadata", name)
+	r := rule.NewRule(moduleMetadataKind, name)
+
 	if md.Homepage != "" {
 		r.SetAttr("homepage", md.Homepage)
 	}
@@ -66,6 +69,7 @@ func makeModuleMetadataRule(name string, md *bzpb.ModuleMetadata, maintainerRule
 	}
 	r.SetAttr("build_bazel", ":BUILD.bazel")
 	r.SetAttr("visibility", []string{"//visibility:public"})
+
 	return r
 }
 
@@ -92,7 +96,7 @@ func resolveModuleMetadataRule(r *rule.Rule, ix *resolve.RuleIndex) {
 			// Construct the import spec: "module_name@version"
 			importSpec := resolve.ImportSpec{
 				Lang: bcrLangName,
-				Imp:  fmt.Sprintf("%s@%s", moduleName, version),
+				Imp:  newModuleID(moduleName, version).String(),
 			}
 
 			// Find the module_version rule that provides this import
@@ -115,17 +119,17 @@ func resolveModuleMetadataRule(r *rule.Rule, ix *resolve.RuleIndex) {
 	}
 
 	for _, repo := range r.AttrStrings("repository") {
-		normalizedRepo := normalizeRepository(repo)
+		canonicalName := normalizeRepositoryID(repo)
 		importSpec := resolve.ImportSpec{
 			Lang: bcrLangName,
-			Imp:  normalizedRepo,
+			Imp:  string(canonicalName),
 		}
 
 		// Find the module_version rule that provides this import
 		results := ix.FindRulesByImport(importSpec, bcrLangName)
 
 		if len(results) == 0 {
-			log.Printf("resolveModuleMetadataRule: No repository_metadata found for %s", normalizedRepo)
+			log.Printf("resolveModuleMetadataRule: No repository_metadata found for %s", canonicalName)
 			continue
 		}
 

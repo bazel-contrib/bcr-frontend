@@ -2,12 +2,9 @@ package bcr
 
 import (
 	"log"
+	"strings"
 
 	"github.com/bazelbuild/bazel-gazelle/config"
-)
-
-const (
-	bcrLangName = "bcr"
 )
 
 // Config represents the config extension for the a bcr package.
@@ -56,4 +53,26 @@ func (c *Config) clone(config *config.Config) *Config {
 // Config returns the parent gazelle configuration
 func (c *Config) Config() *config.Config {
 	return c.config
+}
+
+// stringBoolMap is a custom flag type for repeatable string flags that populates a map
+type stringBoolMap map[string]bool
+
+func (m *stringBoolMap) String() string {
+	if *m == nil {
+		return ""
+	}
+	urls := make([]string, 0, len(*m))
+	for url := range *m {
+		urls = append(urls, url)
+	}
+	return strings.Join(urls, ",")
+}
+
+func (m *stringBoolMap) Set(value string) error {
+	if *m == nil {
+		*m = make(map[string]bool)
+	}
+	(*m)[value] = true
+	return nil
 }

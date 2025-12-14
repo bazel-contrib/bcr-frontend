@@ -1,4 +1,4 @@
-"provides the module_metadata rule"
+"""Provides the module_metadata rule."""
 
 load("//rules:providers.bzl", "ModuleMaintainerInfo", "ModuleMetadataInfo", "ModuleVersionInfo", "RepositoryMetadataInfo")
 
@@ -52,7 +52,7 @@ def _module_metadata_impl(ctx):
             versions = ctx.attr.versions,
             yanked_versions = ctx.attr.yanked_versions,
             deprecated = ctx.attr.deprecated,
-            deps = depset(deps),
+            deps = deps,
             metadata_json = ctx.file.metadata_json,
             build_bazel = ctx.file.build_bazel if ctx.file.build_bazel else None,
             proto = proto_out,
@@ -60,18 +60,45 @@ def _module_metadata_impl(ctx):
     ]
 
 module_metadata = rule(
+    doc = "Defines metadata for a Bazel module including versions, maintainers, and repository information.",
     implementation = _module_metadata_impl,
     attrs = {
-        "homepage": attr.string(),
-        "maintainers": attr.label_list(providers = [ModuleMaintainerInfo]),
-        "repository": attr.string_list(),
-        "versions": attr.string_list(),
-        "yanked_versions": attr.string_dict(),
-        "deprecated": attr.string(),
-        "deps": attr.label_list(providers = [ModuleVersionInfo]),
-        "repository_metadata": attr.label(providers = [RepositoryMetadataInfo]),
-        "build_bazel": attr.label(allow_single_file = True),
-        "metadata_json": attr.label(allow_single_file = [".json"], mandatory = True),
+        "homepage": attr.string(
+            doc = "str: Homepage URL for the module",
+        ),
+        "maintainers": attr.label_list(
+            doc = "list[Target]: Maintainer targets providing ModuleMaintainerInfo",
+            providers = [ModuleMaintainerInfo],
+        ),
+        "repository": attr.string_list(
+            doc = "list[str]: Repository URLs",
+        ),
+        "versions": attr.string_list(
+            doc = "list[str]: Module version strings",
+        ),
+        "yanked_versions": attr.string_dict(
+            doc = "dict[str, str]: Mapping of yanked version to reason",
+        ),
+        "deprecated": attr.string(
+            doc = "str: Deprecation message (empty string if not deprecated)",
+        ),
+        "deps": attr.label_list(
+            doc = "list[Target]: Module version targets providing ModuleVersionInfo",
+            providers = [ModuleVersionInfo],
+        ),
+        "repository_metadata": attr.label(
+            doc = "Target | None: Repository metadata target providing RepositoryMetadataInfo",
+            providers = [RepositoryMetadataInfo],
+        ),
+        "build_bazel": attr.label(
+            doc = "File | None: The BUILD.bazel file",
+            allow_single_file = True,
+        ),
+        "metadata_json": attr.label(
+            doc = "File: The metadata.json file (required)",
+            allow_single_file = [".json"],
+            mandatory = True,
+        ),
         "_compiler": attr.label(
             default = "//cmd/modulecompiler",
             executable = True,

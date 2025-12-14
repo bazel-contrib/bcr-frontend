@@ -1,0 +1,62 @@
+load("@rules_go//go:def.bzl", "go_binary", "go_library", "go_test")
+
+# load("@rules_java//java:java_library.bzl", "java_library")
+load("@rules_java//java:java_binary.bzl", "java_binary")
+load("@rules_java//java:java_import.bzl", "java_import")
+
+go_library(
+    name = "bzlcompiler_lib",
+    srcs = [
+        "bzlcompiler.go",
+        "config.go",
+        "extract.go",
+        "files.go",
+        "server.go",
+    ],
+    importpath = "github.com/stackb/centrl/cmd/bzlcompiler",
+    visibility = ["//visibility:private"],
+    deps = [
+        "//blaze/worker",
+        "//build/stack/bazel/bzlmod/v1:bzlmod",
+        "//build/stack/starlark/v1beta1",
+        "//pkg/paramsfile",
+        "//pkg/protoutil",
+        "//pkg/stardoc",
+        "@bazel_gazelle//label:go_default_library",
+        "@com_github_bazelbuild_buildtools//build:go_default_library",
+        "@org_golang_google_grpc//:go_default_library",
+        "@org_golang_google_grpc//credentials/insecure:go_default_library",
+        "@org_golang_google_grpc//status:go_default_library",
+    ],
+)
+
+go_binary(
+    name = "bzlcompiler",
+    embed = [":bzlcompiler_lib"],
+    visibility = ["//visibility:public"],
+)
+
+filegroup(
+    name = "constellate_jar_file",
+    srcs = ["constellate.jar"],
+    visibility = ["//visibility:public"],
+)
+
+java_import(
+    name = "constellate_jar",
+    jars = ["constellate.jar"],
+)
+
+# ProTip: grpcurl -plaintext localhost:3524 list
+java_binary(
+    name = "starlarkserver",
+    main_class = "build.stack.devtools.build.constellate.RemoteStarlarkServer",
+    runtime_deps = ["constellate_jar"],
+)
+
+go_test(
+    name = "bzlcompiler_test",
+    srcs = ["extract_test.go"],
+    embed = [":bzlcompiler_lib"],
+    deps = ["//build/stack/starlark/v1beta1"],
+)

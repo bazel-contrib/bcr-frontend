@@ -1,0 +1,12 @@
+filegroup(
+    name = "be",
+    srcs = [
+        "gen_be_cpp_stardoc_proto.binaryproto",
+        "gen_be_java_stardoc_proto.binaryproto",
+        "gen_be_objc_stardoc_proto.binaryproto",
+        "gen_be_proto_stardoc_proto.binaryproto",
+        "gen_be_python_stardoc_proto.binaryproto",
+        "gen_be_shell_stardoc_proto.binaryproto",
+    ],
+    visibility = ["//visibility:public"],
+)

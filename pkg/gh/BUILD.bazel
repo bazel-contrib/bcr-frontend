@@ -1,8 +1,11 @@
-load("@rules_go//go:def.bzl", "go_library")
+load("@rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
     name = "gh",
-    srcs = ["gh.go"],
+    srcs = [
+        "gh.go",
+        "url.go",
+    ],
     importpath = "github.com/stackb/centrl/pkg/gh",
     visibility = ["//visibility:public"],
     deps = [
@@ -13,4 +16,10 @@ go_library(
         "@org_golang_x_sync//errgroup:go_default_library",
         "@org_golang_x_time//rate:go_default_library",
     ],
+)
+
+go_test(
+    name = "gh_test",
+    srcs = ["url_test.go"],
+    embed = [":gh"],
 )

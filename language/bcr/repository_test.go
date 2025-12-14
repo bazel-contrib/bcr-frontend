@@ -167,7 +167,7 @@ func TestParseRepository(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			md, ok := parseRepository(tt.input)
+			md, ok := parseRepositoryMetadataFromRepositoryString(tt.input)
 
 			if ok != tt.wantOk {
 				t.Errorf("parseRepository(%q) ok = %v, want %v", tt.input, ok, tt.wantOk)

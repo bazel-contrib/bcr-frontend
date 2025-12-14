@@ -3,15 +3,12 @@ package bcr
 import (
 	"github.com/bazelbuild/bazel-gazelle/rule"
 	bzpb "github.com/stackb/centrl/build/stack/bazel/bzlmod/v1"
-	"github.com/stackb/centrl/pkg/attestationsjson"
 )
 
-func readAttestationsJson(filename string) (*bzpb.Attestations, error) {
-	return attestationsjson.ReadFile(filename)
-}
+const moduleAttestationsKind = "module_attestations"
 
 func makeModuleAttestationsRule(attestations *bzpb.Attestations, attestationsJsonFile string) *rule.Rule {
-	r := rule.NewRule("module_attestations", "attestations")
+	r := rule.NewRule(moduleAttestationsKind, "attestations")
 	if attestations.MediaType != "" {
 		r.SetAttr("media_type", attestations.MediaType)
 	}
@@ -43,13 +40,13 @@ func makeModuleAttestationsRule(attestations *bzpb.Attestations, attestationsJso
 func moduleAttestationsLoadInfo() rule.LoadInfo {
 	return rule.LoadInfo{
 		Name:    "//rules:module_attestations.bzl",
-		Symbols: []string{"module_attestations"},
+		Symbols: []string{moduleAttestationsKind},
 	}
 }
 
 func moduleAttestationsKinds() map[string]rule.KindInfo {
 	return map[string]rule.KindInfo{
-		"module_attestations": {
+		moduleAttestationsKind: {
 			MatchAny:     true,
 			ResolveAttrs: map[string]bool{},
 		},

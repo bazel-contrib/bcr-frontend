@@ -1,17 +1,19 @@
+load("@build_stack_rules_proto//rules:proto_compile.bzl", "proto_compile")
 load("@build_stack_rules_proto//rules:proto_compiled_sources.bzl", "proto_compiled_sources")
 load("@rules_go//go:def.bzl", "go_library")
 load("@rules_proto//proto:defs.bzl", "proto_library")
+load("@stackb_rules_closure//closure/protobuf:defs.bzl", "closure_jspb_library")
 
 go_library(
     name = "v1beta1",
     srcs = [
-        "starlark_language.pb.go",
-        "starlark_server.pb.go",
-        "starlark_server_grpc.pb.go",
+        "starlark.pb.go",
+        "starlark_grpc.pb.go",
     ],
     importpath = "github.com/stackb/centrl/build/stack/starlark/v1beta1",
     visibility = ["//visibility:public"],
     deps = [
+        "//stardoc_output",
         "@org_golang_google_grpc//:go_default_library",
         "@org_golang_google_grpc//codes:go_default_library",
         "@org_golang_google_grpc//status:go_default_library",
@@ -22,24 +24,20 @@ go_library(
 
 proto_library(
     name = "v1beta1_proto",
-    srcs = [
-        "starlark_language.proto",
-        "starlark_server.proto",
-    ],
+    srcs = ["starlark.proto"],
     visibility = ["//visibility:public"],
+    deps = ["//stardoc_output:stardoc_output_proto"],
 )
 
 proto_compiled_sources(
     name = "v1beta1_go_compiled_sources",
     srcs = [
-        "starlark_language.pb.go",
-        "starlark_server.pb.go",
-        "starlark_server_grpc.pb.go",
+        "starlark.pb.go",
+        "starlark_grpc.pb.go",
     ],
     output_mappings = [
-        "starlark_language.pb.go=github.com/stackb/centrl/build/stack/starlark/v1beta1/starlark_language.pb.go",
-        "starlark_server.pb.go=github.com/stackb/centrl/build/stack/starlark/v1beta1/starlark_server.pb.go",
-        "starlark_server_grpc.pb.go=github.com/stackb/centrl/build/stack/starlark/v1beta1/starlark_server_grpc.pb.go",
+        "starlark.pb.go=github.com/stackb/centrl/build/stack/starlark/v1beta1/starlark.pb.go",
+        "starlark_grpc.pb.go=github.com/stackb/centrl/build/stack/starlark/v1beta1/starlark_grpc.pb.go",
     ],
     plugins = [
         "@build_stack_rules_proto//plugin/golang/protobuf:protoc-gen-go",
@@ -47,4 +45,19 @@ proto_compiled_sources(
     ],
     proto = "v1beta1_proto",
     visibility = ["//visibility:public"],
+)
+
+proto_compile(
+    name = "v1beta1_proto_js_proto",
+    outputs = ["v1beta1.js"],
+    plugins = ["@stackb_rules_closure//closure/protobuf:protoc-gen-js"],
+    proto = "v1beta1_proto",
+)
+
+closure_jspb_library(
+    name = "v1beta1_proto_js",
+    srcs = [":v1beta1_proto_js_proto"],
+    internal_descriptors = [":v1beta1_proto"],
+    visibility = ["//visibility:public"],
+    deps = ["//stardoc_output:stardoc_output_js"],
 )

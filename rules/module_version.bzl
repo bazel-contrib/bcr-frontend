@@ -1,6 +1,15 @@
-"provides the module_version rule"
+"""Provides the module_version rule."""
 
-load("//rules:providers.bzl", "ModuleAttestationsInfo", "ModuleCommitInfo", "ModuleDependencyInfo", "ModulePresubmitInfo", "ModuleSourceInfo", "ModuleVersionInfo")
+load("@build_stack_rules_proto//rules:starlark_module_library.bzl", "StarlarkModuleLibraryInfo")
+load(
+    "//rules:providers.bzl",
+    "ModuleAttestationsInfo",
+    "ModuleCommitInfo",
+    "ModuleDependencyInfo",
+    "ModulePresubmitInfo",
+    "ModuleSourceInfo",
+    "ModuleVersionInfo",
+)
 
 def _compile_action(ctx, source, deps, attestations, presubmit, commit):
     # Declare output file for compiled proto
@@ -12,6 +21,9 @@ def _compile_action(ctx, source, deps, attestations, presubmit, commit):
     args.add(ctx.file.module_bazel)
     args.add("--output_file")
     args.add(proto_out)
+
+    if ctx.attr.is_latest_version:
+        args.add("--is_latest_version")
 
     # All of the module dependency info is in the MODULE.bazel file, but the
     # 'unresolved' property is discovered during gazelle resolution.  Pass that
@@ -30,10 +42,14 @@ def _compile_action(ctx, source, deps, attestations, presubmit, commit):
         args.add(source.source_json)
         inputs.append(source.source_json)
 
-    if source and source.documentation_info:
-        args.add("--documentation_info_file")
-        args.add(source.documentation_info)
-        inputs.append(source.documentation_info)
+        args.add("--url_status_code=" + str(source.url_status_code))
+        args.add("--url_status_message=" + source.url_status_message)
+        args.add("--docs_url_status_code=" + str(source.docs_url_status_code))
+        args.add("--docs_url_status_message=" + source.docs_url_status_message)
+
+        if source.commit_sha:
+            args.add("--source_commit_sha")
+            args.add(source.commit_sha)
 
     # Add optional presubmit.yml file
     if presubmit and presubmit.presubmit_yml:
@@ -58,7 +74,7 @@ def _compile_action(ctx, source, deps, attestations, presubmit, commit):
 
     # Run the compiler action
     ctx.actions.run(
-        executable = ctx.executable._compiler,
+        executable = ctx.executable._moduleversioncompiler,
         arguments = [args],
         inputs = inputs,
         outputs = [proto_out],
@@ -66,52 +82,119 @@ def _compile_action(ctx, source, deps, attestations, presubmit, commit):
         progress_message = "Compiling module version for %{label}",
     )
 
-    return proto_out
+    return struct(
+        module = proto_out,
+    )
 
 def _module_version_impl(ctx):
     deps = [dep[ModuleDependencyInfo] for dep in ctx.attr.deps]
-    source = ctx.attr.source[ModuleSourceInfo]  # source = ctx.attr.source[ModuleSourceInfo] if ctx.attr.source and ModuleSourceInfo in ctx.attr.source else None
+    bzl_src = ctx.attr.bzl_src[StarlarkModuleLibraryInfo] if ctx.attr.bzl_src else None
+    bzl_deps = [dep[StarlarkModuleLibraryInfo] for dep in ctx.attr.bzl_deps]
+    source = ctx.attr.source[ModuleSourceInfo]
     attestations = ctx.attr.attestations[ModuleAttestationsInfo] if ctx.attr.attestations and ModuleAttestationsInfo in ctx.attr.attestations else None
     presubmit = ctx.attr.presubmit[ModulePresubmitInfo] if ctx.attr.presubmit and ModulePresubmitInfo in ctx.attr.presubmit else None
     commit = ctx.attr.commit[ModuleCommitInfo] if ctx.attr.commit and ModuleCommitInfo in ctx.attr.commit else None
-    proto_out = _compile_action(ctx, source, deps, attestations, presubmit, commit)
-    outputs = [proto_out]
+
+    compilation = _compile_action(ctx, source, deps, attestations, presubmit, commit)
+    outputs = [compilation.module]
 
     return [
-        DefaultInfo(files = depset(outputs)),
+        DefaultInfo(
+            files = depset(outputs),
+        ),
         ModuleVersionInfo(
+            id = "%s@%s" % (ctx.attr.module_name, ctx.attr.version),
             name = ctx.attr.module_name,
-            version = ctx.attr.version,
-            compatibility_level = ctx.attr.compatibility_level,
-            bazel_compatibility = ctx.attr.bazel_compatibility,
-            repo_name = ctx.attr.repo_name,
-            deps = depset(deps),
-            source = source,
             attestations = attestations,
-            presubmit = presubmit,
-            commit = commit,
-            module_bazel = ctx.file.module_bazel if ctx.file.module_bazel else None,
+            bazel_compatibility = ctx.attr.bazel_compatibility,
             build_bazel = ctx.file.build_bazel if ctx.file.build_bazel else None,
-            proto = proto_out,
+            bzl_deps = bzl_deps,
+            bzl_src = bzl_src,
+            commit = commit,
+            compatibility_level = ctx.attr.compatibility_level,
+            deps = deps,
+            is_latest_version = ctx.attr.is_latest_version,
+            module_bazel = ctx.file.module_bazel if ctx.file.module_bazel else None,
+            presubmit = presubmit,
+            proto = compilation.module,
+            published_docs = ctx.files.published_docs if ctx.attr.published_docs else [],
+            repo_name = ctx.attr.repo_name,
+            source = source,
+            version = ctx.attr.version,
         ),
     ]
 
 module_version = rule(
+    doc = "Defines complete information about a specific module version.",
     implementation = _module_version_impl,
     attrs = {
-        "module_name": attr.string(mandatory = True),
-        "version": attr.string(),
-        "compatibility_level": attr.int(default = 0),
-        "bazel_compatibility": attr.string_list(),
-        "repo_name": attr.string(),
-        "deps": attr.label_list(providers = [ModuleDependencyInfo]),
-        "source": attr.label(providers = [ModuleSourceInfo]),
-        "attestations": attr.label(providers = [ModuleAttestationsInfo]),
-        "presubmit": attr.label(providers = [ModulePresubmitInfo]),
-        "commit": attr.label(providers = [ModuleCommitInfo]),
-        "build_bazel": attr.label(allow_single_file = True),
-        "module_bazel": attr.label(allow_single_file = True),
-        "_compiler": attr.label(
+        "module_name": attr.string(
+            doc = "str: Module name (required)",
+            mandatory = True,
+        ),
+        "version": attr.string(
+            doc = "str: Module version",
+        ),
+        "is_latest_version": attr.bool(
+            doc = "bool: Whether this is the latest version of the module",
+        ),
+        "compatibility_level": attr.int(
+            doc = "int: Module compatibility level",
+            default = 0,
+        ),
+        "bazel_compatibility": attr.string_list(
+            doc = "list[str]: Compatible Bazel version ranges",
+        ),
+        "repo_name": attr.string(
+            doc = "str: Repository name",
+        ),
+        "deps": attr.label_list(
+            doc = "list[Target]: Dependency targets providing ModuleDependencyInfo",
+            providers = [ModuleDependencyInfo],
+        ),
+        "mvs": attr.string_dict(
+            doc = "dict[str, str]: MVS result for non-dev dependencies (module name -> version)",
+        ),
+        "mvs_dev": attr.string_dict(
+            doc = "dict[str, str]: MVS result for dev dependencies (module name -> version)",
+        ),
+        "bzl_src": attr.label(
+            doc = "Target]: Starlark repository labels providing StarlarkModuleLibraryInfo for the bzl files for this moduleversion",
+            providers = [StarlarkModuleLibraryInfo],
+        ),
+        "bzl_deps": attr.label_list(
+            doc = "list[Target]: Starlark repository labels providing StarlarkModuleLibraryInfo (dependencies of bzl_src)",
+            providers = [StarlarkModuleLibraryInfo],
+        ),
+        "published_docs": attr.label_list(
+            doc = "list[File]: Published documentation files from an http_archive (typically from docs_url .docs.tar.gz)",
+            allow_files = True,
+        ),
+        "source": attr.label(
+            doc = "Target: Source target providing ModuleSourceInfo",
+            providers = [ModuleSourceInfo],
+        ),
+        "attestations": attr.label(
+            doc = "Target | None: Attestations target providing ModuleAttestationsInfo",
+            providers = [ModuleAttestationsInfo],
+        ),
+        "presubmit": attr.label(
+            doc = "Target | None: Presubmit target providing ModulePresubmitInfo",
+            providers = [ModulePresubmitInfo],
+        ),
+        "commit": attr.label(
+            doc = "Target | None: Commit target providing ModuleCommitInfo",
+            providers = [ModuleCommitInfo],
+        ),
+        "build_bazel": attr.label(
+            doc = "File | None: The BUILD.bazel file",
+            allow_single_file = True,
+        ),
+        "module_bazel": attr.label(
+            doc = "File | None: The MODULE.bazel file",
+            allow_single_file = True,
+        ),
+        "_moduleversioncompiler": attr.label(
             default = "//cmd/moduleversioncompiler",
             executable = True,
             cfg = "exec",

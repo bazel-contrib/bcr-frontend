@@ -6,18 +6,20 @@ import (
 	bzpb "github.com/stackb/centrl/build/stack/bazel/bzlmod/v1"
 )
 
+const gitOverrideKind = "git_override"
+
 // gitOverrideLoadInfo returns load info for the git_override rule
 func gitOverrideLoadInfo() rule.LoadInfo {
 	return rule.LoadInfo{
 		Name:    "//rules:git_override.bzl",
-		Symbols: []string{"git_override"},
+		Symbols: []string{gitOverrideKind},
 	}
 }
 
 // gitOverrideKinds returns kind info for the git_override rule
 func gitOverrideKinds() map[string]rule.KindInfo {
 	return map[string]rule.KindInfo{
-		"git_override": {
+		gitOverrideKind: {
 			MatchAny: true,
 		},
 	}
@@ -25,7 +27,7 @@ func gitOverrideKinds() map[string]rule.KindInfo {
 
 // makeGitOverrideRule creates a git_override rule from proto data
 func makeGitOverrideRule(moduleName string, override *bzpb.GitOverride) *rule.Rule {
-	r := rule.NewRule("git_override", moduleName+"_override")
+	r := rule.NewRule(gitOverrideKind, moduleName+"_override")
 	r.SetAttr("module_name", moduleName)
 	if override.Commit != "" {
 		r.SetAttr("commit", override.Commit)

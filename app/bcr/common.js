@@ -55,6 +55,7 @@ exports.getApplication = getApplication;
  * incremental: boolean,
  * onsubmit: (function(!Application,string):undefined|null),
  * inputHandler: (!InputHandler|null),
+ * keyCode: (number|undefined),
  * }}
  */
 var SearchProvider;

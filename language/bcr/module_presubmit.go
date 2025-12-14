@@ -5,16 +5,18 @@ import (
 	bzpb "github.com/stackb/centrl/build/stack/bazel/bzlmod/v1"
 )
 
+const modulePresubmitKind = "module_presubmit"
+
 func modulePresubmitLoadInfo() rule.LoadInfo {
 	return rule.LoadInfo{
 		Name:    "//rules:module_presubmit.bzl",
-		Symbols: []string{"module_presubmit"},
+		Symbols: []string{modulePresubmitKind},
 	}
 }
 
 func modulePresubmitKinds() map[string]rule.KindInfo {
 	return map[string]rule.KindInfo{
-		"module_presubmit": {
+		modulePresubmitKind: {
 			MatchAny:     true,
 			ResolveAttrs: map[string]bool{},
 		},
@@ -22,7 +24,7 @@ func modulePresubmitKinds() map[string]rule.KindInfo {
 }
 
 func makeModulePresubmitRule(_ *bzpb.Presubmit, presubmitYmlFile string) *rule.Rule {
-	r := rule.NewRule("module_presubmit", "presubmit")
+	r := rule.NewRule(modulePresubmitKind, "presubmit")
 
 	// TODO: Consider creating nested rules for BcrTestModule, Matrix, and Tasks
 	// to properly represent the hierarchical structure

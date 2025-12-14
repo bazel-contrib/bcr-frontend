@@ -6,18 +6,20 @@ import (
 	bzpb "github.com/stackb/centrl/build/stack/bazel/bzlmod/v1"
 )
 
+const localPathOverrideKind = "local_path_override"
+
 // localPathOverrideLoadInfo returns load info for the local_path_override rule
 func localPathOverrideLoadInfo() rule.LoadInfo {
 	return rule.LoadInfo{
 		Name:    "//rules:local_path_override.bzl",
-		Symbols: []string{"local_path_override"},
+		Symbols: []string{localPathOverrideKind},
 	}
 }
 
 // localPathOverrideKinds returns kind info for the local_path_override rule
 func localPathOverrideKinds() map[string]rule.KindInfo {
 	return map[string]rule.KindInfo{
-		"local_path_override": {
+		localPathOverrideKind: {
 			MatchAny: true,
 		},
 	}
@@ -25,7 +27,7 @@ func localPathOverrideKinds() map[string]rule.KindInfo {
 
 // makeLocalPathOverrideRule creates a local_path_override rule from proto data
 func makeLocalPathOverrideRule(moduleName string, override *bzpb.LocalPathOverride) *rule.Rule {
-	r := rule.NewRule("local_path_override", moduleName+"_override")
+	r := rule.NewRule(localPathOverrideKind, moduleName+"_override")
 	r.SetAttr("module_name", moduleName)
 	if override.Path != "" {
 		r.SetAttr("path", override.Path)

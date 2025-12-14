@@ -2,6 +2,84 @@
  * style.css contains assorted css classes that are used directly, not subject
  * to closure_css_binary.
  */
+
+/* ========================================
+ * Mobile Responsive Fixes
+ * ======================================== */
+
+/* Allow Header to wrap on small screens */
+@media (max-width: 767.98px) {
+    .Header {
+        flex-wrap: wrap !important;
+        gap: 8px;
+    }
+
+    .Header-item {
+        margin-right: 8px !important;
+    }
+
+    .Header-item--full {
+        flex-basis: 100%;
+        order: 2;
+    }
+}
+
+/* Reduce logo size on mobile */
+@media (max-width: 543.98px) {
+    .Header-item[style*="max-width: 54px"] {
+        max-width: 40px !important;
+    }
+}
+
+/* ========================================
+ * Code Block Overflow Fixes
+ * ======================================== */
+
+/* Prevent pre/code blocks from expanding viewport on mobile */
+pre {
+    overflow-x: auto !important;
+    max-width: 100%;
+    /* Smooth scrolling on iOS */
+    -webkit-overflow-scrolling: touch;
+}
+
+pre code {
+    white-space: pre;
+    word-wrap: normal;
+    overflow-wrap: normal;
+}
+
+/* Ensure Box containers don't overflow */
+.Box {
+    min-width: 0;
+    overflow: hidden;
+}
+
+.Box .Box-body {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+.Box .Box-body pre {
+    margin: 0;
+}
+
+/* Ensure tables in boxes don't overflow */
+.Box .Box-body table {
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+/* width-full on mobile should respect container bounds */
+@media (max-width: 767.98px) {
+    .width-full {
+        width: 100%;
+        max-width: 100%;
+        min-width: 0;
+    }
+}
+
 .btn-language {
     color: var(--lang-fg) !important;
     background-color: var(--lang-bg) !important;
@@ -19,14 +97,173 @@
     speak: none;
 }
 
-.desc-toggle:checked~.desc-content {
-    max-height: none !important;
+/* MVS Dependency Tree Styles */
+.mvs-tree-container {
+    overflow: auto;
 }
 
-.desc-toggle:checked~.desc-toggle-label .show-more {
-    display: none;
+.mvs-tree-dev-dep {
+    color: var(--color-attention-fg);
+    font-style: italic;
 }
 
-.desc-toggle:checked~.desc-toggle-label .show-less {
-    display: inline;
+.mvs-tree-upgraded {
+    color: var(--color-success-fg);
+    font-weight: 600;
+}
+
+.mvs-tree-controls {
+    margin-bottom: 8px;
+    display: flex;
+    gap: 8px;
+}
+
+
+/* ========================================
+ * TreeView Component (SVG tree lines)
+ * ======================================== */
+
+.treeview-root {
+    margin: 0;
+    padding: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif;
+    font-size: 14px;
+    line-height: 24px;
+    color: var(--color-fg-default);
+}
+
+.treeview-item {
+    margin: 0;
+    padding: 0;
+    position: relative;
+}
+
+.treeview-item-root {
+    padding-left: 0;
+}
+
+.treeview-item-row {
+    display: flex;
+    align-items: center;
+    padding-left: calc((var(--level, 0) - 1) * 24px + 0.25rem);
+    min-height: 24px;
+}
+
+.treeview-item-row:hover {
+    background-color: var(--color-neutral-subtle);
+    border-radius: 6px;
+}
+
+.treeview-line {
+    flex-shrink: 0;
+    display: block;
+    margin-right: 0.25rem;
+}
+
+.treeview-label {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    line-height: 24px;
+    text-decoration: none;
+    color: inherit;
+}
+
+.treeview-label:hover {
+    color: var(--color-accent-fg);
+    text-decoration: underline;
+}
+
+.treeview-metadata {
+    margin-left: 6px;
+    padding: 2px 6px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 500;
+    background-color: var(--color-neutral-muted);
+    color: var(--color-fg-muted);
+}
+
+.treeview-metadata-dev {
+    background-color: var(--color-accent-subtle);
+    color: var(--color-accent-fg);
+}
+
+.treeview-metadata-upgraded {
+    background-color: var(--color-attention-subtle);
+    color: var(--color-attention-fg);
+}
+
+.treeview-override-badge {
+    color: var(--color-fg-muted);
+    text-decoration: none;
+}
+
+.treeview-override-badge:hover {
+    color: var(--color-accent-fg);
+    text-decoration: underline;
+}
+
+.treeview-children {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+
+/* ========================================
+ * Skeleton Loading Animation
+ * ======================================== */
+
+@keyframes skeleton-shimmer {
+    0% {
+        mask-position: 200%;
+    }
+
+    to {
+        mask-position: 0;
+    }
+}
+
+.skeleton-box {
+    background-color: var(--skeletonLoader-bgColor, var(--color-neutral-muted));
+    border-radius: var(--borderRadius-small, 0.1875rem);
+    display: inline-block;
+    height: 1rem;
+    width: 6rem;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+    .skeleton-box {
+        animation: skeleton-shimmer 4s infinite;
+        mask-image: linear-gradient(75deg, #000 30%, rgba(0, 0, 0, 0.65) 80%);
+        mask-size: 200%;
+    }
+}
+
+@media (forced-colors: active) {
+    .skeleton-box {
+        outline: 1px solid transparent;
+        outline-offset: -1px;
+    }
+}
+
+/* ========================================
+ * Line Numbers for <code> blocks
+ * ======================================== */
+
+code {
+    counter-reset: step;
+    counter-increment: step 0;
+}
+
+code .line::before {
+    content: counter(step);
+    counter-increment: step;
+    width: 1rem;
+    margin-right: 1.5rem;
+    display: inline-block;
+    text-align: right;
+    color: rgba(115, 138, 148, .4)
 }

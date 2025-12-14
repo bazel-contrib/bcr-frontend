@@ -5,6 +5,7 @@ import {
     octiconBook16,
     octiconCheck16,
     octiconCheckCircleFill16,
+    octiconCode16,
     octiconContainer16,
     octiconContainer24,
     octiconDotFill16,
@@ -14,8 +15,10 @@ import {
     octiconGitCommit16,
     octiconGitPullRequest16,
     octiconHome16,
+    octiconNorthStar16,
     octiconMail16,
     octiconMarkGithub16,
+    octiconMarkGithub24,
     octiconPaperclip16,
     octiconSparkleFill16,
     octiconSquareFill16,
@@ -26,6 +29,8 @@ import {
 
 import {
     Attestations,
+    DocumentationInfo,
+    DocumentationSource,
     GitOverride,
     LocalPathOverride,
     Maintainer,
@@ -83,7 +88,7 @@ bazel_dep(name = "{$name}", version = "{$version}")
 
 {template moduleVersionModuleBazel}
   {@param moduleVersion: ModuleVersion}
-<div class="Box Box--condensed">
+<div class="Box Box--condensed hide-sm">
   <div class="Box-header">
       <div class="Box-title d-flex flex-items-center flex-justify-between">
         <div class="text-mono">
@@ -244,15 +249,29 @@ bazel_dep(name = "{$name}", version = "{$version}")
 
 
 {template moduleVersionTable}
-  {@param versionData: list<[version: string, compat: int, commitDate: string, directDeps: list<ModuleVersion>]>}
+  {@param versionData: list<[version: string, compat: int, commitDate: string, directDeps: list<ModuleVersion>, ageSummary: string|null]>}
   {@param moduleName: string}
   {@param? currentVersion: string}
   {@param yanked: map<string,string>}
   {@param totalDeps: int}
+  {@param? timeSinceLatest: string}
 <div>
   {sectionHeader(title: 'Versions', count: length($versionData))}
 
   <table class="width-full">
+    {if $timeSinceLatest && length($versionData) > 0}
+      <tr style="opacity: 0.5;">
+        <td title="Unreleased; time since latest release" colspan="2" class="py-1">
+          <div style="display: flex; align-items: center;">
+            <span style="position: relative; padding-right: 0.5em;">
+              <span class="{css('skeleton-box')} {css('next-version')}"></span>
+            </span>
+            <span style="flex: 1; border-bottom: 1px dotted var(--color-border-muted); margin: 0 0.5em;"></span>
+            <span class="text-small color-fg-muted" style="padding-left: 0.5em;">+{$timeSinceLatest}</span>
+          </div>
+        </td>
+      </tr>
+    {/if}
     {for $data in $versionData}
       {let $version: $data.version /}
       {let $commitDate: $data.commitDate /}
@@ -262,7 +281,7 @@ bazel_dep(name = "{$name}", version = "{$version}")
       <tr class="{if ($currentVersion === $version)}Box-row-link{/if}">
         <td title="{$version}; compatibility level {$data.compat}" colspan="2" class="py-1" style="background: linear-gradient(to right, var(--color-accent-muted) {$percentage}%, transparent {$percentage}%);">
           <div style="display: flex; align-items: center;">
-            <span style="position: relative; padding-right: 0.5em;">
+            <span style="position: relative; padding-right: 0.5em;" data-version="{$version}">
               {if $currentVersion === $version}
                 <span class="text-bold">{$version|truncate:18}</span>
               {else}
@@ -270,10 +289,13 @@ bazel_dep(name = "{$name}", version = "{$version}")
                     {if $yanked.get($version)}style="text-decoration: line-through; color: var(--color-fg-muted);"{/if}
                 >{$version|truncate:18}</a>
               {/if}
+              {if $data.ageSummary}
+                <sup class="color-fg-attention">{sp}+{$data.ageSummary}</sup>
+              {/if}
             </span>
             <span style="flex: 1; border-bottom: 1px dotted var(--color-border-muted); margin: 0 0.5em;"></span>
             {if $depCount > 0}
-              <span class="text-small color-fg-muted" style="padding: 0 0.5em;">{$depCount} ({$percentage}%)</span>
+              <span class="text-small color-fg-muted" style="padding: 0 0.5em;">{$percentage}%<sup>{sp}{$depCount}</sup></span>
             {/if}
             <span class="text-small color-fg-muted" style="padding-left: 0.5em;">{$commitDate}</span>
           </div>
@@ -330,6 +352,11 @@ bazel_dep(name = "{$name}", version = "{$version}")
 {moduleUrl(name: $name)}/{$version}
 {/template}
 
+{template moduleVersionDocsUrl kind="uri"}
+  {@param name: string}
+  {@param version: string}
+{moduleVersionUrl(name: $name, version: $version)}/docs
+{/template}
 
 {template maintainerUrl kind="uri"}
   {@param maintainer: Maintainer}
@@ -503,7 +530,7 @@ unknown
     {/if}
   </p>
   {if $repositoryMetadata?.getType() === 1} // GITHUB
-    {githubRepoAvatar(org: $repositoryMetadata?.getOrganization(), name: $repositoryMetadata?.getName())}
+    {githubRepoAvatar(org: $repositoryMetadata?.getOrganization(), name: $repositoryMetadata?.getName(), title: true)}
   {/if}
   <div class="mt-3">
     {if $module.getMetadata()?.getHomepage()}
@@ -556,7 +583,7 @@ unknown
       <div class="d-flex flex-items-center {if $lang.isPrimary}{else}text-small{/if}">
         <span class="mr-2">{octiconDotFill16(fill: 'var(--lang-' + $lang.sanitizedName + '-bg, currentColor)')}</span>
         {if $lang.isPrimary}
-          <a class="Link--primary text-bold" href="/#/modules/all/{$lang.name}">{$lang.name}</a>
+          <a class="Link--primary text-bold" href="{modulesUrl()}/list/all/{$lang.name}">{$lang.name}</a>
         {else}
           <span>{$lang.name}</span>
         {/if}
@@ -570,9 +597,11 @@ unknown
 
 {template moduleDependencyRow}
   {@inject latestVersions: map<string,ModuleVersion>}
+  {@inject versionDistances: map<string,map<string,[versionsBehind: int, ageSummary: string|null]>>}
   {@param dep: ModuleDependency}
 {let $latest: $latestVersions.get($dep.getName()) /}
 {let $override: $dep.getOverride() /}
+{let $distanceMap: $versionDistances.get($dep.getName()) /}
 <div style="display: flex; align-items: center;">
   <span style="padding-right: 0.5em;">
     <a class="Box-row-link" href="{moduleVersionUrl(name: $dep.getName(), version: $dep.getVersion())}">
@@ -589,7 +618,7 @@ unknown
           <span class="text-bold" style="color: var(--fgColor-danger, var(--color-danger-fg))">unresolved</span>
           )
         {else}
-          {$dep.getVersion()|truncate:32}
+          {$dep.getVersion()|truncate:32}          
         {/if}
       </span>
       {if $dep.getRepoName()}
@@ -603,9 +632,26 @@ unknown
       {if $dep.getVersion() == $latest.getVersion()}
         {octiconCheck16(class: 'Label--success')}
       {else}
-        <a class="Box-row-link text-light text-small" href="{moduleVersionUrl(name: $dep.getName(), version: $latest.getVersion())}">
-          {$latest.getVersion()|truncate:32}
-        </a>
+        {if $distanceMap}
+          {let $distanceInfo: $distanceMap.get($dep.getVersion()) /}
+          <a class="Box-row-link text-light text-small" href="{moduleVersionUrl(name: $dep.getName(), version: $latest.getVersion())}">
+            {$latest.getVersion()|truncate:32}
+            {if $distanceInfo && $distanceInfo.versionsBehind > 0}
+              <span title="Version Distance">
+                <sup style="padding-left: 3px">
+                  +{$distanceInfo.versionsBehind}
+                  {if $distanceInfo.ageSummary}
+                    <span class="color-fg-attention">{sp}({$distanceInfo.ageSummary})</span>
+                  {/if}
+                </sup>
+              </span>
+            {/if}
+          </a>
+        {else}
+          <a class="Box-row-link text-light text-small" href="{moduleVersionUrl(name: $dep.getName(), version: $latest.getVersion())}">
+            {$latest.getVersion()|truncate:32}
+          </a>
+        {/if}
       {/if}
     </span>
   {/if}
@@ -627,12 +673,16 @@ unknown
 
 {template maintainerCard}
   {@param maintainer: Maintainer}
-<a class="d-flex flex-column flex-items-center Link--primary text-center no-underline anim-hover-grow" href="{maintainerUrl(maintainer: $maintainer)}" style="width: 120px">
-    <img class="avatar mb-2" width="80" height="80" src="{githubAvatarUrl(name: $maintainer.getGithub())}" alt="@{$maintainer.getGithub()}" style="border-radius: 6px">
-    <div class="f6 lh-condensed">
-        {$maintainer.getName() || '@' + $maintainer.getGithub()}
+<div class="d-flex flex-column flex-items-center text-center anim-hover-grow" style="width: 96px">
+    <div class="mb-2">
+        {maintainerAvatar(maintainer: $maintainer, size: 80)}
     </div>
-</a>
+    <div class="f6 lh-condensed">
+        <a class="Link--primary no-underline" href="{maintainerUrl(maintainer: $maintainer)}">
+            {$maintainer.getName() || '@' + $maintainer.getGithub()}
+        </a>
+    </div>
+</div>
 {/template}
 
 
@@ -640,9 +690,12 @@ unknown
   {@param org: string}
   {@param name: string}
   {@param? size: int}
-<a class="d-inline-flex flex-items-center" href="{githubRepoUrl(org: $org, name: $name)}" title="@{$org}">
+  {@param? title: bool}
+<a class="d-inline-flex flex-column flex-content-start" href="{githubRepoUrl(org: $org, name: $name)}" title="@{$org}">
+  {if $title}
+    <span class="text-small mb-1 color-fg-muted" style="min-width: 0; word-break: break-all">@{$org}/{$name}</span>
+  {/if}
     <img class="avatar flex-shrink-0 rounded" style="padding: 2px" width="{$size ? $size : 42}" height="{$size ? $size : 42}" src="{githubAvatarUrl(name: $org)}" alt="@{$org}">
-    <span class="text-small ml-2 color-fg-muted" style="min-width: 0; word-break: break-all">@{$org}/{$name}</span>
 </a>
 {/template}
 
@@ -706,6 +759,34 @@ unknown
 </div>
 {/template}
 
+{template documentationSourceOcticon}
+  {@param source: DocumentationSource}
+{if $source == DocumentationSource.PUBLISHED}
+  {octiconNorthStar16(fill: 'var(--color-success-fg)')}
+{elseif $source == DocumentationSource.BEST_EFFORT}
+  {octiconNorthStar16(fill: 'var(--color-attention-fg)')}
+{else}
+  {octiconNorthStar16()}
+{/if}
+
+{/template}
+
+{template docsList}
+  {@param docsMap: map<string,DocumentationInfo>}
+<div class="mt-3">
+  {for $key in $docsMap.keys()}
+    {let $docs: $docsMap.get($key) /}
+    {if $docs}
+      <a class="btn btn mr-2 mb-2" href="{moduleVersionDocsUrl(name: $docs.getModuleName(), version: $docs.getVersion())}">
+        {documentationSourceOcticon(source: $docs.getSource())}
+        <span class="ml-1">{$docs.getModuleName()|truncate:32}</span>
+        <span class="text-light text-small ml-1">{$docs.getVersion()|truncate:32}</span>
+      </a>
+    {/if}
+  {/for}
+</div>
+{/template}
+
 
 {template moduleVersionHeader}
   {@param metadata: ModuleMetadata}
@@ -713,15 +794,23 @@ unknown
   {@param? isLatest: bool}
 {let $lang: $moduleVersion.getRepositoryMetadata()?.getPrimaryLanguage() /}
 {let $sanitizedLang: sanitizeLangName(lang: $lang) /}
-<div class="f2-light">
-  <span class="f1 text-semibold">{$moduleVersion.getName()}</span>
-  {sp}
-  <span class="f2 d-inline-block">
-    {$moduleVersion.getVersion()}
-    {if $isLatest}
-        <span class="Label Label--success ml-2" style="transform: translateY(-3px)">Latest {octiconCheck16()}</span>
-    {/if}
+{let $repoMeta: $moduleVersion.getRepositoryMetadata() /}
+<div class="f2-light d-flex flex-justify-between flex-items-center">
+  <div>
+    <span class="f1 text-semibold">{$moduleVersion.getName()}</span>
+    {sp}
+    <span class="f2 d-inline-block">
+      {$moduleVersion.getVersion()}
+      {if $isLatest}
+          <span class="Label Label--success ml-2" style="transform: translateY(-3px)">Latest {octiconCheck16()}</span>
+      {/if}
     </span>
+  </div>
+  {if $repoMeta}
+    <a class="btn btn-sm btn-invisible" href="{githubRepoUrl(org: $repoMeta.getOrganization(), name: $repoMeta.getName())}" target="_blank" rel="noopener" title="View on GitHub">
+      {octiconMarkGithub24()}
+    </a>
+  {/if}
 </div>
 
 {if $metadata.getYankedVersionsMap()}

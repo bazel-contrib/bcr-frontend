@@ -1,4 +1,4 @@
-"provides the module_commit rule"
+"""Provides the module_commit rule."""
 
 load("//rules:providers.bzl", "ModuleCommitInfo")
 
@@ -12,11 +12,21 @@ def _module_commit_impl(ctx):
     ]
 
 module_commit = rule(
+    doc = "Defines Git commit information for a module version.",
     implementation = _module_commit_impl,
     attrs = {
-        "sha1": attr.string(mandatory = True, doc = "Git commit SHA-1 hash"),
-        "date": attr.string(mandatory = True, doc = "Commit date in ISO 8601 format"),
-        "message": attr.string(mandatory = True, doc = "Commit message"),
+        "sha1": attr.string(
+            doc = "str: Git commit SHA-1 hash (required)",
+            mandatory = True,
+        ),
+        "date": attr.string(
+            doc = "str: Commit date in ISO 8601 format (required)",
+            mandatory = True,
+        ),
+        "message": attr.string(
+            doc = "str: Git commit message (required)",
+            mandatory = True,
+        ),
     },
     provides = [ModuleCommitInfo],
 )

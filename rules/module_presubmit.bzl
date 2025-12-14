@@ -1,4 +1,4 @@
-"provides the module_presubmit rule"
+"""Provides the module_presubmit rule."""
 
 load("//rules:providers.bzl", "ModulePresubmitInfo")
 
@@ -10,9 +10,13 @@ def _module_presubmit_impl(ctx):
     ]
 
 module_presubmit = rule(
+    doc = "Defines presubmit configuration for a module version.",
     implementation = _module_presubmit_impl,
     attrs = {
-        "presubmit_yml": attr.label(allow_single_file = [".yml", ".yaml"]),
+        "presubmit_yml": attr.label(
+            doc = "File: The presubmit.yml configuration file",
+            allow_single_file = [".yml", ".yaml"],
+        ),
     },
     provides = [ModulePresubmitInfo],
 )

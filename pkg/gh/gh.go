@@ -208,7 +208,7 @@ func FetchRepositoryMetadataBatch(ctx context.Context, token string, repos []*bz
 	queryBuilder.WriteString("}\n")
 
 	// Execute raw GraphQL query
-	response, err := executeRawGraphQL(ctx, token, queryBuilder.String())
+	response, err := ExecuteRawGraphQL(ctx, token, queryBuilder.String())
 	if err != nil {
 		return fmt.Errorf("failed to execute GraphQL query: %w", err)
 	}
@@ -251,8 +251,8 @@ func populateRepoMetadata(repo *bzpb.RepositoryMetadata, fields interface{}) {
 	}
 }
 
-// executeRawGraphQL executes a raw GraphQL query against GitHub's API
-func executeRawGraphQL(ctx context.Context, token, query string) (map[string]any, error) {
+// ExecuteRawGraphQL executes a raw GraphQL query against GitHub's API
+func ExecuteRawGraphQL(ctx context.Context, token, query string) (map[string]any, error) {
 	reqBody := map[string]string{
 		"query": query,
 	}
@@ -314,10 +314,13 @@ func parseRepositoryMetadataResponse(data map[string]any, repos []*bzpb.Reposito
 			continue // Repo not found or error
 		}
 
-		// Parse description
+		// Initialize Languages map to indicate metadata was fetched (even if empty)
+		repo.Languages = make(map[string]int32)
+
+		// Parse description (nil is valid for repos without descriptions)
 		if desc, ok := repoData["description"].(string); ok {
 			repo.Description = desc
-		} else {
+		} else if repoData["description"] != nil {
 			log.Printf("WARN %s: graphql response description parse issue: %v", canonicalName, repoData["description"])
 		}
 
@@ -331,7 +334,6 @@ func parseRepositoryMetadataResponse(data map[string]any, repos []*bzpb.Reposito
 		// Parse languages
 		if languages, ok := repoData["languages"].(map[string]any); ok {
 			if edges, ok := languages["edges"].([]any); ok {
-				repo.Languages = make(map[string]int32)
 				for _, edge := range edges {
 					edgeMap, ok := edge.(map[string]any)
 					if !ok {
@@ -376,4 +378,191 @@ func formatRepository(md *bzpb.RepositoryMetadata) string {
 	default:
 		return fmt.Sprintf("%s/%s", md.Organization, md.Name)
 	}
+}
+
+// GetTagCommitSHA resolves a git tag to its commit SHA using the GitHub API
+func GetTagCommitSHA(ctx context.Context, client *github.Client, repo Repo, tag string) (string, error) {
+	ref, _, err := client.Git.GetRef(ctx, repo.Owner, repo.Name, "tags/"+tag)
+	if err != nil {
+		return "", fmt.Errorf("failed to get tag %s: %w", tag, err)
+	}
+
+	// The ref might point to a tag object or directly to a commit
+	if ref.Object.GetType() == "tag" {
+		// It's an annotated tag, need to dereference it
+		tag, _, err := client.Git.GetTag(ctx, repo.Owner, repo.Name, ref.Object.GetSHA())
+		if err != nil {
+			return "", fmt.Errorf("failed to dereference tag: %w", err)
+		}
+		return tag.Object.GetSHA(), nil
+	}
+
+	// It's a lightweight tag pointing directly to a commit
+	return ref.Object.GetSHA(), nil
+}
+
+// GetReleaseCommitSHA resolves a GitHub release to its target commit SHA
+func GetReleaseCommitSHA(ctx context.Context, client *github.Client, repo Repo, version string) (string, error) {
+	release, _, err := client.Repositories.GetReleaseByTag(ctx, repo.Owner, repo.Name, version)
+	if err != nil {
+		return "", fmt.Errorf("failed to get release %s: %w", version, err)
+	}
+
+	targetCommitish := release.GetTargetCommitish()
+	if targetCommitish == "" {
+		return "", fmt.Errorf("release %s has no target commitish", version)
+	}
+
+	// The target commitish might be a branch name (e.g., "main") or a tag name
+	// We need to resolve it to an actual commit SHA
+
+	// Try to get it as a branch first
+	branch, _, err := client.Repositories.GetBranch(ctx, repo.Owner, repo.Name, targetCommitish, 0)
+	if err == nil && branch != nil && branch.Commit != nil {
+		return branch.Commit.GetSHA(), nil
+	}
+
+	// If not a branch, try as a tag reference
+	ref, _, err := client.Git.GetRef(ctx, repo.Owner, repo.Name, "tags/"+targetCommitish)
+	if err == nil && ref != nil && ref.Object != nil {
+		// If it's an annotated tag, dereference it
+		if ref.Object.GetType() == "tag" {
+			tag, _, err := client.Git.GetTag(ctx, repo.Owner, repo.Name, ref.Object.GetSHA())
+			if err == nil && tag != nil && tag.Object != nil {
+				return tag.Object.GetSHA(), nil
+			}
+		}
+		// Lightweight tag or direct commit reference
+		return ref.Object.GetSHA(), nil
+	}
+
+	// If neither branch nor tag, it might already be a commit SHA
+	if len(targetCommitish) == 40 {
+		// Verify it's a valid commit
+		commit, _, err := client.Repositories.GetCommit(ctx, repo.Owner, repo.Name, targetCommitish, nil)
+		if err == nil && commit != nil {
+			return commit.GetSHA(), nil
+		}
+	}
+
+	return "", fmt.Errorf("could not resolve target commitish %q to a commit SHA", targetCommitish)
+}
+
+// SourceCommitInfo contains the result of resolving a source URL to a commit SHA
+type SourceCommitInfo struct {
+	URL       string
+	CommitSHA string
+	Error     error
+}
+
+// BatchResolveSourceCommits resolves multiple source URLs to commit SHAs with retry logic
+// Returns a slice of SourceCommitInfo with results for each URL
+func BatchResolveSourceCommits(ctx context.Context, client *github.Client, urlInfos []struct {
+	URL  string
+	Org  string
+	Repo string
+	Type string // "tag", "commit_sha", or "release"
+	Ref  string
+}) ([]*SourceCommitInfo, error) {
+	results := make([]*SourceCommitInfo, len(urlInfos))
+	var mu sync.Mutex
+
+	limiter := rate.NewLimiter(rate.Limit(4800.0/3600.0), 1000)
+	g, ctx := errgroup.WithContext(ctx)
+
+	for i, info := range urlInfos {
+		i, info := i, info // capture loop variables
+		g.Go(func() error {
+			if err := limiter.Wait(ctx); err != nil {
+				return err
+			}
+
+			result := &SourceCommitInfo{URL: info.URL}
+
+			switch info.Type {
+			case "commit_sha":
+				// URL already contains the commit SHA
+				result.CommitSHA = info.Ref
+
+			case "tag":
+				sha, err := retryWithBackoff(ctx, 3, func() (string, error) {
+					return GetTagCommitSHA(ctx, client, Repo{Owner: info.Org, Name: info.Repo}, info.Ref)
+				})
+				if err != nil {
+					result.Error = err
+				} else {
+					result.CommitSHA = sha
+				}
+
+			case "release":
+				sha, err := retryWithBackoff(ctx, 3, func() (string, error) {
+					return GetReleaseCommitSHA(ctx, client, Repo{Owner: info.Org, Name: info.Repo}, info.Ref)
+				})
+				if err != nil {
+					result.Error = err
+				} else {
+					result.CommitSHA = sha
+				}
+
+			default:
+				result.Error = fmt.Errorf("unknown URL type: %s", info.Type)
+			}
+
+			mu.Lock()
+			results[i] = result
+			mu.Unlock()
+
+			return nil
+		})
+	}
+
+	if err := g.Wait(); err != nil {
+		return nil, err
+	}
+
+	return results, nil
+}
+
+// retryWithBackoff retries a function with exponential backoff
+func retryWithBackoff(ctx context.Context, maxRetries int, fn func() (string, error)) (string, error) {
+	var lastErr error
+	for attempt := 0; attempt < maxRetries; attempt++ {
+		result, err := fn()
+		if err == nil {
+			return result, nil
+		}
+
+		lastErr = err
+
+		// Don't retry on context cancellation or certain GitHub errors
+		if ctx.Err() != nil {
+			return "", ctx.Err()
+		}
+
+		// Don't retry on 404 (not found) errors - these won't succeed on retry
+		if isNotFoundError(err) {
+			return "", err
+		}
+
+		// Don't retry on last attempt
+		if attempt < maxRetries-1 {
+			// Exponential backoff: 1s, 2s, 4s
+			backoff := time.Duration(1<<uint(attempt)) * time.Second
+			time.Sleep(backoff)
+		}
+	}
+
+	return "", fmt.Errorf("failed after %d attempts: %w", maxRetries, lastErr)
+}
+
+// isNotFoundError checks if an error is a GitHub 404 not found error
+func isNotFoundError(err error) bool {
+	if err == nil {
+		return false
+	}
+	// Check for go-github error response
+	if errResp, ok := err.(*github.ErrorResponse); ok {
+		return errResp.Response.StatusCode == 404
+	}
+	return false
 }

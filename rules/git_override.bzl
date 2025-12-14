@@ -1,4 +1,4 @@
-"provides the git_override rule"
+"""Provides the git_override rule."""
 
 load("//rules:providers.bzl", "GitOverrideInfo", "ModuleOverrideInfo")
 
@@ -18,14 +18,29 @@ def _git_override_impl(ctx):
     ]
 
 git_override = rule(
+    doc = "Defines a Git-based module override configuration.",
     implementation = _git_override_impl,
     attrs = {
-        "module_name": attr.string(mandatory = True),
-        "commit": attr.string(),
-        "remote": attr.string(),
-        "branch": attr.string(),
-        "patch_strip": attr.int(default = 0),
-        "patches": attr.string_list(),
+        "module_name": attr.string(
+            doc = "str: Name of the module being overridden (required)",
+            mandatory = True,
+        ),
+        "commit": attr.string(
+            doc = "str: Git commit hash",
+        ),
+        "remote": attr.string(
+            doc = "str: Git remote URL",
+        ),
+        "branch": attr.string(
+            doc = "str: Git branch name",
+        ),
+        "patch_strip": attr.int(
+            doc = "int: Number of leading path components to strip from patches",
+            default = 0,
+        ),
+        "patches": attr.string_list(
+            doc = "list[str]: Patch file paths",
+        ),
     },
     provides = [ModuleOverrideInfo, GitOverrideInfo],
 )

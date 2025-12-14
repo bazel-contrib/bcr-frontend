@@ -1,64 +1,99 @@
 {namespace soy.centrl.app}
 
 import {
+    octiconAlert16,
+    octiconBook16,
+    octiconBook24,
     octiconCheck16,
     octiconChevronLeft16,
     octiconChevronLeft24,
-    octiconChevronUp24,
     octiconChevronRight16,
+    octiconChevronUp24,
     octiconCode16,
     octiconDotFill16,
+    octiconDotFill24,
+    octiconFeedPerson16,
     octiconFile16,
     octiconGear16,
     octiconGitCommit16,
+    octiconListUnordered16,
+    octiconMarkGithub16,
+    octiconMarkGithub24,
+    octiconNorthStar16,
+    octiconPackage16,
     octiconPaintbrush16,
     octiconPerson16,
+    octiconSkip16,
+    octiconSkip24,
     octiconSparkleFill16,
-    octiconSquareFill16
+    octiconSquareFill16,
+    octiconTable16,
+    octiconWorkflow16
 } from 'app/bcr/octicons.soy';
 import {
   AspectInfo,
   AttributeInfo,
+  AttributeType,
   FunctionParamInfo,
   FunctionReturnInfo,
   ModuleExtensionInfo,
   ModuleExtensionTagClassInfo,
   ModuleInfo,
-  ProviderInfo,
+  OriginKey,
   ProviderFieldInfo,
+  ProviderInfo,
   RepositoryRuleInfo,
   RuleInfo,
   StarlarkFunctionInfo
 } from 'stardoc_output/stardoc_output.proto';
 import {
-  DocumentationInfo,
-  FileInfo,
+  Function,
   Label,
-  SymbolInfo,
+  LoadStmt,
+  LoadSymbol,
+  MacroFunction,
+  SymbolLocation,
+  Value
+} from 'build/stack/starlark/v1beta1/starlark.proto';
+import {
+  DocumentationInfo,
+  DocumentationSource,
+  FileInfo,
+  FileLoadTree,
+  FileLoadTreeNode,
   Maintainer,
   Module,
   ModuleDependency,
+  ModuleDependencyOverride,
   ModuleMetadata,
   ModuleVersion,
-  Registry
+  Registry,
+  RepositoryType,
+  SymbolInfo,
+  SymbolType
 } from 'build/stack/bazel/bzlmod/v1/bcr.proto';
 import {
   attestationsTable,
   compatibilityTable,
   copyToClipboardButton,
   counterLabel,
+  docsList,
+  documentationSourceOcticon,
   maintainerBreadcrumb,
   maintainerModuleVersionTable,
   maintainerProfile,
   maintainersList,
   maintainersTable,
+  modulesUrl,
   moduleDependencyOverride,
+  moduleDependencyRow,
   moduleDependencyTable,
   moduleLanguageTable,
   moduleSourceTable,
+  moduleVersionAboutTable,
   moduleVersionBreadcrumb,
   moduleVersionButton,
-  moduleVersionAboutTable,
+  moduleVersionDocsUrl,
   moduleVersionHeader,
   moduleVersionModuleBazel,
   moduleVersions,
@@ -69,9 +104,7 @@ import {
 } from 'app/bcr/registry.soy';
 
 {template registryApp}
-<div class="container-lg mx-auto">
-  <div class="{css('app-main')}"></div>
-</div>
+<div class="{css('app-main')}"></div>
 {/template}
 
 
@@ -95,32 +128,51 @@ import {
 </div>
 {/template}
 
-
 {template headerLink kind="html<a>"}
   {@param path: string}
+  {@param octicon: html}
   {@param? label: string}
-  {@param? octicon: html}
-<a href="/#/{$path}" class="btn mx-1" style="border: none; box-shadow: none">
-  {if $octicon}<span class="mr-2 color-fg-subtle">{$octicon}</span>{/if}
-  {if $label}{$label}{/if}
+<a href="/#/{$path}" class="BtnGroup-item btn btn-sm" {if $label}data-label="{$label}"{/if}>
+  <span class="color-fg-subtle{if $label}{/if}">{$octicon}</span>
+  {if $label}<span class="ml-2 hide-sm">{$label}</span>{/if}
 </a>
 {/template}
 
 
+{template kbd}
+  {@param key: string}
+  <kbd>{$key}</kbd>
+{/template}
+
+
 {template header}
-<div class="{css('app-header')} Header" style="background-color: unset">
+<div class="Header" style="background-color: unset">
   <div class="Header-item" style="max-width: 54px">
     <a href="/#/home">{logo()}</a>
   </div>
-  <div class="Header-item Header-item--full" style="position: relative">
-    <form class="FormControl col-12">
-      <input class="form-control col-12 input-hide-webkit-autofill border" type="text" placeholder="Search..."/>
-    </form>
+  <div class="Header-item Header-item--full">
+    <div class="width-full" style="position: relative">
+      <form class="FormControl col-12">
+        <input class="form-control col-12 input-hide-webkit-autofill border width-full" type="text" placeholder="Search..." style="background-color: var(--button-default-bgColor-rest, var(--color-btn-bg));"/>
+      </form>
+      <div class="" style="position: absolute; top: 100%; right: 0; z-index: 1;">
+        <div class="BtnGroup d-inline-flex markdown-body" style="margin-top: 0px; background: transparent;">
+          <button class="BtnGroup-item btn btn-sm btn-octicon {css('search-scope-modules')}" type="button" data-searchprovider="module">
+            <span class="f6 text-light hide-sm">Module Search</span> <span class="f6 text-light hide-md hide-lg hide-xl">Modules</span> {kbd(key: '/')}
+          </button>
+          <button class="BtnGroup-item btn btn-sm btn-octicon {css('search-scope-docs')}" type="button" data-searchprovider="symbol">
+            <span class="f6 text-light hide-sm">Symbol Search</span> <span class="f6 text-light hide-md hide-lg hide-xl">Symbols</span> {kbd(key: '.')}
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
   <div class="Header-item">
-    {headerLink(path: "modules", label: "Modules", octicon: octiconSquareFill16())}
-    {headerLink(path: "maintainers", label: "Maintainers", octicon: octiconPerson16())}
-    {headerLink(path: "settings", octicon: octiconGear16())}
+    <div class="BtnGroup">
+      {headerLink(path: "modules", label: "Modules", octicon: octiconPackage16())}
+      {headerLink(path: "maintainers", label: "Maintainers", octicon: octiconFeedPerson16())}
+      {headerLink(path: "docs", label: "Documentation", octicon: octiconNorthStar16())}
+    </div>
   </div>
 </div>
 {/template}
@@ -138,23 +190,80 @@ import {
 {template bodySelect}
   {@param registry: Registry}
   {@param lastUpdated: string}
-<div class="PageLayout">
-  {header()}
-  <div class="{css('content')} PageLayout-content"></div>
-  {footer(registry: $registry, lastUpdated: $lastUpdated)}
+<div class="container-xl" style="position: relative">
+  <a href="/#/settings" class="btn-octicon color-fg-muted" title="Settings" style="position: absolute; right: 12px; top: 12px; z-index: 100;">{octiconGear16()}</a>
+  <div class="PageLayout px-3">
+    {header()}
+    <div class="{css('content')} PageLayout-content"></div>
+    {footer(registry: $registry, lastUpdated: $lastUpdated)}
+  </div>
 </div>
 {/template}
 
-
 {template homeSelect}
 <div>
-  <div class="{css('content')}"></div>
+  <div class="{css('content')}" style="display: flex; justify-content: center; align-items: center; min-height: 50vh;">
+    <svg width="200" height="200" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+      <!-- Cat body -->
+      <ellipse cx="100" cy="120" rx="50" ry="45" fill="#f4a460"/>
+
+      <!-- Cat head -->
+      <circle cx="100" cy="70" r="40" fill="#f4a460"/>
+
+      <!-- Left ear -->
+      <polygon points="70,45 75,25 85,45" fill="#f4a460"/>
+      <polygon points="73,42 76,30 82,42" fill="#ffc0cb"/>
+
+      <!-- Right ear -->
+      <polygon points="115,45 125,25 130,45" fill="#f4a460"/>
+      <polygon points="118,42 124,30 127,42" fill="#ffc0cb"/>
+
+      <!-- Left eye -->
+      <ellipse cx="85" cy="65" rx="8" ry="12" fill="#fff"/>
+      <ellipse cx="85" cy="68" rx="5" ry="8" fill="#000"/>
+      <ellipse cx="86" cy="66" rx="2" ry="3" fill="#fff"/>
+
+      <!-- Right eye -->
+      <ellipse cx="115" cy="65" rx="8" ry="12" fill="#fff"/>
+      <ellipse cx="115" cy="68" rx="5" ry="8" fill="#000"/>
+      <ellipse cx="116" cy="66" rx="2" ry="3" fill="#fff"/>
+
+      <!-- Nose -->
+      <polygon points="100,78 97,83 103,83" fill="#ff69b4"/>
+
+      <!-- Mouth -->
+      <path d="M 100 83 Q 95 88 90 85" stroke="#8b4513" stroke-width="1.5" fill="none"/>
+      <path d="M 100 83 Q 105 88 110 85" stroke="#8b4513" stroke-width="1.5" fill="none"/>
+
+      <!-- Whiskers left -->
+      <line x1="65" y1="72" x2="40" y2="70" stroke="#8b4513" stroke-width="1"/>
+      <line x1="65" y1="77" x2="40" y2="78" stroke="#8b4513" stroke-width="1"/>
+      <line x1="65" y1="82" x2="40" y2="86" stroke="#8b4513" stroke-width="1"/>
+
+      <!-- Whiskers right -->
+      <line x1="135" y1="72" x2="160" y2="70" stroke="#8b4513" stroke-width="1"/>
+      <line x1="135" y1="77" x2="160" y2="78" stroke="#8b4513" stroke-width="1"/>
+      <line x1="135" y1="82" x2="160" y2="86" stroke="#8b4513" stroke-width="1"/>
+
+      <!-- Tail -->
+      <path d="M 145 135 Q 165 130 175 145 Q 180 155 170 160" stroke="#f4a460" stroke-width="12" fill="none" stroke-linecap="round"/>
+
+      <!-- Left front paw -->
+      <ellipse cx="80" cy="160" rx="10" ry="15" fill="#f4a460"/>
+
+      <!-- Right front paw -->
+      <ellipse cx="120" cy="160" rx="10" ry="15" fill="#f4a460"/>
+
+      <!-- Belly patch -->
+      <ellipse cx="100" cy="130" rx="25" ry="20" fill="#ffe4b5"/>
+    </svg>
+  </div>
 </div>
 {/template}
 
 {template settingsSelect}
   {@inject pathUrl: string}
-<div class="PageLayout PageLayout--panePos-start PageLayout--hasPaneDivider mt-3" style="--Layout-pane-width: 10rem">
+<div class="PageLayout PageLayout--panePos-start PageLayout--hasPaneDivider PageLayout--responsive-stackRegions PageLayout--responsive-panePos-start mt-3" style="--Layout-pane-width: 10rem">
   <div class="PageLayout-columns">
     <div class="PageLayout-pane">
     {sectionHeader(title: 'Settings', style: 'font-size: var(--h1-size)')}
@@ -209,6 +318,13 @@ import {
   {@param totalModules: int}
   {@param totalModuleVersions: int}
   {@param totalMaintainers: int}
+  {@param totalRules: int}
+  {@param totalFunctions: int}
+  {@param totalProviders: int}
+  {@param totalAspects: int}
+  {@param totalModuleExtensions: int}
+  {@param totalRepositoryRules: int}
+  {@param totalMacros: int}
 <div class="d-flex flex-column flex-items-center flex-justify-center p-4">
     {logo()}
     <div class="p-2 mt-4 text-light" style="background: var(--color-neutral-subtle); border-width: 0.5rem">
@@ -224,16 +340,25 @@ import {
       {sp}
       {octiconChevronLeft16()}
     </div>
-    <div class="d-flex flex-row flex-items-center flex-justify-center mt-3" style="gap: 3rem">
-      {statDisplay(value: $totalModules, label: 'Modules')}
-      {statDisplay(value: $totalModuleVersions, label: 'Module Versions')}
-      {statDisplay(value: $totalMaintainers, label: 'Maintainers')}
+    <div class="d-flex flex-row flex-wrap flex-items-center flex-justify-center mt-3" style="gap: 2rem">
+      {largeStatDisplay(value: $totalModules, label: 'Modules')}
+      {largeStatDisplay(value: $totalModuleVersions, label: 'Module Versions')}
+      {largeStatDisplay(value: $totalMaintainers, label: 'Maintainers')}
+    </div>
+    <div class="d-flex flex-row flex-wrap flex-items-center flex-justify-center mt-5" style="gap: 1.5rem">
+      {statDisplay(value: $totalRules, label: 'Rules', color: symbolColor(type: SymbolType.SYMBOL_TYPE_RULE))}
+      {statDisplay(value: $totalFunctions, label: 'Functions', color: symbolColor(type: SymbolType.SYMBOL_TYPE_FUNCTION))}
+      {statDisplay(value: $totalProviders, label: 'Providers', color: symbolColor(type: SymbolType.SYMBOL_TYPE_PROVIDER))}
+      {statDisplay(value: $totalModuleExtensions, label: 'Extensions', color: symbolColor(type: SymbolType.SYMBOL_TYPE_MODULE_EXTENSION))}
+      {statDisplay(value: $totalRepositoryRules, label: 'Repo Rules', color: symbolColor(type: SymbolType.SYMBOL_TYPE_REPOSITORY_RULE))}
+      {statDisplay(value: $totalAspects, label: 'Aspects', color: symbolColor(type: SymbolType.SYMBOL_TYPE_ASPECT))}
+      {statDisplay(value: $totalMacros, label: 'Macros', color: symbolColor(type: SymbolType.SYMBOL_TYPE_MACRO))}
     </div>
     <div class="Box Box--condensed mt-4" style="width: 100%; max-width: 800px">
       <div class="Box-header">
         <div class="Box-title">About</div>
       </div>
-      <div class="Box-body markdown-body">
+      <div class="Box-body {css('marked')} markdown-body">
         <h1>Bazel Central Registry</h1>
         <p>
           The Bazel Central Registry (BCR) is the official registry for Bazel modules. It serves as a centralized repository
@@ -264,7 +389,7 @@ import {
 {/template}
 
 
-{template statDisplay}
+{template largeStatDisplay}
   {@param value: ?}
   {@param label: string}
 <div class="d-flex flex-column flex-items-center anim-scale-in">
@@ -277,12 +402,38 @@ import {
 </div>
 {/template}
 
+{template statDisplay}
+  {@param value: ?}
+  {@param label: string}
+  {@param? color: string}
+<div class="d-flex flex-column flex-items-center anim-scale-in">
+  <div class="f2-mktg d-flex flex-items-center">
+    {$value}
+  </div>
+  {if $color}
+    {octiconDotFill16(fill: 'var(' + $color + ')')}
+  {/if}
+  <div class="f4-light color-fg-muted">
+    {$label}
+  </div>
+</div>
+{/template}
 
 {template maintainersMapComponent}
   {@param maintainers: map<string,Maintainer>}
 <div>
     {call maintainersList}
         {param maintainers: $maintainers /}
+    {/call}
+</div>
+{/template}
+
+
+{template docsMapComponent}
+  {@param docsMap: map<string,DocumentationInfo>}
+<div>
+    {call docsList}
+        {param docsMap: $docsMap /}
     {/call}
 </div>
 {/template}
@@ -333,7 +484,7 @@ import {
 {template moduleVersionsFilterSelect}
   {@param languages: list<[name: string, sanitizedName: string]>}
   {@inject pathUrl: string}
-<div class="PageLayout PageLayout--panePos-start PageLayout--hasPaneDivider" style="--Layout-pane-width: 10rem">
+<div class="PageLayout PageLayout--panePos-start PageLayout--hasPaneDivider PageLayout--responsive-stackRegions PageLayout--responsive-panePos-start" style="--Layout-pane-width: 10rem">
   <div class="PageLayout-columns">
     {if length($languages) > 0}
     <div class="PageLayout-pane">
@@ -357,7 +508,7 @@ import {
 {template moduleVersionSelectNav}
   {@param moduleVersion: ModuleVersion}
   {@param metadata: ModuleMetadata}
-  {@param versionData: list<[version: string, compat: int, commitDate: string, directDeps: list<ModuleVersion>]>}
+  {@param versionData: list<[version: string, compat: int, commitDate: string, directDeps: list<ModuleVersion>, ageSummary: string|null]>}
 <div>
   {let $isLatest: length($versionData) > 0 && $versionData[0].version == $moduleVersion.getVersion() /}
   {call moduleVersionHeader}
@@ -380,53 +531,26 @@ import {
   {@param moduleVersion: ModuleVersion}
   {@param deps: list<ModuleDependency>}
   {@param devDeps: list<ModuleDependency>}
-  {@param directDeps: list<ModuleDependency>}
   {@param totalDeps: int}
   {@param yanked: map<string,string>}
   {@param commitDate: string}
-  {@param versionData: list<[version: string, compat: int, commitDate: string, directDeps: list<ModuleVersion>]>}
+  {@param versionData: list<[version: string, compat: int, commitDate: string, directDeps: list<ModuleVersion>, ageSummary: string|null]>}
   {@param languageData: list<[name: string, sanitizedName: string, percentage: number, isPrimary: bool]>}
-<div class="PageLayout PageLayout--panePos-end PageLayout--hasPaneDivider">
+  {@param timeSinceLatest: string}
+<div class="PageLayout PageLayout--panePos-end PageLayout--hasPaneDivider PageLayout--responsive-stackRegions">
 <div class="PageLayout-columns">
   <div class="PageLayout-content">
     {call moduleVersionModuleBazel}
       {param moduleVersion: $moduleVersion /}
     {/call}
 
-    {if length($deps)}
-      <div class="mt-3">
-        {call moduleDependencyTable}
-          {param title: 'Dependencies' /}
-          {param deps: $deps /}
-        {/call}
-      </div>
-    {/if}
+    <div class="{css('deps')}"></div>
 
-    {if length($devDeps)}
-      <div class="mt-3">
-        {call moduleDependencyTable}
-          {param title: 'Dev Dependencies' /}
-          {param deps: $devDeps /}
-        {/call}
-      </div>
-    {/if}
+    <div class="{css('dev-deps')}"></div>
 
-    {for $override in $moduleVersion.getOverrideList()}
-      <div class="mt-3">
-        {call moduleDependencyOverride}
-          {param override: $override /}
-        {/call}
-      </div>
-    {/for}
+    <div class="{css('readme')} mt-3"></div>
 
-    {if length($directDeps)}
-      <div class="mt-3">
-        {call moduleDependencyTable}
-          {param title: 'Used By' /}
-          {param deps: $directDeps /}
-        {/call}
-      </div>
-    {/if}
+    <div class="{css('dependents')}"></div>
 
   </div>
 
@@ -497,6 +621,7 @@ import {
           {param currentVersion: $moduleVersion.getVersion() /}
           {param yanked: $yanked /}
           {param totalDeps: $totalDeps /}
+          {param timeSinceLatest: $timeSinceLatest /}
         {/call}
       </div>
     </div>
@@ -505,6 +630,83 @@ import {
 </div>
 {/template}
 
+
+{template moduleVersionDependenciesComponent}
+  {@param title: string}
+  {@param deps: list<ModuleDependency>}
+  {@param overrides: list<ModuleDependencyOverride>}
+<div class="Box Box--condensed mt-3">
+  <div class="Box-header d-flex flex-items-center flex-justify-between">
+    <span class="Box-title">{$title} {counterLabel(count: $deps.length)}</span>
+    <div class="BtnGroup">
+      <button class="BtnGroup-item selected btn btn-sm {css('btn-list')}" title="View direct dependencies">
+        {octiconListUnordered16()}
+      </button>
+      <button class="BtnGroup-item btn btn-sm {css('btn-tree')}" title="View transitive dependencies with minimum version selection (MVS)">
+        {octiconWorkflow16()}
+      </button>
+    </div>
+  </div>
+  <div class="Box-body width-full">
+    <div class="{css('content')}">
+      {for $dep in $deps}
+        <div class="mx-1 my-2">
+          {moduleDependencyRow(dep: $dep)}
+        </div>
+      {/for}
+      {if length($overrides) > 0}
+        <div class="mt-3 pt-3 border-top">
+          {for $override in $overrides}
+            <div class="overflow-auto pb-3">
+              <pre class="{css('shiki')}"><code lang="py">{$override.getCode()}</code></pre>
+            </div>
+          {/for}
+        </div>
+      {/if}
+    </div>
+    <div class="{css('tree-content')}">
+    </div>
+  </div>
+</div>
+{/template}
+
+
+{template moduleVersionDependentsComponent}
+  {@param title: string}
+  {@param deps: list<ModuleDependency>}
+<div class="Box Box--condensed mt-3">
+  <div class="Box-header d-flex flex-items-center flex-justify-between">
+    <span class="Box-title">{$title} {counterLabel(count: $deps.length)}</span>
+    <div class="BtnGroup">
+      <button class="BtnGroup-item selected btn btn-sm {css('btn-list')}" title="View list of dependents">
+        {octiconListUnordered16()}
+      </button>
+      <button class="BtnGroup-item btn btn-sm {css('btn-table')}" title="View matrix of dependents by version">
+        {octiconTable16()}
+      </button>
+    </div>
+  </div>
+  <div class="Box-body">
+    <div class="{css('list-content')}">
+      {for $dep in $deps}
+        <div class="mx-1 my-2" style="display: flex; align-items: center;">
+          <span style="padding-right: 0.5em;">
+            <a class="Box-row-link" href="{moduleVersionUrl(name: $dep.getName(), version: $dep.getVersion())}">
+              {$dep.getName()|truncate:32}
+              <span class="ml-1 text-light text-small">{$dep.getVersion()|truncate:32}</span>
+            </a>
+          </span>
+          <span style="flex: 1; border-bottom: 1px dotted var(--color-border-muted); margin: 0 0.5em;"></span>
+        </div>
+      {/for}
+    </div>
+    <div class="{css('table-content')} width-full" >
+    </div>
+  </div>
+</div>
+{/template}
+
+
 {template fileInfoSelect}
 <div>
   <div class="{css('content')}"></div>
@@ -512,42 +714,27 @@ import {
 {/template}
 
 {template documentationInfoSelect}
+  {@param module: Module}
+  {@param moduleVersion: ModuleVersion}
+  {@param? info: DocumentationInfo}
   {@param aspects: list<[file: FileInfo, sym: SymbolInfo]>}
   {@param funcs: list<[file: FileInfo, sym: SymbolInfo]>}
   {@param macros: list<[file: FileInfo, sym: SymbolInfo]>}
+  {@param ruleMacros: list<[file: FileInfo, sym: SymbolInfo]>}
   {@param moduleExtensions: list<[file: FileInfo, sym: SymbolInfo]>}
   {@param providers: list<[file: FileInfo, sym: SymbolInfo]>}
   {@param repositoryRules: list<[file: FileInfo, sym: SymbolInfo]>}
   {@param rules: list<[file: FileInfo, sym: SymbolInfo]>}
+  {@param fileSymbols: list<[file: FileInfo, symbolGroups: list<[type: SymbolType, typeName: string, symbols: list<SymbolInfo>]>]>}
 <div>
-  <div class="PageLayout">
+  <div class="PageLayout PageLayout--panePos-start PageLayout--hasPaneDivider PageLayout--responsive-stackRegions" style2="--Layout-template-columns: unset">
     <div class="PageLayout-wrapper">
       <div class="PageLayout-columns">
-        <div class="PageLayout-content {css('content')}"></div>
-        <div class="PageLayout-pane border-left pl-2">
+        <div class="PageLayout-content PageLayout-pane--sticky {css('content')}"></div>
+        <div class="PageLayout-pane pl-2 overflow-x-hidden">
           <nav class="SideNav" style="background-color: transparent; border: none">
-
-            {if length($funcs) + length($rules) + length($aspects) + length($providers) + length($moduleExtensions) + length($repositoryRules) + length($macros) > 0}
-              <div class="pb-2 d-inline-block">
-                {if length($funcs) > 0}{symbolCount(type: $funcs[0].sym.getType(), n: length($funcs))} {sp}{/if}
-                {if length($macros) > 0}{symbolCount(type: $macros[0].sym.getType(), n: length($macros))} {sp}{/if}
-                {if length($rules) > 0}{symbolCount(type: $rules[0].sym.getType(), n: length($rules))} {sp}{/if}
-                {if length($aspects) > 0}{symbolCount(type: $aspects[0].sym.getType(), n: length($aspects))} {sp}{/if}
-                {if length($providers) > 0}{symbolCount(type: $providers[0].sym.getType(), n: length($providers))} {sp}{/if}
-                {if length($moduleExtensions) > 0}{symbolCount(type: $moduleExtensions[0].sym.getType(), n: length($moduleExtensions))} {sp}{/if}
-                {if length($repositoryRules) > 0}{symbolCount(type: $repositoryRules[0].sym.getType(), n: length($repositoryRules))}{/if}
-              </div>
-            {/if}
-
-            {symbolSection(title: 'Functions', items: $funcs)}
-            {symbolSection(title: 'Macros', items: $macros)}
-            {symbolSection(title: 'Rules', items: $rules)}
-            {symbolSection(title: 'Providers', items: $providers)}
-            {symbolSection(title: 'Aspects', items: $aspects)}
-            {symbolSection(title: 'Module Extensions', items: $moduleExtensions)}
-            {symbolSection(title: 'Repository Rules', items: $repositoryRules)}
+            {documentationAboutSection(module: $module, moduleVersion: $moduleVersion, info: $info, fileSymbols: $fileSymbols)}
           </nav>
-
         </div>
       </div>
     </div>
@@ -582,11 +769,49 @@ import {
 {fileInfoUrl(label: $file.getLabel())}/{$sym.getName()}
 {/template}
 
-{template providerUrl kind="uri"}
-  {@inject baseUrl: string}
-  {@param file: string}
-  {@param name: string}
-/#/{$baseUrl}/{$file}/{$name}
+{template githubSourceUrl kind="uri"}
+  {@param moduleVersion: ModuleVersion}
+  {@param? label: Label}
+  {@param? location: SymbolLocation}
+{if $moduleVersion.getRepositoryMetadata()?.getType() == RepositoryType.GITHUB && $label}
+{let $org: $moduleVersion.getRepositoryMetadata().getOrganization() /}
+{let $repo: $moduleVersion.getRepositoryMetadata().getName() /}
+{let $pkg: $label.getPkg() /}
+{let $name: $label.getName() /}
+{let $path: $pkg ? $pkg + '/' + $name : $name /}
+{let $commitSha: $moduleVersion.getSource()?.getCommitSha() /}
+{if $commitSha}
+https://github.com/{$org}/{$repo}/blob/{$commitSha}/{$path}?plain=1{if $location && $location.getStart()}#L{$location.getStart().getLine()}{if $location.getEnd() && $location.getEnd().getLine() != $location.getStart().getLine()}-L{$location.getEnd().getLine()}{/if}{/if}
+{/if}
+{/if}
+{/template}
+
+{template githubRepoUrl kind="uri"}
+  {@param moduleVersion: ModuleVersion}
+{if $moduleVersion.getRepositoryMetadata()?.getType() == RepositoryType.GITHUB}
+{let $org: $moduleVersion.getRepositoryMetadata().getOrganization() /}
+{let $repo: $moduleVersion.getRepositoryMetadata().getName() /}
+{let $commitSha: $moduleVersion.getSource()?.getCommitSha() /}
+{if $commitSha}
+https://github.com/{$org}/{$repo}/tree/{$commitSha}
+{/if}
+{/if}
+{/template}
+
+{template githubRawUrl kind="uri"}
+  {@param moduleVersion: ModuleVersion}
+  {@param label: Label}
+{if $moduleVersion.getRepositoryMetadata()?.getType() == RepositoryType.GITHUB}
+{let $org: $moduleVersion.getRepositoryMetadata().getOrganization() /}
+{let $repo: $moduleVersion.getRepositoryMetadata().getName() /}
+{let $pkg: $label.getPkg() /}
+{let $name: $label.getName() /}
+{let $path: $pkg ? $pkg + '/' + $name : $name /}
+{let $commitSha: $moduleVersion.getSource()?.getCommitSha() /}
+{if $commitSha}
+https://raw.githubusercontent.com/{$org}/{$repo}/{$commitSha}/{$path}
+{/if}
+{/if}
 {/template}
 
 
@@ -594,22 +819,42 @@ import {
   {@inject baseUrl: string}
   {@param moduleVersion: ModuleVersion}
   {@param docs: DocumentationInfo}
+  {@param fileSymbols: list<[
+    file: FileInfo,
+    symbolGroups: list<[
+      type: SymbolType,
+      typeName: string,
+      symbols: list<SymbolInfo>
+    ]>
+  ]>}
 <div class="Box Box--condensed">
   <div class="Box-header">
-    <div class="Box-title">Files {counterLabel(count: length($docs.getFileList()))}</div>
+    <div class="Box-title">Files {counterLabel(count: length($fileSymbols))}</div>
   </div>
   <div>
-    {for $file in $docs.getFileList()}
+    {for $item in $fileSymbols}
+      {let $file: $item.file /}
+      {let $symbolGroups: $item.symbolGroups /}
       {let $pkg: $file.getLabel()?.getPkg() /}
       {let $name: $file.getLabel()?.getName() /}
-      <div class="Box-row d-flex flex-items-center">
-        <div class="flex-shrink-0 mr-2">
-          {octiconFile16()}
+      {let $hasError: $file.getError() ? true : false /}
+      <div class="Box-row">
+        <div class="d-flex flex-items-start">
+          <div class="flex-shrink-0 mr-2">
+            {if $hasError}
+              {octiconSkip16(class: 'color-fg-attention')}
+            {else}
+              {octiconFile16()}
+            {/if}
+          </div>
+          <div class="flex-auto">
+            <a href="{fileInfoUrl(label: $file.getLabel())}" class="{if $hasError}Link--muted{else}Link--primary{/if}">
+              <span class="text-semibold">{$pkg ? $pkg + '/' : ''}{$name}</span>
+            </a>
+          </div>
+          <span class="text-small text-light ml-2">{$file.getDescription()|truncate:63}</span>
         </div>
-        <a href="{fileInfoUrl(label: $file.getLabel())}" class="flex-auto Link--primary">
-          <span class="text-semibold">{$pkg ? $pkg + '/' : ''}{$name}</span>
-        </a>
-        <span class="text-small text-light ml-2">{$file.getDescription()|truncate:63}</span>
+        {fileSymbolTree(moduleVersion: $moduleVersion, file: $file, symbolGroups: $symbolGroups, showDocstrings: true)}
       </div>
     {/for}
   </div>
@@ -625,52 +870,340 @@ import {
   {@param aspects: list<SymbolInfo>}
   {@param moduleExtensions: list<SymbolInfo>}
   {@param repositoryRules: list<SymbolInfo>}
+  {@param macros: list<SymbolInfo>}
+  {@param ruleMacros: list<SymbolInfo>}
+  {@param loads: list<SymbolInfo>}
+  {@param values: list<SymbolInfo>}
 <div style="min-width: 0">
-  <div class="Subhead mb-2">
+  <div class="Subhead mb-2" style="border-bottom: none;">
     <div class="Subhead-heading d-flex flex-items-center">
       <h3>
         <span class="text-light f3-light">{$file.getLabel()?.getPkg() ? $file.getLabel()?.getPkg() + '/' : ''}</span>
         {$file.getLabel()?.getName()}</h3>
-      <a class="Link--muted btn btn-sm btn-octicon" href="{moduleVersionUrl(name: $moduleVersion.getName(), version: $moduleVersion.getVersion())}/docs">{octiconChevronUp24()}</a>
+      {let $fileLabel: $file.getLabel() /}
+      {if $fileLabel}
+        {let $githubUrl: githubSourceUrl(moduleVersion: $moduleVersion, label: $fileLabel) /}
+        {if $githubUrl}
+          <a href="{$githubUrl}" target="_blank" rel="noopener noreferrer" class="anim-pulse-in btn btn-sm btn-octicon ml-1 d-inline-flex flex-items-center" title="View source on GitHub">
+            {octiconMarkGithub24()}
+          </a>
+        {/if}
+      {/if}
     </div>
     {if $file.getDescription()}
-      <div class="Subhead-description">
-        <label class="desc-toggle-wrapper" style="display: block">
-          <input type="checkbox" class="desc-toggle" style="display: none">
-          <div class="markdown-body mb-1 text-normal desc-content" style="font-size: 14px; overflow-x: auto; max-height: 100px; overflow-y: hidden">
-            {$file.getDescription()}
-          </div>
-          <span class="Link--muted desc-toggle-label" style="cursor: pointer; font-size: 12px; display: block">
-            <span class="show-more">Show more...</span>
-            <span class="show-less" style="display: none">Show less</span>
-          </span>
-        </label>
+      <div class="Subhead-description mt-1 pt-2 border-top">
+        <div class="{css('marked')} markdown-body">
+          {$file.getDescription()}
+        </div>
       </div>
     {/if}
     <div class="Subhead-actions">
+      <a class="Link--muted btn btn-sm btn-octicon" href="{moduleVersionDocsUrl(name: $moduleVersion.getName(), version: $moduleVersion.getVersion())}">{octiconChevronUp24()}</a>
     </div>
   </div>
 
-  <div class="mt-2">
-    {if length($rules) > 0}
-      {symbolListBox(file: $file, symbols: $rules, title: 'Rules')}
-    {/if}
-    {if length($funcs) > 0}
-      {symbolListBox(file: $file, symbols: $funcs, title: 'Functions')}
-    {/if}
-    {if length($providers) > 0}
-      {symbolListBox(file: $file, symbols: $providers, title: 'Providers')}
-    {/if}
-    {if length($aspects) > 0}
-      {symbolListBox(file: $file, symbols: $aspects, title: 'Aspects')}
-    {/if}
-    {if length($moduleExtensions) > 0}
-      {symbolListBox(file: $file, symbols: $moduleExtensions, title: 'Module Extensions')}
-    {/if}
-    {if length($repositoryRules) > 0}
-      {symbolListBox(file: $file, symbols: $repositoryRules, title: 'Repository Rules')}
+  {if $file.getError()}
+    {fileErrorBlankslate(file: $file)}
+  {else}
+    <div class="mt-2">
+      {if length($loads) > 0}
+        {symbolListBox(file: $file, symbols: $loads, title: 'Load Statements')}
+      {/if}
+      {if length($values) > 0}
+        {symbolListBox(file: $file, symbols: $values, title: 'Global Values')}
+      {/if}
+      {if length($rules) > 0}
+        {symbolListBox(file: $file, symbols: $rules, title: 'Rules')}
+      {/if}
+      {if length($macros) > 0}
+        {symbolListBox(file: $file, symbols: $macros, title: 'Macros')}
+      {/if}
+      {if length($ruleMacros) > 0}
+        {symbolListBox(file: $file, symbols: $ruleMacros, title: 'Rule Macros')}
+      {/if}
+      {if length($funcs) > 0}
+        {symbolListBox(file: $file, symbols: $funcs, title: 'Functions')}
+      {/if}
+      {if length($providers) > 0}
+        {symbolListBox(file: $file, symbols: $providers, title: 'Providers')}
+      {/if}
+      {if length($aspects) > 0}
+        {symbolListBox(file: $file, symbols: $aspects, title: 'Aspects')}
+      {/if}
+      {if length($moduleExtensions) > 0}
+        {symbolListBox(file: $file, symbols: $moduleExtensions, title: 'Module Extensions')}
+      {/if}
+      {if length($repositoryRules) > 0}
+        {symbolListBox(file: $file, symbols: $repositoryRules, title: 'Repository Rules')}
+      {/if}
+    </div>
+  {/if}
+</div>
+{/template}
+
+{template fileInfoTreeComponent}
+  {@param moduleVersion: ModuleVersion}
+  {@param tree: FileLoadTree}
+<div style="min-width: 0">
+  <div class="Subhead mb-2" style="border-bottom: none;">
+    <div class="Subhead-heading d-flex flex-items-center">
+      <h3>File Load Graph</h3>
+    </div>
+    <div class="Subhead-description mt-1 pt-2 border-top">
+      <p class="text-small text-light">
+        Files organized by their load dependencies within this module.
+        Root files (not loaded by others) are shown at the top.
+      </p>
+    </div>
+    <div class="Subhead-actions">
+      <a class="Link--muted btn btn-sm btn-octicon" href="{moduleVersionDocsUrl(name: $moduleVersion.getName(), version: $moduleVersion.getVersion())}">{octiconChevronUp24()}</a>
+    </div>
+  </div>
+
+  <div class="treeview-root" role="tree">
+    {if $tree.getRootsList() && length($tree.getRootsList()) > 0}
+      {for $root in $tree.getRootsList()}
+        {call fileTreeNode}
+          {param node: $root /}
+          {param level: 0 /}
+          {param isLast: false /}
+        {/call}
+      {/for}
+    {else}
+      <div class="blankslate">
+        <p>No files found in this module.</p>
+      </div>
     {/if}
   </div>
+</div>
+{/template}
+
+{template fileTreeNode visibility="private"}
+  {@param node: FileLoadTreeNode}
+  {@param level: int}
+  {@param isLast: bool}
+
+  {let $file: $node.getFile() /}
+  {let $hasChildren: $node.getChildrenList() && length($node.getChildrenList()) > 0 /}
+  {let $label: $file?.getLabel() /}
+
+  <div class="treeview-item {$isLast ? 'treeview-item-last' : ''}" role="treeitem"
+      style="--level: {$level}; --is-last: {$isLast ? '1' : '0'};">
+
+    <div class="treeview-item-row">
+      {if $level > 0}
+        <svg class="treeview-line" width="24" height="24" xmlns="http://www.w3.org/2000/svg">
+          <!-- Horizontal line -->
+          <line x1="0" y1="12" x2="18" y2="12" stroke="var(--color-border-default)" stroke-width="1.5"/>
+
+          <!-- Vertical line coming from above -->
+          <line x1="0" y1="0" x2="0" y2="12" stroke="var(--color-border-default)" stroke-width="1.5"/>
+
+          <!-- Vertical line continuing below (only if not last item) -->
+          {if !$isLast}
+            <line x1="0" y1="12" x2="0" y2="24" stroke="var(--color-border-default)" stroke-width="1.5"/>
+          {/if}
+
+          <!-- Indicator dot for nodes with children -->
+          {if $hasChildren}
+            <circle cx="18" cy="12" r="2.5" fill="var(--color-border-default)"/>
+          {/if}
+        </svg>
+      {/if}
+
+      <a class="treeview-label" href="{fileInfoUrl(label: $label)}">
+        {if $label?.getPkg()}
+          <span class="text-light text-small">{$label.getPkg()}/</span>
+        {/if}
+        <span class="text-semibold">{$label?.getName()}</span>
+        {if $file && length($file.getSymbolList()) > 0}
+          <span class="ml-1 text-light text-small">
+            ({length($file.getSymbolList())} symbol{length($file.getSymbolList()) != 1 ? 's' : ''})
+          </span>
+        {/if}
+      </a>
+    </div>
+
+    {if $hasChildren}
+      <div class="treeview-children" role="group">
+        {for $child, $index in $node.getChildrenList()}
+          {call fileTreeNode}
+            {param node: $child /}
+            {param level: $level + 1 /}
+            {param isLast: $index == length($node.getChildrenList()) - 1 /}
+          {/call}
+        {/for}
+      </div>
+    {/if}
+  </div>
+{/template}
+
+{template loadStmtListBox}
+  {@param loads: list<LoadStmt>}
+<div class="Box Box--condensed mb-3">
+  <div class="Box-header">
+    <div class="Box-title">Load Statements {counterLabel(count: length($loads))}</div>
+  </div>
+  {for $load in $loads}
+    {loadStmtItem(load: $load)}
+  {/for}
+</div>
+{/template}
+
+{template loadStmtItem}
+  {@param load: LoadStmt}
+<div class="Box-row">
+  <div class="text-mono text-small">
+    <span class="color-fg-muted">load(</span>
+    {let $label: $load.getLabel() /}
+    {if $label?.getRepo()}
+      <span class="color-fg-accent">"@{$label.getRepo()}//{$label.getPkg()}{$label.getPkg() ? '/' : ''}{$label.getName()}"</span>
+    {else}
+      <span class="color-fg-accent">"//{$label?.getPkg()}{$label?.getPkg() ? '/' : ''}{$label?.getName()}"</span>
+    {/if}
+    <span class="color-fg-muted">,</span>
+    {let $symbolList: $load.getSymbolList() /}
+    {for $symbol, $index in $symbolList}
+      {if $index > 0}
+        <span class="color-fg-muted">,</span>
+      {/if}
+      {sp}
+      {if $symbol.getFrom() != $symbol.getTo()}
+        <span class="color-fg-default">{$symbol.getTo()}</span>
+        <span class="color-fg-muted">{sp}={sp}</span>
+        <span class="color-fg-accent">"{$symbol.getFrom()}"</span>
+      {else}
+        <span class="color-fg-accent">"{$symbol.getFrom()}"</span>
+      {/if}
+    {/for}
+    <span class="color-fg-muted">)</span>
+  </div>
+</div>
+{/template}
+
+{template fileSymbolTree}
+  {@param moduleVersion: ModuleVersion}
+  {@param file: FileInfo}
+  {@param symbolGroups: list<[
+      type: SymbolType,
+      typeName: string,
+      symbols: list<SymbolInfo>
+  ]>}
+  {@param showDocstrings: bool}
+
+  {if length($symbolGroups) > 0}
+    <div class="treeview-root treeview-compact mt-1 ml-1" role="tree">
+      {for $group, $groupIndex in $symbolGroups}
+        {call fileSymbolTreeGroup}
+          {param file: $file /}
+          {param type: $group.type /}
+          {param typeName: $group.typeName /}
+          {param symbols: $group.symbols /}
+          {param isLastGroup: $groupIndex == length($symbolGroups) - 1 /}
+          {param showDocstrings: $showDocstrings /}
+        {/call}
+      {/for}
+    </div>
+  {/if}
+{/template}
+
+{template fileSymbolTreeGroup visibility="private"}
+  {@param file: FileInfo}
+  {@param type: SymbolType}
+  {@param typeName: string}
+  {@param symbols: list<SymbolInfo>}
+  {@param isLastGroup: bool}
+  {@param showDocstrings: bool}
+  <div class="treeview-item" role="treeitem">
+    <div class="treeview-item-row d-flex flex-items-center" style="padding: 0.25rem 0 0.10rem 0;">
+      <span class="color-fg-muted" style="margin-right: 0.25rem; font-family: monospace; user-select: none; flex-shrink: 0;">
+        {if $isLastGroup}
+          └─
+        {else}
+          ├─
+        {/if}
+      </span>
+      {let $color: symbolColor(type: $type) /}
+      <span class="ml-1 text-small flex-shrink-0" style="opacity: 0.64">
+        <span style="color: var({$color});">{$typeName}</span>
+      </span>
+    </div>
+    <div class="treeview-children ml-1" role="group">
+      {for $symbol, $index in $symbols}
+        {let $isLast: $index == length($symbols) - 1 /}
+        <div class="treeview-item" role="treeitem">
+          <div class="treeview-item-row d-flex flex-items-center" style="margin-left: 1.2rem;">
+            <span class="color-fg-muted" style="margin-right: 0.25rem; font-family: monospace; user-select: none; flex-shrink: 0;">
+              {if $isLast}
+                └─
+              {else}
+                ├─
+              {/if}
+            </span>
+            <span style="flex-shrink: 0;">{octiconDotFill16(fill: 'var(' + $color + ')')}</span>
+            {if $type == SymbolType.SYMBOL_TYPE_LOAD_STMT}
+              {if $symbol.getLoad()?.getLabel()}
+                <a class="Link--primary flex-auto" href="{moduleLabelDocsUri(label: $symbol.getLoad().getLabel())}" style="margin-left: 0.25rem;">
+                  {renderLabel(label: $symbol.getLoad().getLabel())}
+                </a>
+              {/if}
+            {else}
+              <a class="Link--primary flex-auto" href="{symbolInfoUrl(file: $file, sym: $symbol)}" style="margin-left: 0.25rem;">
+                {$symbol.getName()}
+              </a>
+            {/if}
+            {if $showDocstrings}
+              <span class="text-small text-light ml-2 flex-shrink-0">{$symbol.getDescription()|truncate:63}</span>
+            {/if}
+          </div>
+        </div>
+      {/for}
+    </div>
+  </div>
+{/template}
+
+
+{template renderValueAsCode kind="text"}
+  {@param value: Value}
+  {if $value.getString()}
+    "{$value.getString()}"
+  {elseif $value.getInt()}
+    {$value.getInt()}
+  {elseif $value.hasBool()}
+    {$value.getBool() ? 'True' : 'False'}
+  {elseif $value.getMacro()}
+    # macro
+    {let $receivers: $value.getMacro().getKwargsReceiverList() /}
+    {if length($receivers) > 0}
+      {sp}(forwards **kwargs to: {for $receiver, $index in $receivers}{if $index > 0}, {/if}{$receiver}{/for})
+    {/if}
+  {elseif $value.getList()}
+    {let $items: $value.getList().getValueList() /}
+    {if length($items) == 0}
+      []
+    {else}
+      [{\n}
+      {for $item, $index in $items}
+        {'    '}{call renderValueAsCode}{param value: $item /}{/call}{if $index < length($items) - 1},{/if}{\n}
+      {/for}
+      ]
+    {/if}
+  {else}
+    # unknown
+  {/if}
+{/template}
+
+{template kwargReceiversBox}
+  {@param receivers: list<string>}
+<div class="Box Box--condensed my-3">
+  <div class="Box-header">
+    <div class="Box-title">Forwards **kwargs to</div>
+  </div>
+  {for $receiver in $receivers}
+    <div class="Box-row">
+      <code class="text-semibold">{$receiver}</code>
+    </div>
+  {/for}
 </div>
 {/template}
 
@@ -699,7 +1232,7 @@ import {
   <a href="{symbolInfoUrl(file: $file, sym: $sym)}" class="flex-auto Link--primary">
     <span class="text-semibold">{$sym.getName()}</span>
   </a>
-  <span class="text-small text-light ml-2">{$sym.getDescription()|truncate:63}</span>
+  <span class="markdown-body text-small text-light ml-2">{$sym.getDescription()|truncate:63}</span>
 </div>
 {/template}
 
@@ -726,47 +1259,53 @@ import {
   {@param moduleVersion: ModuleVersion}
   {@param file: FileInfo}
   {@param sym: SymbolInfo}
-<div class="Subhead mb-2">
+  {@param? originKey: OriginKey}
+  {@param? location: SymbolLocation}
+<div class="Subhead mb-2" style="border-bottom: none;">
   <div class="Subhead-heading d-flex flex-items-center flex-justify-between">
     <h3 class="d-flex flex-items-center">
-      <span class="text-light f3-light">{$file.getLabel()?.getPkg() ? $file.getLabel()?.getPkg() + '/' + $file.getLabel()?.getName() : $file.getLabel()?.getName()}</span>
-      <span class="mx-2 d-flex flex-items-center">
-        {let $color: symbolColor(type: $sym.getType()) /}
-        {octiconDotFill16(fill: 'var(' + $color + ')')}
-      </span>
-      <span>{$sym.getName()}</span>
-    </h3>
-    <div class="d-flex flex-items-center">
       {let $labelColor: symbolColor(type: $sym.getType()) /}
-      <span class="Label" style="background-color: var({$labelColor}); color: var(--color-fg-on-emphasis)">{symbolTypeName(type: $sym.getType())}</span>
-      <a class="Link--muted btn btn-sm btn-octicon ml-2" href="{fileInfoUrl(label: $file.getLabel())}">{octiconChevronUp24()}</a>
+      <span class="Label mr-2" style="background-color: var({$labelColor}); color: var(--color-fg-on-emphasis)">{symbolTypeName(type: $sym.getType())}</span>
+      <span>{$sym.getName()}</span>
+      {if $location && $location.getStart()}
+        {let $fileLabel: $file.getLabel() /}
+        {if $fileLabel}
+          {let $githubUrl: githubSourceUrl(moduleVersion: $moduleVersion, label: $fileLabel, location: $location) /}
+          {if $githubUrl}
+            <a href="{$githubUrl}" target="_blank" rel="noopener noreferrer" class="anim-pulse-in btn btn-sm btn-octicon ml-1 d-inline-flex flex-items-center" title="View source on GitHub">
+              {octiconMarkGithub24()}
+              <span class="ml-1">
+                L{$location.getStart().getLine()}
+              </span>
+            </a>
+          {/if}
+        {/if}
+      {/if}
+    </h3>
+    <div class="d-flex flex-row flex-items-center">
+      <a class="Link--muted text-semibold" href="{fileInfoUrl(label: $file.getLabel())}">{$file.getLabel()?.getPkg() ? $file.getLabel()?.getPkg() + '/' + $file.getLabel()?.getName() : $file.getLabel()?.getName()}</a>
     </div>
   </div>
   {if $sym.getDescription()}
-    <div class="Subhead-description">
-      <label class="desc-toggle-wrapper" style="display: block">
-        <input type="checkbox" class="desc-toggle" style="display: none">
-        <div class="markdown-body mb-1 text-normal desc-content" style="font-size: 14px; overflow-x: auto; max-height: 100px; overflow-y: hidden">
-          {$sym.getDescription()}
-        </div>
-        <span class="Link--muted desc-toggle-label" style="cursor: pointer; font-size: 12px; display: block">
-          <span class="show-more">Show more...</span>
-          <span class="show-less" style="display: none">Show less</span>
-        </span>
-      </label>
-      <style>
-        {literal}
-        .desc-toggle:checked ~ .desc-content {
-          max-height: none !important;
-        }
-        .desc-toggle:checked ~ .desc-toggle-label .show-more {
-          display: none;
-        }
-        .desc-toggle:checked ~ .desc-toggle-label .show-less {
-          display: inline;
-        }
-        {/literal}
-      </style>
+    <div class="Subhead-description mt-1 pt-2 border-top">
+      <div class="{css('marked')} markdown-body">
+        {$sym.getDescription()}
+      </div>
+    </div>
+  {/if}
+  {if false && $originKey && ($originKey.getName() || $originKey.getFile())}
+    <div class="Subhead-description mt-1 pt-2 border-top">
+      <div class="text-small color-fg-muted">
+        <strong>Origin:</strong>
+        {sp}
+        {if $originKey.getFile()}
+          <code>{$originKey.getFile()}</code>
+        {/if}
+        {if $originKey.getName()}
+          {if $originKey.getFile()}:{/if}
+          <code>{$originKey.getName()}</code>
+        {/if}
+      </div>
     </div>
   {/if}
   <div class="Subhead-actions">
@@ -780,15 +1319,21 @@ import {
   {@param sym: SymbolInfo}
   {@param? exampleCode: string}
 <div style="min-width: 0">
-  {symbolInfoHeader(moduleVersion: $moduleVersion, file: $file, sym: $sym)}
+  {call symbolInfoHeader}
+    {param moduleVersion: $moduleVersion /}
+    {param file: $file /}
+    {param sym: $sym /}
+    {param originKey: $sym.getRule()?.getInfo()?.getOriginKey() /}
+    {param location: $sym.getRule()?.getLocation() /}
+  {/call}
 
   {if $exampleCode}
     {exampleCodeBox(exampleCode: $exampleCode)}
   {/if}
 
   {if $sym.getRule()}
-    {let $rule: $sym.getRule() /}
-    {if length($rule.getAttributeList()) > 0}
+    {let $rule: $sym.getRule()?.getInfo() /}
+    {if $rule && length($rule.getAttributeList()) > 0}
       {attributeListBox(attributes: $rule.getAttributeList(), title: 'Attributes')}
     {/if}
   {/if}
@@ -801,19 +1346,169 @@ import {
   {@param sym: SymbolInfo}
   {@param? exampleCode: string}
 <div style="min-width: 0">
-  {symbolInfoHeader(moduleVersion: $moduleVersion, file: $file, sym: $sym)}
+  {call symbolInfoHeader}
+    {param moduleVersion: $moduleVersion /}
+    {param file: $file /}
+    {param sym: $sym /}
+    {param originKey: $sym.getMacro()?.getInfo()?.getOriginKey() /}
+    {param location: $sym.getMacro()?.getLocation() /}
+  {/call}
 
   {if $exampleCode}
     {exampleCodeBox(exampleCode: $exampleCode)}
   {/if}
 
   {if $sym.getMacro()}
-    {let $macro: $sym.getMacro() /}
-    {if length($macro.getAttributeList()) > 0}
+    {let $macro: $sym.getMacro()?.getInfo() /}
+    {if $macro && length($macro.getAttributeList()) > 0}
       {attributeListBox(attributes: $macro.getAttributeList(), title: 'Attributes')}
     {/if}
   {/if}
 </div>
+{/template}
+
+{template ruleMacroInfoComponent}
+  {@param moduleVersion: ModuleVersion}
+  {@param file: FileInfo}
+  {@param sym: SymbolInfo}
+  {@param? exampleCode: string}
+<div style="min-width: 0">
+  {call symbolInfoHeader}
+    {param moduleVersion: $moduleVersion /}
+    {param file: $file /}
+    {param sym: $sym /}
+    {param originKey: $sym.getRuleMacro()?.getFunction()?.getInfo()?.getOriginKey() /}
+    {param location: $sym.getRuleMacro()?.getFunction()?.getLocation() /}
+  {/call}
+
+  {if $exampleCode}
+    {exampleCodeBox(exampleCode: $exampleCode)}
+  {/if}
+
+  {if $sym.getRuleMacro()}
+    {let $ruleMacro: $sym.getRuleMacro() /}
+    {if $ruleMacro.getRule()?.getInfo()}
+      {let $rule: $ruleMacro.getRule()?.getInfo() /}
+      {if length($rule.getAttributeList()) > 0}
+        {attributeListBox(attributes: $rule.getAttributeList(), title: 'Attributes')}
+      {/if}
+    {/if}
+
+    // Show additional called symbols if any
+    {if $ruleMacro.getSymbolList() && length($ruleMacro.getSymbolList()) > 0}
+      <div class="Box mt-3">
+        <div class="Box-header">
+          <h3 class="Box-title">Additional Symbols Called</h3>
+        </div>
+        <div class="Box-body">
+          <ul class="list-style-none">
+            {for $symbol in $ruleMacro.getSymbolList()}
+              <li class="py-1"><code>{$symbol}</code></li>
+            {/for}
+          </ul>
+        </div>
+      </div>
+    {/if}
+  {/if}
+</div>
+{/template}
+
+{template valueInfoComponent}
+  {@param moduleVersion: ModuleVersion}
+  {@param file: FileInfo}
+  {@param sym: SymbolInfo}
+<div style="min-width: 0">
+  {call symbolInfoHeader}
+    {param moduleVersion: $moduleVersion /}
+    {param file: $file /}
+    {param sym: $sym /}
+    {param location: $sym.getValue()?.getLocation() /}
+  {/call}
+
+  {if $sym.getValue()}
+    {let $value: $sym.getValue() /}
+    <div class="Box mt-3">
+      <div class="Box-header">
+        <h3 class="Box-title">Value</h3>
+      </div>
+      <div class="Box-row">
+        <pre class="{css('shiki')}"><code class="language-python">{$sym.getName()} = {call renderValueAsCode}{param value: $value /}{/call}</code></pre>
+      </div>
+    </div>
+
+    {if $value.getMacro()}
+      {let $receivers: $value.getMacro().getKwargsReceiverList() /}
+      {if length($receivers) > 0}
+        {kwargReceiversBox(receivers: $receivers)}
+      {/if}
+    {/if}
+  {/if}
+</div>
+{/template}
+
+{template loadInfoComponent}
+  {@param moduleVersion: ModuleVersion}
+  {@param file: FileInfo}
+  {@param sym: SymbolInfo}
+<div style="min-width: 0">
+  {call symbolInfoHeader}
+    {param moduleVersion: $moduleVersion /}
+    {param file: $file /}
+    {param sym: $sym /}
+    {param location: $sym.getLoad()?.getLocation() /}
+  {/call}
+
+  {if $sym.getLoad()}
+    {let $load: $sym.getLoad() /}
+    {let $label: $load.getLabel() /}
+    {if $label}
+      <div class="Box mt-3">
+        <div class="Box-header">
+          <h3 class="Box-title">Label</h3>
+        </div>
+        <div class="Box-row">
+          {if $label.getRepo()}
+            {let $labelUrl: loadLabelUrl(label: $label) /}
+            <a href="{$labelUrl}" class="Link--primary">
+              <code class="text-semibold">{renderLabel(label: $label)}</code>
+            </a>
+          {else}
+            <code class="text-semibold">{renderLabel(label: $label)}</code>
+          {/if}
+        </div>
+      </div>
+    {/if}
+
+    {if length($load.getSymbolList()) > 0}
+      <div class="Box mt-3">
+        <div class="Box-header">
+          <h3 class="Box-title">Loaded Symbols {counterLabel(count: length($load.getSymbolList()))}</h3>
+        </div>
+        {for $loadSym in $load.getSymbolList()}
+          <div class="Box-row">
+            <code>{$loadSym.getFrom()}</code>
+            {if $loadSym.getFrom() != $loadSym.getTo()}
+              <span class="text-light ml-1">as</span>
+              <code class="ml-1">{$loadSym.getTo()}</code>
+            {/if}
+          </div>
+        {/for}
+      </div>
+    {/if}
+  {/if}
+</div>
+{/template}
+
+{template loadLabelUrl kind="uri"}
+  {@param label: Label}
+{let $repo: $label.getRepo() /}
+{let $pkg: $label.getPkg() /}
+{let $name: $label.getName() /}
+{if $repo}
+  /#/modules/{$repo}/latest/docs/{if $pkg}{$pkg}/{/if}{$name}
+{else}
+  // {# Local file - no link #}
+{/if}
 {/template}
 
 {template functionInfoComponent}
@@ -822,7 +1517,13 @@ import {
   {@param sym: SymbolInfo}
   {@param? exampleCode: string}
 <div style="min-width: 0">
-  {symbolInfoHeader(moduleVersion: $moduleVersion, file: $file, sym: $sym)}
+  {call symbolInfoHeader}
+    {param moduleVersion: $moduleVersion /}
+    {param file: $file /}
+    {param sym: $sym /}
+    {param originKey: $sym.getFunc()?.getInfo()?.getOriginKey() /}
+    {param location: $sym.getFunc()?.getLocation() /}
+  {/call}
 
   {if $exampleCode}
     {exampleCodeBox(exampleCode: $exampleCode)}
@@ -830,11 +1531,33 @@ import {
 
   {if $sym.getFunc()}
     {let $func: $sym.getFunc() /}
-    {if length($func.getParameterList()) > 0}
-      {parameterListBox(parameters: $func.getParameterList(), title: 'Parameters')}
+    {let $funcInfo: $func?.getInfo() /}
+
+    {let $callsList: $func?.getCallsRuleOrMacroList() /}
+    {let $kwargsToList: $func?.getForwardsKwargsToList() /}
+
+    {if length($kwargsToList) > 0}
+      {kwargReceiversBox(receivers: $kwargsToList)}
     {/if}
-    {if $func.getReturn()}
-      {returnInfoBox(returnInfo: $func.getReturn())}
+
+    {if length($callsList) > 0}
+      <div class="flash flash-warn mb-3">
+        <div>
+          <strong>Calls:</strong>
+          {sp}
+          {for $target, $index in $callsList}
+            {if $index > 0}, {/if}
+            <code>{$target}</code>
+          {/for}
+        </div>
+      </div>
+    {/if}
+
+    {if $funcInfo && length($funcInfo.getParameterList()) > 0}
+      {parameterListBox(parameters: $funcInfo.getParameterList(), title: 'Parameters')}
+    {/if}
+    {if $funcInfo && $funcInfo.getReturn()}
+      {returnInfoBox(returnInfo: $funcInfo.getReturn())}
     {/if}
   {/if}
 </div>
@@ -846,15 +1569,21 @@ import {
   {@param sym: SymbolInfo}
   {@param? exampleCode: string}
 <div style="min-width: 0">
-  {symbolInfoHeader(moduleVersion: $moduleVersion, file: $file, sym: $sym)}
+  {call symbolInfoHeader}
+    {param moduleVersion: $moduleVersion /}
+    {param file: $file /}
+    {param sym: $sym /}
+    {param originKey: $sym.getProvider()?.getInfo()?.getOriginKey() /}
+    {param location: $sym.getProvider()?.getLocation() /}
+  {/call}
 
   {if $exampleCode}
     {exampleCodeBox(exampleCode: $exampleCode)}
   {/if}
 
   {if $sym.getProvider()}
-    {let $provider: $sym.getProvider() /}
-    {if length($provider.getFieldInfoList()) > 0}
+    {let $provider: $sym.getProvider()?.getInfo() /}
+    {if $provider && length($provider.getFieldInfoList()) > 0}
       {fieldListBox(fields: $provider.getFieldInfoList(), title: 'Fields')}
     {/if}
   {/if}
@@ -867,15 +1596,21 @@ import {
   {@param sym: SymbolInfo}
   {@param? exampleCode: string}
 <div style="min-width: 0">
-  {symbolInfoHeader(moduleVersion: $moduleVersion, file: $file, sym: $sym)}
+  {call symbolInfoHeader}
+    {param moduleVersion: $moduleVersion /}
+    {param file: $file /}
+    {param sym: $sym /}
+    {param originKey: $sym.getRepositoryRule()?.getInfo()?.getOriginKey() /}
+    {param location: $sym.getRepositoryRule()?.getLocation() /}
+  {/call}
 
   {if $exampleCode}
     {exampleCodeBox(exampleCode: $exampleCode)}
   {/if}
 
   {if $sym.getRepositoryRule()}
-    {let $repoRule: $sym.getRepositoryRule() /}
-    {if length($repoRule.getAttributeList()) > 0}
+    {let $repoRule: $sym.getRepositoryRule()?.getInfo() /}
+    {if $repoRule && length($repoRule.getAttributeList()) > 0}
       {attributeListBox(attributes: $repoRule.getAttributeList(), title: 'Attributes')}
     {/if}
   {/if}
@@ -888,15 +1623,21 @@ import {
   {@param sym: SymbolInfo}
   {@param? exampleCode: string}
 <div style="min-width: 0">
-  {symbolInfoHeader(moduleVersion: $moduleVersion, file: $file, sym: $sym)}
+  {call symbolInfoHeader}
+    {param moduleVersion: $moduleVersion /}
+    {param file: $file /}
+    {param sym: $sym /}
+    {param originKey: $sym.getAspect()?.getInfo()?.getOriginKey() /}
+    {param location: $sym.getAspect()?.getLocation() /}
+  {/call}
 
   {if $exampleCode}
     {exampleCodeBox(exampleCode: $exampleCode)}
   {/if}
 
   {if $sym.getAspect()}
-    {let $aspect: $sym.getAspect() /}
-    {if length($aspect.getAttributeList()) > 0}
+    {let $aspect: $sym.getAspect()?.getInfo() /}
+    {if $aspect && length($aspect.getAttributeList()) > 0}
       {attributeListBox(attributes: $aspect.getAttributeList(), title: 'Attributes')}
     {/if}
   {/if}
@@ -909,30 +1650,38 @@ import {
   {@param sym: SymbolInfo}
   {@param? exampleCode: string}
 <div style="min-width: 0">
-  {symbolInfoHeader(moduleVersion: $moduleVersion, file: $file, sym: $sym)}
+  {call symbolInfoHeader}
+    {param moduleVersion: $moduleVersion /}
+    {param file: $file /}
+    {param sym: $sym /}
+    {param originKey: $sym.getModuleExtension()?.getInfo()?.getOriginKey() /}
+    {param location: $sym.getModuleExtension()?.getLocation() /}
+  {/call}
 
   {if $exampleCode}
     {exampleCodeBox(exampleCode: $exampleCode)}
   {/if}
 
   {if $sym.getModuleExtension()}
-    {let $ext: $sym.getModuleExtension() /}
-    {for $tagClass in $ext.getTagClassList()}
-      {tagClassSection(tagClass: $tagClass)}
-    {/for}
+    {let $ext: $sym.getModuleExtension()?.getInfo() /}
+    {if $ext}
+      {for $tagClass in $ext.getTagClassList()}
+        {tagClassSection(tagClass: $tagClass)}
+      {/for}
+    {/if}
   {/if}
 </div>
 {/template}
 
 {template tagClassSection}
   {@param tagClass: ModuleExtensionTagClassInfo}
-<div class="border-top pt-2 mt-5">
+<div class="pt-2 my-3">
   <div class="d-flex flex-items-center mb-2">
-    <span class="Label Label--secondary mr-2">Tag Class</span>
-    <h4 class="text-semibold">{$tagClass.getTagName()}</h4>
+    <h4 class="flex-auto text-semibold">{$tagClass.getTagName()}</h4>
+    <span class="Label Label--secondary flex-shrink-0">Tag Class</span>
   </div>
   {if $tagClass.getDocString()}
-    <div class="markdown-body mb-2" style="overflow-x: auto">
+    <div class="{css('marked')} markdown-body text-light mb-2">
       {$tagClass.getDocString()}
     </div>
   {/if}
@@ -947,7 +1696,7 @@ import {
 <div class="Box Box--condensed mt-3">
   <div class="Box-header">
     <div class="d-flex flex-justify-between flex-items-center">
-      <div class="Box-title">Example</div>
+      <div class="Box-title">Generated Example</div>
       {copyToClipboardButton(content: $exampleCode)}
     </div>
   </div>
@@ -980,7 +1729,7 @@ import {
       <span class="text-semibold text-mono">{$field.getName()}</span>
     </div>
     {if $field.getDocString()}
-      <div class="markdown-body text-small mt-1" style="overflow-x: auto">
+      <div class="{css('marked')} markdown-body text-light mt-3">
         {$field.getDocString()}
       </div>
     {/if}
@@ -1030,7 +1779,7 @@ import {
       {/if}
     </div>
     {if $param.getDocString()}
-      <div class="markdown-body text-small mt-1" style="overflow-x: auto">
+      <div class="{css('marked')} markdown-body text-light mt-3">
         {$param.getDocString()}
       </div>
     {/if}
@@ -1055,7 +1804,7 @@ import {
 <div class="Box-row">
   <div class="d-flex flex-column">
     {if $returnInfo.getDocString()}
-      <div class="markdown-body text-small" style="overflow-x: auto">
+      <div class="{css('marked')} markdown-body text-light">
         {$returnInfo.getDocString()}
       </div>
     {/if}
@@ -1083,7 +1832,7 @@ import {
 <div class="Box-row d-flex flex-items-start">
   <div class="flex-auto">
     <div class="d-flex flex-items-center">
-      <span class="text-semibold text-mono">{$attr.getName()}</span>
+      <span class="text-bold">{$attr.getName()}</span>
       {if $attr.getMandatory()}
         <span class="Label Label--danger ml-2">required</span>
       {/if}
@@ -1092,35 +1841,30 @@ import {
       {/if}
     </div>
     {if $attr.getDocString()}
-      <div class="markdown-body text-small mt-1" style="overflow-x: auto">
+      <div class="{css('marked')} markdown-body text-light mt-3">
         {$attr.getDocString()}
-      </div>
-    {/if}
-    {if length($attr.getProviderNameGroupList()) > 0}
-      <div class="mt-1">
-        {for $group, $groupIndex in $attr.getProviderNameGroupList()}
-          {if $groupIndex > 0}
-            <span class="text-small text-light"> or </span>
-          {/if}
-          <span class="text-small">
-            {for $providerName, $index in $group.getProviderNameList()}
-              {if $index > 0}
-                <span class="text-light">, </span>
-              {/if}
-              {if $group.getOriginKeyList()[$index] && $group.getOriginKeyList()[$index].getFile() && $group.getOriginKeyList()[$index].getName()}
-                {let $originKey: $group.getOriginKeyList()[$index] /}
-                <a class="Label Label--primary" href="{providerUrl(file: $originKey.getFile(), name: $originKey.getName())}">{$providerName}</a>
-              {else}
-                <span class="Label Label--secondary">{$providerName}</span>
-              {/if}
-            {/for}
-          </span>
-        {/for}
       </div>
     {/if}
   </div>
   {if $attr.getType()}
     <div class="flex-shrink-0 ml-2">
+      {if length($attr.getProviderNameGroupList()) > 0}
+        <span class="mr-1">
+          {for $group, $groupIndex in $attr.getProviderNameGroupList()}
+            {if $groupIndex > 0}
+              <span class="text-small text-light"> or</span>
+            {/if}
+            {sp}
+            {for $providerName, $index in $group.getProviderNameList()}
+              {if $index > 0}
+                <span class="text-light">, </span>
+              {/if}
+              {let $providerColor: symbolColor(type: SymbolType.SYMBOL_TYPE_PROVIDER) /}
+              <label class="Label text-mono text-sm">{octiconDotFill16(fill: 'var(' + $providerColor + ')')} {$providerName}</label>
+            {/for}
+          {/for}
+        </span>
+      {/if}
       <span class="Label" style="background-color: var({attrColor(type: $attr.getType())}); color: var(--color-fg-on-emphasis)">{attrName(type: $attr.getType())}</span>
     </div>
   {/if}
@@ -1130,35 +1874,35 @@ import {
 {template attrName kind="text"}
   {@param type: int}
 {switch $type}
-  {case 0} /* UNKNOWN */
+  {case AttributeType.UNKNOWN}
     unknown
-  {case 1} /* NAME */
+  {case AttributeType.NAME}
     name
-  {case 2} /* INT */
+  {case AttributeType.INT}
     int
-  {case 3} /* LABEL */
+  {case AttributeType.LABEL}
     label
-  {case 4} /* STRING */
+  {case AttributeType.STRING}
     string
-  {case 5} /* STRING_LIST */
+  {case AttributeType.STRING_LIST}
     string_list
-  {case 6} /* INT_LIST */
+  {case AttributeType.INT_LIST}
     int_list
-  {case 7} /* LABEL_LIST */
+  {case AttributeType.LABEL_LIST}
     label_list
-  {case 8} /* BOOLEAN */
+  {case AttributeType.BOOLEAN}
     bool
-  {case 9} /* LABEL_STRING_DICT */
+  {case AttributeType.LABEL_STRING_DICT}
     label_string_dict
-  {case 10} /* STRING_DICT */
+  {case AttributeType.STRING_DICT}
     string_dict
-  {case 11} /* STRING_LIST_DICT */
+  {case AttributeType.STRING_LIST_DICT}
     string_list_dict
-  {case 12} /* OUTPUT */
+  {case AttributeType.OUTPUT}
     output
-  {case 13} /* OUTPUT_LIST */
+  {case AttributeType.OUTPUT_LIST}
     output_list
-  {case 14} /* LABEL_DICT_UNARY */
+  {case AttributeType.LABEL_DICT_UNARY}
     label_dict_unary
   {default}
     type-{$type}
@@ -1168,35 +1912,35 @@ import {
 {template attrColor kind="text"}
   {@param type: int}
 {switch $type}
-  {case 0} /* UNKNOWN */
+  {case AttributeType.UNKNOWN}
     --color-prettylights-syntax-comment
-  {case 1} /* NAME */
+  {case AttributeType.NAME}
     --color-prettylights-syntax-entity
-  {case 2} /* INT */
+  {case AttributeType.INT}
     --color-prettylights-syntax-constant
-  {case 3} /* LABEL */
+  {case AttributeType.LABEL}
     --color-prettylights-syntax-entity-tag
-  {case 4} /* STRING */
+  {case AttributeType.STRING}
     --color-prettylights-syntax-string
-  {case 5} /* STRING_LIST */
+  {case AttributeType.STRING_LIST}
     --color-prettylights-syntax-string
-  {case 6} /* INT_LIST */
+  {case AttributeType.INT_LIST}
     --color-prettylights-syntax-constant
-  {case 7} /* LABEL_LIST */
+  {case AttributeType.LABEL_LIST}
     --color-prettylights-syntax-entity-tag
-  {case 8} /* BOOLEAN */
+  {case AttributeType.BOOLEAN}
     --color-prettylights-syntax-keyword
-  {case 9} /* LABEL_STRING_DICT */
+  {case AttributeType.LABEL_STRING_DICT}
     --color-prettylights-syntax-meta-diff-range
-  {case 10} /* STRING_DICT */
+  {case AttributeType.STRING_DICT}
     --color-prettylights-syntax-meta-diff-range
-  {case 11} /* STRING_LIST_DICT */
+  {case AttributeType.STRING_LIST_DICT}
     --color-prettylights-syntax-meta-diff-range
-  {case 12} /* OUTPUT */
+  {case AttributeType.OUTPUT}
     --color-prettylights-syntax-markup-changed-text
-  {case 13} /* OUTPUT_LIST */
+  {case AttributeType.OUTPUT_LIST}
     --color-prettylights-syntax-markup-changed-text
-  {case 14} /* LABEL_DICT_UNARY */
+  {case AttributeType.LABEL_DICT_UNARY}
     --color-prettylights-syntax-meta-diff-range
   {default}
     --color-fg-default
@@ -1219,7 +1963,7 @@ import {
 {template symbolCount}
   {@param type: int}
   {@param n: int}
-  {counter(n: $n, fg: '--color-fg-on-emphasis', bg: symbolColor(type: $type), anchor: 'doc-' + $type)}
+  {counter(n: $n, fg: '--color-fg-on-emphasis', bg: symbolColor(type: $type), anchor: 'doc-' + $type, title: symbolTypeName(type: $type))}
 {/template}
 
 {template symbolSection}
@@ -1236,20 +1980,26 @@ import {
 {template symbolColor kind="text"}
   {@param type: int}
 {switch $type}
-  {case 1} /* SYMBOL_TYPE_RULE */
+  {case SymbolType.SYMBOL_TYPE_RULE}
     --color-prettylights-syntax-entity
-  {case 2} /* SYMBOL_TYPE_FUNCTION */
+  {case SymbolType.SYMBOL_TYPE_FUNCTION}
     --color-prettylights-syntax-variable
-  {case 3} /* SYMBOL_TYPE_PROVIDER */
+  {case SymbolType.SYMBOL_TYPE_PROVIDER}
     --color-prettylights-syntax-constant
-  {case 4} /* SYMBOL_TYPE_ASPECT */
+  {case SymbolType.SYMBOL_TYPE_ASPECT}
     --color-prettylights-syntax-string
-  {case 5} /* SYMBOL_TYPE_MODULE_EXTENSION */
+  {case SymbolType.SYMBOL_TYPE_MODULE_EXTENSION}
     --color-prettylights-syntax-keyword
-  {case 6} /* SYMBOL_TYPE_REPOSITORY_RULE */
+  {case SymbolType.SYMBOL_TYPE_REPOSITORY_RULE}
     --color-prettylights-syntax-entity-tag
-  {case 7} /* SYMBOL_TYPE_MACRO */
+  {case SymbolType.SYMBOL_TYPE_MACRO}
     --color-prettylights-syntax-markup-heading
+  {case SymbolType.SYMBOL_TYPE_RULE_MACRO}
+    --color-prettylights-syntax-markup-heading
+  {case SymbolType.SYMBOL_TYPE_LOAD_STMT}
+    --color-prettylights-syntax-storage-modifier-import
+  {case SymbolType.SYMBOL_TYPE_VALUE}
+    --color-prettylights-syntax-markup-list
   {default}
     --color-fg-default
 {/switch}
@@ -1258,20 +2008,26 @@ import {
 {template symbolTypeName kind="text"}
   {@param type: int}
 {switch $type}
-  {case 1} /* SYMBOL_TYPE_RULE */
+  {case SymbolType.SYMBOL_TYPE_RULE}
     Rule
-  {case 2} /* SYMBOL_TYPE_FUNCTION */
+  {case SymbolType.SYMBOL_TYPE_FUNCTION}
     Function
-  {case 3} /* SYMBOL_TYPE_PROVIDER */
+  {case SymbolType.SYMBOL_TYPE_PROVIDER}
     Provider
-  {case 4} /* SYMBOL_TYPE_ASPECT */
+  {case SymbolType.SYMBOL_TYPE_ASPECT}
     Aspect
-  {case 5} /* SYMBOL_TYPE_MODULE_EXTENSION */
+  {case SymbolType.SYMBOL_TYPE_MODULE_EXTENSION}
     Module Extension
-  {case 6} /* SYMBOL_TYPE_REPOSITORY_RULE */
+  {case SymbolType.SYMBOL_TYPE_REPOSITORY_RULE}
     Repository Rule
-  {case 7} /* SYMBOL_TYPE_MACRO */
+  {case SymbolType.SYMBOL_TYPE_MACRO}
     Macro
+  {case SymbolType.SYMBOL_TYPE_RULE_MACRO}
+    Rule Macro
+  {case SymbolType.SYMBOL_TYPE_LOAD_STMT}
+    Load
+  {case SymbolType.SYMBOL_TYPE_VALUE}
+    Value
   {default}
     Unknown
 {/switch}
@@ -1305,6 +2061,26 @@ import {
 <a href="{labelUri(repo: $repo, pkg: $pkg, name: $name)}">{$name}</a>
 {/template}
 
+{template renderLabel kind="text"}
+  {@param label: Label}
+{let $repo: $label.getRepo() /}
+{let $pkg: $label.getPkg() /}
+{let $name: $label.getName() /}
+{if $repo}@{$repo}//{/if}{if $pkg}{$pkg}:{/if}{$name}
+{/template}
+
+{template moduleLabelDocsUri kind="uri"}
+  {@param label: Label}
+{let $repo: $label.getRepo() /}
+{let $pkg: $label.getPkg() /}
+{let $name: $label.getName() /}
+{if $repo}
+  {modulesUrl()}/{$repo}/latest/docs/{if $pkg}{$pkg}/{/if}{$name}
+{else}
+  {renderLabel(label: $label)}
+{/if}
+{/template}
+
 {template moduleBlankslateComponent}
   {@param moduleName: string}
 <div class="blankslate-container">
@@ -1332,6 +2108,113 @@ import {
 {/template}
 
 
+{template documentationReadmeComponent}
+  {@param moduleVersion: ModuleVersion}
+  {@param loading: bool}
+  {@param? error: string}
+  {@param? content: string}
+<div style="min-width: 0">
+  {if $loading}
+    <div class="Box Box--condensed">
+      <div class="Box-row text-center py-4">
+        <div class="AnimatedEllipsis">Loading README</div>
+      </div>
+    </div>
+  {elseif $error}
+    <div class="flash flash-warn">
+      {octiconAlert16()}
+      <span class="ml-2">README could not be loaded: {$error}</span>
+    </div>
+  {elseif $content}
+    <div class="Box Box--condensed">
+      <div class="Box-header">
+        <div class="Box-title">README</div>
+      </div>
+      <div class="Box-row">
+        <div class="{css('marked')} markdown-body">
+          {$content}
+        </div>
+      </div>
+    </div>
+  {else}
+    <div class="blankslate">
+      <div class="blankslate-heading">No README</div>
+      <p>No README file found in this repository.</p>
+    </div>
+  {/if}
+</div>
+{/template}
+
+
+{template bzlFileSourceComponent}
+  {@param moduleVersion: ModuleVersion}
+  {@param file: FileInfo}
+  {@param loading: bool}
+  {@param? error: string}
+  {@param? content: string}
+<div style="min-width: 0">
+  {if $loading}
+    <div class="Box Box--condensed">
+      <div class="Box-row text-center py-4">
+        <div class="AnimatedEllipsis">Loading source file</div>
+      </div>
+    </div>
+  {elseif $error}
+    <div class="flash flash-warn">
+      {octiconAlert16()}
+      <span class="ml-2">{$error}</span>
+    </div>
+  {elseif $content}
+    <div class="Box Box--condensed">
+      <div class="Box-header d-flex flex-items-center flex-justify-between">
+        <div class="Box-title">{let $label: $file.getLabel() /}{if $label}{renderLabel(label: $label)}{/if}</div>
+        {let $fileLabel: $file.getLabel() /}
+        {if $fileLabel}
+          {let $githubUrl: githubSourceUrl(moduleVersion: $moduleVersion, label: $fileLabel) /}
+          {if $githubUrl}
+            <a href="{$githubUrl}" target="_blank" rel="noopener noreferrer" class="Link--muted d-flex flex-items-center" title="View on GitHub">
+              {octiconMarkGithub16()}
+              <span class="ml-1">{$fileLabel.getPkg() ? $fileLabel.getPkg() + '/' : ''}{$fileLabel.getName()}</span>
+            </a>
+          {/if}
+        {/if}
+      </div>
+      <div class="Box-row">
+        <pre class="{css('shiki')}"><code class="py" linenumbers="true">{$content}</code></pre>
+      </div>
+    </div>
+  {else}
+    <div class="blankslate">
+      <div class="blankslate-heading">No Source</div>
+      <p>Source file not available.</p>
+    </div>
+  {/if}
+</div>
+{/template}
+
+
+{template fileErrorBlankslate}
+  {@param file: FileInfo}
+<div class="blankslate-container">
+  <div class="blankslate">
+    <div class="blankslate-heading">
+      Extraction Error
+    </div>
+    <p>
+      The documentation for <span class="text-mono text-semibold mx-1">{$file.getLabel()?.getPkg() ? $file.getLabel()?.getPkg() + '/' : ''}{$file.getLabel()?.getName()}</span> could not be extracted.
+    </p>
+  </div>
+</div>
+<pre class="p-3 border rounded-2 text-left" style="overflow-x: auto; text-align: left"><code>{$file.getError()}</code></pre>
+{/template}
+
+
+{template docsSelect}
+<div>
+  <div class="{css('content')}"></div>
+</div>
+{/template}
+
 {template maintainersSelect}
 <div>
   <div class="{css('content')}"></div>
@@ -1351,11 +2234,23 @@ import {
 {/template}
 
 
+{template docsMapSelectNav}
+<div>
+  <nav class="UnderlineNav">
+    <div class="UnderlineNav-body {css('nav')}">
+      <div class="f4">Docs:</div>
+    </div>
+  </nav>
+  <div class="{css('content')}"></div>
+</div>
+{/template}
+
+
 {template maintainerComponent}
   {@param maintainer: Maintainer}
   {@param moduleVersions: list<ModuleVersion>}
 <div>
-  <div class="PageLayout PageLayout--panePos-start PageLayout--hasPaneDivider mt-3">
+  <div class="PageLayout PageLayout--panePos-start PageLayout--hasPaneDivider PageLayout--responsive-stackRegions PageLayout--responsive-panePos-start mt-3">
     <div class="PageLayout-wrapper">
       <div class="PageLayout-columns">
         <div class="PageLayout-content">
@@ -1393,11 +2288,33 @@ import {
   {@param module: Module}
   {@param? lang: string}
   {@param? description: string}
-  <div>
+  <div class="d-flex flex-items-center">
     {octiconSquareFill16(class: 'mr-2', fill: 'var(--lang-' + $lang + '-bg)')}
     <span class="text-semibold">{$module.getName()}</span>
     {if $description}
-      <span class="ml-1 text-small" style="color: var(--color-fg-muted)">
+      <span class="ml-auto text-small overflow-x-hidden" style="color: var(--color-fg-muted)">
+        {$description|truncate:96}
+      </span>
+    {/if}
+  </div>
+{/template}
+
+
+{template symbolSearchRow kind="html<div>"}
+  {@param sym: SymbolInfo}
+  {@param? label: Label}
+  {@param? description: string}
+  <div class="d-flex flex-items-center">
+    <span style="color: var({symbolColor(type: $sym.getType())})">
+      {let $name: symbolTypeName(type: $sym.getType()) /}
+      {$name.toAsciiLowerCase()}
+    </span>
+    <span class="text-semibold ml-1">{$sym.getName()}</span>
+    {if $label}
+      <span class="color-fg-muted text-small ml-2">{renderLabel(label: $label)}</span>
+    {/if}
+    {if $description}
+      <span class="ml-auto text-small overflow-x-hidden" style="color: var(--color-fg-muted)">
         {$description|truncate:96}
       </span>
     {/if}
@@ -1410,5 +2327,85 @@ import {
 <div class="Toast Toast--success Toast--animateIn" style="position: fixed; top: 10px; left: 10px; max-width: 100%">
   <span class="Toast-icon">{octiconCheck16()}</span>
   <span class="Toast-content">{$message|truncate:256}</span>
+</div>
+{/template}
+
+
+{template documentationAboutSection}
+  {@param module: Module}
+  {@param moduleVersion: ModuleVersion}
+  {@param? info: DocumentationInfo}
+  {@param fileSymbols: list<[file: FileInfo, symbolGroups: list<[type: SymbolType, typeName: string, symbols: list<SymbolInfo>]>]>}
+<div>
+  <div class="f4 color-fg-muted">
+  {if $info}
+    <span class="mr-1">{documentationSourceOcticon(source: $info.getSource())}</span>
+
+    {if $info.getSource() == DocumentationSource.PUBLISHED}
+      Official published documentation for <strong>{$info.getModuleName()}</strong> version <strong>{$info.getVersion()}</strong>.
+    {elseif $info.getSource() == DocumentationSource.BEST_EFFORT}
+      Auto-generated documentation using best-effort extraction method.
+    {else}
+      Documentation for <strong>{$info.getModuleName()}</strong> version <strong>{$info.getVersion()}</strong>.
+    {/if}
+  {else}
+    {if $moduleVersion.getIsLatestVersion()}
+      Documentation not available. Only repositories with <code>.bzl</code> files have auto-generated documentation.
+    {else}
+      Auto-generated documentation is only available for the latest version. Modules may optionally publish documentation for older versions by including a <code>.docs.tar.gz</code> archive in their release.
+      <p class="mt-3">
+        {let $latestVersion: $module.getVersionsList()[0].getVersion() /}
+        <a class="btn btn-sm btn-primary" href="{moduleVersionDocsUrl(name: $moduleVersion.getName(), version: $latestVersion)}">View Latest</a>
+      </p>
+    {/if}
+  {/if}
+  </div>
+
+  <div class="mt-3">
+      <a class="Link--muted d-flex flex-items-center mb-2" href="{moduleVersionDocsUrl(name: $moduleVersion.getName(), version: $moduleVersion.getVersion())}">
+        <span class="mr-2">{octiconBook16()}</span>
+        <span>View README</span>
+      </a>
+    {if $moduleVersion.getSource()?.getCommitSha()}
+        {let $githubUrl: githubRepoUrl(moduleVersion: $moduleVersion) /}
+        {if $githubUrl}
+          <a href="{$githubUrl}" target="_blank" rel="noopener noreferrer" class="Link--muted d-flex flex-items-center" title="View on GitHub">
+            <span class="mr-2">{octiconMarkGithub16()}</span>
+            <span>View on GitHub</span>
+          </a>
+        {/if}
+    {/if}
+  </div>
+
+  {if $info}
+    {if length($fileSymbols) > 0}
+      <div class="mt-3 pt-3 border-top">
+        {for $fileSymbol in $fileSymbols}
+          {let $file: $fileSymbol.file /}
+          {let $pkg: $file.getLabel()?.getPkg() /}
+          {let $name: $file.getLabel()?.getName() /}
+          {let $hasError: $file.getError() ? true : false /}
+          <div class="mb-3">
+            <div class="d-flex flex-items-start mb-1">
+              <div class="flex-shrink-0 mr-2">
+                {if $hasError}
+                  {octiconSkip16(class: 'color-fg-attention')}
+                {else}
+                  {octiconFile16()}
+                {/if}
+              </div>
+              <div class="flex-auto">
+                <a href="{fileInfoUrl(label: $file.getLabel())}" class="{if $hasError}Link--muted{else}Link--primary{/if}">
+                  <span class="text-semibold">{$pkg ? $pkg + '/' : ''}{$name}</span>
+                </a>
+              </div>
+            </div>
+            {fileSymbolTree(moduleVersion: $moduleVersion, file: $file, symbolGroups: $fileSymbol.symbolGroups, showDocstrings: false)}
+          </div>
+        {/for}
+      </div>
+    {/if}
+  {/if}
+
 </div>
 {/template}
