@@ -24,6 +24,11 @@ not_found_handling = "single-page-application"
 EOF
 
 # Deploy using wrangler
+# Requires CLOUDFLARE_API_TOKEN environment variable
+if [ -z "${{CLOUDFLARE_API_TOKEN:-}}" ]; then
+  echo "Error: CLOUDFLARE_API_TOKEN environment variable not set"
+  exit 1
+fi
 {wrangler} deploy --cwd "$TMPDIR"
 """.format(
             wrangler = ctx.executable._wrangler.short_path,
