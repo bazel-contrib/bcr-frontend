@@ -1,0 +1,11 @@
+load("//rules:module_registry.bzl", "module_registry")
+
+module_registry(
+    name = "modules",
+    commit = "b7f4d60aff78acfce0174fc7146b19aab71558ff",
+    commit_date = "2025-12-14T21:45:53+01:00",
+    registry_url = "https://registry.bazel.build",
+    repository_url = "https://github.com/bazelbuild/bazel-central-registry",
+    visibility = ["//visibility:public"],
+    deps = [],
+)

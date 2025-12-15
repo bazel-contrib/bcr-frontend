@@ -1,9 +1,5 @@
 load("@rules_go//go:def.bzl", "go_binary", "go_library")
 
-# load("@rules_java//java:java_library.bzl", "java_library")
-load("@rules_java//java:java_binary.bzl", "java_binary")
-load("@rules_java//java:java_import.bzl", "java_import")
-
 go_library(
     name = "stardoccompiler_lib",
     srcs = ["main.go"],
@@ -21,20 +17,4 @@ go_binary(
     name = "stardoccompiler",
     embed = [":stardoccompiler_lib"],
     visibility = ["//visibility:public"],
-)
-
-java_import(
-    name = "constellate_jar",
-    jars = ["constellate.jar"],
-)
-
-# java_library(
-#     name = "libserver",
-#     deps = ["server_jar"],
-# )
-
-java_binary(
-    name = "server",
-    main_class = "build.stack.devtools.build.constellate.RemoteStarlarkServer",
-    runtime_deps = ["constellate_jar"],
 )

@@ -24,4 +24,13 @@ jobs:
           --bazelrc=.github/workflows/ci.bazelrc
           --bazelrc=.bazelrc
           build
-          //pkg/... //cmd/...
+          --//app/bcr:release_type=dummy
+          //pkg/... //cmd/... //language/... //app/bcr/... //blaze/... //build/... //stardoc_output/...
+      - name: bazel test
+        run: >-
+          bazelisk
+          --bazelrc=.github/workflows/ci.bazelrc
+          --bazelrc=.bazelrc
+          test
+          --//app/bcr:release_type=dummy
+          //pkg/... //cmd/... //language/...

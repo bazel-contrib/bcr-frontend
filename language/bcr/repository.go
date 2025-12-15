@@ -47,15 +47,24 @@ func parseRepositoryMetadataFromRepositoryString(repoStr string) (*bzpb.Reposito
 		md.Type = bzpb.RepositoryType_GITHUB
 		repoStr = after
 	} else if after, found := strings.CutPrefix(repoStr, "gitlab:"); found {
-		// Future support for GitLab
-		md.Type = bzpb.RepositoryType_GITLAB
+		// GitLab support (currently mapped to REPOSITORY_TYPE_UNKNOWN)
+		md.Type = bzpb.RepositoryType_REPOSITORY_TYPE_UNKNOWN
 		repoStr = after
-	} else if after, found := strings.CutPrefix(repoStr, "https://gitlab.com/"); found {
-		md.Type = bzpb.RepositoryType_GITLAB
-		repoStr = after
-	} else if after, found := strings.CutPrefix(repoStr, "http://gitlab.com/"); found {
-		md.Type = bzpb.RepositoryType_GITLAB
-		repoStr = after
+	} else if strings.HasPrefix(repoStr, "https://gitlab.") || strings.HasPrefix(repoStr, "http://gitlab.") {
+		// Handle any gitlab.* domain (gitlab.com, gitlab.arm.com, gitlab.freedesktop.org, etc.)
+		md.Type = bzpb.RepositoryType_REPOSITORY_TYPE_UNKNOWN
+		// Remove protocol prefix
+		if after, found := strings.CutPrefix(repoStr, "https://"); found {
+			repoStr = after
+		} else if after, found := strings.CutPrefix(repoStr, "http://"); found {
+			repoStr = after
+		}
+		// Remove domain (everything up to and including the first /)
+		if idx := strings.Index(repoStr, "/"); idx >= 0 {
+			repoStr = repoStr[idx+1:]
+		} else {
+			return nil, false
+		}
 	} else {
 		// Unknown format
 		return nil, false

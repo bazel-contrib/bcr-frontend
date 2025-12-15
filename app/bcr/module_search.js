@@ -14,8 +14,10 @@ const Module = goog.require("proto.build.stack.bazel.bzlmod.v1.Module");
 const Registry = goog.require("proto.build.stack.bazel.bzlmod.v1.Registry");
 const Renderer = goog.require("goog.ui.ac.Renderer");
 const soy = goog.require("goog.soy");
-const { Application, DefaultSearchHandlerName, Searchable, SearchProvider } = goog.require("centrl.common");
+const { Application, SearchProvider } = goog.require("centrl.common");
+const { Searchable } = goog.requireType("centrl.common");
 const { moduleSearchRow } = goog.require('soy.centrl.app');
+const { sanitizeLanguageName } = goog.require('centrl.language');
 
 
 /**
@@ -185,31 +187,9 @@ class ModuleRowRenderer {
     renderModule(module, entry, val, row) {
         let el = soy.renderAsElement(moduleSearchRow, {
             module,
-            lang: sanitizeLanguageName(module.getRepositoryMetadata()?.getPrimaryLanguage()),
+            lang: sanitizeLanguageName(module.getRepositoryMetadata()?.getPrimaryLanguage() || ''),
             description: module.getRepositoryMetadata()?.getDescription(),
         });
         dom.append(row, el);
     }
-}
-
-/**
- * Sanitize a language name for use as a CSS identifier
- * Matches the logic in pkg/css/identifier.go SanitizeIdentifier
- * @param {string|undefined} name
- * @return {string}
- */
-function sanitizeLanguageName(name) {
-    if (!name) {
-        return '';
-    }
-    // Replace spaces and special characters
-    let sanitized = name
-        .replace(/ /g, '-')
-        .replace(/\+/g, 'plus')
-        .replace(/#/g, 'sharp');
-
-    // Remove any remaining invalid characters (keep only alphanumeric, hyphen, underscore)
-    sanitized = sanitized.replace(/[^a-zA-Z0-9\-_]/g, '');
-
-    return sanitized;
 }

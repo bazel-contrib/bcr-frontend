@@ -16,6 +16,7 @@ string_flag(
     name = "release_type",
     build_setting_default = "debug",
     values = [
+        "dummy",  # points to //data/dummy:modules - when submodule may not be initialized but still want to build //app/bcr:release
         "debug",
         "production",
     ],
@@ -43,6 +44,13 @@ config_setting(
     name = "is_debug_release",
     flag_values = {
         ":release_type": "debug",
+    },
+)
+
+config_setting(
+    name = "is_dummy_release",
+    flag_values = {
+        ":release_type": "dummy",
     },
 )
 
@@ -76,9 +84,12 @@ closure_js_template_library(
     name = "soy",
     srcs = [
         "app.soy",
+        "maintainers.soy",
         "octicons.soy",
         "registry.soy",
+        "settings.soy",
         "treeview.soy",
+        "uri.soy",
     ],
     deps = [
         "//build/stack/bazel/bzlmod/v1:bzpb_js",
@@ -94,8 +105,13 @@ closure_ts_compile(
 
 closure_js_library(
     name = "common",
-    srcs = ["common.js"],
+    srcs = [
+        "common.js",
+        "mvs.js",
+    ],
     deps = [
+        "//build/stack/bazel/bzlmod/v1:bzpb_js",
+        "@stackb_rules_closure//closure/goog/asserts",
         "@stackb_rules_closure//closure/goog/dom",
         "@stackb_rules_closure//closure/goog/ui/ac:autocomplete",
         "@stackb_rules_closure//closure/goog/ui/ac:cachingmatcher",
@@ -123,12 +139,26 @@ closure_js_library(
     name = "app",
     srcs = [
         "app.js",
+        "body.js",
+        "clipboard.js",
+        "contentcomponent.js",
+        "contentselect.js",
+        "documentation.js",
         "documentation_search.js",
+        "format.js",
+        "home.js",
+        "language.js",
         "main.js",
+        "maintainers.js",
         "module_search.js",
-        "mvs.js",
+        "modules.js",
         "mvs_tree.js",
+        "registry.js",
         "search.js",
+        "selectnav.js",
+        "settings.js",
+        "starlark.js",
+        "syntax.js",
         "treeview.js",
         ":shiki",
     ],
@@ -190,7 +220,10 @@ closure_js_binary(
 [
     filegroup(
         name = output_group,
-        srcs = ["//data/bazel-central-registry/modules"],
+        srcs = select({
+            ":is_dummy_release": ["//data/dummy:modules"],
+            "//conditions:default": ["//data/bazel-central-registry/modules"],
+        }),
         output_group = output_group,
     )
     for output_group in [
@@ -228,10 +261,6 @@ release_archive(
         ":is_debug_release": ["bcr.js.map"],
         "//conditions:default": [],
     }),
-    # documentation_registry_file = select({
-    #     "//app/bcr:is_docs_release": ":documentation_registry_pb",
-    #     "//conditions:default": None,
-    # }),
     hashed_srcs = [
         ":bcr.css",
         ":bcr.js",

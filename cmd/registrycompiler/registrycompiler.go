@@ -51,9 +51,6 @@ func run(args []string) error {
 	if cfg.OutputFile == "" {
 		return fmt.Errorf("output_file is required")
 	}
-	if len(cfg.ModuleFiles) == 0 {
-		return fmt.Errorf("deps list must not be empty (positional args)")
-	}
 
 	var registry bzpb.Registry
 

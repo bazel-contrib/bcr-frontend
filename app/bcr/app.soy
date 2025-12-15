@@ -84,7 +84,6 @@ import {
   maintainerProfile,
   maintainersList,
   maintainersTable,
-  modulesUrl,
   moduleDependencyOverride,
   moduleDependencyRow,
   moduleDependencyTable,
@@ -93,15 +92,27 @@ import {
   moduleVersionAboutTable,
   moduleVersionBreadcrumb,
   moduleVersionButton,
-  moduleVersionDocsUrl,
   moduleVersionHeader,
   moduleVersionModuleBazel,
   moduleVersions,
   moduleVersionTable,
-  moduleVersionUrl,
   sectionDivider,
   sectionHeader
 } from 'app/bcr/registry.soy';
+import {
+  fileInfoUrl,
+  githubRawUrl,
+  githubRepoUrlFromModuleVersion,
+  githubSourceUrl,
+  labelUri,
+  loadLabelUrl,
+  moduleLabelDocsUri,
+  modulesUrl,
+  moduleVersionDocsUrl,
+  moduleVersionUrl,
+  renderLabel,
+  symbolInfoUrl
+} from 'app/bcr/uri.soy';
 
 {template registryApp}
 <div class="{css('app-main')}"></div>
@@ -202,105 +213,10 @@ import {
 
 {template homeSelect}
 <div>
-  <div class="{css('content')}" style="display: flex; justify-content: center; align-items: center; min-height: 50vh;">
-    <svg width="200" height="200" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
-      <!-- Cat body -->
-      <ellipse cx="100" cy="120" rx="50" ry="45" fill="#f4a460"/>
-
-      <!-- Cat head -->
-      <circle cx="100" cy="70" r="40" fill="#f4a460"/>
-
-      <!-- Left ear -->
-      <polygon points="70,45 75,25 85,45" fill="#f4a460"/>
-      <polygon points="73,42 76,30 82,42" fill="#ffc0cb"/>
-
-      <!-- Right ear -->
-      <polygon points="115,45 125,25 130,45" fill="#f4a460"/>
-      <polygon points="118,42 124,30 127,42" fill="#ffc0cb"/>
-
-      <!-- Left eye -->
-      <ellipse cx="85" cy="65" rx="8" ry="12" fill="#fff"/>
-      <ellipse cx="85" cy="68" rx="5" ry="8" fill="#000"/>
-      <ellipse cx="86" cy="66" rx="2" ry="3" fill="#fff"/>
-
-      <!-- Right eye -->
-      <ellipse cx="115" cy="65" rx="8" ry="12" fill="#fff"/>
-      <ellipse cx="115" cy="68" rx="5" ry="8" fill="#000"/>
-      <ellipse cx="116" cy="66" rx="2" ry="3" fill="#fff"/>
-
-      <!-- Nose -->
-      <polygon points="100,78 97,83 103,83" fill="#ff69b4"/>
-
-      <!-- Mouth -->
-      <path d="M 100 83 Q 95 88 90 85" stroke="#8b4513" stroke-width="1.5" fill="none"/>
-      <path d="M 100 83 Q 105 88 110 85" stroke="#8b4513" stroke-width="1.5" fill="none"/>
-
-      <!-- Whiskers left -->
-      <line x1="65" y1="72" x2="40" y2="70" stroke="#8b4513" stroke-width="1"/>
-      <line x1="65" y1="77" x2="40" y2="78" stroke="#8b4513" stroke-width="1"/>
-      <line x1="65" y1="82" x2="40" y2="86" stroke="#8b4513" stroke-width="1"/>
-
-      <!-- Whiskers right -->
-      <line x1="135" y1="72" x2="160" y2="70" stroke="#8b4513" stroke-width="1"/>
-      <line x1="135" y1="77" x2="160" y2="78" stroke="#8b4513" stroke-width="1"/>
-      <line x1="135" y1="82" x2="160" y2="86" stroke="#8b4513" stroke-width="1"/>
-
-      <!-- Tail -->
-      <path d="M 145 135 Q 165 130 175 145 Q 180 155 170 160" stroke="#f4a460" stroke-width="12" fill="none" stroke-linecap="round"/>
-
-      <!-- Left front paw -->
-      <ellipse cx="80" cy="160" rx="10" ry="15" fill="#f4a460"/>
-
-      <!-- Right front paw -->
-      <ellipse cx="120" cy="160" rx="10" ry="15" fill="#f4a460"/>
-
-      <!-- Belly patch -->
-      <ellipse cx="100" cy="130" rx="25" ry="20" fill="#ffe4b5"/>
-    </svg>
+  <div class="{css('content')}">
   </div>
 </div>
 {/template}
-
-{template settingsSelect}
-  {@inject pathUrl: string}
-<div class="PageLayout PageLayout--panePos-start PageLayout--hasPaneDivider PageLayout--responsive-stackRegions PageLayout--responsive-panePos-start mt-3" style="--Layout-pane-width: 10rem">
-  <div class="PageLayout-columns">
-    <div class="PageLayout-pane">
-    {sectionHeader(title: 'Settings', style: 'font-size: var(--h1-size)')}
-
-      <nav class="SideNav" style="background-color: transparent; border: none">
-        <a href="/#/{$pathUrl}/appearance" class="SideNav-item d-flex flex-items-center p-1 pl-2 m-1 rounded" style="border: none; box-shadow: none">
-          {octiconPaintbrush16(class: 'mr-2', fill: 'var(--color-fg-emphasis)')}
-          {sp}
-          Appearance
-          {octiconChevronRight16(fill: 'var(--color-fg-subtle)')}
-        </a>
-      </nav>
-    </div>
-    <div class="PageLayout-content valign-top {css('content')}"></div>
-  </div>
-</div>
-{/template}
-
-
-{template settingsAppearanceComponent}
-<div>
-  {sectionHeader(title: 'Theme preferences', class: 'border-bottom mb-3')}
-
-  <div class="FormControl-spacingWrapper" style="max-width: 50%;">
-    <label class="FormControl-label">
-      Color mode
-    </label>
-    <select class="form-select {css('theme')}">
-      <option value="light">Light</option>
-      <option value="dark">Dark</option>
-      <option value="auto">Auto (system preference)</option>
-    </select>
-    <p class="FormControl-caption">Choose your color theme preference (persisted in localStorage).</p>
-  </div>
-</div>
-{/template}
-
 
 {template moduleVersionList}
   {@param registry: Registry}
@@ -416,15 +332,6 @@ import {
   <div class="f4-light color-fg-muted">
     {$label}
   </div>
-</div>
-{/template}
-
-{template maintainersMapComponent}
-  {@param maintainers: map<string,Maintainer>}
-<div>
-    {call maintainersList}
-        {param maintainers: $maintainers /}
-    {/call}
 </div>
 {/template}
 
@@ -716,16 +623,8 @@ import {
 {template documentationInfoSelect}
   {@param module: Module}
   {@param moduleVersion: ModuleVersion}
-  {@param? info: DocumentationInfo}
-  {@param aspects: list<[file: FileInfo, sym: SymbolInfo]>}
-  {@param funcs: list<[file: FileInfo, sym: SymbolInfo]>}
-  {@param macros: list<[file: FileInfo, sym: SymbolInfo]>}
-  {@param ruleMacros: list<[file: FileInfo, sym: SymbolInfo]>}
-  {@param moduleExtensions: list<[file: FileInfo, sym: SymbolInfo]>}
-  {@param providers: list<[file: FileInfo, sym: SymbolInfo]>}
-  {@param repositoryRules: list<[file: FileInfo, sym: SymbolInfo]>}
-  {@param rules: list<[file: FileInfo, sym: SymbolInfo]>}
   {@param fileSymbols: list<[file: FileInfo, symbolGroups: list<[type: SymbolType, typeName: string, symbols: list<SymbolInfo>]>]>}
+  {@param? info: DocumentationInfo}
 <div>
   <div class="PageLayout PageLayout--panePos-start PageLayout--hasPaneDivider PageLayout--responsive-stackRegions" style2="--Layout-template-columns: unset">
     <div class="PageLayout-wrapper">
@@ -752,66 +651,6 @@ import {
     <code class="text-small text-semibold">{$item.sym.getName()|truncate:32}</code>
   </a>
 </div>
-{/template}
-
-
-{template fileInfoUrl kind="uri"}
-  {@inject baseUrl: string}
-  {@param? label: Label}
-{let $pkg: $label?.getPkg() /}
-{let $name: $label?.getName() /}
-/#/{$baseUrl}/{if $pkg}{$pkg}/{/if}{$name}
-{/template}
-
-{template symbolInfoUrl kind="uri"}
-  {@param file: FileInfo}
-  {@param sym: SymbolInfo}
-{fileInfoUrl(label: $file.getLabel())}/{$sym.getName()}
-{/template}
-
-{template githubSourceUrl kind="uri"}
-  {@param moduleVersion: ModuleVersion}
-  {@param? label: Label}
-  {@param? location: SymbolLocation}
-{if $moduleVersion.getRepositoryMetadata()?.getType() == RepositoryType.GITHUB && $label}
-{let $org: $moduleVersion.getRepositoryMetadata().getOrganization() /}
-{let $repo: $moduleVersion.getRepositoryMetadata().getName() /}
-{let $pkg: $label.getPkg() /}
-{let $name: $label.getName() /}
-{let $path: $pkg ? $pkg + '/' + $name : $name /}
-{let $commitSha: $moduleVersion.getSource()?.getCommitSha() /}
-{if $commitSha}
-https://github.com/{$org}/{$repo}/blob/{$commitSha}/{$path}?plain=1{if $location && $location.getStart()}#L{$location.getStart().getLine()}{if $location.getEnd() && $location.getEnd().getLine() != $location.getStart().getLine()}-L{$location.getEnd().getLine()}{/if}{/if}
-{/if}
-{/if}
-{/template}
-
-{template githubRepoUrl kind="uri"}
-  {@param moduleVersion: ModuleVersion}
-{if $moduleVersion.getRepositoryMetadata()?.getType() == RepositoryType.GITHUB}
-{let $org: $moduleVersion.getRepositoryMetadata().getOrganization() /}
-{let $repo: $moduleVersion.getRepositoryMetadata().getName() /}
-{let $commitSha: $moduleVersion.getSource()?.getCommitSha() /}
-{if $commitSha}
-https://github.com/{$org}/{$repo}/tree/{$commitSha}
-{/if}
-{/if}
-{/template}
-
-{template githubRawUrl kind="uri"}
-  {@param moduleVersion: ModuleVersion}
-  {@param label: Label}
-{if $moduleVersion.getRepositoryMetadata()?.getType() == RepositoryType.GITHUB}
-{let $org: $moduleVersion.getRepositoryMetadata().getOrganization() /}
-{let $repo: $moduleVersion.getRepositoryMetadata().getName() /}
-{let $pkg: $label.getPkg() /}
-{let $name: $label.getName() /}
-{let $path: $pkg ? $pkg + '/' + $name : $name /}
-{let $commitSha: $moduleVersion.getSource()?.getCommitSha() /}
-{if $commitSha}
-https://raw.githubusercontent.com/{$org}/{$repo}/{$commitSha}/{$path}
-{/if}
-{/if}
 {/template}
 
 
@@ -1499,17 +1338,6 @@ https://raw.githubusercontent.com/{$org}/{$repo}/{$commitSha}/{$path}
 </div>
 {/template}
 
-{template loadLabelUrl kind="uri"}
-  {@param label: Label}
-{let $repo: $label.getRepo() /}
-{let $pkg: $label.getPkg() /}
-{let $name: $label.getName() /}
-{if $repo}
-  /#/modules/{$repo}/latest/docs/{if $pkg}{$pkg}/{/if}{$name}
-{else}
-  // {# Local file - no link #}
-{/if}
-{/template}
 
 {template functionInfoComponent}
   {@param moduleVersion: ModuleVersion}
@@ -2033,24 +1861,6 @@ https://raw.githubusercontent.com/{$org}/{$repo}/{$commitSha}/{$path}
 {/switch}
 {/template}
 
-{template labelUri kind="uri"}
-  {@inject pathUrl: string}
-  {@param repo: string}
-  {@param pkg: string}
-  {@param name: string}
-/#/{$pathUrl}
-{if $repo.length > 1}/external/{$repo}{else}/@{/if}
-/package/
-{if $pkg}{$pkg}{else}:{/if}
-{if $name}
-    /
-    {if $name != '*'}
-        {$name}
-    {/if}
-{/if}
-{/template}
-
-
 {template labelNameLink}
   {@param label: string}
 {let $dblslash: $label.indexOf('//') /}
@@ -2059,26 +1869,6 @@ https://raw.githubusercontent.com/{$org}/{$repo}/{$commitSha}/{$path}
 {let $pkg: $label.substring($dblslash+2, $colon) /}
 {let $name: $label.substring($colon+1) /}
 <a href="{labelUri(repo: $repo, pkg: $pkg, name: $name)}">{$name}</a>
-{/template}
-
-{template renderLabel kind="text"}
-  {@param label: Label}
-{let $repo: $label.getRepo() /}
-{let $pkg: $label.getPkg() /}
-{let $name: $label.getName() /}
-{if $repo}@{$repo}//{/if}{if $pkg}{$pkg}:{/if}{$name}
-{/template}
-
-{template moduleLabelDocsUri kind="uri"}
-  {@param label: Label}
-{let $repo: $label.getRepo() /}
-{let $pkg: $label.getPkg() /}
-{let $name: $label.getName() /}
-{if $repo}
-  {modulesUrl()}/{$repo}/latest/docs/{if $pkg}{$pkg}/{/if}{$name}
-{else}
-  {renderLabel(label: $label)}
-{/if}
 {/template}
 
 {template moduleBlankslateComponent}
@@ -2215,24 +2005,6 @@ https://raw.githubusercontent.com/{$org}/{$repo}/{$commitSha}/{$path}
 </div>
 {/template}
 
-{template maintainersSelect}
-<div>
-  <div class="{css('content')}"></div>
-</div>
-{/template}
-
-
-{template maintainersMapSelectNav}
-<div>
-  <nav class="UnderlineNav">
-    <div class="UnderlineNav-body {css('nav')}">
-      <div class="f4">Maintainers:</div>
-    </div>
-  </nav>
-  <div class="{css('content')}"></div>
-</div>
-{/template}
-
 
 {template docsMapSelectNav}
 <div>
@@ -2242,31 +2014,6 @@ https://raw.githubusercontent.com/{$org}/{$repo}/{$commitSha}/{$path}
     </div>
   </nav>
   <div class="{css('content')}"></div>
-</div>
-{/template}
-
-
-{template maintainerComponent}
-  {@param maintainer: Maintainer}
-  {@param moduleVersions: list<ModuleVersion>}
-<div>
-  <div class="PageLayout PageLayout--panePos-start PageLayout--hasPaneDivider PageLayout--responsive-stackRegions PageLayout--responsive-panePos-start mt-3">
-    <div class="PageLayout-wrapper">
-      <div class="PageLayout-columns">
-        <div class="PageLayout-content">
-          {call maintainerModuleVersionTable}
-            {param moduleVersions: $moduleVersions /}
-          {/call}
-        </div>
-
-        <div class="PageLayout-pane">
-          {call maintainerProfile}
-            {param maintainer: $maintainer /}
-          {/call}
-        </div>
-      </div>
-    </div>
-  </div>
 </div>
 {/template}
 
@@ -2367,7 +2114,7 @@ https://raw.githubusercontent.com/{$org}/{$repo}/{$commitSha}/{$path}
         <span>View README</span>
       </a>
     {if $moduleVersion.getSource()?.getCommitSha()}
-        {let $githubUrl: githubRepoUrl(moduleVersion: $moduleVersion) /}
+        {let $githubUrl: githubRepoUrlFromModuleVersion(moduleVersion: $moduleVersion) /}
         {if $githubUrl}
           <a href="{$githubUrl}" target="_blank" rel="noopener noreferrer" class="Link--muted d-flex flex-items-center" title="View on GitHub">
             <span class="mr-2">{octiconMarkGithub16()}</span>

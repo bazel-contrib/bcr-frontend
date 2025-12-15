@@ -43,6 +43,23 @@ import {
     ModuleMetadata,
     RepositoryMetadata
 } from 'build/stack/bazel/bzlmod/v1/bcr.proto';
+import {
+    bcrModuleVersionOverlayFileUrl,
+    bcrModuleVersionPatchFileUrl,
+    githubAvatarUrl,
+    githubRepoUrl,
+    githubUserUrl,
+    mailtoUrl,
+    maintainerUrl,
+    maintainersUrl,
+    moduleUrl,
+    modulesUrl,
+    moduleVersionDocsUrl,
+    moduleVersionUrl,
+    registryPullRequestUrl,
+    repositoryUrl,
+    rootUrl
+} from 'app/bcr/uri.soy';
 
 {template moduleVersionOverview}
   {@param current: ModuleVersion}
@@ -319,118 +336,6 @@ bazel_dep(name = "{$name}", version = "{$version}")
         {/if}
     {/for}
 </div>
-{/template}
-
-// ====================================================================
-// URL HELPERS
-// ====================================================================
-
-{template rootUrl kind="uri"}
-/#/
-{/template}
-
-
-{template maintainersUrl kind="uri"}
-{rootUrl()}maintainers
-{/template}
-
-
-{template modulesUrl kind="uri"}
-{rootUrl()}modules
-{/template}
-
-
-{template moduleUrl kind="uri"}
-  {@param name: string}
-{modulesUrl()}/{$name}
-{/template}
-
-
-{template moduleVersionUrl kind="uri"}
-  {@param name: string}
-  {@param version: string}
-{moduleUrl(name: $name)}/{$version}
-{/template}
-
-{template moduleVersionDocsUrl kind="uri"}
-  {@param name: string}
-  {@param version: string}
-{moduleVersionUrl(name: $name, version: $version)}/docs
-{/template}
-
-{template maintainerUrl kind="uri"}
-  {@param maintainer: Maintainer}
-{if $maintainer.getGithub()}
-    {maintainersUrl()}/@{$maintainer.getGithub()}
-{elseif $maintainer.getEmail()}
-    {maintainersUrl()}/{$maintainer.getEmail()}
-{else}
-    {maintainersUrl()}/{$maintainer.getName()}
-{/if}
-{/template}
-
-
-{template githubAvatarUrl kind="uri"}
-  {@param name: string}
-{if $name}
-https://github.com/{$name}.png
-{else}
-https://github.com/bazelbuild.png
-{/if}
-{/template}
-
-
-{template githubUserUrl kind="uri"}
-  {@param name: string}
-https://github.com/{$name}
-{/template}
-
-
-{template githubRepoUrl kind="uri"}
-  {@param org: string}
-  {@param name: string}
-https://github.com/{$org}/{$name}
-{/template}
-
-{template mailtoUrl kind="uri"}
-  {@param to: string}
-mailto:{$to}
-{/template}
-
-
-{template repositoryUrl kind="uri"}
-  {@param repo: string}
-{if $repo.startsWith("github:")}
-https://github.com/{$repo.substring("github:".length)}
-{elseif $repo.startsWith("gitlab:")}
-https://gitlab.com/{$repo.substring("gitlab:".length)}
-{elseif $repo.startsWith("https:")}
-{$repo}
-{else}
-{$repo}
-{/if}
-{/template}
-
-
-{template registryPullRequestUrl kind="uri"}
-  {@param pr: string}
-https://github.com/bazelbuild/bazel-central-registry/pull/{$pr}
-{/template}
-
-{template bcrModuleVersionPatchFileUrl kind="uri"}
-  {@inject repositoryUrl: string}
-  {@inject repositoryCommit: string}
-  {@param moduleVersion: ModuleVersion}
-  {@param filename: string}
-{$repositoryUrl}/tree/{$repositoryCommit}/modules/{$moduleVersion.getName()}/{$moduleVersion.getVersion()}/patches/{$filename}
-{/template}
-
-{template bcrModuleVersionOverlayFileUrl kind="uri"}
-  {@inject repositoryUrl: string}
-  {@inject repositoryCommit: string}
-  {@param moduleVersion: ModuleVersion}
-  {@param filename: string}
-{$repositoryUrl}/tree/{$repositoryCommit}/modules/{$moduleVersion.getName()}/{$moduleVersion.getVersion()}/overlay/{$filename}
 {/template}
 
 // ====================================================================

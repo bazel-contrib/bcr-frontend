@@ -8,6 +8,8 @@ const Keyboard = goog.require("stack.ui.Keyboard");
 const Select = goog.require("stack.ui.Select");
 const dom = goog.require("goog.dom");
 const { Component } = goog.require("stack.ui");
+const { MVS } = goog.require('centrl.mvs');
+
 
 /**
  * Interface that defines the minimum API methods we need on the root object.
@@ -21,6 +23,12 @@ class Application {
      * @returns {!Map<string,string>}
      */
     getOptions() { }
+
+    /**
+     * Returns the cached mvs data.
+     * @returns {!MVS}
+     */
+    getMvs() { }
 
     /**
      * @param {!Array<string>} path
