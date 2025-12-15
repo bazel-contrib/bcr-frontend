@@ -457,13 +457,14 @@ type SourceCommitInfo struct {
 
 // BatchResolveSourceCommits resolves multiple source URLs to commit SHAs with retry logic
 // Returns a slice of SourceCommitInfo with results for each URL
+// The optional onProgress callback is called after each URL is processed
 func BatchResolveSourceCommits(ctx context.Context, client *github.Client, urlInfos []struct {
 	URL  string
 	Org  string
 	Repo string
 	Type string // "tag", "commit_sha", or "release"
 	Ref  string
-}) ([]*SourceCommitInfo, error) {
+}, onProgress func(*SourceCommitInfo)) ([]*SourceCommitInfo, error) {
 	results := make([]*SourceCommitInfo, len(urlInfos))
 	var mu sync.Mutex
 
@@ -511,6 +512,11 @@ func BatchResolveSourceCommits(ctx context.Context, client *github.Client, urlIn
 			mu.Lock()
 			results[i] = result
 			mu.Unlock()
+
+			// Call progress callback if provided
+			if onProgress != nil {
+				onProgress(result)
+			}
 
 			return nil
 		})

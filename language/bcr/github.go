@@ -5,6 +5,7 @@ import (
 	"log"
 	"maps"
 	"slices"
+	"sync"
 	"time"
 
 	bzpb "github.com/stackb/centrl/build/stack/bazel/bzlmod/v1"
@@ -257,49 +258,43 @@ func (ext *bcrExtension) resolveSourceCommitSHAsForRankedModules(rankedModules r
 		batchInfos[i] = info
 	}
 
-	// Resolve all commit SHAs in batch
-	results, err := gh.BatchResolveSourceCommits(ctx, ext.githubClient, batchInfos)
+	// Track progress
+	successCount := 0
+	errorCount := 0
+	var mu sync.Mutex
+
+	// Resolve all commit SHAs in batch with progress callback
+	results, err := gh.BatchResolveSourceCommits(ctx, ext.githubClient, batchInfos, func(result *gh.SourceCommitInfo) {
+		mu.Lock()
+		defer mu.Unlock()
+
+		bar.Add(1)
+
+		if result.Error != nil {
+			errorCount++
+		} else if result.CommitSHA != "" {
+			// Update all module IDs that use this URL
+			moduleIDs := urlToModuleID[result.URL]
+			for _, id := range moduleIDs {
+				if source, ok := ext.moduleSourceRules[id]; ok {
+					updateModuleSourceRuleSourceCommitSha(source, result.CommitSHA)
+					successCount++
+				}
+			}
+		}
+	})
 	if err != nil {
 		log.Printf("error: failed to resolve source commit SHAs: %v", err)
 		return
 	}
 
-	// Update the module source rules with resolved commit SHAs
-	successCount := 0
-	errorCount := 0
-	processedCount := 0
-
+	// Log any errors or warnings after completion
 	for _, result := range results {
-		processedCount++
-
 		if result.Error != nil {
-			log.Printf("warning: [%d/%d] failed to resolve commit SHA for %s: %v", processedCount, totalURLs, result.URL, result.Error)
-			errorCount++
-			bar.Add(1)
-			continue
+			log.Printf("warning: failed to resolve commit SHA for %s: %v", result.URL, result.Error)
+		} else if result.CommitSHA == "" {
+			log.Printf("warning: empty commit SHA for %s", result.URL)
 		}
-
-		if result.CommitSHA == "" {
-			log.Printf("warning: [%d/%d] empty commit SHA for %s", processedCount, totalURLs, result.URL)
-			errorCount++
-			bar.Add(1)
-			continue
-		}
-
-		// Update all module IDs that use this URL
-		moduleIDs := urlToModuleID[result.URL]
-		for _, id := range moduleIDs {
-			if source, ok := ext.moduleSourceRules[id]; ok {
-				updateModuleSourceRuleSourceCommitSha(source, result.CommitSHA)
-				successCount++
-			}
-		}
-
-		if len(moduleIDs) > 0 {
-			log.Printf("info: [%d/%d] resolved %s → %s", processedCount, totalURLs, result.URL, result.CommitSHA[:8])
-		}
-
-		bar.Add(1)
 	}
 
 	log.Printf("Commit SHA resolution complete: %d successful, %d errors, %d total URLs", successCount, errorCount, totalURLs)
@@ -415,49 +410,43 @@ func (ext *bcrExtension) resolveSourceCommitSHAsForLatestVersions() {
 		batchInfos[i] = info
 	}
 
-	// Resolve all commit SHAs in batch
-	results, err := gh.BatchResolveSourceCommits(ctx, ext.githubClient, batchInfos)
+	// Track progress
+	successCount := 0
+	errorCount := 0
+	var mu sync.Mutex
+
+	// Resolve all commit SHAs in batch with progress callback
+	results, err := gh.BatchResolveSourceCommits(ctx, ext.githubClient, batchInfos, func(result *gh.SourceCommitInfo) {
+		mu.Lock()
+		defer mu.Unlock()
+
+		bar.Add(1)
+
+		if result.Error != nil {
+			errorCount++
+		} else if result.CommitSHA != "" {
+			// Update all module IDs that use this URL
+			moduleIDs := urlToModuleID[result.URL]
+			for _, id := range moduleIDs {
+				if source, ok := ext.moduleSourceRules[id]; ok {
+					updateModuleSourceRuleSourceCommitSha(source, result.CommitSHA)
+					successCount++
+				}
+			}
+		}
+	})
 	if err != nil {
 		log.Printf("error: failed to resolve source commit SHAs: %v", err)
 		return
 	}
 
-	// Update the module source rules with resolved commit SHAs
-	successCount := 0
-	errorCount := 0
-	processedCount := 0
-
+	// Log any errors or warnings after completion
 	for _, result := range results {
-		processedCount++
-
 		if result.Error != nil {
-			log.Printf("warning: [%d/%d] failed to resolve commit SHA for %s: %v", processedCount, totalURLs, result.URL, result.Error)
-			errorCount++
-			bar.Add(1)
-			continue
+			log.Printf("warning: failed to resolve commit SHA for %s: %v", result.URL, result.Error)
+		} else if result.CommitSHA == "" {
+			log.Printf("warning: empty commit SHA for %s", result.URL)
 		}
-
-		if result.CommitSHA == "" {
-			log.Printf("warning: [%d/%d] empty commit SHA for %s", processedCount, totalURLs, result.URL)
-			errorCount++
-			bar.Add(1)
-			continue
-		}
-
-		// Update all module IDs that use this URL
-		moduleIDs := urlToModuleID[result.URL]
-		for _, id := range moduleIDs {
-			if source, ok := ext.moduleSourceRules[id]; ok {
-				updateModuleSourceRuleSourceCommitSha(source, result.CommitSHA)
-				successCount++
-			}
-		}
-
-		if len(moduleIDs) > 0 {
-			log.Printf("info: [%d/%d] resolved %s → %s", processedCount, totalURLs, result.URL, result.CommitSHA[:8])
-		}
-
-		bar.Add(1)
 	}
 
 	log.Printf("Commit SHA resolution complete for latest versions: %d successful, %d errors, %d total URLs", successCount, errorCount, totalURLs)
