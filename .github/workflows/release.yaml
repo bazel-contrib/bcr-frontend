@@ -15,11 +15,13 @@ concurrency:
 jobs:
   release:
     runs-on: self-hosted
+    environment: deploy
     permissions:
       contents: write
       packages: write
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
     steps:
       - uses: actions/checkout@v4
       - uses: bazel-contrib/setup-bazel@0.15.0
