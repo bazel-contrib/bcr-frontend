@@ -58,5 +58,4 @@ go_test(
     name = "bzlcompiler_test",
     srcs = ["extract_test.go"],
     embed = [":bzlcompiler_lib"],
-    deps = ["//build/stack/starlark/v1beta1"],
 )

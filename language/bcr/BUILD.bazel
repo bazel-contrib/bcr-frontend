@@ -28,6 +28,7 @@ go_library(
         "mvs.go",
         "presubmit.go",
         "proto_rule.go",
+        "registry_backup.go",
         "repository.go",
         "repository_metadata.go",
         "repository_metadata_cache.go",
@@ -58,12 +59,14 @@ go_library(
         "@com_github_dominikbraun_graph//:go_default_library",
         "@com_github_google_go_github_v66//github:go_default_library",
         "@com_github_schollz_progressbar_v3//:go_default_library",
+        "@org_golang_google_protobuf//proto:go_default_library",
     ],
 )
 
 go_test(
     name = "bcr_test",
     srcs = [
+        "registry_backup_test.go",
         "repository_test.go",
         "stardoc_test.go",
     ],

@@ -93,7 +93,15 @@ func (ext *bcrExtension) fetchGithubRepositoryMetadata(todo []*bzpb.RepositoryMe
 		}
 
 		if err != nil {
-			log.Printf("error: failed to fetch repository metadata batch after %d attempts, skipping batch %d-%d", maxRetries, i+1, end)
+			log.Printf("error: failed to fetch repository metadata batch after %d attempts, trying backup registry for batch %d-%d", maxRetries, i+1, end)
+
+			// Try to populate from backup registry
+			batchFetched := ext.populateFromBackupRegistry(batch)
+			totalFetched += batchFetched
+
+			if batchFetched > 0 {
+				log.Printf("Successfully populated %d repositories from backup registry", batchFetched)
+			}
 			continue
 		}
 

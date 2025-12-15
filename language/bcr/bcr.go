@@ -63,7 +63,9 @@ type bcrExtension struct {
 	gitlabToken               string
 	registryRoot              string
 	registryURL               string
-	blacklistedUrls           stringBoolMap // tracks urls that are known to have wrong integrity or would otherwise not download
+	registrySourceURL         string                                          // URL to fetch backup registry data from
+	backupRegistry            *bzpb.Registry                                  // backup registry loaded from registrySourceURL
+	blacklistedUrls           stringBoolMap                                   // tracks urls that are known to have wrong integrity or would otherwise not download
 	githubClient              *github.Client
 	depGraph                  graph.Graph[moduleID, moduleID]                 // graph of all dependencies (regular + dev) - for cycle detection
 	regularDepGraph           graph.Graph[moduleID, moduleID]                 // graph of only non-dev dependencies
@@ -98,6 +100,8 @@ func (ext *bcrExtension) RegisterFlags(fs *flag.FlagSet, cmd string, c *config.C
 		"registry-root", "", "root dir for the bcr registry")
 	fs.StringVar(&ext.registryURL,
 		"registry-url", "", "base URL for the deployed registry")
+	fs.StringVar(&ext.registrySourceURL,
+		"registry-source-url", "https://bcr.stack.build/registry.pb.gz", "URL to fetch backup registry data from (for repository metadata fallback)")
 	fs.StringVar(&ext.resourceStatusSetFile,
 		"resource-status-set-file", "", "path to resource-status.json file containing cached http statuses for the registry URLs (helpful for development)")
 	fs.StringVar(&ext.repositoryMetadataSetFile,
@@ -128,6 +132,7 @@ func (ext *bcrExtension) CheckFlags(fs *flag.FlagSet, c *config.Config) error {
 	ext.readRepositoryMetadataCacheFile()
 	ext.readBazelReleaseCacheFile()
 	ext.readModuleCommits(c)
+	ext.loadBackupRegistry()
 
 	return nil
 }
