@@ -1,32 +1,46 @@
-init:
+# Bazel Central Registry targets
+.PHONY: bcr_init
+bcr_init:
 	git submodule update --init data/bazel-central-registry
 	(cd data/bazel-central-registry && git sparse-checkout set --no-cone modules)
-	
-update:
+
+.PHONY: bcr_update
+bcr_update:
 	git submodule update --remote data/bazel-central-registry
 
-clean:
+.PHONY: bcr_clean
+bcr_clean:
 	(cd data/bazel-central-registry && git reset --hard && git clean -fd)
 	(cd data/bazel-central-registry && git sparse-checkout set --no-cone modules)
 
-.PHONY: modules
-modules:
-	bazel run modules
+.PHONY: bcr
+bcr:
+	GITHUB_TOKEN=ghp_XXX bazel run bcr
 
+# Code generation targets
+.PHONY: regenerate_protos
 regenerate_protos:
 	bazel run //:proto_assets
 
+.PHONY: regenerate_octicons
 regenerate_octicons:
 	bazel run //app/bcr:octicons
 
-server:
+# Server targets
+.PHONY: serve
+serve:
 	bazel run //app/bcr:release
 
-devserver:
-	bazel run //app/bcr:release --//app/bcr:release_type=debug
+.PHONY: serve-production
+serve-production:
+	bazel run //app/bcr:release --//app/bcr:release_type=production
 
+# Deployment targets
+.PHONY: deploy
 deploy:
-	bazel run //app/bcr:deploy
+	bazel run //app/bcr:deploy --//app/bcr:release_type=production
 
+# Example: generate documentation for a single module version
+.PHONY: build_docs_for_module_version
 build_docs_for_module_version:
 	bazel build //data/bazel-central-registry/modules --output_groups=rules_go-0.59.0

@@ -25,10 +25,10 @@ string_flag(
 
 string_flag(
     name = "docs_release",
-    build_setting_default = "production",
+    build_setting_default = "on",
     values = [
-        "skip",
-        "production",
+        "off",
+        "on",
     ],
     visibility = ["//visibility:public"],
 )
@@ -36,7 +36,7 @@ string_flag(
 config_setting(
     name = "is_docs_release",
     flag_values = {
-        ":docs_release": "production",
+        ":docs_release": "on",
     },
 )
 

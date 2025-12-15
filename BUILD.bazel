@@ -68,7 +68,7 @@ bcr_exclude_dirs = [
 ]
 
 gazelle(
-    name = "modules",
+    name = "bcr",
     args = [
         "--resource-status-set-file=$BUILD_WORKING_DIRECTORY/resources.json",
         "--repository-metadata-set-file=$BUILD_WORKING_DIRECTORY/repository-metadata.json",
@@ -81,16 +81,6 @@ gazelle(
         "--exclude=modules",
     ] + ["--exclude=" + dir for dir in bcr_exclude_dirs],
     data = ["@registry_pb//file"],
-    gazelle = "//:gazelle-bcr",
-)
-
-gazelle(
-    name = "local_registry",
-    args = [
-        "--registry-root=modules",
-        "--registry-url=http://localhost:8080",
-        "--exclude=data",
-    ] + ["--exclude=" + dir for dir in bcr_exclude_dirs],
     gazelle = "//:gazelle-bcr",
 )
 
