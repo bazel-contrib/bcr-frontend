@@ -6,8 +6,8 @@ toolchain go1.24.10
 
 require (
 	github.com/amenzhinsky/go-memexec v0.7.1
-	github.com/bazelbuild/bazel-gazelle v0.45.0
-	github.com/bazelbuild/buildtools v0.0.0-20250826111327-4006b543a694
+	github.com/bazelbuild/bazel-gazelle v0.47.0
+	github.com/bazelbuild/buildtools v0.0.0-20250930140053-2eb4fccefb52
 	github.com/chromedp/chromedp v0.14.2
 	github.com/dominikbraun/graph v0.23.0
 	github.com/google/go-github/v66 v66.0.0
@@ -17,9 +17,10 @@ require (
 	github.com/schollz/progressbar/v3 v3.18.0
 	github.com/shurcooL/githubv4 v0.0.0-20240727222349-48295856cce7
 	github.com/teacat/noire v1.1.0
+	github.com/zeebo/blake3 v0.2.4
 	go.starlark.net v0.0.0-20250906160240-bf296ed553ea
 	golang.org/x/oauth2 v0.30.0
-	golang.org/x/sync v0.18.0
+	golang.org/x/sync v0.19.0
 	golang.org/x/time v0.14.0
 	google.golang.org/grpc v1.75.1
 	google.golang.org/protobuf v1.36.9
@@ -35,6 +36,7 @@ require (
 	github.com/gobwas/ws v1.4.0 // indirect
 	github.com/golang/protobuf v1.5.4 // indirect
 	github.com/google/go-querystring v1.1.0 // indirect
+	github.com/klauspost/cpuid/v2 v2.0.12 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/mitchellh/colorstring v0.0.0-20190213212951-d06e56a500db // indirect

@@ -14,29 +14,37 @@ func main() {
 	log.SetOutput(os.Stderr)
 	log.SetFlags(0)
 
-	var (
-		apiToken    = flag.String("api_token", "", "Cloudflare API token (or set CLOUDFLARE_API_TOKEN env var)")
-		accountID   = flag.String("account_id", "", "Cloudflare account ID (or set CF_ACCOUNT_ID env var)")
-		projectName = flag.String("project", "", "Cloudflare Pages project name")
-		tarball     = flag.String("tarball", "", "Path to tarball containing deployment files")
-	)
-
-	flag.Usage = func() {
-		fmt.Fprintf(os.Stderr, "Usage: %s [options]\n\n", os.Args[0])
-		fmt.Fprintf(os.Stderr, "Deploy a tarball to Cloudflare Pages without wrangler.\n\n")
-		fmt.Fprintf(os.Stderr, "Options:\n")
-		flag.PrintDefaults()
-		fmt.Fprintf(os.Stderr, "\nEnvironment Variables:\n")
-		fmt.Fprintf(os.Stderr, "  CLOUDFLARE_API_TOKEN    Cloudflare API token (alternative to --api_token)\n")
-		fmt.Fprintf(os.Stderr, "  CF_ACCOUNT_ID   Cloudflare account ID (alternative to --account_id)\n")
-		fmt.Fprintf(os.Stderr, "\nExample:\n")
-		fmt.Fprintf(os.Stderr, "  export CLOUDFLARE_API_TOKEN=your-token-here\n")
-		fmt.Fprintf(os.Stderr, "  export CF_ACCOUNT_ID=your-account-id-here\n")
-		fmt.Fprintf(os.Stderr, "  %s --project=mysite --tarball=dist.tar\n", os.Args[0])
+	if len(os.Args) < 2 {
+		printUsage()
+		os.Exit(1)
 	}
 
-	flag.Parse()
+	// Parse subcommand
+	switch os.Args[1] {
+	case "worker":
+		deployWorker(os.Args[2:])
+	case "-h", "--help", "help":
+		printUsage()
+	default:
+		// Default to worker deployment
+		deployWorker(os.Args[1:])
+	}
+}
 
+func printUsage() {
+	fmt.Fprintf(os.Stderr, "Usage: %s [options]\n\n", os.Args[0])
+	fmt.Fprintf(os.Stderr, "Deploy Cloudflare Workers with static assets\n\n")
+	fmt.Fprintf(os.Stderr, "Environment Variables:\n")
+	fmt.Fprintf(os.Stderr, "  CLOUDFLARE_API_TOKEN    Cloudflare API token\n")
+	fmt.Fprintf(os.Stderr, "  CF_ACCOUNT_ID           Cloudflare account ID\n")
+	fmt.Fprintf(os.Stderr, "\nExamples:\n")
+	fmt.Fprintf(os.Stderr, "  # Deploy assets-only worker\n")
+	fmt.Fprintf(os.Stderr, "  %s --name=my-site --assets=./public\n\n", os.Args[0])
+	fmt.Fprintf(os.Stderr, "  # Deploy worker with custom script and assets\n")
+	fmt.Fprintf(os.Stderr, "  %s --name=my-worker --script=worker.js --assets=./public\n", os.Args[0])
+}
+
+func getCredentials(apiToken, accountID *string) (string, string) {
 	// Get credentials from flags or environment
 	token := *apiToken
 	if token == "" {
@@ -54,53 +62,88 @@ func main() {
 		log.Fatal("Account ID required (use --account_id or CF_ACCOUNT_ID env var)")
 	}
 
-	if *projectName == "" {
-		log.Fatal("Project name required (use --project)")
+	return token, acctID
+}
+
+func deployWorker(args []string) {
+	fs := flag.NewFlagSet("worker", flag.ExitOnError)
+
+	var (
+		apiToken          = fs.String("api_token", "", "Cloudflare API token (or set CLOUDFLARE_API_TOKEN env var)")
+		accountID         = fs.String("account_id", "", "Cloudflare account ID (or set CF_ACCOUNT_ID env var)")
+		name              = fs.String("name", "", "Worker script name")
+		script            = fs.String("script", "", "Path to Worker script file")
+		assets            = fs.String("assets", "", "Path to assets directory (optional)")
+		compatibilityDate = fs.String("compatibility_date", "", "Compatibility date (e.g., 2024-01-01)")
+	)
+
+	fs.Usage = func() {
+		fmt.Fprintf(os.Stderr, "Usage: %s worker [options]\n\n", os.Args[0])
+		fmt.Fprintf(os.Stderr, "Deploy a Cloudflare Worker with optional assets.\n\n")
+		fmt.Fprintf(os.Stderr, "Options:\n")
+		fs.PrintDefaults()
+		fmt.Fprintf(os.Stderr, "\nExample:\n")
+		fmt.Fprintf(os.Stderr, "  %s worker --name=my-worker --script=worker.js --assets=./public --compatibility_date=2024-01-01\n", os.Args[0])
 	}
 
-	if *tarball == "" {
-		log.Fatal("Tarball path required (use --tarball)")
+	fs.Parse(args)
+
+	token, acctID := getCredentials(apiToken, accountID)
+
+	if *name == "" {
+		log.Fatal("Worker name required (use --name)")
 	}
 
-	// Check if tarball exists
-	if _, err := os.Stat(*tarball); os.IsNotExist(err) {
-		log.Fatalf("Tarball not found: %s", *tarball)
+	// Script is optional if assets are provided (assets-only deployment)
+	if *script != "" {
+		// Check if script exists
+		if _, err := os.Stat(*script); os.IsNotExist(err) {
+			log.Fatalf("Worker script not found: %s", *script)
+		}
 	}
 
 	// Create Cloudflare client
 	client := cf.NewClient(token, acctID)
+	client.SetLogger(log.Default())
 
-	// Check if project exists
-	log.Printf("Checking project %s...", *projectName)
-	project, err := client.GetProject(*projectName)
-	if err != nil {
-		log.Printf("Project not found, creating it...")
-		project, err = client.CreateProject(*projectName, "main")
-		if err != nil {
-			log.Fatalf("Failed to create project: %v", err)
+	options := cf.WorkerDeployOptions{
+		CompatibilityDate: *compatibilityDate,
+	}
+
+	var deployment *cf.WorkerDeployment
+	var err error
+
+	if *assets != "" {
+		// Check if assets directory exists
+		if info, err := os.Stat(*assets); os.IsNotExist(err) {
+			log.Fatalf("Assets directory not found: %s", *assets)
+		} else if !info.IsDir() {
+			log.Fatalf("Assets path is not a directory: %s", *assets)
 		}
-		log.Printf("Created project: %s (subdomain: %s.pages.dev)", project.Name, project.Subdomain)
+
+		// If no script provided, deploy assets-only
+		if *script == "" {
+			log.Printf("Deploying assets-only Worker %s from %s...", *name, *assets)
+			deployment, err = client.DeployAssetsOnly(*name, *assets, options)
+		} else {
+			log.Printf("Deploying Worker %s with assets from %s...", *name, *assets)
+			deployment, err = client.DeployWorkerWithAssets(*name, *script, *assets, options)
+		}
 	} else {
-		log.Printf("Found project: %s (subdomain: %s.pages.dev)", project.Name, project.Subdomain)
-	}
-
-	// Upload deployment
-	log.Printf("Uploading deployment from %s...", *tarball)
-	deployment, err := client.UploadDeployment(*projectName, *tarball)
-	if err != nil {
-		log.Fatalf("Failed to upload deployment: %v", err)
-	}
-
-	log.Printf("✓ Deployment successful!")
-	log.Printf("  ID:          %s", deployment.ID)
-	log.Printf("  URL:         %s", deployment.URL)
-	log.Printf("  Environment: %s", deployment.Environment)
-	log.Printf("  Stage:       %s", deployment.DeploymentStage)
-
-	if len(deployment.Aliases) > 0 {
-		log.Printf("  Aliases:")
-		for _, alias := range deployment.Aliases {
-			log.Printf("    - %s", alias)
+		if *script == "" {
+			log.Fatal("Either --script or --assets must be provided")
 		}
+		log.Printf("Deploying Worker %s...", *name)
+		deployment, err = client.DeployWorker(*name, *script, options)
 	}
+
+	if err != nil {
+		log.Fatalf("Failed to deploy worker: %v", err)
+	}
+
+	log.Printf("✓ Worker deployed successfully!")
+	log.Printf("  Name:               %s", deployment.ScriptName)
+	log.Printf("  ID:                 %s", deployment.ID)
+	log.Printf("  Compatibility Date: %s", deployment.CompatibilityDate)
+	log.Printf("  Worker URL:         https://%s.<subdomain>.workers.dev", *name)
 }

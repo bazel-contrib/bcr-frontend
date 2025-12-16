@@ -18,7 +18,17 @@ type Client struct {
 	apiToken   string
 	accountID  string
 	httpClient *http.Client
+	logger     Logger
 }
+
+// Logger is an interface for logging
+type Logger interface {
+	Printf(format string, v ...interface{})
+}
+
+type noopLogger struct{}
+
+func (noopLogger) Printf(format string, v ...interface{}) {}
 
 // NewClient creates a new Cloudflare API client
 func NewClient(apiToken, accountID string) *Client {
@@ -28,6 +38,19 @@ func NewClient(apiToken, accountID string) *Client {
 		httpClient: &http.Client{
 			Timeout: 30 * time.Second,
 		},
+		logger: noopLogger{},
+	}
+}
+
+// SetLogger sets a custom logger for the client
+func (c *Client) SetLogger(logger Logger) {
+	c.logger = logger
+}
+
+// logf logs a message if a logger is configured
+func (c *Client) logf(format string, v ...interface{}) {
+	if c.logger != nil {
+		c.logger.Printf(format, v...)
 	}
 }
 

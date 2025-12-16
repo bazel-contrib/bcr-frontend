@@ -3,15 +3,23 @@ load("@rules_go//go:def.bzl", "go_library", "go_test")
 go_library(
     name = "cf",
     srcs = [
+        "assets.go",
         "client.go",
-        "pages.go",
+        "workers.go",
     ],
     importpath = "github.com/stackb/centrl/pkg/cf",
     visibility = ["//visibility:public"],
+    deps = [
+        "@com_github_zeebo_blake3//:go_default_library",
+        "@org_golang_x_sync//errgroup:go_default_library",
+    ],
 )
 
 go_test(
     name = "cf_test",
-    srcs = ["pages_test.go"],
+    srcs = [
+        "assets_test.go",
+        "workers_test.go",
+    ],
     embed = [":cf"],
 )
