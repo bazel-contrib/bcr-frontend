@@ -309,16 +309,23 @@ func (c *Client) UploadAssetBatch(jwt string, bucket []string, assetFiles map[st
 
 	c.logf("Upload response (status %d): %s", resp.StatusCode, string(respBody))
 
-	// For successful upload, the JWT stays the same if not returned
+	// Parse API response wrapper
+	var apiResp APIResponse
+	if err := json.Unmarshal(respBody, &apiResp); err != nil {
+		c.logf("Could not unmarshal API response, keeping same JWT: %v", err)
+		return jwt, nil
+	}
+
+	// Extract JWT from result
 	var uploadResp AssetUploadResponse
-	if err := json.Unmarshal(respBody, &uploadResp); err != nil {
-		// If unmarshal fails, just return the same JWT
-		c.logf("Could not unmarshal response, keeping same JWT")
+	if err := json.Unmarshal(apiResp.Result, &uploadResp); err != nil {
+		c.logf("Could not unmarshal upload response result, keeping same JWT: %v", err)
 		return jwt, nil
 	}
 
 	// If JWT is empty in response, keep the current one
 	if uploadResp.JWT == "" {
+		c.logf("No JWT in upload response, keeping same JWT")
 		return jwt, nil
 	}
 
@@ -418,7 +425,7 @@ func (c *Client) SyncAssets(scriptName string, assetDir string) (string, error) 
 	}
 
 	// Return the completion JWT from the last upload for deployment
-	c.logf("Asset sync complete, returning completion JWT")
+	c.logf("Asset sync complete")
 	return completionJWT, nil
 }
 
