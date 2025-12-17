@@ -19,7 +19,7 @@ func (ext *bcrExtension) Before(ctx context.Context) {
 // the ideal place to detect circular dependencies since the complete dependency
 // graph has been built.
 func (ext *bcrExtension) DoneGeneratingRules() {
-	log.Panicln("===[DoneGeneratingRules]======================================")
+	log.Println("===[DoneGeneratingRules]======================================")
 
 	// Get all detected cycles
 	cycles := ext.getCycles()
