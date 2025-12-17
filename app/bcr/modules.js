@@ -14,6 +14,7 @@ const { getApplication } = goog.require('centrl.common');
 const { ContentComponent } = goog.require('centrl.ContentComponent');
 const { ContentSelect } = goog.require('centrl.ContentSelect');
 const { DocumentationInfoSelect, DocumentationReadmeComponent } = goog.require('centrl.documentation');
+const { PresubmitSelect } = goog.require('centrl.presubmit');
 const { MvsDependencyTree } = goog.require('centrl.mvs_tree');
 const { SelectNav } = goog.require('centrl.SelectNav');
 const { moduleBlankslateComponent, moduleSelect, moduleVersionBlankslateComponent, moduleVersionComponent, moduleVersionDependenciesComponent, moduleVersionDependentsComponent, moduleVersionSelectNav, moduleVersionsFilterSelect, modulesMapSelect, modulesMapSelectNav } = goog.require('soy.centrl.app');
@@ -27,20 +28,8 @@ const { highlightAll } = goog.require('centrl.syntax');
  * @enum {string}
  */
 const TabName = {
-    // ALL: "all",
-    // APPEARANCE: 'appearance',
-    // DOCS: "docs",
-    // HOME: "home",
     LIST: "list",
-    // MAINTAINERS: "maintainers",
-    // MODULE_VERSIONS: "moduleversions",
-    // MODULES: "modules",
-    // README: "readme",
-    // NOT_FOUND: "404",
     OVERVIEW: "overview",
-    // SETTINGS: "settings",
-    // SOURCE: "source",
-    // TREE: "tree",
 };
 
 /**
@@ -344,6 +333,15 @@ class ModuleVersionSelectNav extends SelectNav {
             'Generated Stardoc Documentation',
             undefined,
             new DocumentationInfoSelect(this.module_, this.moduleVersion_, docs || null),
+        );
+
+        const presubmit = this.moduleVersion_.getPresubmit();
+        this.addNavTab(
+            'testing',
+            'Testing',
+            'Test Configuration',
+            undefined,
+            new PresubmitSelect(this.module_, this.moduleVersion_, presubmit || null),
         );
     }
 }

@@ -68,6 +68,7 @@ import {
   ModuleDependencyOverride,
   ModuleMetadata,
   ModuleVersion,
+  Presubmit,
   Registry,
   RepositoryType,
   SymbolInfo,
@@ -83,7 +84,6 @@ import {
   maintainerBreadcrumb,
   maintainerModuleVersionTable,
   maintainerProfile,
-  maintainersList,
   maintainersTable,
   moduleDependencyOverride,
   moduleDependencyRow,
@@ -2190,5 +2190,184 @@ import {
     {/if}
   {/if}
 
+</div>
+{/template}
+
+{template presubmitSelect}
+<div>
+  <div class="{css('content')}"></div>
+</div>
+{/template}
+
+{template presubmitComponent}
+  {@param moduleVersion: ModuleVersion}
+  {@param? presubmit: Presubmit}
+<div class="{css('Box')} {css('p-3')}">
+  {if !$presubmit}
+    <div class="{css('blankslate')}">
+      <p class="{css('text-muted')}">No presubmit configuration available for this module.</p>
+    </div>
+  {else}
+    <div class="{css('mb-3')}">
+      <h3 class="{css('h3')} {css('mb-2')}">Presubmit Configuration</h3>
+      <p class="{css('text-muted')}">This module's continuous integration testing configuration.</p>
+    </div>
+
+    {if $presubmit.getBcrTestModule()}
+      {let $bcr: $presubmit.getBcrTestModule() /}
+      <div class="{css('mb-4')}">
+        <h4 class="{css('h4')} {css('mb-2')}">BCR Test Module</h4>
+
+        {if $bcr.getModulePath()}
+          <div class="{css('mb-2')}">
+            <span class="{css('text-semibold')}">Module Path:</span> <code>{$bcr.getModulePath()}</code>
+          </div>
+        {/if}
+
+        {if $bcr.getMatrix()}
+          {call presubmitMatrix_}
+            {param matrix: $bcr.getMatrix() /}
+          {/call}
+        {/if}
+
+        {if $bcr.getTasksMap() && $bcr.getTasksMap().keys()}
+          <h5 class="{css('h5')} {css('mt-3')} {css('mb-2')}">Tasks</h5>
+          {for $taskName in $bcr.getTasksMap().keys()}
+            {let $task: $bcr.getTasksMap().get($taskName) /}
+            {if $task}
+              {call presubmitTask_}
+                {param taskName: $taskName /}
+                {param task: $task /}
+              {/call}
+            {/if}
+          {/for}
+        {/if}
+      </div>
+    {/if}
+
+    {if $presubmit.getMatrix() && ! $presubmit.getBcrTestModule()}
+      {call presubmitMatrix_}
+        {param matrix: $presubmit.getMatrix() /}
+      {/call}
+    {/if}
+
+    {if $presubmit.getTasksMap() && $presubmit.getTasksMap().keys() && ! $presubmit.getBcrTestModule()}
+      <h4 class="{css('h4')} {css('mb-2')}">Tasks</h4>
+      {for $taskName in $presubmit.getTasksMap().keys()}
+        {let $task: $presubmit.getTasksMap().get($taskName) /}
+        {if $task}
+          {call presubmitTask_}
+            {param taskName: $taskName /}
+            {param task: $task /}
+          {/call}
+        {/if}
+      {/for}
+    {/if}
+  {/if}
+</div>
+{/template}
+
+{template presubmitMatrix_ visibility="private"}
+  {@param matrix: Presubmit.PresubmitMatrix}
+<div class="{css('Box')} {css('Box--condensed')} {css('mb-3')}">
+  <div class="{css('Box-header')}">
+    <h5 class="{css('Box-title')}">Test Matrix</h5>
+  </div>
+  <div class="{css('Box-body')}">
+    {if $matrix.getPlatformList() && length($matrix.getPlatformList()) > 0}
+      <div class="{css('mb-2')}">
+        <span class="{css('text-semibold')}">Platforms:</span>
+        <div class="{css('mt-1')}">
+          {for $platform in $matrix.getPlatformList()}
+            <span class="{css('Label')} {css('Label--secondary')} {css('mr-1')}">{$platform}</span>
+          {/for}
+        </div>
+      </div>
+    {/if}
+
+    {if $matrix.getBazelList() && length($matrix.getBazelList()) > 0}
+      <div>
+        <span class="{css('text-semibold')}">Bazel Versions:</span>
+        <div class="{css('mt-1')}">
+          {for $version in $matrix.getBazelList()}
+            <span class="{css('Label')} {css('Label--accent')} {css('mr-1')}">{$version}</span>
+          {/for}
+        </div>
+      </div>
+    {/if}
+  </div>
+</div>
+{/template}
+
+{template presubmitTask_ visibility="private"}
+  {@param taskName: string}
+  {@param task: Presubmit.PresubmitTask}
+<div class="{css('Box')} {css('Box--condensed')} {css('mb-3')}">
+  <div class="{css('Box-header')}">
+    <h6 class="{css('Box-title')}">
+      <code class="{css('text-mono')}">{$taskName}</code>
+      {if $task.getName()}
+        <span class="{css('text-normal')} {css('text-muted')} {css('ml-1')}">{$task.getName()}</span>
+      {/if}
+    </h6>
+  </div>
+  <div class="{css('Box-body')}">
+    <table class="{css('width-full')}">
+      <tbody>
+        {if $task.getPlatform()}
+          <tr>
+            <td class="{css('text-semibold')} {css('pr-2')} {css('py-1')}" style="width: 140px">Platform:</td>
+            <td class="{css('py-1')}"><code>{$task.getPlatform()}</code></td>
+          </tr>
+        {/if}
+        {if $task.getBazel()}
+          <tr>
+            <td class="{css('text-semibold')} {css('pr-2')} {css('py-1')}">Bazel:</td>
+            <td class="{css('py-1')}"><code>{$task.getBazel()}</code></td>
+          </tr>
+        {/if}
+        {if $task.getBuildFlagsList() && length($task.getBuildFlagsList()) > 0}
+          <tr>
+            <td class="{css('text-semibold')} {css('pr-2')} {css('py-1')}">Build Flags:</td>
+            <td class="{css('py-1')}">
+              {for $flag in $task.getBuildFlagsList()}
+                <code class="{css('mr-1')}">{$flag}</code>
+              {/for}
+            </td>
+          </tr>
+        {/if}
+        {if $task.getTestFlagsList() && length($task.getTestFlagsList()) > 0}
+          <tr>
+            <td class="{css('text-semibold')} {css('pr-2')} {css('py-1')}">Test Flags:</td>
+            <td class="{css('py-1')}">
+              {for $flag in $task.getTestFlagsList()}
+                <code class="{css('mr-1')}">{$flag}</code>
+              {/for}
+            </td>
+          </tr>
+        {/if}
+        {if $task.getBuildTargetsList() && length($task.getBuildTargetsList()) > 0}
+          <tr>
+            <td class="{css('text-semibold')} {css('pr-2')} {css('py-1')}">Build Targets:</td>
+            <td class="{css('py-1')}">
+              {for $target in $task.getBuildTargetsList()}
+                <code class="{css('mr-1')}">{$target}</code>
+              {/for}
+            </td>
+          </tr>
+        {/if}
+        {if $task.getTestTargetsList() && length($task.getTestTargetsList()) > 0}
+          <tr>
+            <td class="{css('text-semibold')} {css('pr-2')} {css('py-1')}">Test Targets:</td>
+            <td class="{css('py-1')}">
+              {for $target in $task.getTestTargetsList()}
+                <code class="{css('mr-1')}">{$target}</code>
+              {/for}
+            </td>
+          </tr>
+        {/if}
+      </tbody>
+    </table>
+  </div>
 </div>
 {/template}

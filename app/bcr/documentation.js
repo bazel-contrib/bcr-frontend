@@ -20,16 +20,15 @@ const soy = goog.require('goog.soy');
 const { getApplication } = goog.require('centrl.common');
 const { Component, Route } = goog.require('stack.ui');
 const { ContentSelect } = goog.require('centrl.ContentSelect');
-const { SafeHtml, sanitizeHtml } = goog.require('google3.third_party.javascript.safevalues.index');
+const { GitHubSourceFileComponent } = goog.require('centrl.githubsourcefile');
+const { MarkdownComponent, formatMarkdownAll } = goog.require('centrl.markdown');
 const { SelectNav } = goog.require('centrl.SelectNav');
 const { aspectInfoComponent, bzlFileSourceComponent, docsMapComponent, docsMapSelectNav, docsSelect, documentationInfoListComponent, documentationInfoSelect, documentationReadmeComponent, fileInfoListComponent, fileInfoSelect, fileInfoTreeComponent, functionInfoComponent, loadInfoComponent, macroInfoComponent, moduleExtensionInfoComponent, providerInfoComponent, repositoryRuleInfoComponent, ruleInfoComponent, ruleMacroInfoComponent, symbolInfoComponent, symbolTypeName, valueInfoComponent } = goog.require('soy.centrl.app');
-const { copyToClipboardButton } = goog.require('soy.registry');
 const { createDocumentationMap, getLatestModuleVersion } = goog.require('centrl.registry');
-const { highlight, highlightAll } = goog.require('centrl.syntax');
-const { setElementInnerHtml } = goog.require('google3.third_party.javascript.safevalues.dom.elements.element');
+const { highlightAll } = goog.require('centrl.syntax');
 const { generateAspectExample, generateFunctionExample, generateMacroExample, generateModuleExtensionExample, generateProviderExample, generateRepositoryRuleExample, generateRuleExample, generateRuleMacroExample } = goog.require('centrl.starlark');
-
-const FORMAT_MARKDOWN = true;
+const { setElementInnerHtml } = goog.require('google3.third_party.javascript.safevalues.dom.elements.element');
+const { sanitizeHtml } = goog.require('google3.third_party.javascript.safevalues.index');
 
 
 /**
@@ -496,23 +495,6 @@ class FileInfoSelect extends ContentSelect {
             default:
                 return new SymbolInfoComponent(this.moduleVersion_, this.file_, sym, this.dom_);
         }
-    }
-}
-
-
-class MarkdownComponent extends Component {
-    /**
-     * @param {?dom.DomHelper=} opt_domHelper
-     */
-    constructor(opt_domHelper) {
-        super(opt_domHelper);
-    }
-
-    /** @override */
-    enterDocument() {
-        super.enterDocument();
-
-        formatMarkdownAll(this.getElementStrict());
     }
 }
 
@@ -1442,7 +1424,7 @@ class DocumentationReadmeComponent extends MarkdownComponent {
 exports.DocumentationReadmeComponent = DocumentationReadmeComponent;
 
 
-class BzlFileSourceComponent extends Component {
+class BzlFileSourceComponent extends GitHubSourceFileComponent {
     /**
      * @param {!Module} module
      * @param {!ModuleVersion} moduleVersion
@@ -1450,150 +1432,22 @@ class BzlFileSourceComponent extends Component {
      * @param {?dom.DomHelper=} opt_domHelper
      */
     constructor(module, moduleVersion, file, opt_domHelper) {
-        super(opt_domHelper);
+        // Extract file path from the label
+        const label = file.getLabel();
+        const pkg = label?.getPkg();
+        const name = label?.getName();
+        const filePath = pkg ? `${pkg}/${name}` : name || '';
 
-        /** @private @const @type {!Module} */
-        this.module_ = module;
-
-        /** @private @const @type {!ModuleVersion} */
-        this.moduleVersion_ = moduleVersion;
-
-        /** @private @const @type {!FileInfo} */
-        this.file_ = file;
-
-        /** @private @type {boolean} */
-        this.loading_ = true;
-
-        /** @private @type {?string} */
-        this.sourceContent_ = null;
-
-        /** @private @type {?string} */
-        this.error_ = null;
+        // Call parent constructor with the reusable component logic
+        super(
+            module,
+            moduleVersion,
+            filePath,
+            bzlFileSourceComponent,
+            { file },  // Pass file as additional template data
+            opt_domHelper
+        );
     }
-
-    /**
-     * @override
-     */
-    createDom() {
-        this.setElementInternal(soy.renderAsElement(bzlFileSourceComponent, {
-            moduleVersion: this.moduleVersion_,
-            file: this.file_,
-            loading: this.loading_,
-            error: this.error_ || undefined,
-            content: this.sourceContent_ || undefined,
-        }));
-    }
-
-    /**
-     * @override
-     */
-    enterDocument() {
-        super.enterDocument();
-
-        this.fetchSource_();
-    }
-
-    /**
-     * Fetch .bzl file source from GitHub for the specific commit
-     * @private
-     */
-    fetchSource_() {
-        const metadata = this.moduleVersion_.getRepositoryMetadata();
-
-        // Only fetch if it's a GitHub repo
-        if (!metadata || metadata.getType() !== RepositoryType.GITHUB) {
-            this.error_ = 'Source is only available for GitHub repositories';
-            this.loading_ = false;
-            this.updateDom_();
-            return;
-        }
-
-        // Get commit SHA from current version, or fall back to latest version, or use HEAD
-        let commitSha = this.moduleVersion_.getSource()?.getCommitSha();
-        if (!commitSha) {
-            // Use the latest version's commit SHA
-            const latestVersion = getLatestModuleVersion(this.module_);
-            commitSha = latestVersion?.getSource()?.getCommitSha();
-            if (!commitSha) {
-                // Fall back to HEAD which resolves to the default branch
-                commitSha = 'HEAD';
-            }
-        }
-
-        const label = this.file_.getLabel();
-        if (!label) {
-            this.error_ = 'File label not available';
-            this.loading_ = false;
-            this.updateDom_();
-            return;
-        }
-
-        const pkg = label.getPkg();
-        const name = label.getName();
-        const filePath = pkg ? `${pkg}/${name}` : name;
-
-        const org = metadata.getOrganization();
-        const repo = metadata.getName();
-        const sourceUrl = `https://raw.githubusercontent.com/${org}/${repo}/${commitSha}/${filePath}`;
-
-        // Create an AbortController for timeout
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 10000);
-
-        fetch(sourceUrl, { signal: controller.signal })
-            .then(response => {
-                clearTimeout(timeoutId);
-                if (!response.ok) {
-                    throw new Error(`Source file not found (${response.status})`);
-                }
-                return response.text();
-            })
-            .then(
-                /**
-                 * Success callback
-                 * @param {string} content
-                 */
-                (content) => {
-                    this.sourceContent_ = content;
-                    this.loading_ = false;
-                    this.updateDom_();
-                }
-            )
-            .catch(err => {
-                clearTimeout(timeoutId);
-                if (err instanceof Error) {
-                    if (err.name === 'AbortError') {
-                        this.error_ = 'Source file fetch timed out after 10 seconds';
-                    } else {
-                        this.error_ = err.message;
-                    }
-                }
-                this.loading_ = false;
-                this.updateDom_();
-            });
-    }
-
-    /**
-     * Update the DOM with new content
-     * @private
-     */
-    updateDom_() {
-        const newElement = soy.renderAsElement(bzlFileSourceComponent, {
-            moduleVersion: this.moduleVersion_,
-            file: this.file_,
-            loading: this.loading_,
-            error: this.error_ || undefined,
-            content: this.sourceContent_ || undefined,
-        });
-
-        if (this.getElement()) {
-            dom.replaceNode(newElement, this.getElement());
-            this.setElementInternal(newElement);
-            // Apply syntax highlighting after update
-            highlightAll(this.getElementStrict());
-        }
-    }
-
 }
 
 
@@ -1716,89 +1570,4 @@ function isPublicFile(file) {
  * 
  * @param {!Element} rootEl The root element to search from 
  */
-function formatMarkdownAll(rootEl) {
-    if (FORMAT_MARKDOWN) {
-        const divEls = dom.findElements(rootEl, el => dom.classlist.contains(el, goog.getCssName('marked')));
-        arrays.forEach(divEls, formatMarkdown);
-    }
-}
-
-
-/**
- * renders a docstring as SafeHtml.
- *
- * @param {!Element} el The element to convert
- * @returns {!SafeHtml} The safe html object
- */
-function renderDocstring(el) {
-    const text = el.textContent;
-    const htmlText = parseMarkdownToHTML(text);
-    return sanitizeHtml(htmlText);
-}
-
-
-/**
- * formats a docstring, either as HTML or markdown.
-*
-* @param {!Element} el The element to convert
-*/
-async function formatMarkdown(el) {
-    setElementInnerHtml(el, renderDocstring(el));
-
-    // Trim whitespace from code blocks in the rendered HTML
-    const codeElements = el.querySelectorAll('pre code, code');
-    for (const code of codeElements) {
-        code.textContent = code.textContent.trim();
-    }
-
-    // Syntax highlight code blocks that have <pre><code> structure
-    let preElements = el.querySelectorAll('pre');
-    for (const pre of preElements) {
-        if (pre.firstElementChild && pre.firstElementChild.tagName === 'CODE') {
-            if (!pre.firstElementChild.hasAttribute('lang')) {
-                pre.firstElementChild.setAttribute('lang', 'py');
-            }
-        } else {
-            pre.setAttribute('lang', 'py');
-        }
-        await highlight(pre);
-    }
-
-    preElements = el.querySelectorAll('pre');
-    for (const pre of preElements) {
-        pre.style.position = "relative";
-        dom.classlist.addAll(pre, ["border", "color-bg-subtle"]);
-        const button = soy.renderAsElement(copyToClipboardButton, {
-            content: pre.firstChild.textContent,
-        });
-        button.style.position = "absolute";
-        button.style.right = "4px";
-        button.style.top = "4px";
-        dom.classlist.addAll(button, ["float-right"]);
-        dom.insertChildAt(pre, button, 0);
-    }
-
-    // Find and log non-http links for linkification
-    const links = el.querySelectorAll('a[href]');
-    for (const link of links) {
-        const href = link.getAttribute('href');
-        if (href && !href.startsWith('http://') && !href.startsWith('https://')) {
-            console.log('Non-http link:', href, 'text:', link.textContent);
-        }
-    }
-
-    dom.dataset.set(el, "formatted", "markdown");
-}
-
-
-/**
- * formats the innner text of an element as markdown using 'marked'.
- *
- * @param {string} text The text to convert
- * @returns {string} text formatted text
- * @suppress {reportUnknownTypes, missingSourcesWarnings}
- */
-function parseMarkdownToHTML(text) {
-    return window['marked']['parse'](text);
-}
 

@@ -2,6 +2,29 @@
 
 load("//rules:providers.bzl", "ModuleMaintainerInfo", "ModuleMetadataInfo", "ModuleVersionInfo", "RepositoryMetadataInfo")
 
+def _make_maintainer(maintainer):
+    return {
+        k: v
+        for k, v in {
+            "email": maintainer.email,
+            "github_user_id": maintainer.github_user_id,
+            "username": maintainer.username,
+            "github": maintainer.github,
+        }.items()
+        if v
+    }
+
+def _metadata_json_action(ctx, module_versions, maintainers):
+    output = ctx.actions.declare_file("modules/%s/metadata.json" % ctx.label.name)
+    ctx.actions.write(output, json.encode_indent({
+        "homepage": ctx.attr.homepage,
+        "repository": [],
+        "versions": [mv.version for mv in module_versions],
+        "yanked_versions": ctx.attr.yanked_versions,
+        "maintainers": [_make_maintainer(m) for m in maintainers],
+    }))
+    return output
+
 def _compile_action(ctx, repository_metadata, versions):
     # Declare output file for compiled proto
     proto_out = ctx.actions.declare_file(ctx.label.name + ".module.pb")
@@ -40,6 +63,7 @@ def _module_metadata_impl(ctx):
     versions = [d.proto for d in deps]
     repository_metadata = ctx.attr.repository_metadata[RepositoryMetadataInfo] if ctx.attr.repository_metadata != None else None
     proto_out = _compile_action(ctx, repository_metadata, versions)
+    metadata_json = _metadata_json_action(ctx, deps, maintainers)
 
     return [
         DefaultInfo(files = depset([proto_out])),
@@ -56,6 +80,9 @@ def _module_metadata_impl(ctx):
             metadata_json = ctx.file.metadata_json,
             build_bazel = ctx.file.build_bazel if ctx.file.build_bazel else None,
             proto = proto_out,
+        ),
+        OutputGroupInfo(
+            metadata_json = depset([metadata_json]),
         ),
     ]
 
@@ -97,7 +124,7 @@ module_metadata = rule(
         "metadata_json": attr.label(
             doc = "File: The metadata.json file (required)",
             allow_single_file = [".json"],
-            mandatory = True,
+            mandatory = False,
         ),
         "_compiler": attr.label(
             default = "//cmd/modulecompiler",

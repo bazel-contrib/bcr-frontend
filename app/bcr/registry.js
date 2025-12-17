@@ -1,8 +1,9 @@
 goog.module("centrl.registry");
 
+const strings = goog.require('goog.string');
 const Maintainer = goog.require('proto.build.stack.bazel.bzlmod.v1.Maintainer');
 const Module = goog.require('proto.build.stack.bazel.bzlmod.v1.Module');
-const ModuleDependency = goog.require('proto.build.stack.bazel.bzlmod.v1.ModuleDependency');
+const ModuleDependency = goog.requireType('proto.build.stack.bazel.bzlmod.v1.ModuleDependency');
 const ModuleMetadata = goog.require('proto.build.stack.bazel.bzlmod.v1.ModuleMetadata');
 const ModuleVersion = goog.require('proto.build.stack.bazel.bzlmod.v1.ModuleVersion');
 const Registry = goog.require('proto.build.stack.bazel.bzlmod.v1.Registry');
@@ -170,11 +171,21 @@ exports.getYankedMap = getYankedMap;
  */
 function maintainerModuleVersions(registry, maintainer) {
     const result = new Set();
+
+    const hasGithub = !strings.isEmpty(maintainer.getGithub());
+    const hasEmail = !strings.isEmpty(maintainer.getEmail());
+
     registry.getModulesList().forEach(module => {
         const metadata = module.getMetadata();
         metadata.getMaintainersList().forEach(m => {
-            if (maintainer.getGithub() === m.getGithub() || maintainer.getEmail() === m.getEmail()) {
+            if (hasGithub && maintainer.getGithub() === m.getGithub()) {
                 result.add(module.getVersionsList()[0]);
+                return;
+            }
+            if (hasEmail && maintainer.getEmail() === m.getEmail()) {
+                result.add(module.getVersionsList()[0]);
+                return;
+
             }
         });
     });

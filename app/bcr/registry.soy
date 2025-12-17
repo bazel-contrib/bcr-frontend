@@ -648,17 +648,15 @@ unknown
 
 
 {template maintainersList}
-  {@param maintainers: map<string,Maintainer>}
+  {@param maintainers: list<Maintainer>}
 <div class="mt-3">
   <div class="d-flex flex-wrap">
-    {for $name in $maintainers.keys()}
-        {let $maintainer: $maintainers.get($name) /}
-        {if $maintainer?.getGithub()}
-            <div class="m-2">
-            {maintainerCard(maintainer: $maintainer)}
-            </div>
-        {else}
-        {/if}
+    {for $maintainer in $maintainers}
+      {if $maintainer?.getGithub()}
+        <div class="m-2">
+          {maintainerCard(maintainer: $maintainer)}
+        </div>
+      {/if}
     {/for}
   </div>
 </div>

@@ -29,11 +29,9 @@ import {
 
 
 {template maintainersMapComponent}
-  {@param maintainers: map<string,Maintainer>}
+  {@param maintainers: list<Maintainer>}
 <div>
-    {call maintainersList}
-        {param maintainers: $maintainers /}
-    {/call}
+  {maintainersList(maintainers: $maintainers)}
 </div>
 {/template}
 

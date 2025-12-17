@@ -2,6 +2,7 @@ goog.module("centrl.maintainers");
 
 const Maintainer = goog.require('proto.build.stack.bazel.bzlmod.v1.Maintainer');
 const Registry = goog.require('proto.build.stack.bazel.bzlmod.v1.Registry');
+const arrays = goog.require('goog.array');
 const dom = goog.require('goog.dom');
 const soy = goog.require('goog.soy');
 const { ContentSelect } = goog.require('centrl.ContentSelect');
@@ -163,8 +164,12 @@ class MaintainersMapComponent extends Component {
      * @override
      */
     createDom() {
+        /** @type {!Array<!Maintainer>} */
+        const maintainers = Array.from(this.maintainers_.values());
+        arrays.shuffle(maintainers);
+
         this.setElementInternal(soy.renderAsElement(maintainersMapComponent, {
-            maintainers: this.maintainers_,
+            maintainers,
         }));
     }
 }
