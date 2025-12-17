@@ -1,5 +1,7 @@
 goog.module("centrl.home");
 
+const Module = goog.require('proto.build.stack.bazel.bzlmod.v1.Module');
+const ModuleVersion = goog.require('proto.build.stack.bazel.bzlmod.v1.ModuleVersion');
 const Registry = goog.require('proto.build.stack.bazel.bzlmod.v1.Registry');
 const SymbolType = goog.require('proto.build.stack.bazel.bzlmod.v1.SymbolType');
 const dom = goog.require('goog.dom');
@@ -101,11 +103,21 @@ class HomeOverviewComponent extends Component {
             values: 0,
         };
 
+        // Collect all module versions with commit dates for sorting
+        /** @type {!Array<!{m: !Module, v: !ModuleVersion}>} */
+        const allVersions = [];
+
         for (const module of modules.values()) {
             totalModuleVersions += module.getVersionsList().length;
 
-            // Count symbols from all versions
+            // Collect versions with commit dates
             for (const version of module.getVersionsList()) {
+                const commit = version.getCommit();
+                if (commit && commit.getDate()) {
+                    allVersions.push({ m: module, v: version });
+                }
+
+                // Count symbols from all versions
                 const source = version.getSource();
                 if (!source) continue;
 
@@ -134,6 +146,21 @@ class HomeOverviewComponent extends Component {
             }
         }
 
+        // Sort by commit date (most recent first) and take top 10
+        allVersions.sort(
+            (a, b) => {
+                return new Date(b.v.getCommit().getDate()) - new Date(a.v.getCommit().getDate());
+            }
+        );
+        /** @type {!Array<!{moduleVersion: !ModuleVersion, commitDate: string}>} */
+        const recentlyUpdated = allVersions.slice(0, 15).map(item => {
+            return {
+                moduleVersion: item.v,
+                commitDate: formatRelativePast(item.v.getCommit().getDate()),
+                isNew: item.m.getVersionsList().length === 1,
+            };
+        });
+
         this.setElementInternal(soy.renderAsElement(homeOverviewComponent, {
             registry: this.registry_,
             lastUpdated: formatRelativePast(this.registry_.getCommitDate()),
@@ -147,6 +174,7 @@ class HomeOverviewComponent extends Component {
             totalModuleExtensions: symbolCounts.moduleExtensions,
             totalRepositoryRules: symbolCounts.repositoryRules,
             totalMacros: symbolCounts.macros,
+            recentlyUpdated,
         }));
     }
 }

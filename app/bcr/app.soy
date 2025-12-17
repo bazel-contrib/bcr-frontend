@@ -27,6 +27,7 @@ import {
     octiconSkip24,
     octiconSparkleFill16,
     octiconSquareFill16,
+    octiconStarFill16,
     octiconTable16,
     octiconWorkflow16
 } from 'app/bcr/octicons.soy';
@@ -241,6 +242,7 @@ import {
   {@param totalModuleExtensions: int}
   {@param totalRepositoryRules: int}
   {@param totalMacros: int}
+  {@param recentlyUpdated: list<[moduleVersion: ModuleVersion, commitDate: string, isNew: bool]>}
 <div class="d-flex flex-column flex-items-center flex-justify-center p-4">
     {logo()}
     <div class="p-2 mt-4 text-light" style="background: var(--color-neutral-subtle); border-width: 0.5rem">
@@ -269,6 +271,40 @@ import {
       {statDisplay(value: $totalRepositoryRules, label: 'Repo Rules', color: symbolColor(type: SymbolType.SYMBOL_TYPE_REPOSITORY_RULE))}
       {statDisplay(value: $totalAspects, label: 'Aspects', color: symbolColor(type: SymbolType.SYMBOL_TYPE_ASPECT))}
       {statDisplay(value: $totalMacros, label: 'Macros', color: symbolColor(type: SymbolType.SYMBOL_TYPE_MACRO))}
+    </div>
+    <div class="Box Box--condensed mt-4" style="width: 100%; max-width: 800px">
+      <div class="Box-header">
+        <div class="Box-title">
+          Recently Updated
+        </div>
+      </div>
+      {if length($recentlyUpdated) > 0}
+        {for $item in $recentlyUpdated}
+          <div class="Box-row d-flex flex-justify-between flex-items-center">
+            <div class="d-flex flex-items-center" style="min-width: 0; flex: 1">
+              <div style="width: 24px; flex-shrink: 0">
+                {if $item.isNew}
+                  <span title="New Module">{octiconStarFill16(fill: 'var(--color-success-fg)')}</span>
+                {/if}
+              </div>
+              <div class="d-flex flex-column" style="min-width: 0">
+                <a class="Link--primary f5" href="/#/modules/{$item.moduleVersion.getName()}/{$item.moduleVersion.getVersion()}">
+                  <strong>{$item.moduleVersion.getName()}</strong>
+                  {sp}
+                  <span class="color-fg-muted">{$item.moduleVersion.getVersion()}</span>
+                </a>
+              </div>
+            </div>
+            <div class="color-fg-muted f6 text-right" style="flex-shrink: 0; margin-left: 1rem">
+              {$item.commitDate}
+            </div>
+          </div>
+        {/for}
+      {else}
+        <div class="Box-row color-fg-muted">
+          No recently updated modules found
+        </div>
+      {/if}
     </div>
     <div class="Box Box--condensed mt-4" style="width: 100%; max-width: 800px">
       <div class="Box-header">
