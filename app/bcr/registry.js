@@ -1,12 +1,12 @@
 goog.module("centrl.registry");
 
-const strings = goog.require('goog.string');
 const Maintainer = goog.require('proto.build.stack.bazel.bzlmod.v1.Maintainer');
 const Module = goog.require('proto.build.stack.bazel.bzlmod.v1.Module');
 const ModuleDependency = goog.requireType('proto.build.stack.bazel.bzlmod.v1.ModuleDependency');
 const ModuleMetadata = goog.require('proto.build.stack.bazel.bzlmod.v1.ModuleMetadata');
 const ModuleVersion = goog.require('proto.build.stack.bazel.bzlmod.v1.ModuleVersion');
 const Registry = goog.require('proto.build.stack.bazel.bzlmod.v1.Registry');
+const strings = goog.require('goog.string');
 
 
 // Cache the reverse dependency index globally (tied to registry commit)
@@ -237,3 +237,78 @@ function getLatestModuleVersionsByName(registry) {
     return result;
 }
 exports.getLatestModuleVersionsByName = getLatestModuleVersionsByName;
+
+
+/**
+ * Calculate a human-readable age summary from a number of days.
+ * @param {number} totalDays
+ * @returns {string} Age string like "1y 6m" or "6m 23d"
+ */
+function calculateAgeSummary(totalDays) {
+    // If years, show as decimal years (e.g., "1.2y")
+    if (totalDays >= 365) {
+        const years = (totalDays / 365).toFixed(1);
+        return `${years}y`;
+    }
+
+    // If months, show as decimal months (e.g., "2.5m")
+    if (totalDays >= 30) {
+        const months = (totalDays / 30).toFixed(1);
+        return `${months}m`;
+    }
+
+    // Otherwise just show days
+    return `${totalDays}d`;
+}
+exports.calculateAgeSummary = calculateAgeSummary;
+
+
+/**
+ * Calculate version distances and age summary for each module.
+ * @param {!Registry} registry
+ * @returns {!Map<string, !Map<string, {versionsBehind: number, ageSummary: ?string}>>} Map of moduleName -> (version -> {versionsBehind, ageSummary})
+ */
+function getVersionDistances(registry) {
+    const result = new Map();
+    for (const module of registry.getModulesList()) {
+        const moduleVersions = module.getVersionsList();
+        if (moduleVersions.length === 0) continue;
+
+        const versionDistanceMap = new Map();
+
+        // Get the latest version's commit date for comparison
+        let latestDate = null;
+        if (moduleVersions.length > 0 && moduleVersions[0].getCommit()) {
+            const dateStr = moduleVersions[0].getCommit().getDate();
+            if (dateStr) {
+                latestDate = new Date(dateStr);
+            }
+        }
+
+        // Iterate over actual BCR versions, not metadata versions
+        for (let i = 0; i < moduleVersions.length; i++) {
+            const moduleVersion = moduleVersions[i];
+            const versionStr = moduleVersion.getVersion();
+            let ageSummary = null;
+
+            if (moduleVersion.getCommit() && latestDate) {
+                const versionDateStr = moduleVersion.getCommit().getDate();
+                if (versionDateStr) {
+                    const versionDate = new Date(versionDateStr);
+                    const diffMs = latestDate - versionDate;
+                    const totalDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+                    ageSummary = calculateAgeSummary(totalDays);
+                }
+            }
+
+            versionDistanceMap.set(versionStr, {
+                versionsBehind: i,
+                ageSummary: ageSummary
+            });
+        }
+
+        result.set(module.getName(), versionDistanceMap);
+    }
+    return result;
+}
+exports.getVersionDistances = getVersionDistances;

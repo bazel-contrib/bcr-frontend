@@ -7,6 +7,7 @@ load(
     "closure_js_binary",
     "closure_js_library",
     "closure_js_template_library",
+    "closure_js_test",
 )
 load("//rules:deploy.bzl", "cloudflare_deploy")
 load("//rules:octicons_closure_template_compile.bzl", "octicons_closure_template_compile")
@@ -136,6 +137,17 @@ closure_js_library(
 )
 
 closure_js_library(
+    name = "registry",
+    srcs = [
+        "registry.js",
+    ],
+    deps = [
+        "//build/stack/bazel/bzlmod/v1:bzpb_js",
+        "@stackb_rules_closure//closure/goog/string",
+    ],
+)
+
+closure_js_library(
     name = "app",
     srcs = [
         "app.js",
@@ -156,7 +168,6 @@ closure_js_library(
         "modules.js",
         "mvs_tree.js",
         "presubmit.js",
-        "registry.js",
         "search.js",
         "selectnav.js",
         "settings.js",
@@ -168,6 +179,7 @@ closure_js_library(
     deps = [
         ":autocompletematcher",
         ":common",
+        ":registry",
         ":soy",
         "//build/stack/bazel/bzlmod/v1:bzpb_js",
         "//build/stack/starlark/v1beta1:v1beta1_proto_js",
@@ -199,6 +211,20 @@ closure_js_library(
         "@stackb_rules_closure//google3/third_party/javascript/safevalues/dom/elements",
         "@stackb_ui_js//js/ui:core",
         "@stackb_ui_js//js/ui:select",
+    ],
+)
+
+closure_js_test(
+    name = "registry_test",
+    srcs = ["registry_test.js"],
+    compilation_level = "SIMPLE",
+    entry_points = ["goog:centrl.registryTest"],
+    deps = [
+        ":registry",
+        "//build/stack/bazel/bzlmod/v1:bzpb_js",
+        "@stackb_rules_closure//closure/goog/testing:asserts",
+        "@stackb_rules_closure//closure/goog/testing:jsunit",
+        "@stackb_rules_closure//closure/goog/testing:testsuite",
     ],
 )
 

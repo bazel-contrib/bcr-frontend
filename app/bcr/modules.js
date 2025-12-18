@@ -20,7 +20,7 @@ const { SelectNav } = goog.require('centrl.SelectNav');
 const { moduleBlankslateComponent, moduleSelect, moduleVersionBlankslateComponent, moduleVersionComponent, moduleVersionDependenciesComponent, moduleVersionDependentsComponent, moduleVersionSelectNav, moduleVersionsFilterSelect, modulesMapSelect, modulesMapSelectNav } = goog.require('soy.centrl.app');
 const { moduleVersionsListComponent } = goog.require('soy.registry');
 const { computeLanguageData, sanitizeLanguageName, unsanitizeLanguageName } = goog.require('centrl.language');
-const { createModuleMap, createModuleVersionMap, getLatestModuleVersion, getLatestModuleVersions, getLatestModuleVersionsByName, getModuleDirectDeps, getYankedMap } = goog.require('centrl.registry');
+const { calculateAgeSummary, createModuleMap, createModuleVersionMap, getLatestModuleVersion, getLatestModuleVersions, getLatestModuleVersionsByName, getModuleDirectDeps, getVersionDistances, getYankedMap } = goog.require('centrl.registry');
 const { formatDate, formatRelativePast } = goog.require('centrl.format');
 const { highlightAll } = goog.require('centrl.syntax');
 
@@ -1505,79 +1505,3 @@ class ModuleVersionBlankslateComponent extends Component {
         }));
     }
 }
-
-
-/**
- * Calculate a human-readable age summary from a number of days.
- * @param {number} totalDays
- * @returns {string} Age string like "1y 6m" or "6m 23d"
- */
-function calculateAgeSummary(totalDays) {
-    // If years, show as decimal years (e.g., "1.2y")
-    if (totalDays >= 365) {
-        const years = (totalDays / 365).toFixed(1);
-        return `${years}y`;
-    }
-
-    // If months, show as decimal months (e.g., "2.5m")
-    if (totalDays >= 30) {
-        const months = (totalDays / 30).toFixed(1);
-        return `${months}m`;
-    }
-
-    // Otherwise just show days
-    return `${totalDays}d`;
-}
-
-
-/**
- * Calculate version distances and age summary for each module.
- * @param {!Registry} registry
- * @returns {!Map<string, !Map<string, {versionsBehind: number, ageSummary: ?string}>>} Map of moduleName -> (version -> {versionsBehind, ageSummary})
- */
-function getVersionDistances(registry) {
-    const result = new Map();
-    for (const module of registry.getModulesList()) {
-        const metadata = module.getMetadata();
-        if (!metadata) continue;
-
-        const versions = metadata.getVersionsList();
-        const moduleVersions = module.getVersionsList();
-        const versionDistanceMap = new Map();
-
-        // Get the latest version's commit date for comparison
-        let latestDate = null;
-        if (moduleVersions.length > 0 && moduleVersions[0].getCommit()) {
-            const dateStr = moduleVersions[0].getCommit().getDate();
-            if (dateStr) {
-                latestDate = new Date(dateStr);
-            }
-        }
-
-        for (let i = 0; i < versions.length; i++) {
-            const versionStr = versions[i];
-            let ageSummary = null;
-
-            // Find the corresponding ModuleVersion to get commit date
-            const moduleVersion = moduleVersions.find(mv => mv.getVersion() === versionStr);
-            if (moduleVersion && moduleVersion.getCommit() && latestDate) {
-                const versionDateStr = moduleVersion.getCommit().getDate();
-                if (versionDateStr) {
-                    const versionDate = new Date(versionDateStr);
-                    const diffMs = latestDate - versionDate;
-                    const totalDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-                    ageSummary = calculateAgeSummary(totalDays);
-                }
-            }
-
-            versionDistanceMap.set(versionStr, {
-                versionsBehind: i,
-                ageSummary: ageSummary
-            });
-        }
-
-        result.set(module.getName(), versionDistanceMap);
-    }
-    return result;
-}
-
