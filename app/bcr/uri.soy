@@ -54,7 +54,7 @@ import {
 {template maintainerUrl kind="uri"}
   {@param maintainer: Maintainer}
 {if $maintainer.getGithub()}
-    {maintainersUrl()}/@{$maintainer.getGithub()}
+    {maintainersUrl()}/{$maintainer.getGithub()}
 {elseif $maintainer.getEmail()}
     {maintainersUrl()}/{$maintainer.getEmail()}
 {else}

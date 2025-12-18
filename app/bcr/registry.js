@@ -77,7 +77,7 @@ function createMaintainersMap(registry) {
     registry.getModulesList().forEach(module => {
         module.getMetadata().getMaintainersList().forEach(maintainer => {
             if (maintainer.getGithub()) {
-                result.set("@" + maintainer.getGithub(), maintainer);
+                result.set(maintainer.getGithub(), maintainer);
             } else if (maintainer.getEmail()) {
                 result.set(maintainer.getEmail(), maintainer);
             }
