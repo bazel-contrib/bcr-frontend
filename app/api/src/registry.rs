@@ -1,14 +1,8 @@
 use prost::Message;
 use worker::*;
 
-// Include generated protobuf code
-// TODO: Generate these from //build/stack/bazel/bzlmod/v1:bcr_proto
-// For now, this is a placeholder
-pub mod proto {
-    include!(concat!(env!("OUT_DIR"), "/build.stack.bazel.bzlmod.v1.rs"));
-}
-
-use proto::Registry;
+// Import the generated protobuf types
+use bzpb_rs::build::stack::bazel::bzlmod::v1::Registry;
 
 static mut CACHED_REGISTRY: Option<Registry> = None;
 
@@ -24,11 +18,10 @@ pub async fn get_registry(req: &Request) -> Result<&'static Registry> {
 }
 
 /// Load registry.pb.gz from static assets
-async fn load_registry(req: &Request) -> Result<Registry> {
-    // Fetch the static asset
-    let url = req.url()?;
-    let base_url = format!("{}://{}", url.scheme(), url.host_str().unwrap_or(""));
-    let registry_url = format!("{}/registry.pb.gz", base_url);
+async fn load_registry(_req: &Request) -> Result<Registry> {
+    // Fetch the registry from external URL
+    // TODO: Make this configurable via environment variable
+    let registry_url = "https://bcr.stack.build/registry.pb.gz";
 
     // Fetch compressed registry
     let mut init = RequestInit::new();

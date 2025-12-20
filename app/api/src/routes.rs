@@ -1,4 +1,4 @@
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use worker::*;
 
 use crate::registry::get_registry;
@@ -12,7 +12,7 @@ struct ModuleListItem {
 
 #[derive(Serialize)]
 struct RegistryInfo {
-    url: String,
+    registry_url: String,
     module_count: usize,
 }
 
@@ -27,11 +27,11 @@ pub async fn handle_modules(req: Request, _ctx: RouteContext<()>) -> Result<Resp
     let registry = get_registry(&req).await?;
 
     let modules: Vec<ModuleListItem> = registry
-        .module
+        .modules
         .iter()
         .map(|m| ModuleListItem {
             name: m.name.clone(),
-            latest_version: m.latest_version.clone(),
+            latest_version: m.versions.first().map(|v| v.version.clone()).unwrap_or_default(),
             description: m
                 .repository_metadata
                 .as_ref()
@@ -47,16 +47,16 @@ pub async fn handle_modules(req: Request, _ctx: RouteContext<()>) -> Result<Resp
 /// Returns full module details by name
 pub async fn handle_module_by_name(req: Request, ctx: RouteContext<()>) -> Result<Response> {
     let registry = get_registry(&req).await?;
-    let module_name = ctx.param("name").unwrap_or("");
+    let module_name = ctx.param("name").map(|s| s.as_str()).unwrap_or("");
 
-    let module = registry.module.iter().find(|m| m.name == module_name);
+    let module = registry.modules.iter().find(|m| m.name == module_name);
 
     match module {
         Some(m) => Response::from_json(m),
-        None => Response::from_json(&ErrorResponse {
+        None => Ok(Response::from_json(&ErrorResponse {
             error: "Module not found".to_string(),
         })?
-        .with_status(404),
+        .with_status(404)),
     }
 }
 
@@ -73,7 +73,7 @@ pub async fn handle_search(req: Request, _ctx: RouteContext<()>) -> Result<Respo
         .unwrap_or_default();
 
     let results: Vec<ModuleListItem> = registry
-        .module
+        .modules
         .iter()
         .filter(|m| {
             m.name.to_lowercase().contains(&query)
@@ -85,7 +85,7 @@ pub async fn handle_search(req: Request, _ctx: RouteContext<()>) -> Result<Respo
         .take(20)
         .map(|m| ModuleListItem {
             name: m.name.clone(),
-            latest_version: m.latest_version.clone(),
+            latest_version: m.versions.first().map(|v| v.version.clone()).unwrap_or_default(),
             description: m
                 .repository_metadata
                 .as_ref()
@@ -103,8 +103,8 @@ pub async fn handle_registry_info(req: Request, _ctx: RouteContext<()>) -> Resul
     let registry = get_registry(&req).await?;
 
     let info = RegistryInfo {
-        url: registry.url.clone(),
-        module_count: registry.module.len(),
+        registry_url: registry.registry_url.clone(),
+        module_count: registry.modules.len(),
     };
 
     Response::from_json(&info)

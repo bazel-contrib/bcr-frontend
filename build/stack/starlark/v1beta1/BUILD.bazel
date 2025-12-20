@@ -65,6 +65,11 @@ closure_jspb_library(
 
 proto_compile(
     name = "v1beta1_proto_rs",
+    options = {
+        "//bazel_tools/rust:protoc-gen-prost": [
+            "extern_path=.stardoc_output=::stardoc_output_rs::stardoc_output",
+        ],
+    },
     outputs = [
         "build.stack.starlark.v1beta1.rs",
         "build.stack.starlark.v1beta1.serde.rs",
@@ -81,6 +86,7 @@ proto_rust_library(
     name = "v1beta1_rs",
     srcs = [":v1beta1_proto_rs"],
     pkg = "build.stack.starlark.v1beta1",
+    visibility = ["//visibility:public"],
     deps = [
         "//stardoc_output:stardoc_output_rs",
     ],

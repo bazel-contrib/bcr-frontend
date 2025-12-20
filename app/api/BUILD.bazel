@@ -1,12 +1,14 @@
-load("@rules_rust//rust:defs.bzl", "rust_library")
-# load("@rules_rust//wasm_bindgen:wasm_bindgen.bzl", "rust_wasm_bindgen")
+load("@rules_rust//rust:defs.bzl", "rust_shared_library")
+load("@rules_rust_wasm_bindgen//:defs.bzl", "rust_wasm_bindgen", "rust_wasm_bindgen_toolchain")
 
-rust_library(
+rust_shared_library(
     name = "centrl_api_lib",
     srcs = glob(["src/**/*.rs"]),
     crate_root = "src/lib.rs",
     edition = "2021",
     deps = [
+        "//build/stack/bazel/bzlmod/v1:bzpb_rs",
+        "//build/stack/starlark/v1beta1:v1beta1_rs",
         "@crates//:flate2",
         "@crates//:prost",
         "@crates//:serde",
@@ -15,18 +17,29 @@ rust_library(
     ],
 )
 
-# rust_wasm_bindgen(
-#     name = "centrl_api_wasm",
-#     target = "bundler",
-#     wasm_file = ":centrl_api_lib",
-# )
+rust_wasm_bindgen(
+    name = "centrl_api_wasm",
+    target = "web",  # Use 'web' target for Cloudflare Workers compatibility
+    wasm_file = ":centrl_api_lib",
+)
 
-# # Deployment helper
-# sh_binary(
-#     name = "deploy",
-#     srcs = ["deploy.sh"],
-#     data = [
-#         ":centrl_api_wasm",
-#         "wrangler.toml",
-#     ],
-# )
+rust_wasm_bindgen_toolchain(
+    name = "rust_wasm_bindgen_toolchain",
+    wasm_bindgen_cli = "@crates//:wasm-bindgen-cli__wasm-bindgen",
+)
+
+toolchain(
+    name = "wasm_bindgen_toolchain",
+    toolchain = "rust_wasm_bindgen_toolchain",
+    toolchain_type = "@rules_rust_wasm_bindgen//:toolchain_type",
+)
+
+# Deployment helper
+sh_binary(
+    name = "deploy",
+    srcs = ["deploy.sh"],
+    data = [
+        "wrangler.toml",
+        ":centrl_api_wasm",
+    ],
+)

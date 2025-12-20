@@ -1,30 +1,23 @@
 name = "centrl-api"
-main = "build/worker/index.js"
+main = "index.mjs"
 compatibility_date = "2024-12-01"
 
 # Workers Paid plan required for wasm
 # account_id = "df53dccd72b4a61d2f8b1323256bc71c"
 
-[build]
-command = "cargo install -q worker-build && worker-build --release"
+# Build is handled by deploy.sh using Bazel
+# Deploy script creates a temp directory with all artifacts and runs wrangler from there
 
-[build.upload]
-format = "modules"
-dir = "build/worker"
-main = "./index.mjs"
-
-[[build.upload.rules]]
+[[rules]]
 globs = ["**/*.wasm"]
 type = "CompiledWasm"
+fallthrough = true
 
-[env.production]
-name = "centrl-api"
-routes = [
-  { pattern = "centrl.io/api/*", zone_name = "centrl.io" }
-]
+# Uncomment and configure routes once your Cloudflare zone is set up
+# [env.production]
+# name = "centrl-api"
+# routes = [{ pattern = "bcr.stack.build/api/*", zone_name = "bcr.stack.build" }]
 
-[env.staging]
-name = "centrl-api-staging"
-routes = [
-  { pattern = "staging.centrl.io/api/*", zone_name = "centrl.io" }
-]
+# [env.staging]
+# name = "centrl-api-staging"
+# routes = [{ pattern = "staging.bcr.stack.build/api/*", zone_name = "bcr.stack.build" }]
