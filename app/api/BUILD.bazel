@@ -12,7 +12,6 @@ rust_shared_library(
     deps = [
         "//build/stack/bazel/bzlmod/v1:bzpb_rs",
         "//build/stack/starlark/v1beta1:v1beta1_rs",
-        "@crates//:flate2",
         "@crates//:prost",
         "@crates//:serde",
         "@crates//:serde_json",
@@ -23,7 +22,7 @@ rust_shared_library(
 rust_wasm_bindgen(
     name = "api",
     bindgen_flags = ["--no-typescript"],
-    target = "web",  # Use 'web' target for Cloudflare Workers compatibility
+    target = "web",
     visibility = ["//app/bcr:__pkg__"],
     wasm_file = ":api_lib",
 )

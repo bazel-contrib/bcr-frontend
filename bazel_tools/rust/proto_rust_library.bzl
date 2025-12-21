@@ -1,23 +1,5 @@
 load("@rules_rust//rust:defs.bzl", "rust_library")
 
-# use serde::Deserialize;
-
-# #[macro_export]
-# macro_rules! deserialize_null_as_default {
-#     () => {
-#         #[serde(deserialize_with = "null_to_default")]
-#     }
-# }
-
-# fn null_to_default<'de, D, T>(deserializer: D) -> Result<T, D::Error>
-# where
-#     D: serde::Deserializer<'de>,
-#     T: Default + Deserialize<'de>,
-# {
-#     Option::<T>::deserialize(deserializer)
-#         .map(|opt| opt.unwrap_or_default())
-# }
-
 def _proto_rust_lib_impl(ctx):
     lines = [
         """
@@ -31,20 +13,8 @@ def _proto_rust_lib_impl(ctx):
             continue  # it's already include!d in the proto generated source
         if file.basename.endswith(".serde.rs"):
             continue  # it's already include!d in the proto generated source
-
-        # lines.append("""
-        # use serde::Deserialize;
-
-        # pub(crate) fn null_to_default<'de, D, T>(deserializer: D) -> Result<T, D::Error>
-        # where
-        #     D: serde::Deserializer<'de>,
-        #     T: Default + Deserialize<'de>,
-        # {
-        #     Option::<T>::deserialize(deserializer)
-        #         .map(|opt| opt.unwrap_or_default())
-        # }
-        # """)
         lines.append("""include!("%s");""" % file.basename)
+
     for part in parts:
         lines.append("}")
 
@@ -79,7 +49,6 @@ def proto_rust_library(name, **kwargs):
 
     srcs = kwargs.pop("srcs", [])
     deps = kwargs.pop("deps", [])
-    proc_macro_deps = kwargs.pop("proc_macro_deps", [])
     rustc_flags = kwargs.pop("rustc_flags", [])
 
     pkg = kwargs.pop("pkg", "")
@@ -96,10 +65,6 @@ def proto_rust_library(name, **kwargs):
         name = name,
         crate_root = lib_name,
         srcs = srcs,
-        # aliases = aliases(),
-        # proc_macro_deps = proc_macro_deps + [
-        #     "@crates//:serde_derive",
-        # ],
         deps = deps + [
             "@crates//:prost",
             "@crates//:serde",

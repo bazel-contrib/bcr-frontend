@@ -151,8 +151,9 @@ crate.annotation(
 use_repo(crate, "crates")
 
 register_toolchains(
-    # "@rules_rust_wasm_bindgen//:default_wasm_bindgen_toolchain",
-    "//app/api:wasm_bindgen_toolchain",
+    # override the default toolchain to match the wasm-bindgen version wanted by
+    # workerd API ("@rules_rust_wasm_bindgen//:default_wasm_bindgen_toolchain")
+    "//bazel_tools/rust:wasm_bindgen_toolchain",
 )
 
 # -------------------------------------------------------------------

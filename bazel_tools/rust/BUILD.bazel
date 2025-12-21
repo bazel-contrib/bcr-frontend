@@ -1,6 +1,17 @@
 load("@build_stack_rules_proto//rules:proto_plugin.bzl", "proto_plugin")
+load("@rules_rust_wasm_bindgen//:defs.bzl", "rust_wasm_bindgen_toolchain")
 
-# Proto plugins (for use in proto_compile rules)
+rust_wasm_bindgen_toolchain(
+    name = "rust_wasm_bindgen_toolchain",
+    wasm_bindgen_cli = "@crates//:wasm-bindgen-cli__wasm-bindgen",
+)
+
+toolchain(
+    name = "wasm_bindgen_toolchain",
+    toolchain = "rust_wasm_bindgen_toolchain",
+    toolchain_type = "@rules_rust_wasm_bindgen//:toolchain_type",
+)
+
 proto_plugin(
     name = "protoc-gen-prost",
     tool = "@crates//:protoc-gen-prost__protoc-gen-prost",
@@ -12,42 +23,3 @@ proto_plugin(
     tool = "@crates//:protoc-gen-prost-serde__protoc-gen-prost-serde",
     visibility = ["//visibility:public"],
 )
-
-# proto_plugin(
-#     name = "protoc-gen-prost-serde",
-#     tool = "@crates//:protoc-gen-prost-serde",
-#     visibility = ["//visibility:public"],
-# )
-
-# proto_plugin(
-#     name = "protoc-gen-tonic",
-#     tool = "@crates//:protoc-gen-tonic",
-#     visibility = ["//visibility:public"],
-# )
-
-# # Binary aliases (for running as standalone tools)
-# alias(
-#     name = "protoc-gen-prost_bin",
-#     actual = "@crates//:protoc-gen-prost__protoc-gen-prost",
-#     visibility = ["//visibility:public"],
-# )
-
-# alias(
-#     name = "protoc-gen-tonic_bin",
-#     actual = "@crates//:protoc-gen-tonic",
-#     visibility = ["//visibility:public"],
-# )
-
-# alias(
-#     name = "protoc-gen-prost-serde_bin",
-#     actual = "@crates//:protoc-gen-prost-serde",
-#     visibility = ["//visibility:public"],
-# )
-
-# sh_test(
-#     name = "pwdreplace_test",
-#     srcs = ["pwd_replace_test.sh"],
-#     env = {
-#         "CARGO_MANIFEST_DIR": "$${pwd}/foo",
-#     },
-# )
