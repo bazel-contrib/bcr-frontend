@@ -12,4 +12,4 @@ echo BUILD_HOST $(hostname)
 echo BUILD_USER ${USER}
 
 # Version info
-echo BUILD_API_VERSION 0.1.1
+echo BUILD_API_VERSION v1alpha1

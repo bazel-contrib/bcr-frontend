@@ -7,6 +7,7 @@ use bzpb_rs::build::stack::bazel::bzlmod::v1::Registry;
 static mut CACHED_REGISTRY: Option<Registry> = None;
 
 /// Lazy-load and cache the registry protobuf
+#[allow(static_mut_refs)]
 pub async fn get_registry(env: &Env) -> Result<&'static Registry> {
     unsafe {
         if CACHED_REGISTRY.is_none() {

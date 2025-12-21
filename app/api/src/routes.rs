@@ -153,7 +153,7 @@ struct VersionInfo {
     git_branch: String,
 }
 
-/// GET /api/v1/modules
+/// GET /api/v1alpha1/modules
 /// Returns list of all modules with basic info
 pub async fn handle_modules(_req: Request, ctx: RouteContext<()>) -> Result<Response> {
     let registry = get_registry(&ctx.env).await?;
@@ -175,7 +175,7 @@ pub async fn handle_modules(_req: Request, ctx: RouteContext<()>) -> Result<Resp
     Response::from_json(&modules)
 }
 
-/// GET /api/v1/modules/:name
+/// GET /api/v1alpha1/modules/:name
 /// Returns full module details by name (supports protobuf or JSON)
 pub async fn handle_module_by_name(req: Request, ctx: RouteContext<()>) -> Result<Response> {
     let registry = get_registry(&ctx.env).await?;
@@ -192,7 +192,7 @@ pub async fn handle_module_by_name(req: Request, ctx: RouteContext<()>) -> Resul
     }
 }
 
-/// GET /api/v1/modules/:name/latest
+/// GET /api/v1alpha1/modules/:name/latest
 /// Returns the latest version of a module (supports protobuf or JSON)
 pub async fn handle_module_latest(req: Request, ctx: RouteContext<()>) -> Result<Response> {
     let registry = get_registry(&ctx.env).await?;
@@ -218,7 +218,7 @@ pub async fn handle_module_latest(req: Request, ctx: RouteContext<()>) -> Result
     }
 }
 
-/// GET /api/v1/modules/:name/:version
+/// GET /api/v1alpha1/modules/:name/:version
 /// Returns specific module version (supports protobuf or JSON)
 pub async fn handle_module_version(req: Request, ctx: RouteContext<()>) -> Result<Response> {
     let registry = get_registry(&ctx.env).await?;
@@ -245,7 +245,7 @@ pub async fn handle_module_version(req: Request, ctx: RouteContext<()>) -> Resul
     }
 }
 
-/// GET /api/v1/search?q=query
+/// GET /api/v1alpha1/search?q=query
 /// Search modules by name or description
 pub async fn handle_search(req: Request, ctx: RouteContext<()>) -> Result<Response> {
     let registry = get_registry(&ctx.env).await?;
@@ -282,7 +282,7 @@ pub async fn handle_search(req: Request, ctx: RouteContext<()>) -> Result<Respon
     Response::from_json(&results)
 }
 
-/// GET /api/v1/registry
+/// GET /api/v1alpha1/registry
 /// Returns full registry (protobuf) or registry metadata (JSON)
 pub async fn handle_registry_info(req: Request, ctx: RouteContext<()>) -> Result<Response> {
     let registry = get_registry(&ctx.env).await?;
@@ -300,7 +300,7 @@ pub async fn handle_registry_info(req: Request, ctx: RouteContext<()>) -> Result
     }
 }
 
-/// GET /api/v1/version
+/// GET /api/v1alpha1/version
 /// Returns API version information
 pub async fn handle_version(_req: Request, _ctx: RouteContext<()>) -> Result<Response> {
     let info = VersionInfo {
@@ -388,7 +388,7 @@ mod tests {
     }
 }
 
-/// GET /api/v1/modules/:name/badge.svg
+/// GET /api/v1alpha1/modules/:name/badge.svg
 /// Returns SVG badge for the latest version of a module
 pub async fn handle_module_badge(req: Request, ctx: RouteContext<()>) -> Result<Response> {
     let registry = get_registry(&ctx.env).await?;
@@ -441,7 +441,7 @@ pub async fn handle_module_badge(req: Request, ctx: RouteContext<()>) -> Result<
     }
 }
 
-/// GET /api/v1/modules/:name/:version/badge.svg
+/// GET /api/v1alpha1/modules/:name/:version/badge.svg
 /// Returns SVG badge for a specific version of a module
 pub async fn handle_module_version_badge(req: Request, ctx: RouteContext<()>) -> Result<Response> {
     let registry = get_registry(&ctx.env).await?;
