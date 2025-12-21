@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/schollz/progressbar/v3"
-	bzpb "github.com/stackb/centrl/build/stack/bazel/bzlmod/v1"
+	bzpb "github.com/stackb/centrl/build/stack/bazel/registry/v1"
 	"github.com/stackb/centrl/pkg/gh"
 )
 

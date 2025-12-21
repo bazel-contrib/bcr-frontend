@@ -1,6 +1,6 @@
 goog.module("bcr.main");
 
-const Registry = goog.require("proto.build.stack.bazel.bzlmod.v1.Registry");
+const Registry = goog.require("proto.build.stack.bazel.registry.v1.Registry");
 const RegistryApp = goog.require("centrl.App");
 const base64 = goog.require("goog.crypt.base64");
 

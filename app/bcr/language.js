@@ -1,6 +1,6 @@
 goog.module("centrl.language");
 
-const RepositoryMetadata = goog.require('proto.build.stack.bazel.bzlmod.v1.RepositoryMetadata');
+const RepositoryMetadata = goog.require('proto.build.stack.bazel.registry.v1.RepositoryMetadata');
 
 /**
  * @typedef {{

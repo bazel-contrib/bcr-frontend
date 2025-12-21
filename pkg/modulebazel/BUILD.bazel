@@ -10,7 +10,7 @@ go_library(
     importpath = "github.com/stackb/centrl/pkg/modulebazel",
     visibility = ["//visibility:public"],
     deps = [
-        "//build/stack/bazel/bzlmod/v1:bzlmod",
+        "//build/stack/bazel/registry/v1:registry",
         "@bazel_gazelle//rule:go_default_library",
         "@com_github_bazelbuild_buildtools//build:go_default_library",
         "@net_starlark_go//starlark:go_default_library",

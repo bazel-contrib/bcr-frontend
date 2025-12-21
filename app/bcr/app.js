@@ -1,7 +1,7 @@
 goog.module("centrl.App");
 
 const ComponentEventType = goog.require('goog.ui.Component.EventType');
-const Registry = goog.require('proto.build.stack.bazel.bzlmod.v1.Registry');
+const Registry = goog.require('proto.build.stack.bazel.registry.v1.Registry');
 const asserts = goog.require('goog.asserts');
 const dataset = goog.require('goog.dom.dataset');
 const dom = goog.require('goog.dom');

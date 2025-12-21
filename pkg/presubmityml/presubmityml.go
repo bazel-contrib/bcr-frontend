@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	bzpb "github.com/stackb/centrl/build/stack/bazel/bzlmod/v1"
+	bzpb "github.com/stackb/centrl/build/stack/bazel/registry/v1"
 	"gopkg.in/yaml.v3"
 )
 
@@ -24,18 +24,18 @@ type bcrTestModule struct {
 
 // matrix represents the matrix configuration
 type matrix struct {
-	Platform   []string        `yaml:"platform,omitempty"`
-	Bazel      []string        `yaml:"bazel,omitempty"`
-	BuildFlags [][]string      `yaml:"build_flags,omitempty"`
+	Platform   []string   `yaml:"platform,omitempty"`
+	Bazel      []string   `yaml:"bazel,omitempty"`
+	BuildFlags [][]string `yaml:"build_flags,omitempty"`
 }
 
 // task represents a task configuration
 type task struct {
 	Name         string      `yaml:"name,omitempty"`
-	Platform     interface{} `yaml:"platform,omitempty"`     // can be string or template
-	Bazel        interface{} `yaml:"bazel,omitempty"`        // can be string or template
-	BuildFlags   interface{} `yaml:"build_flags,omitempty"`  // can be []string or template string
-	TestFlags    interface{} `yaml:"test_flags,omitempty"`   // can be []string or template string
+	Platform     interface{} `yaml:"platform,omitempty"`    // can be string or template
+	Bazel        interface{} `yaml:"bazel,omitempty"`       // can be string or template
+	BuildFlags   interface{} `yaml:"build_flags,omitempty"` // can be []string or template string
+	TestFlags    interface{} `yaml:"test_flags,omitempty"`  // can be []string or template string
 	BuildTargets []string    `yaml:"build_targets,omitempty"`
 	TestTargets  []string    `yaml:"test_targets,omitempty"`
 }

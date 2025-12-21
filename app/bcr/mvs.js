@@ -9,11 +9,11 @@
 
 goog.module('centrl.mvs');
 
-const ModuleVersion = goog.require('proto.build.stack.bazel.bzlmod.v1.ModuleVersion');
-const ModuleMetadata = goog.require('proto.build.stack.bazel.bzlmod.v1.ModuleMetadata');
-const Registry = goog.require('proto.build.stack.bazel.bzlmod.v1.Registry');
-const DependencyTree = goog.require('proto.build.stack.bazel.bzlmod.v1.DependencyTree');
-const DependencyTreeNode = goog.require('proto.build.stack.bazel.bzlmod.v1.DependencyTreeNode');
+const ModuleVersion = goog.require('proto.build.stack.bazel.registry.v1.ModuleVersion');
+const ModuleMetadata = goog.require('proto.build.stack.bazel.registry.v1.ModuleMetadata');
+const Registry = goog.require('proto.build.stack.bazel.registry.v1.Registry');
+const DependencyTree = goog.require('proto.build.stack.bazel.registry.v1.DependencyTree');
+const DependencyTreeNode = goog.require('proto.build.stack.bazel.registry.v1.DependencyTreeNode');
 const asserts = goog.require('goog.asserts');
 
 /**
@@ -272,7 +272,7 @@ class MVS {
 
     /**
      * Determines the type of override from a ModuleDependencyOverride proto.
-     * @param {!proto.build.stack.bazel.bzlmod.v1.ModuleDependencyOverride} override The override proto
+     * @param {!proto.build.stack.bazel.registry.v1.ModuleDependencyOverride} override The override proto
      * @return {string} Override type: "single_version", "git", "archive", "local_path", or empty string
      * @private
      */

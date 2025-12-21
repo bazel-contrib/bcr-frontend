@@ -9,7 +9,7 @@ import (
 	"log"
 	"net/http"
 
-	bzpb "github.com/stackb/centrl/build/stack/bazel/bzlmod/v1"
+	bzpb "github.com/stackb/centrl/build/stack/bazel/registry/v1"
 )
 
 // FetchRepositoryMetadataBatch fetches repository metadata using GitLab GraphQL API

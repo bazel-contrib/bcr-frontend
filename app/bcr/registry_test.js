@@ -1,11 +1,11 @@
 goog.module('centrl.registryTest');
 goog.setTestOnly();
 
-const Module = goog.require('proto.build.stack.bazel.bzlmod.v1.Module');
-const ModuleCommit = goog.require('proto.build.stack.bazel.bzlmod.v1.ModuleCommit');
-const ModuleMetadata = goog.require('proto.build.stack.bazel.bzlmod.v1.ModuleMetadata');
-const ModuleVersion = goog.require('proto.build.stack.bazel.bzlmod.v1.ModuleVersion');
-const Registry = goog.require('proto.build.stack.bazel.bzlmod.v1.Registry');
+const Module = goog.require('proto.build.stack.bazel.registry.v1.Module');
+const ModuleCommit = goog.require('proto.build.stack.bazel.registry.v1.ModuleCommit');
+const ModuleMetadata = goog.require('proto.build.stack.bazel.registry.v1.ModuleMetadata');
+const ModuleVersion = goog.require('proto.build.stack.bazel.registry.v1.ModuleVersion');
+const Registry = goog.require('proto.build.stack.bazel.registry.v1.Registry');
 const jsunit = goog.require('goog.testing.jsunit');
 const testSuite = goog.require('goog.testing.testSuite');
 const { calculateAgeSummary, getVersionDistances } = goog.require('centrl.registry');

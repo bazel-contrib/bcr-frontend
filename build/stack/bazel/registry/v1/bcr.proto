@@ -1,10 +1,8 @@
-// ts-proto: Adding a comment to the syntax will become the first
-// comment in the output source file.
 syntax = "proto3";
 
-package build.stack.bazel.bzlmod.v1;
+package build.stack.bazel.registry.v1;
 
-option go_package = "github.com/stackb/centrl/build/stack/bazel/bzlmod/v1;bzpb";
+option go_package = "github.com/stackb/centrl/build/stack/bazel/registry/v1;bzpb";
 
 import "build/stack/starlark/v1beta1/starlark.proto";
 

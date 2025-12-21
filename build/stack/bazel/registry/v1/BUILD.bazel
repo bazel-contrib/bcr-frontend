@@ -15,16 +15,16 @@ proto_library(
 proto_compiled_sources(
     name = "bzpb_go_compiled_sources",
     srcs = ["bcr.pb.go"],
-    output_mappings = ["bcr.pb.go=github.com/stackb/centrl/build/stack/bazel/bzlmod/v1/bcr.pb.go"],
+    output_mappings = ["bcr.pb.go=github.com/stackb/centrl/build/stack/bazel/registry/v1/bcr.pb.go"],
     plugins = ["@build_stack_rules_proto//plugin/golang/protobuf:protoc-gen-go"],
     proto = "bzpb_proto",
     visibility = ["//visibility:public"],
 )
 
 go_library(
-    name = "bzlmod",
+    name = "registry",
     srcs = ["bcr.pb.go"],
-    importpath = "github.com/stackb/centrl/build/stack/bazel/bzlmod/v1",
+    importpath = "github.com/stackb/centrl/build/stack/bazel/registry/v1",
     visibility = ["//visibility:public"],
     deps = [
         "//build/stack/starlark/v1beta1",
@@ -58,8 +58,8 @@ proto_compile(
         ],
     },
     outputs = [
-        "build.stack.bazel.bzlmod.v1.rs",
-        "build.stack.bazel.bzlmod.v1.serde.rs",
+        "build.stack.bazel.registry.v1.rs",
+        "build.stack.bazel.registry.v1.serde.rs",
     ],
     plugins = [
         "//bazel_tools/rust:protoc-gen-prost",
@@ -72,7 +72,7 @@ proto_compile(
 proto_rust_library(
     name = "bzpb_rs",
     srcs = [":bzpb_proto_rs"],
-    pkg = "build.stack.bazel.bzlmod.v1",
+    pkg = "build.stack.bazel.registry.v1",
     visibility = ["//visibility:public"],
     deps = [
         "//build/stack/starlark/v1beta1:v1beta1_rs",

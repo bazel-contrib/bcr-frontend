@@ -39,7 +39,7 @@ go_library(
     importpath = "github.com/stackb/centrl/language/bcr",
     visibility = ["//visibility:public"],
     deps = [
-        "//build/stack/bazel/bzlmod/v1:bzlmod",
+        "//build/stack/bazel/registry/v1:registry",
         "//pkg/attestationsjson",
         "//pkg/gh",
         "//pkg/git",
@@ -71,5 +71,5 @@ go_test(
         "stardoc_test.go",
     ],
     embed = [":bcr"],
-    deps = ["//build/stack/bazel/bzlmod/v1:bzlmod"],
+    deps = ["//build/stack/bazel/registry/v1:registry"],
 )

@@ -5,7 +5,7 @@ import (
 	"log"
 	"sort"
 
-	bzpb "github.com/stackb/centrl/build/stack/bazel/bzlmod/v1"
+	bzpb "github.com/stackb/centrl/build/stack/bazel/registry/v1"
 	"go.starlark.net/starlark"
 	"go.starlark.net/starlarkstruct"
 )

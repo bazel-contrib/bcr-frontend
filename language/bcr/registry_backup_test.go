@@ -3,7 +3,7 @@ package bcr
 import (
 	"testing"
 
-	bzpb "github.com/stackb/centrl/build/stack/bazel/bzlmod/v1"
+	bzpb "github.com/stackb/centrl/build/stack/bazel/registry/v1"
 )
 
 func TestGetBackupRepositoryMetadata(t *testing.T) {

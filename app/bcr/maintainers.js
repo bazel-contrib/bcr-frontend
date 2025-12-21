@@ -1,7 +1,7 @@
 goog.module("centrl.maintainers");
 
-const Maintainer = goog.require('proto.build.stack.bazel.bzlmod.v1.Maintainer');
-const Registry = goog.require('proto.build.stack.bazel.bzlmod.v1.Registry');
+const Maintainer = goog.require('proto.build.stack.bazel.registry.v1.Maintainer');
+const Registry = goog.require('proto.build.stack.bazel.registry.v1.Registry');
 const arrays = goog.require('goog.array');
 const dom = goog.require('goog.dom');
 const soy = goog.require('goog.soy');

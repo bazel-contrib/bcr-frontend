@@ -15,10 +15,10 @@ const soy = goog.require("goog.soy");
 const { Application, DefaultSearchHandlerName, SearchProvider } = goog.require("centrl.common");
 const { Searchable } = goog.requireType("centrl.common");
 const { symbolSearchRow } = goog.require('soy.centrl.app');
-const FileInfo = goog.require("proto.build.stack.bazel.bzlmod.v1.FileInfo");
-const Registry = goog.require("proto.build.stack.bazel.bzlmod.v1.Registry");
-const SymbolInfo = goog.require("proto.build.stack.bazel.bzlmod.v1.SymbolInfo");
-const SymbolType = goog.require('proto.build.stack.bazel.bzlmod.v1.SymbolType');
+const FileInfo = goog.require("proto.build.stack.bazel.registry.v1.FileInfo");
+const Registry = goog.require("proto.build.stack.bazel.registry.v1.Registry");
+const SymbolInfo = goog.require("proto.build.stack.bazel.registry.v1.SymbolInfo");
+const SymbolType = goog.require('proto.build.stack.bazel.registry.v1.SymbolType');
 
 /** @typedef {{file: !FileInfo, sym: !SymbolInfo, moduleVersion: string}} */
 let FileSymbol;

@@ -7,7 +7,7 @@ import (
 	"os"
 	"slices"
 
-	bzpb "github.com/stackb/centrl/build/stack/bazel/bzlmod/v1"
+	bzpb "github.com/stackb/centrl/build/stack/bazel/registry/v1"
 	"github.com/stackb/centrl/pkg/metadatajson"
 	"github.com/stackb/centrl/pkg/paramsfile"
 	"github.com/stackb/centrl/pkg/protoutil"

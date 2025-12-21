@@ -1,11 +1,11 @@
 goog.module("centrl.registry");
 
-const Maintainer = goog.require('proto.build.stack.bazel.bzlmod.v1.Maintainer');
-const Module = goog.require('proto.build.stack.bazel.bzlmod.v1.Module');
-const ModuleDependency = goog.requireType('proto.build.stack.bazel.bzlmod.v1.ModuleDependency');
-const ModuleMetadata = goog.require('proto.build.stack.bazel.bzlmod.v1.ModuleMetadata');
-const ModuleVersion = goog.require('proto.build.stack.bazel.bzlmod.v1.ModuleVersion');
-const Registry = goog.require('proto.build.stack.bazel.bzlmod.v1.Registry');
+const Maintainer = goog.require('proto.build.stack.bazel.registry.v1.Maintainer');
+const Module = goog.require('proto.build.stack.bazel.registry.v1.Module');
+const ModuleDependency = goog.requireType('proto.build.stack.bazel.registry.v1.ModuleDependency');
+const ModuleMetadata = goog.require('proto.build.stack.bazel.registry.v1.ModuleMetadata');
+const ModuleVersion = goog.require('proto.build.stack.bazel.registry.v1.ModuleVersion');
+const Registry = goog.require('proto.build.stack.bazel.registry.v1.Registry');
 const strings = goog.require('goog.string');
 
 

@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	"github.com/bazelbuild/bazel-gazelle/label"
-	bzpb "github.com/stackb/centrl/build/stack/bazel/bzlmod/v1"
+	bzpb "github.com/stackb/centrl/build/stack/bazel/registry/v1"
 	slpb "github.com/stackb/centrl/build/stack/starlark/v1beta1"
 )
 

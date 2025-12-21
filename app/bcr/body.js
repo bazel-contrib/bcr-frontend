@@ -1,6 +1,6 @@
 goog.module("centrl.body");
 
-const Registry = goog.require('proto.build.stack.bazel.bzlmod.v1.Registry');
+const Registry = goog.require('proto.build.stack.bazel.registry.v1.Registry');
 const dom = goog.require('goog.dom');
 const soy = goog.require('goog.soy');
 const { ContentSelect } = goog.require('centrl.ContentSelect');

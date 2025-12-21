@@ -2,7 +2,7 @@ use prost::Message;
 use worker::*;
 
 // Import the generated protobuf types
-use bzpb_rs::build::stack::bazel::bzlmod::v1::Registry;
+use bzpb_rs::build::stack::bazel::registry::v1::Registry;
 
 static mut CACHED_REGISTRY: Option<Registry> = None;
 

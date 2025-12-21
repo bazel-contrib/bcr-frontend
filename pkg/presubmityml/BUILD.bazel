@@ -6,7 +6,7 @@ go_library(
     importpath = "github.com/stackb/centrl/pkg/presubmityml",
     visibility = ["//visibility:public"],
     deps = [
-        "//build/stack/bazel/bzlmod/v1:bzlmod",
+        "//build/stack/bazel/registry/v1:registry",
         "@in_gopkg_yaml_v3//:go_default_library",
     ],
 )

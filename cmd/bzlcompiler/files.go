@@ -9,7 +9,7 @@ import (
 
 	"github.com/bazelbuild/bazel-gazelle/label"
 	"github.com/bazelbuild/buildtools/build"
-	bzpb "github.com/stackb/centrl/build/stack/bazel/bzlmod/v1"
+	bzpb "github.com/stackb/centrl/build/stack/bazel/registry/v1"
 	"google.golang.org/grpc/status"
 )
 

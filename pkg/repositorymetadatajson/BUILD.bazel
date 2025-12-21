@@ -6,6 +6,6 @@ go_library(
     importpath = "github.com/stackb/centrl/pkg/repositorymetadatajson",
     visibility = ["//visibility:public"],
     deps = [
-        "//build/stack/bazel/bzlmod/v1:bzlmod",
+        "//build/stack/bazel/registry/v1:registry",
     ],
 )

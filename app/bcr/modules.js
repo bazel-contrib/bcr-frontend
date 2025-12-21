@@ -1,9 +1,9 @@
 goog.module("centrl.modules");
 
-const Module = goog.require('proto.build.stack.bazel.bzlmod.v1.Module');
-const ModuleDependency = goog.require('proto.build.stack.bazel.bzlmod.v1.ModuleDependency');
-const ModuleVersion = goog.require('proto.build.stack.bazel.bzlmod.v1.ModuleVersion');
-const Registry = goog.require('proto.build.stack.bazel.bzlmod.v1.Registry');
+const Module = goog.require('proto.build.stack.bazel.registry.v1.Module');
+const ModuleDependency = goog.require('proto.build.stack.bazel.registry.v1.ModuleDependency');
+const ModuleVersion = goog.require('proto.build.stack.bazel.registry.v1.ModuleVersion');
+const Registry = goog.require('proto.build.stack.bazel.registry.v1.Registry');
 const asserts = goog.require('goog.asserts');
 const dom = goog.require('goog.dom');
 const events = goog.require('goog.events');

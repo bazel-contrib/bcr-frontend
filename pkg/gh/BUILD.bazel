@@ -9,7 +9,7 @@ go_library(
     importpath = "github.com/stackb/centrl/pkg/gh",
     visibility = ["//visibility:public"],
     deps = [
-        "//build/stack/bazel/bzlmod/v1:bzlmod",
+        "//build/stack/bazel/registry/v1:registry",
         "@com_github_google_go_github_v66//github:go_default_library",
         "@com_github_shurcool_githubv4//:go_default_library",
         "@org_golang_x_oauth2//:go_default_library",

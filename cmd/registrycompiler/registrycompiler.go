@@ -7,7 +7,7 @@ import (
 	"os"
 	"strings"
 
-	bzpb "github.com/stackb/centrl/build/stack/bazel/bzlmod/v1"
+	bzpb "github.com/stackb/centrl/build/stack/bazel/registry/v1"
 	"github.com/stackb/centrl/pkg/gh"
 	"github.com/stackb/centrl/pkg/paramsfile"
 	"github.com/stackb/centrl/pkg/protoutil"

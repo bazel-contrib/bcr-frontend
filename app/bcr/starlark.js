@@ -2,13 +2,13 @@ goog.module("centrl.starlark");
 
 const AttributeInfo = goog.require('proto.stardoc_output.AttributeInfo');
 const AttributeType = goog.require('proto.stardoc_output.AttributeType');
-const FileInfo = goog.require('proto.build.stack.bazel.bzlmod.v1.FileInfo');
+const FileInfo = goog.require('proto.build.stack.bazel.registry.v1.FileInfo');
 const FunctionParamInfo = goog.require('proto.stardoc_output.FunctionParamInfo');
 const FunctionParamRole = goog.require('proto.stardoc_output.FunctionParamRole');
 const Label = goog.require('proto.build.stack.starlark.v1beta1.Label');
-const ModuleVersion = goog.require('proto.build.stack.bazel.bzlmod.v1.ModuleVersion');
+const ModuleVersion = goog.require('proto.build.stack.bazel.registry.v1.ModuleVersion');
 const ProviderFieldInfo = goog.require('proto.stardoc_output.ProviderFieldInfo');
-const SymbolInfo = goog.require('proto.build.stack.bazel.bzlmod.v1.SymbolInfo');
+const SymbolInfo = goog.require('proto.build.stack.bazel.registry.v1.SymbolInfo');
 
 
 /**

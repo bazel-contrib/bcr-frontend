@@ -1,8 +1,8 @@
 goog.module("centrl.presubmit");
 
-const Presubmit = goog.require('proto.build.stack.bazel.bzlmod.v1.Presubmit');
-const Module = goog.require('proto.build.stack.bazel.bzlmod.v1.Module');
-const ModuleVersion = goog.require('proto.build.stack.bazel.bzlmod.v1.ModuleVersion');
+const Presubmit = goog.require('proto.build.stack.bazel.registry.v1.Presubmit');
+const Module = goog.require('proto.build.stack.bazel.registry.v1.Module');
+const ModuleVersion = goog.require('proto.build.stack.bazel.registry.v1.ModuleVersion');
 const dom = goog.require('goog.dom');
 const soy = goog.require('goog.soy');
 const { MarkdownComponent } = goog.require('centrl.markdown');

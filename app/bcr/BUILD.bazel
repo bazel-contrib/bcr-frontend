@@ -93,7 +93,7 @@ closure_js_template_library(
         "uri.soy",
     ],
     deps = [
-        "//build/stack/bazel/bzlmod/v1:bzpb_js",
+        "//build/stack/bazel/registry/v1:bzpb_js",
         "//build/stack/starlark/v1beta1:v1beta1_proto_js",
         "//stardoc_output:stardoc_output_js",
     ],
@@ -111,7 +111,7 @@ closure_js_library(
         "mvs.js",
     ],
     deps = [
-        "//build/stack/bazel/bzlmod/v1:bzpb_js",
+        "//build/stack/bazel/registry/v1:bzpb_js",
         "@stackb_rules_closure//closure/goog/asserts",
         "@stackb_rules_closure//closure/goog/dom",
         "@stackb_rules_closure//closure/goog/ui/ac:autocomplete",
@@ -142,7 +142,7 @@ closure_js_library(
         "registry.js",
     ],
     deps = [
-        "//build/stack/bazel/bzlmod/v1:bzpb_js",
+        "//build/stack/bazel/registry/v1:bzpb_js",
         "@stackb_rules_closure//closure/goog/string",
     ],
 )
@@ -154,7 +154,7 @@ closure_js_test(
     entry_points = ["goog:centrl.registryTest"],
     deps = [
         ":registry",
-        "//build/stack/bazel/bzlmod/v1:bzpb_js",
+        "//build/stack/bazel/registry/v1:bzpb_js",
         "@stackb_rules_closure//closure/goog/testing:asserts",
         "@stackb_rules_closure//closure/goog/testing:jsunit",
         "@stackb_rules_closure//closure/goog/testing:testsuite",
@@ -195,7 +195,7 @@ closure_js_library(
         ":common",
         ":registry",
         ":soy",
-        "//build/stack/bazel/bzlmod/v1:bzpb_js",
+        "//build/stack/bazel/registry/v1:bzpb_js",
         "//build/stack/starlark/v1beta1:v1beta1_proto_js",
         "//stardoc_output:stardoc_output_js",
         "@stackb_rules_closure//closure/goog/array",

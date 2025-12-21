@@ -19,7 +19,7 @@ import (
 	"github.com/bazelbuild/bazel-gazelle/rule"
 	"github.com/dominikbraun/graph"
 	"github.com/google/go-github/v66/github"
-	bzpb "github.com/stackb/centrl/build/stack/bazel/bzlmod/v1"
+	bzpb "github.com/stackb/centrl/build/stack/bazel/registry/v1"
 	"github.com/stackb/centrl/pkg/attestationsjson"
 	"github.com/stackb/centrl/pkg/metadatajson"
 	"github.com/stackb/centrl/pkg/modulebazel"
@@ -63,9 +63,9 @@ type bcrExtension struct {
 	gitlabToken               string
 	registryRoot              string
 	registryURL               string
-	registrySourceURL         string                                          // URL to fetch backup registry data from
-	backupRegistry            *bzpb.Registry                                  // backup registry loaded from registrySourceURL
-	blacklistedUrls           stringBoolMap                                   // tracks urls that are known to have wrong integrity or would otherwise not download
+	registrySourceURL         string         // URL to fetch backup registry data from
+	backupRegistry            *bzpb.Registry // backup registry loaded from registrySourceURL
+	blacklistedUrls           stringBoolMap  // tracks urls that are known to have wrong integrity or would otherwise not download
 	githubClient              *github.Client
 	depGraph                  graph.Graph[moduleID, moduleID]                 // graph of all dependencies (regular + dev) - for cycle detection
 	regularDepGraph           graph.Graph[moduleID, moduleID]                 // graph of only non-dev dependencies

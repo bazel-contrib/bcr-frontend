@@ -1,8 +1,8 @@
 goog.module("centrl.githubsourcefile");
 
-const Module = goog.require('proto.build.stack.bazel.bzlmod.v1.Module');
-const ModuleVersion = goog.require('proto.build.stack.bazel.bzlmod.v1.ModuleVersion');
-const RepositoryType = goog.require('proto.build.stack.bazel.bzlmod.v1.RepositoryType');
+const Module = goog.require('proto.build.stack.bazel.registry.v1.Module');
+const ModuleVersion = goog.require('proto.build.stack.bazel.registry.v1.ModuleVersion');
+const RepositoryType = goog.require('proto.build.stack.bazel.registry.v1.RepositoryType');
 const dom = goog.require('goog.dom');
 const soy = goog.require('goog.soy');
 const { Component } = goog.require('stack.ui');

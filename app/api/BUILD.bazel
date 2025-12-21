@@ -10,7 +10,7 @@ rust_shared_library(
     stamp = -1,  # -1 means "only stamp if --stamp is given in build config"
     version = "0.1.0",
     deps = [
-        "//build/stack/bazel/bzlmod/v1:bzpb_rs",
+        "//build/stack/bazel/registry/v1:bzpb_rs",
         "//build/stack/starlark/v1beta1:v1beta1_rs",
         "@crates//:prost",
         "@crates//:serde",
