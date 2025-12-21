@@ -59,7 +59,7 @@ struct VersionInfo {
     git_branch: String,
 }
 
-/// GET /api/modules
+/// GET /api/v1/modules
 /// Returns list of all modules with basic info
 pub async fn handle_modules(_req: Request, ctx: RouteContext<()>) -> Result<Response> {
     let registry = get_registry(&ctx.env).await?;
@@ -81,7 +81,7 @@ pub async fn handle_modules(_req: Request, ctx: RouteContext<()>) -> Result<Resp
     Response::from_json(&modules)
 }
 
-/// GET /api/modules/:name
+/// GET /api/v1/modules/:name
 /// Returns full module details by name (supports protobuf or JSON)
 pub async fn handle_module_by_name(req: Request, ctx: RouteContext<()>) -> Result<Response> {
     let registry = get_registry(&ctx.env).await?;
@@ -98,7 +98,60 @@ pub async fn handle_module_by_name(req: Request, ctx: RouteContext<()>) -> Resul
     }
 }
 
-/// GET /api/search?q=query
+/// GET /api/v1/modules/:name/latest
+/// Returns the latest version of a module (supports protobuf or JSON)
+pub async fn handle_module_latest(req: Request, ctx: RouteContext<()>) -> Result<Response> {
+    let registry = get_registry(&ctx.env).await?;
+    let module_name = ctx.param("name").map(|s| s.as_str()).unwrap_or("");
+
+    let module = registry.modules.iter().find(|m| m.name == module_name);
+
+    match module {
+        Some(m) => {
+            // Latest version is typically the first in the array
+            match m.versions.first() {
+                Some(mv) => create_response(&req, mv.clone()),
+                None => Ok(Response::from_json(&ErrorResponse {
+                    error: "No versions found for module".to_string(),
+                })?
+                .with_status(404)),
+            }
+        }
+        None => Ok(Response::from_json(&ErrorResponse {
+            error: "Module not found".to_string(),
+        })?
+        .with_status(404)),
+    }
+}
+
+/// GET /api/v1/modules/:name/:version
+/// Returns specific module version (supports protobuf or JSON)
+pub async fn handle_module_version(req: Request, ctx: RouteContext<()>) -> Result<Response> {
+    let registry = get_registry(&ctx.env).await?;
+    let module_name = ctx.param("name").map(|s| s.as_str()).unwrap_or("");
+    let version = ctx.param("version").map(|s| s.as_str()).unwrap_or("");
+
+    let module = registry.modules.iter().find(|m| m.name == module_name);
+
+    match module {
+        Some(m) => {
+            let module_version = m.versions.iter().find(|v| v.version == version);
+            match module_version {
+                Some(mv) => create_response(&req, mv.clone()),
+                None => Ok(Response::from_json(&ErrorResponse {
+                    error: "Module version not found".to_string(),
+                })?
+                .with_status(404)),
+            }
+        }
+        None => Ok(Response::from_json(&ErrorResponse {
+            error: "Module not found".to_string(),
+        })?
+        .with_status(404)),
+    }
+}
+
+/// GET /api/v1/search?q=query
 /// Search modules by name or description
 pub async fn handle_search(req: Request, ctx: RouteContext<()>) -> Result<Response> {
     let registry = get_registry(&ctx.env).await?;
@@ -135,7 +188,7 @@ pub async fn handle_search(req: Request, ctx: RouteContext<()>) -> Result<Respon
     Response::from_json(&results)
 }
 
-/// GET /api/registry
+/// GET /api/v1/registry
 /// Returns full registry (protobuf) or registry metadata (JSON)
 pub async fn handle_registry_info(req: Request, ctx: RouteContext<()>) -> Result<Response> {
     let registry = get_registry(&ctx.env).await?;
@@ -153,7 +206,7 @@ pub async fn handle_registry_info(req: Request, ctx: RouteContext<()>) -> Result
     }
 }
 
-/// GET /api/version
+/// GET /api/v1/version
 /// Returns API version information
 pub async fn handle_version(_req: Request, _ctx: RouteContext<()>) -> Result<Response> {
     let info = VersionInfo {
