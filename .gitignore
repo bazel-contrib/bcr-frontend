@@ -1,13 +1,10 @@
 /bazel-*
 /data/bazel-central-registry/
-/thirdparty/
 .env
 /modules/
 /*.log
 /resources.json
 /repository-metadata.json
 
-
 # Added by cargo
-
 /target

@@ -6,6 +6,9 @@ rust_shared_library(
     srcs = glob(["src/**/*.rs"]),
     crate_root = "src/lib.rs",
     edition = "2021",
+    rustc_env_files = ["api.env"],
+    stamp = -1,  # -1 means "only stamp if --stamp is given in build config"
+    version = "0.1.0",
     deps = [
         "//build/stack/bazel/bzlmod/v1:bzpb_rs",
         "//build/stack/starlark/v1beta1:v1beta1_rs",
@@ -20,8 +23,7 @@ rust_shared_library(
 rust_wasm_bindgen(
     name = "api",
     bindgen_flags = ["--no-typescript"],
-    target = "web",
-    visibility = ["//visibility:public"],
+    target = "web",  # Use 'web' target for Cloudflare Workers compatibility
     wasm_file = ":api_lib",
 )
 

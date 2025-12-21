@@ -1,4 +1,4 @@
-common --vendor_dir=thirdparty
+build --workspace_status_command=./tools/workspace_status.sh
 
 # IMPORTANT:
 # export JAVA_HOME=/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home

@@ -25,13 +25,12 @@ trap "rm -rf '$BUILD_DIR'" EXIT
 echo "📦 Preparing deployment artifacts..."
 
 # Copy WASM files from runfiles
-# Note: With target="bundler", wasm-bindgen generates:
-#   - api.js (main JS glue code)
-#   - api_bg.js (background JS helper)
+# Note: With target="web", wasm-bindgen only generates:
+#   - api.js (contains all JS code)
 #   - api_bg.wasm (the WASM binary)
-cp "$WASM_DIR/api.js" "$BUILD_DIR/"
-cp "$WASM_DIR/api_bg.js" "$BUILD_DIR/"
+#   - No separate _bg.js file
 cp "$WASM_DIR/api_bg.wasm" "$BUILD_DIR/"
+cp "$WASM_DIR/api.js" "$BUILD_DIR/"
 
 # Copy snippets directory if it exists
 if [ -d "$WASM_DIR/snippets" ]; then

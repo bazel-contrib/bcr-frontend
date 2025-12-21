@@ -21,6 +21,14 @@ struct ErrorResponse {
     error: String,
 }
 
+#[derive(Serialize)]
+struct VersionInfo {
+    version: String,
+    build_timestamp: String,
+    git_commit: String,
+    git_branch: String,
+}
+
 /// GET /api/modules
 /// Returns list of all modules with basic info
 pub async fn handle_modules(req: Request, _ctx: RouteContext<()>) -> Result<Response> {
@@ -105,6 +113,19 @@ pub async fn handle_registry_info(req: Request, _ctx: RouteContext<()>) -> Resul
     let info = RegistryInfo {
         registry_url: registry.registry_url.clone(),
         module_count: registry.modules.len(),
+    };
+
+    Response::from_json(&info)
+}
+
+/// GET /api/version
+/// Returns API version information
+pub async fn handle_version(_req: Request, _ctx: RouteContext<()>) -> Result<Response> {
+    let info = VersionInfo {
+        version: option_env!("API_VERSION").unwrap_or("dev").to_string(),
+        build_timestamp: option_env!("BUILD_TIMESTAMP").unwrap_or("unknown").to_string(),
+        git_commit: option_env!("STABLE_GIT_COMMIT").unwrap_or("unknown").to_string(),
+        git_branch: option_env!("STABLE_GIT_BRANCH").unwrap_or("unknown").to_string(),
     };
 
     Response::from_json(&info)
