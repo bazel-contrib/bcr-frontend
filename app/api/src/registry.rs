@@ -7,35 +7,38 @@ use bzpb_rs::build::stack::bazel::bzlmod::v1::Registry;
 static mut CACHED_REGISTRY: Option<Registry> = None;
 
 /// Lazy-load and cache the registry protobuf
-pub async fn get_registry(req: &Request) -> Result<&'static Registry> {
+pub async fn get_registry(env: &Env) -> Result<&'static Registry> {
     unsafe {
         if CACHED_REGISTRY.is_none() {
-            let registry = load_registry(req).await?;
+            let registry = load_registry(env).await?;
             CACHED_REGISTRY = Some(registry);
         }
         Ok(CACHED_REGISTRY.as_ref().unwrap())
     }
 }
 
-/// Load registry.pb.gz from static assets
-async fn load_registry(_req: &Request) -> Result<Registry> {
-    // Fetch the registry from external URL
-    // TODO: Make this configurable via environment variable
-    let registry_url = "https://bcr.stack.build/registry.pb.gz";
+/// Load registry.pb from ASSETS binding
+async fn load_registry(env: &Env) -> Result<Registry> {
+    // Get the ASSETS binding as a Fetcher
+    let assets = env.get_binding::<Fetcher>("ASSETS")
+        .map_err(|e| Error::RustError(format!("Failed to get ASSETS binding: {}", e)))?;
 
-    // Fetch compressed registry
-    let mut init = RequestInit::new();
-    init.method = Method::Get;
+    // Fetch registrylite.pb from assets (need dummy URL per worker-rs docs)
+    // registrylite.pb is an uncompressed, smaller version that fits within Cloudflare's 25MB asset limit
+    let url = "https://example.com/registrylite.pb";
+    let mut response = assets.fetch(url, None).await?;
 
-    let registry_req = Request::new_with_init(&registry_url, &init)?;
-    let mut response = Fetch::Request(registry_req).send().await?;
-    let compressed_bytes = response.bytes().await?;
+    if response.status_code() != 200 {
+        return Err(Error::RustError(format!(
+            "Failed to fetch registrylite.pb: status {}",
+            response.status_code()
+        )));
+    }
 
-    // Decompress using gzip
-    let decompressed = decompress_gzip(&compressed_bytes)?;
+    // Get the response body bytes and parse directly (no decompression needed)
+    let body_bytes = response.bytes().await?;
 
-    // Parse protobuf
-    Registry::decode(&decompressed[..])
+    Registry::decode(&body_bytes[..])
         .map_err(|e| Error::RustError(format!("Failed to decode registry: {}", e)))
 }
 

@@ -337,8 +337,8 @@ Sitemap: {registry_url}/sitemap.xml
 
     return output
 
-def _compile_registry_action(ctx, modules, docRegistry):
-    output = ctx.actions.declare_file("registry.pb")
+def _compile_registry_action(ctx, filename, modules, docRegistry = None):
+    output = ctx.actions.declare_file(filename)
     inputs = [] + modules
 
     args = ctx.actions.args()
@@ -390,7 +390,9 @@ def _module_registry_impl(ctx):
     codesearch_index = _compile_codesearch_index_action(ctx, deps)
     doc_results = _compile_documentation(ctx, deps)
     documentation_registry_pb = _compile_documentation_registry(ctx, doc_results)
-    registry_pb = _compile_registry_action(ctx, modules, documentation_registry_pb)
+    registry_pb = _compile_registry_action(ctx, "registry.pb", modules, documentation_registry_pb)
+    registrylite_pb = _compile_registry_action(ctx, "registrylite.pb", modules)
+
     sitemap_xml = _compile_sitemap_action(ctx, registry_pb)
     bazel_help = _compile_bazel_help_registry_action(ctx, bazel_versions)
 
@@ -403,6 +405,7 @@ def _module_registry_impl(ctx):
             sitemap_xml = [sitemap_xml],
             robots_txt = [robots_txt],
             registry_pb = [registry_pb],
+            registrylite_pb = [registrylite_pb],
             codesearch_index = [codesearch_index],
             docs = depset([r.output for r in doc_results]),
             documentation_registry_pb = depset([documentation_registry_pb]),

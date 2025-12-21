@@ -5,7 +5,7 @@ import wasm from './api_bg.wasm';
 let initialized = false;
 async function ensureInit() {
   if (!initialized) {
-    await init(wasm);
+    await init({ module_or_path: wasm });
     initialized = true;
   }
 }

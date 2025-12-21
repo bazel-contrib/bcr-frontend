@@ -1,7 +1,37 @@
 use serde::Serialize;
 use worker::*;
+use prost::Message;
 
 use crate::registry::get_registry;
+
+/// Helper to determine if the client accepts protobuf
+fn accepts_protobuf(req: &Request) -> bool {
+    req.headers()
+        .get("Accept")
+        .ok()
+        .flatten()
+        .map(|accept| accept.contains("application/protobuf") || accept.contains("application/x-protobuf"))
+        .unwrap_or(false)
+}
+
+/// Helper to create a response based on Accept header
+fn create_response<T: Message + Serialize>(req: &Request, data: T) -> Result<Response> {
+    if accepts_protobuf(req) {
+        // Return protobuf binary
+        let mut buf = Vec::new();
+        data.encode(&mut buf)
+            .map_err(|e| Error::RustError(format!("Failed to encode protobuf: {}", e)))?;
+
+        Response::from_bytes(buf).map(|r| {
+            let headers = Headers::new();
+            headers.set("Content-Type", "application/protobuf").ok();
+            r.with_headers(headers)
+        })
+    } else {
+        // Return JSON (default)
+        Response::from_json(&data)
+    }
+}
 
 #[derive(Serialize)]
 struct ModuleListItem {
@@ -31,8 +61,8 @@ struct VersionInfo {
 
 /// GET /api/modules
 /// Returns list of all modules with basic info
-pub async fn handle_modules(req: Request, _ctx: RouteContext<()>) -> Result<Response> {
-    let registry = get_registry(&req).await?;
+pub async fn handle_modules(_req: Request, ctx: RouteContext<()>) -> Result<Response> {
+    let registry = get_registry(&ctx.env).await?;
 
     let modules: Vec<ModuleListItem> = registry
         .modules
@@ -52,15 +82,15 @@ pub async fn handle_modules(req: Request, _ctx: RouteContext<()>) -> Result<Resp
 }
 
 /// GET /api/modules/:name
-/// Returns full module details by name
+/// Returns full module details by name (supports protobuf or JSON)
 pub async fn handle_module_by_name(req: Request, ctx: RouteContext<()>) -> Result<Response> {
-    let registry = get_registry(&req).await?;
+    let registry = get_registry(&ctx.env).await?;
     let module_name = ctx.param("name").map(|s| s.as_str()).unwrap_or("");
 
     let module = registry.modules.iter().find(|m| m.name == module_name);
 
     match module {
-        Some(m) => Response::from_json(m),
+        Some(m) => create_response(&req, m.clone()),
         None => Ok(Response::from_json(&ErrorResponse {
             error: "Module not found".to_string(),
         })?
@@ -70,8 +100,8 @@ pub async fn handle_module_by_name(req: Request, ctx: RouteContext<()>) -> Resul
 
 /// GET /api/search?q=query
 /// Search modules by name or description
-pub async fn handle_search(req: Request, _ctx: RouteContext<()>) -> Result<Response> {
-    let registry = get_registry(&req).await?;
+pub async fn handle_search(req: Request, ctx: RouteContext<()>) -> Result<Response> {
+    let registry = get_registry(&ctx.env).await?;
 
     let url = req.url()?;
     let query = url
@@ -106,16 +136,21 @@ pub async fn handle_search(req: Request, _ctx: RouteContext<()>) -> Result<Respo
 }
 
 /// GET /api/registry
-/// Returns registry metadata
-pub async fn handle_registry_info(req: Request, _ctx: RouteContext<()>) -> Result<Response> {
-    let registry = get_registry(&req).await?;
+/// Returns full registry (protobuf) or registry metadata (JSON)
+pub async fn handle_registry_info(req: Request, ctx: RouteContext<()>) -> Result<Response> {
+    let registry = get_registry(&ctx.env).await?;
 
-    let info = RegistryInfo {
-        registry_url: registry.registry_url.clone(),
-        module_count: registry.modules.len(),
-    };
-
-    Response::from_json(&info)
+    if accepts_protobuf(&req) {
+        // Return full Registry protobuf
+        create_response(&req, registry.clone())
+    } else {
+        // Return JSON summary
+        let info = RegistryInfo {
+            registry_url: registry.registry_url.clone(),
+            module_count: registry.modules.len(),
+        };
+        Response::from_json(&info)
+    }
 }
 
 /// GET /api/version
