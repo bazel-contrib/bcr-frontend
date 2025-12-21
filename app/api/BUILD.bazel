@@ -1,0 +1,38 @@
+load("@rules_rust//rust:defs.bzl", "rust_shared_library")
+load("@rules_rust_wasm_bindgen//:defs.bzl", "rust_wasm_bindgen")
+
+rust_shared_library(
+    name = "api_lib",
+    srcs = glob(["src/**/*.rs"]),
+    crate_root = "src/lib.rs",
+    edition = "2021",
+    rustc_env_files = ["api.env"],
+    stamp = -1,  # -1 means "only stamp if --stamp is given in build config"
+    version = "0.1.0",
+    deps = [
+        "//build/stack/bazel/bzlmod/v1:bzpb_rs",
+        "//build/stack/starlark/v1beta1:v1beta1_rs",
+        "@crates//:prost",
+        "@crates//:serde",
+        "@crates//:serde_json",
+        "@crates//:worker",
+    ],
+)
+
+rust_wasm_bindgen(
+    name = "api",
+    bindgen_flags = ["--no-typescript"],
+    target = "web",
+    visibility = ["//app/bcr:__pkg__"],
+    wasm_file = ":api_lib",
+)
+
+# Deployment helper
+sh_binary(
+    name = "deploy",
+    srcs = ["deploy.sh"],
+    data = [
+        "wrangler.toml",
+        ":api",
+    ],
+)

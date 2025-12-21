@@ -260,6 +260,7 @@ closure_js_binary(
         "sitemap_xml",
         "robots_txt",
         "registry_pb",
+        "registrylite_pb",
         "documentation_registry_pb",
     ]
 ]
@@ -283,6 +284,7 @@ release_archive(
     name = "release",
     srcs = [
         "favicon.png",
+        ":registrylite_pb",
         ":robots_txt",
         ":sitemap_xml",
     ] + select({
@@ -295,6 +297,7 @@ release_archive(
     ],
     index_html = "index.html",
     registry_file = ":registry_pb",
+    worker_modules = ["//app/api"],
 )
 
 cloudflare_deploy(
@@ -302,4 +305,6 @@ cloudflare_deploy(
     account_id = "df53dccd72b4a61d2f8b1323256bc71c",
     project = "centrl",
     tarball = ":release",
+    worker_modules = ["//app/api"],
+    worker_script = "worker.mjs",
 )

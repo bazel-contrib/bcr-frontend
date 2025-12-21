@@ -1,0 +1,20 @@
+# Binary tools for protocol buffer code generation
+
+# Expose protoc-gen-tonic as a runnable binary
+# The actual target comes from @rules_rust's crate registry
+alias(
+    name = "protoc-gen-tonic",
+    actual = "//bazel_tools/rust:protoc-gen-tonic_bin",
+    visibility = ["//visibility:public"],
+)
+
+# Expose protoc-gen-prost as a runnable binary
+alias(
+    name = "protoc-gen-prost",
+    actual = "//bazel_tools/rust:protoc-gen-prost_bin",
+    visibility = ["//visibility:public"],
+)
+
+# Usage examples:
+# bazel run //tools:protoc-gen-tonic -- --version
+# bazel run //tools:protoc-gen-prost -- --help

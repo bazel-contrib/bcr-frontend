@@ -3,6 +3,7 @@ load("@build_stack_rules_proto//rules:proto_compiled_sources.bzl", "proto_compil
 load("@rules_go//go:def.bzl", "go_library")
 load("@rules_proto//proto:defs.bzl", "proto_library")
 load("@stackb_rules_closure//closure/protobuf:defs.bzl", "closure_jspb_library")
+load("//bazel_tools/rust:proto_rust_library.bzl", "proto_rust_library")
 
 go_library(
     name = "v1beta1",
@@ -60,4 +61,33 @@ closure_jspb_library(
     internal_descriptors = [":v1beta1_proto"],
     visibility = ["//visibility:public"],
     deps = ["//stardoc_output:stardoc_output_js"],
+)
+
+proto_compile(
+    name = "v1beta1_proto_rs",
+    options = {
+        "//bazel_tools/rust:protoc-gen-prost": [
+            "extern_path=.stardoc_output=::stardoc_output_rs::stardoc_output",
+        ],
+    },
+    outputs = [
+        "build.stack.starlark.v1beta1.rs",
+        "build.stack.starlark.v1beta1.serde.rs",
+    ],
+    plugins = [
+        "//bazel_tools/rust:protoc-gen-prost",
+        "//bazel_tools/rust:protoc-gen-prost-serde",
+    ],
+    proto = "v1beta1_proto",
+    verbose = False,
+)
+
+proto_rust_library(
+    name = "v1beta1_rs",
+    srcs = [":v1beta1_proto_rs"],
+    pkg = "build.stack.starlark.v1beta1",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//stardoc_output:stardoc_output_rs",
+    ],
 )

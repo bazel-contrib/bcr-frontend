@@ -20,6 +20,10 @@ bazel_dep(name = "rules_proto", version = "7.1.0", dev_dependency = True)
 bazel_dep(name = "rules_tsickle", version = "1.1.0", dev_dependency = True)
 bazel_dep(name = "stackb_rules_closure", version = "1.0.0", dev_dependency = True)
 bazel_dep(name = "stackb_ui_js", version = "1.0.0", dev_dependency = True)
+bazel_dep(name = "rules_rs", version = "0.0.16", dev_dependency = True)
+bazel_dep(name = "rules_rust", version = "0.68.1", dev_dependency = True)
+
+bazel_dep(name = "rules_rust_wasm_bindgen", version = "0.68.1")
 
 # -------------------------------------------------------------------
 # Overrides
@@ -118,21 +122,38 @@ use_repo(
 )
 
 # -------------------------------------------------------------------
-# Configuration: Registry Base File
+# Configuration: Cargo
 # -------------------------------------------------------------------
 
-http_file = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_file")
-
-# Vendor in the last known state of the registry, as a backup source of metadata
-# in case we hit rate limits while fetching github repository metadata.
-#
-# $ bazel vendor --vendor_dir=thirdparty --repo=@registry_pb
-http_file(
-    name = "registry_pb",
-    downloaded_file_path = "registry.pb",
-    urls = [
-        "https://621c132f.centrl.pages.dev/registry.pb",
+crate = use_extension("@rules_rs//rs:extensions.bzl", "crate")
+crate.from_cargo(
+    name = "crates",
+    cargo_lock = "//:Cargo.lock",
+    cargo_toml = "//:Cargo.toml",
+    platform_triples = [
+        "aarch64-apple-darwin",
+        "x86_64-unknown-linux-gnu",
+        "wasm32-unknown-unknown",
     ],
+)
+crate.annotation(
+    crate = "protoc-gen-prost",
+    gen_binaries = ["protoc-gen-prost"],
+)
+crate.annotation(
+    crate = "protoc-gen-prost-serde",
+    gen_binaries = ["protoc-gen-prost-serde"],
+)
+crate.annotation(
+    crate = "wasm-bindgen-cli",
+    gen_binaries = ["wasm-bindgen"],
+)
+use_repo(crate, "crates")
+
+register_toolchains(
+    # override the default toolchain to match the wasm-bindgen version wanted by
+    # workerd API ("@rules_rust_wasm_bindgen//:default_wasm_bindgen_toolchain")
+    "//bazel_tools/rust:wasm_bindgen_toolchain",
 )
 
 # -------------------------------------------------------------------

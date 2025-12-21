@@ -3,6 +3,7 @@ load("@build_stack_rules_proto//rules:proto_compiled_sources.bzl", "proto_compil
 load("@rules_go//go:def.bzl", "go_library")
 load("@rules_proto//proto:defs.bzl", "proto_library")
 load("@stackb_rules_closure//closure/protobuf:defs.bzl", "closure_jspb_library")
+load("//bazel_tools/rust:proto_rust_library.bzl", "proto_rust_library")
 
 proto_library(
     name = "bzpb_proto",
@@ -46,5 +47,34 @@ closure_jspb_library(
     visibility = ["//visibility:public"],
     deps = [
         "//build/stack/starlark/v1beta1:v1beta1_proto_js",
+    ],
+)
+
+proto_compile(
+    name = "bzpb_proto_rs",
+    options = {
+        "//bazel_tools/rust:protoc-gen-prost": [
+            "extern_path=.build.stack.starlark.v1beta1=::v1beta1_rs::build::stack::starlark::v1beta1",
+        ],
+    },
+    outputs = [
+        "build.stack.bazel.bzlmod.v1.rs",
+        "build.stack.bazel.bzlmod.v1.serde.rs",
+    ],
+    plugins = [
+        "//bazel_tools/rust:protoc-gen-prost",
+        "//bazel_tools/rust:protoc-gen-prost-serde",
+    ],
+    proto = "bzpb_proto",
+    verbose = False,
+)
+
+proto_rust_library(
+    name = "bzpb_rs",
+    srcs = [":bzpb_proto_rs"],
+    pkg = "build.stack.bazel.bzlmod.v1",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//build/stack/starlark/v1beta1:v1beta1_rs",
     ],
 )

@@ -1,0 +1,25 @@
+load("@build_stack_rules_proto//rules:proto_plugin.bzl", "proto_plugin")
+load("@rules_rust_wasm_bindgen//:defs.bzl", "rust_wasm_bindgen_toolchain")
+
+rust_wasm_bindgen_toolchain(
+    name = "rust_wasm_bindgen_toolchain",
+    wasm_bindgen_cli = "@crates//:wasm-bindgen-cli__wasm-bindgen",
+)
+
+toolchain(
+    name = "wasm_bindgen_toolchain",
+    toolchain = "rust_wasm_bindgen_toolchain",
+    toolchain_type = "@rules_rust_wasm_bindgen//:toolchain_type",
+)
+
+proto_plugin(
+    name = "protoc-gen-prost",
+    tool = "@crates//:protoc-gen-prost__protoc-gen-prost",
+    visibility = ["//visibility:public"],
+)
+
+proto_plugin(
+    name = "protoc-gen-prost-serde",
+    tool = "@crates//:protoc-gen-prost-serde__protoc-gen-prost-serde",
+    visibility = ["//visibility:public"],
+)

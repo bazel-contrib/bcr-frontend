@@ -1,40 +1,6 @@
 plugins:
   - name: protoc-gen-go
     implementation: golang:protobuf:protoc-gen-go
-    options: &Moptions
-      - Mbuild/bazel/remote/execution/v2/remote_execution.proto=github.com/bazelbuild/remoteapis/build/bazel/remote/execution/v2/remote_execution
-      - Mbuild/bazel/semver/semver.proto=github.com/bazelbuild/remoteapis/build/bazel/semver/semver
-      - Msrc/main/java/com/google/devtools/build/lib/bazel/debug/workspace_log.proto=github.com/bazelbuild/bazelapis/src/main/java/com/google/devtools/build/lib/bazel/debug/workspace_log
-      - Msrc/main/java/com/google/devtools/build/lib/buildeventstream/proto/build_event_stream.proto=github.com/bazelbuild/bazelapis/src/main/java/com/google/devtools/build/lib/buildeventstream/proto/build_event_stream/build_event_stream
-      - Msrc/main/java/com/google/devtools/build/lib/packages/metrics/package_metrics.proto=github.com/bazelbuild/bazelapis/src/main/java/com/google/devtools/build/lib/packages/metrics/package_metrics
-      - Msrc/main/java/com/google/devtools/build/lib/skyframe/proto/action_rewind_event.proto=github.com/bazelbuild/bazelapis/src/main/java/com/google/devtools/build/lib/skyframe/proto/action_rewind_event
-      - Msrc/main/java/com/google/devtools/build/lib/starlarkdebug/proto/starlark_debugging.proto=github.com/bazelbuild/bazelapis/src/main/java/com/google/devtools/build/lib/starlarkdebug/proto/starlark_debugging
-      - Msrc/main/java/com/google/devtools/build/skydoc/rendering/proto/stardoc_output.proto=github.com/bazelbuild/bazelapis/src/main/java/com/google/devtools/build/skydoc/rendering/proto/stardoc_output/stardoc_output
-      - Msrc/main/java/com/google/devtools/build/skyframe/graph_inconsistency.proto=github.com/bazelbuild/bazelapis/src/main/java/com/google/devtools/build/skyframe/graph_inconsistency
-      - Msrc/main/protobuf/action_cache.proto=github.com/bazelbuild/bazelapis/src/main/protobuf/action_cache
-      - Msrc/main/protobuf/analysis_v2.proto=github.com/bazelbuild/bazelapis/src/main/protobuf/analysis_v2
-      - Msrc/main/protobuf/analysis.proto=github.com/bazelbuild/bazelapis/src/main/protobuf/analysis
-      - Msrc/main/protobuf/android_deploy_info.proto=github.com/bazelbuild/bazelapis/src/main/protobuf/android_deploy_info
-      - Msrc/main/protobuf/bazel_flags.proto=github.com/bazelbuild/bazelapis/src/main/protobuf/bazel_flags
-      - Msrc/main/protobuf/build.proto=github.com/bazelbuild/bazelapis/src/main/protobuf/build
-      - Msrc/main/protobuf/builtin.proto=github.com/bazelbuild/bazelapis/src/main/protobuf/builtin
-      - Msrc/main/protobuf/command_line.proto=github.com/bazelbuild/bazelapis/src/main/protobuf/command_line
-      - Msrc/main/protobuf/command_server.proto=github.com/bazelbuild/bazelapis/src/main/protobuf/command_server
-      - Msrc/main/protobuf/crosstool_config.proto=github.com/bazelbuild/bazelapis/src/main/protobuf/crosstool_config
-      - Msrc/main/protobuf/deps.proto=github.com/bazelbuild/bazelapis/src/main/protobuf/deps
-      - Msrc/main/protobuf/desugar_deps.proto=github.com/bazelbuild/bazelapis/src/main/protobuf/desugar_deps
-      - Msrc/main/protobuf/execution_statistics.proto=github.com/bazelbuild/bazelapis/src/main/protobuf/execution_statistics
-      - Msrc/main/protobuf/extra_actions_base.proto=github.com/bazelbuild/bazelapis/src/main/protobuf/extra_actions_base
-      - Msrc/main/protobuf/failure_details.proto=github.com/bazelbuild/bazelapis/src/main/protobuf/failure_details
-      - Msrc/main/protobuf/invocation_policy.proto=github.com/bazelbuild/bazelapis/src/main/protobuf/invocation_policy
-      - Msrc/main/protobuf/java_compilation.proto=github.com/bazelbuild/bazelapis/src/main/protobuf/java_compilation
-      - Msrc/main/protobuf/option_filters.proto=github.com/bazelbuild/bazelapis/src/main/protobuf/option_filters
-      - Msrc/main/protobuf/remote_execution_log.proto=github.com/bazelbuild/bazelapis/src/main/protobuf/remote_execution_log
-      - Msrc/main/protobuf/spawn.proto=github.com/bazelbuild/bazelapis/src/main/protobuf/spawn
-      - Msrc/main/protobuf/stardoc_output.proto=github.com/bazelbuild/bazel/src/main/protobuf/stardoc_output
-      - Msrc/main/protobuf/test_status.proto=github.com/bazelbuild/bazelapis/src/main/protobuf/test_status
-      - Msrc/main/protobuf/worker_protocol.proto=github.com/bazelbuild/bazelapis/src/main/protobuf/worker_protocol
-      - Msrc/main/protobuf/xcode_config.proto=github.com/bazelbuild/bazelapis/src/main/protobuf/xcode_config
     deps:
       - "@org_golang_google_protobuf//encoding/protojson:protojson"
       - "@org_golang_google_protobuf//proto"
@@ -43,7 +9,6 @@ plugins:
       - "@org_golang_google_protobuf//runtime/protoimpl"
   - name: protoc-gen-go-grpc
     implementation: grpc:grpc-go:protoc-gen-go-grpc
-    options: *Moptions
     deps:
       - "@org_golang_google_grpc//:go_default_library"
       - "@org_golang_google_grpc//codes"

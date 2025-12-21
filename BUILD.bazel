@@ -35,7 +35,6 @@ gazelle_binary(
 proto_gazelle(
     name = "gazelle",
     cfgs = ["//:rules_proto_config.yaml"],
-    data = ["@registry_pb//file"],
     external = "static",
     gazelle = "//:gazelle-custom",
 )
@@ -73,7 +72,6 @@ gazelle(
         "--exclude=$HOME",  # exists in CI?
         "--exclude=modules",
     ] + ["--exclude=" + dir for dir in bcr_exclude_dirs],
-    data = ["@registry_pb//file"],
     gazelle = "//:gazelle-bcr",
 )
 

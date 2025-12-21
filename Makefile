@@ -40,6 +40,11 @@ serve-production:
 deploy:
 	bazel run //app/bcr:deploy --//app/bcr:release_type=production
 
+# Rust/Cargo targets
+.PHONY: cargo_update_lockfile
+cargo_update_lockfile:
+	cargo update --manifest-path app/api/Cargo.toml
+
 # Example: generate documentation for a single module version
 .PHONY: build_docs_for_module_version
 build_docs_for_module_version:

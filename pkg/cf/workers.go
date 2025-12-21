@@ -23,11 +23,12 @@ type WorkerDeployment struct {
 
 // WorkerMetadata represents metadata for a Worker deployment
 type WorkerMetadata struct {
-	MainModule         string        `json:"main_module,omitempty"`
-	CompatibilityDate  string        `json:"compatibility_date,omitempty"`
-	CompatibilityFlags []string      `json:"compatibility_flags,omitempty"`
-	Bindings           []interface{} `json:"bindings,omitempty"`
-	Assets             *AssetConfig  `json:"assets,omitempty"`
+	MainModule         string              `json:"main_module,omitempty"`
+	CompatibilityDate  string              `json:"compatibility_date,omitempty"`
+	CompatibilityFlags []string            `json:"compatibility_flags,omitempty"`
+	Bindings           []interface{}       `json:"bindings,omitempty"`
+	Assets             *AssetConfig        `json:"assets,omitempty"`
+	Parts              []map[string]string `json:"parts,omitempty"` // Module parts for ES modules and WASM
 }
 
 // AssetConfig represents asset configuration in Worker metadata
@@ -51,8 +52,8 @@ type WorkerDeployOptions struct {
 	AssetConfig        *AssetRouterConfig
 }
 
-// DeployWorkerWithAssets deploys a Worker script with assets
-func (c *Client) DeployWorkerWithAssets(scriptName, scriptPath, assetDir string, options WorkerDeployOptions) (*WorkerDeployment, error) {
+// DeployWorkerWithAssets deploys a Worker script with assets and optional WASM modules
+func (c *Client) DeployWorkerWithAssets(scriptName, scriptPath, assetDir string, wasmModules []string, options WorkerDeployOptions) (*WorkerDeployment, error) {
 	// Sync assets first
 	assetsJWT, err := c.SyncAssets(scriptName, assetDir)
 	if err != nil {
@@ -67,11 +68,29 @@ func (c *Client) DeployWorkerWithAssets(scriptName, scriptPath, assetDir string,
 
 	// Build metadata
 	scriptFilename := filepath.Base(scriptPath)
+
+	// Build parts list for ES modules
+	parts := []map[string]string{
+		{"name": scriptFilename},
+	}
+
+	// Add WASM and JS modules to parts list (filter by extension first)
+	for _, modulePath := range wasmModules {
+		ext := filepath.Ext(modulePath)
+		if ext != ".wasm" && ext != ".js" && ext != ".mjs" {
+			continue // Skip non-WASM/JS files
+		}
+		parts = append(parts, map[string]string{
+			"name": filepath.Base(modulePath),
+		})
+	}
+
 	metadata := WorkerMetadata{
 		MainModule:         scriptFilename,
 		CompatibilityDate:  options.CompatibilityDate,
 		CompatibilityFlags: options.CompatibilityFlags,
 		Bindings:           options.Bindings,
+		Parts:              parts,
 	}
 
 	// Add ASSETS binding if we have assets
@@ -130,6 +149,40 @@ func (c *Client) DeployWorkerWithAssets(scriptName, scriptPath, assetDir string,
 
 	if _, err := scriptPart.Write(scriptContent); err != nil {
 		return nil, fmt.Errorf("failed to write script content: %w", err)
+	}
+
+	// Add WASM and JS modules
+	for _, modulePath := range wasmModules {
+		ext := filepath.Ext(modulePath)
+		if ext != ".wasm" && ext != ".js" && ext != ".mjs" {
+			c.logf("Skipping non-WASM/JS file: %s", modulePath)
+			continue
+		}
+		moduleContent, err := os.ReadFile(modulePath)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read module %s: %w", modulePath, err)
+		}
+
+		moduleFilename := filepath.Base(modulePath)
+		contentType := "application/javascript+module"
+		if filepath.Ext(moduleFilename) == ".wasm" {
+			contentType = "application/wasm"
+		}
+
+		h := make(map[string][]string)
+		h["Content-Disposition"] = []string{fmt.Sprintf(`form-data; name="%s"; filename="%s"`, moduleFilename, moduleFilename)}
+		h["Content-Type"] = []string{contentType}
+
+		modulePart, err := writer.CreatePart(h)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create module form part for %s: %w", moduleFilename, err)
+		}
+
+		if _, err := modulePart.Write(moduleContent); err != nil {
+			return nil, fmt.Errorf("failed to write module content for %s: %w", moduleFilename, err)
+		}
+
+		c.logf("Added module: %s (%s)", moduleFilename, contentType)
 	}
 
 	if err := writer.Close(); err != nil {

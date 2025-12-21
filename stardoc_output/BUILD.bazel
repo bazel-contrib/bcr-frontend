@@ -3,6 +3,7 @@ load("@build_stack_rules_proto//rules:proto_compiled_sources.bzl", "proto_compil
 load("@rules_go//go:def.bzl", "go_library")
 load("@rules_proto//proto:defs.bzl", "proto_library")
 load("@stackb_rules_closure//closure/protobuf:defs.bzl", "closure_jspb_library")
+load("//bazel_tools/rust:proto_rust_library.bzl", "proto_rust_library")
 
 proto_library(
     name = "stardoc_output_proto",
@@ -41,5 +42,26 @@ closure_jspb_library(
     name = "stardoc_output_js",
     srcs = [":stardoc_output_js_proto"],
     internal_descriptors = [":stardoc_output_proto"],
+    visibility = ["//visibility:public"],
+)
+
+proto_compile(
+    name = "stardoc_output_proto_rs",
+    outputs = [
+        "stardoc_output.rs",
+        "stardoc_output.serde.rs",
+    ],
+    plugins = [
+        "//bazel_tools/rust:protoc-gen-prost",
+        "//bazel_tools/rust:protoc-gen-prost-serde",
+    ],
+    proto = "stardoc_output_proto",
+    verbose = False,
+)
+
+proto_rust_library(
+    name = "stardoc_output_rs",
+    srcs = [":stardoc_output_proto_rs"],
+    pkg = "stardoc_output",
     visibility = ["//visibility:public"],
 )
