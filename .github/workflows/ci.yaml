@@ -25,7 +25,7 @@ jobs:
           --bazelrc=.bazelrc
           build
           --//app/bcr:release_type=dummy
-          //pkg/... //cmd/... //language/... //app/bcr/... //blaze/... //build/... //stardoc_output/...
+          //pkg/... //cmd/... //language/... //app/... //blaze/... //build/... //stardoc_output/...
       - name: bazel test
         run: >-
           bazelisk
