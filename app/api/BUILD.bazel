@@ -19,6 +19,7 @@ rust_shared_library(
 
 rust_wasm_bindgen(
     name = "api_wasm",
+    bindgen_flags = ["--no-typescript"],
     target = "web",  # Use 'web' target for Cloudflare Workers compatibility
     wasm_file = ":api_lib",
 )
