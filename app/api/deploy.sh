@@ -16,7 +16,7 @@ else
 fi
 
 # Locate the WASM artifacts in runfiles (workspace name is _main, not stackb_centrl)
-WASM_DIR="$RUNFILES/app/api/centrl_api_wasm"
+WASM_DIR="$RUNFILES/app/api/api"
 
 # Create temporary build directory for deployment
 BUILD_DIR="$(mktemp -d)"
@@ -25,12 +25,13 @@ trap "rm -rf '$BUILD_DIR'" EXIT
 echo "📦 Preparing deployment artifacts..."
 
 # Copy WASM files from runfiles
-# Note: With target="web", wasm-bindgen only generates:
-#   - centrl_api_wasm.js (contains all JS code)
-#   - centrl_api_wasm_bg.wasm (the WASM binary)
-#   - No separate _bg.js file
-cp "$WASM_DIR/centrl_api_wasm_bg.wasm" "$BUILD_DIR/"
-cp "$WASM_DIR/centrl_api_wasm.js" "$BUILD_DIR/"
+# Note: With target="bundler", wasm-bindgen generates:
+#   - api.js (main JS glue code)
+#   - api_bg.js (background JS helper)
+#   - api_bg.wasm (the WASM binary)
+cp "$WASM_DIR/api.js" "$BUILD_DIR/"
+cp "$WASM_DIR/api_bg.js" "$BUILD_DIR/"
+cp "$WASM_DIR/api_bg.wasm" "$BUILD_DIR/"
 
 # Copy snippets directory if it exists
 if [ -d "$WASM_DIR/snippets" ]; then
@@ -44,8 +45,8 @@ cp "$RUNFILES/app/api/wrangler.toml" "$BUILD_DIR/"
 # With target="web", wasm-bindgen generates an init function we need to call
 cat > "$BUILD_DIR/index.mjs" << 'EOF'
 // Entry point for Cloudflare Workers
-import init, { fetch as wasmFetch } from './centrl_api_wasm.js';
-import wasm from './centrl_api_wasm_bg.wasm';
+import init, { fetch as wasmFetch } from './api.js';
+import wasm from './api_bg.wasm';
 
 // Initialize WASM on first load
 let initialized = false;

@@ -58,7 +58,6 @@ func (ext *bcrExtension) AfterResolvingDeps(ctx context.Context) {
 	// docs for) Only do this after MVS calculation and MODULE.bazel merge to
 	// narrow down the set
 	ext.resolveSourceCommitSHAsForRankedModules(availableBzlRepositories)
-	// ext.resolveSourceCommitSHAsForLatestVersions()
 
 	// Write the updated caches back to files - best effort, ignoring errors
 	if err := ext.writeResourceStatusCacheFile(); err != nil {

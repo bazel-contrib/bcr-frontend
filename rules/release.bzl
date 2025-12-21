@@ -26,14 +26,20 @@ def _compile_release_action(ctx):
     if ctx.file.documentation_registry_file:
         args.add("--documentation_registry_file")
         args.add(ctx.file.documentation_registry_file)
-    if len(ctx.files.srcs) > 0:
-        args.add("--exclude_from_hash", ",".join([src.basename for src in ctx.files.srcs]))
+
+    # Collect files to exclude from hashing
+    exclude_from_hash = [src.basename for src in ctx.files.srcs]
+    # Add worker modules to exclude list (don't hash WASM/JS modules)
+    exclude_from_hash.extend([mod.basename for mod in ctx.files.worker_modules])
+    if len(exclude_from_hash) > 0:
+        args.add("--exclude_from_hash", ",".join(exclude_from_hash))
 
     args.add_all(ctx.files.srcs)
     args.add_all(ctx.files.hashed_srcs)
+    args.add_all(ctx.files.worker_modules)
 
     # Build inputs list
-    inputs = ctx.files.srcs + ctx.files.hashed_srcs + [
+    inputs = ctx.files.srcs + ctx.files.hashed_srcs + ctx.files.worker_modules + [
         ctx.file.index_html,
         ctx.file.registry_file,
     ] + (
@@ -67,6 +73,10 @@ release_archive = rule(
     attrs = {
         "hashed_srcs": attr.label_list(allow_files = True),
         "srcs": attr.label_list(allow_files = True),
+        "worker_modules": attr.label_list(
+            allow_files = [".wasm", ".js", ".mjs"],
+            doc = "WASM/JS modules for Worker (excluded from hashing)",
+        ),
         "index_html": attr.label(allow_single_file = True, mandatory = True),
         "registry_file": attr.label(allow_single_file = True),
         "documentation_registry_file": attr.label(allow_single_file = True),

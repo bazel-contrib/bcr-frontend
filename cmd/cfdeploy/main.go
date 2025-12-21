@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
+	"strings"
 
 	"github.com/stackb/centrl/pkg/cf"
 )
@@ -75,6 +77,7 @@ func deployWorker(args []string) {
 		script            = fs.String("script", "", "Path to Worker script file")
 		assets            = fs.String("assets", "", "Path to assets directory (optional)")
 		compatibilityDate = fs.String("compatibility_date", "", "Compatibility date (e.g., 2024-01-01)")
+		wasmModules       = fs.String("wasm_modules", "", "Comma-separated list of WASM/JS module paths")
 	)
 
 	fs.Usage = func() {
@@ -110,6 +113,31 @@ func deployWorker(args []string) {
 		CompatibilityDate: *compatibilityDate,
 	}
 
+	// Parse WASM modules
+	var modules []string
+	if *wasmModules != "" {
+		for _, m := range strings.Split(*wasmModules, ",") {
+			m = strings.TrimSpace(m)
+			if m == "" {
+				continue
+			}
+
+			// Check file extension
+			ext := filepath.Ext(m)
+			if ext != ".wasm" && ext != ".js" && ext != ".mjs" {
+				log.Printf("Skipping non-WASM/JS file: %s", m)
+				continue
+			}
+
+			// Verify module exists
+			if _, err := os.Stat(m); os.IsNotExist(err) {
+				log.Fatalf("WASM/JS module not found: %s", m)
+			}
+
+			modules = append(modules, m)
+		}
+	}
+
 	var deployment *cf.WorkerDeployment
 	var err error
 
@@ -127,7 +155,7 @@ func deployWorker(args []string) {
 			deployment, err = client.DeployAssetsOnly(*name, *assets, options)
 		} else {
 			log.Printf("Deploying Worker %s with assets from %s...", *name, *assets)
-			deployment, err = client.DeployWorkerWithAssets(*name, *script, *assets, options)
+			deployment, err = client.DeployWorkerWithAssets(*name, *script, *assets, modules, options)
 		}
 	} else {
 		if *script == "" {

@@ -112,6 +112,29 @@ func (ext *bcrExtension) getBackupRepositoryMetadataForModule(moduleName, versio
 	return nil
 }
 
+// getBackupModuleSource retrieves module source (including commit SHA) from the backup registry
+func (ext *bcrExtension) getBackupModuleSource(moduleName, version string) *bzpb.ModuleSource {
+	if ext.backupRegistry == nil {
+		return nil
+	}
+
+	// Find the module in backup registry
+	for _, module := range ext.backupRegistry.Modules {
+		if module.Name != moduleName {
+			continue
+		}
+
+		// Find the version
+		for _, v := range module.Versions {
+			if v.Version == version && v.Source != nil {
+				return v.Source
+			}
+		}
+	}
+
+	return nil
+}
+
 // populateFromBackupRegistry attempts to populate repository metadata from the backup registry
 // Returns the number of repositories successfully populated
 func (ext *bcrExtension) populateFromBackupRegistry(repositories []*bzpb.RepositoryMetadata) int {

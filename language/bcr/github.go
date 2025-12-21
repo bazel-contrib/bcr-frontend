@@ -8,9 +8,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/schollz/progressbar/v3"
 	bzpb "github.com/stackb/centrl/build/stack/bazel/bzlmod/v1"
 	"github.com/stackb/centrl/pkg/gh"
-	"github.com/schollz/progressbar/v3"
 )
 
 func (ext *bcrExtension) configureGithubClient() {
@@ -175,6 +175,9 @@ func (ext *bcrExtension) resolveSourceCommitSHAsForRankedModules(rankedModules r
 	totalRankedModules := 0
 	processedModules := 0
 
+	// Track how many commit SHAs we got from backup registry
+	backupCommitSHAs := 0
+
 	// Iterate through ranked modules
 	for moduleName, versions := range rankedModules {
 		for _, rv := range versions {
@@ -198,6 +201,16 @@ func (ext *bcrExtension) resolveSourceCommitSHAsForRankedModules(rankedModules r
 				continue
 			}
 
+			// Try to get commit SHA from backup registry first
+			id := toModuleID(moduleName, rv.version)
+			if backupSource := ext.getBackupModuleSource(string(moduleName), string(rv.version)); backupSource != nil && backupSource.CommitSha != "" {
+				if source, ok := ext.moduleSourceRules[id]; ok {
+					updateModuleSourceRuleSourceCommitSha(source, backupSource.CommitSha)
+					backupCommitSHAs++
+					continue
+				}
+			}
+
 			// Parse the GitHub URL
 			parsed, err := gh.ParseGitHubSourceURL(moduleVersion.Source.Url)
 			if err != nil {
@@ -206,7 +219,6 @@ func (ext *bcrExtension) resolveSourceCommitSHAsForRankedModules(rankedModules r
 			}
 
 			// Track which module ID uses this URL
-			id := toModuleID(moduleName, rv.version)
 			urlToModuleID[moduleVersion.Source.Url] = append(urlToModuleID[moduleVersion.Source.Url], id)
 
 			// Add to our batch (deduplicate by URL - only add first occurrence)
@@ -223,6 +235,10 @@ func (ext *bcrExtension) resolveSourceCommitSHAsForRankedModules(rankedModules r
 	}
 
 	log.Printf("Processing %d ranked modules (out of %d total modules)", processedModules, totalRankedModules)
+
+	if backupCommitSHAs > 0 {
+		log.Printf("Retrieved %d commit SHAs from backup registry", backupCommitSHAs)
+	}
 
 	if len(urlInfos) == 0 {
 		log.Printf("No GitHub source URLs need commit SHA resolution for ranked modules")
@@ -297,7 +313,8 @@ func (ext *bcrExtension) resolveSourceCommitSHAsForRankedModules(rankedModules r
 		}
 	}
 
-	log.Printf("Commit SHA resolution complete: %d successful, %d errors, %d total URLs", successCount, errorCount, totalURLs)
+	totalResolved := backupCommitSHAs + successCount
+	log.Printf("Commit SHA resolution complete for ranked modules: %d from backup registry, %d from GitHub API (%d errors), %d total resolved", backupCommitSHAs, successCount, errorCount, totalResolved)
 }
 
 // resolveSourceCommitSHAsForLatestVersions resolves commit SHAs for ALL latest
@@ -323,6 +340,9 @@ func (ext *bcrExtension) resolveSourceCommitSHAsForLatestVersions() {
 	var urlInfos []urlInfo
 	totalLatestVersions := 0
 	processedVersions := 0
+
+	// Track how many commit SHAs we got from backup registry
+	backupCommitSHAs := 0
 
 	// Iterate through all module versions
 	for id, versionRule := range ext.moduleVersionRules {
@@ -352,6 +372,13 @@ func (ext *bcrExtension) resolveSourceCommitSHAsForLatestVersions() {
 			continue
 		}
 
+		// Try to get commit SHA from backup registry first
+		if backupSource := ext.getBackupModuleSource(string(id.name()), string(id.version())); backupSource != nil && backupSource.CommitSha != "" {
+			updateModuleSourceRuleSourceCommitSha(sourceRule, backupSource.CommitSha)
+			backupCommitSHAs++
+			continue
+		}
+
 		// Parse the GitHub URL
 		parsed, err := gh.ParseGitHubSourceURL(moduleSource.Url)
 		if err != nil {
@@ -375,6 +402,10 @@ func (ext *bcrExtension) resolveSourceCommitSHAsForLatestVersions() {
 	}
 
 	log.Printf("Processing %d latest versions with sources (out of %d total latest versions)", processedVersions, totalLatestVersions)
+
+	if backupCommitSHAs > 0 {
+		log.Printf("Retrieved %d commit SHAs from backup registry", backupCommitSHAs)
+	}
 
 	if len(urlInfos) == 0 {
 		log.Printf("No GitHub source URLs need commit SHA resolution for latest versions")
@@ -449,5 +480,6 @@ func (ext *bcrExtension) resolveSourceCommitSHAsForLatestVersions() {
 		}
 	}
 
-	log.Printf("Commit SHA resolution complete for latest versions: %d successful, %d errors, %d total URLs", successCount, errorCount, totalURLs)
+	totalResolved := backupCommitSHAs + successCount
+	log.Printf("Commit SHA resolution complete for latest versions: %d from backup registry, %d from GitHub API (%d errors), %d total resolved", backupCommitSHAs, successCount, errorCount, totalResolved)
 }

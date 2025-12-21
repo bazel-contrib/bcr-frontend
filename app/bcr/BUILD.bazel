@@ -269,6 +269,7 @@ release_archive(
     ],
     index_html = "index.html",
     registry_file = ":registry_pb",
+    worker_modules = ["//app/api"],
 )
 
 cloudflare_deploy(
@@ -276,4 +277,6 @@ cloudflare_deploy(
     account_id = "df53dccd72b4a61d2f8b1323256bc71c",
     project = "centrl",
     tarball = ":release",
+    worker_modules = ["//app/api"],
+    worker_script = "worker.mjs",
 )
