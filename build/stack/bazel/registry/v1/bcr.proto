@@ -6,265 +6,299 @@ option go_package = "github.com/stackb/centrl/build/stack/bazel/registry/v1;bzpb
 
 import "build/stack/starlark/v1beta1/starlark.proto";
 
-// Aggregate type about a module registry and all it's modules
+// Registry represents a Bazel module registry and all its modules.
 message Registry {
-    // list of known modules
+    // List of modules in the registry
     repeated Module modules = 1;
-    // repository URL of the registry (e.g. 'https://github.com/bazelbuild/bazel-central-registry')
+    // Git repository URL (e.g., 'https://github.com/bazelbuild/bazel-central-registry')
     string repository_url = 2;
-    // URL of the registry UI (e.g. 'https://registry.bazel.build')
+    // Public UI URL (e.g., 'https://registry.bazel.build')
     string registry_url = 3;
-    // branch name of the repository data (e.g. 'main')
+    // Git branch name (e.g., 'main')
     string branch = 4;
-    // commit sha1 of the repository data
+    // Git commit SHA-1 hash
     string commit_sha = 5;
-    // commit message
+    // Git commit message
     string commit_message = 6;
-    // timstamp of the commit date
+    // Git commit timestamp
     string commit_date = 7;
 }
 
-// Aggregate type about a module and all it's versions
+// Module represents a Bazel module and all its versions.
 message Module {
-    // the module name
+    // Module name (e.g., 'rules_go', 'protobuf')
     string name = 1;
-    // the module metadata
+    // Module metadata from metadata.json
     ModuleMetadata metadata = 2;
-    // list of known versions
+    // List of versions, typically sorted newest to oldest
     repeated ModuleVersion versions = 3;
-    // optional (github or potentially gitlab) repo metadata, if applicable.
+    // Optional repository metadata (GitHub, GitLab, etc.)
     RepositoryMetadata repository_metadata = 4;
 }
 
-// Metadata about a Maitainer.
+// Maintainer represents a module maintainer from metadata.json.
 message Maintainer {
-    // "email": "lperron@google.com",
+    // Email address
     string email = 1;
-    // "name": "Laurent Perron"
+    // Full name
     string name = 2;
-    // "github": "UebelAndre",
+    // GitHub username
     string github = 3;
-    // "do_not_notify": true,
+    // Whether to skip notifications for this maintainer
     bool do_not_notify = 4;
-    // "github_user_id": 704767
+    // GitHub user ID (numeric)
     int32 github_user_id = 5;
 }
 
-// Metadata about a Module.
+// ModuleMetadata represents a module's metadata.json file.
 message ModuleMetadata {
-    // "homepage": "https://github.com/mateidavid/zstr",
+    // Project homepage URL
     string homepage = 1;
-    // "maintainers": []
+    // List of module maintainers
     repeated Maintainer maintainers = 2;
-    // "repository": [ "github:mateidavid/zstr" ],
+    // Repository references (e.g., ['github:mateidavid/zstr'])
     repeated string repository = 3;
-    // "versions": [ "1.0.7" ],
+    // List of available versions
     repeated string versions = 4;
-    // "yanked_versions": { "1.5.0": "Regression in prebuilt artifacts leads to missing rules_rust dep" }
+    // Map of yanked versions to their reasons
     map<string,string> yanked_versions = 5;
-    // "deprecated": "use opentracing-cpp instead"
+    // Deprecation message (empty if not deprecated)
     string deprecated = 6;
 }
 
+// RepositoryType indicates the source code hosting platform.
 enum RepositoryType {
     REPOSITORY_TYPE_UNKNOWN = 0;
     GITHUB = 1;
     GITLAB = 2;
 }
 
-// Metadata about a source repository.
+// RepositoryMetadata contains metadata about a module's source repository.
 message RepositoryMetadata {
+    // Repository type (GitHub, GitLab, etc.)
     RepositoryType type = 1;
+    // Organization or user name
     string organization = 2;
+    // Repository name
     string name = 3;
+    // Repository description
     string description = 4;
+    // Number of stars
     int32 stargazers = 5;
+    // Map of programming languages to line counts
     map<string,int32> languages = 6;
+    // Primary programming language
     string primary_language = 7;
+    // Canonical name (org/repo)
     string canonical_name = 8;
 }
 
+// RepositoryMetadataSet is a collection of repository metadata.
 message RepositoryMetadataSet {
     repeated RepositoryMetadata repository_metadata = 1;
 }
 
-// Metadata about a source repository.
+// BazelRepositoryMetadata extends repository metadata with Bazel release information.
 message BazelRepositoryMetadata {
     RepositoryMetadata repository_metadata = 1;
     repeated BazelRelease release = 2;
 }
 
+// BazelRelease represents a Bazel release version.
 message BazelRelease {
-    // bazel version tag name
+    // Version tag (e.g., '7.0.0', '8.0.0-pre.20240101.1')
     string version = 1;
-    // source URL of the .tar.gz asset
+    // Source archive URL (.tar.gz)
     string url = 2;
-    // commit details fetched from the release
+    // Git commit details for the release
     ModuleCommit commit = 3;
 }
 
+// BazelReleaseSet is a collection of Bazel releases.
 message BazelReleaseSet {
     repeated BazelRelease release = 1;
 }
 
+// BazelOption represents a Bazel command-line flag.
 message BazelOption {
+  // Flag name (e.g., 'compilation_mode', 'jobs')
   string name = 1;
+  // Data type (e.g., 'string', 'int', 'boolean')
   string type = 2;
+  // Default value
   string default = 3;
+  // Help text description lines
   repeated string description = 4;
+  // Whether the flag can be repeated
   bool repeatable = 5;
+  // Whether the flag is a boolean toggle
   bool toggle = 6;
+  // Short flag name (e.g., '-c' for '--compilation_mode')
   string short = 7;
+  // Tag metadata
   repeated string tag = 8;
-  // bazel_version represents which bazel version this flag is present in
+  // Bazel versions where this flag is available
   repeated string bazel_version = 9;
-  // category represents which bazel version this flag is present in
+  // Categories this flag belongs to
   repeated string category = 10;
 }
 
+// BazelHelpCategory represents a category of Bazel flags.
 message BazelHelpCategory {
+  // Category title (e.g., 'Options for selecting the output format')
   string title = 1;
+  // Flags in this category
   repeated BazelOption option = 2;
 }
 
-
+// BazelHelpCommand represents help output for a Bazel command.
 message BazelHelpCommand {
+    // Command name (e.g., 'build', 'test', 'run')
     string command = 1;
+    // Flag categories for this command
     repeated BazelHelpCategory category = 2;
+    // Usage lines
     repeated string usage = 3;
 }
 
+// BazelHelpParseMode indicates the parser state when parsing Bazel help output.
 enum BazelHelpParseMode {
-  // Parsing has seen Usage statement but not the first category
+  // Parsing usage statement before categories
   USAGE = 0;
-  // Within a categoy
+  // Parsing within a category
   CATEGORY = 1;
-  // Within a Flag
+  // Parsing within a flag definition
   FLAG = 2;
 }
 
-
+// BazelHelpVersion represents help output for a Bazel version.
 message BazelHelpVersion {
+    // Bazel version
     string version = 1;
+    // Commands in this version
     repeated BazelHelpCommand command = 2;
 }
 
+// BazelHelpRegistry is a collection of Bazel help data across versions.
 message BazelHelpRegistry {
     repeated BazelHelpVersion version = 1;
 }
 
+// ResourceStatus represents the HTTP status of a resource.
 message ResourceStatus {
-    // url is the resource locator
+    // Resource URL
     string url = 1;
-    // status represents HTTP status message
+    // HTTP status code (e.g., 200, 404, 500)
     int32 code = 2;
-    // status represents HTTP status message
-    string message = 3; 
+    // HTTP status message
+    string message = 3;
 }
 
+// ResourceStatusSet is a collection of resource statuses.
 message ResourceStatusSet {
     repeated ResourceStatus status = 1;
 }
 
-// Source represents a source.json file for a module version
+// ModuleSource represents a source.json file for a module version.
 message ModuleSource {
-    // URL to the source archive
+    // Source archive URL
     string url = 1;
-    // Integrity hash (e.g., "sha256-...")
+    // Integrity hash (e.g., 'sha256-...')
     string integrity = 2;
     // Directory prefix to strip from the archive
     string strip_prefix = 3;
-    // Number of leading path components to strip from patch files
+    // Number of leading path components to strip from patches
     int32 patch_strip = 4;
-    // Map of patch file names to their integrity hashes
+    // Map of patch filenames to their integrity hashes
     map<string, string> patches = 5;
-    // Map of overlay file names to their integrity hashes
+    // Map of overlay filenames to their integrity hashes
     map<string, string> overlay = 6;
-    // Optional docs url that, if present, should contain a stardoc binary proto.
+    // Optional URL to Stardoc documentation binary proto
     string docs_url = 7;
-    // Optional mirrors urls
+    // Mirror URLs for the source archive
     repeated string mirror_urls = 8;
-    // optional (e.g. "archive_type": "tar.gz")
+    // Archive type (e.g., 'tar.gz', 'zip')
     string archive_type = 9;
-    // optional (e.g. "type": "git_repository")
+    // Source type (e.g., 'git_repository', 'http_archive')
     string type = 10;
+    // Git remote URL (for git_repository type)
     string remote = 11;
+    // Git commit hash (for git_repository type)
     string commit = 12;
-    // optional stardoc derived data
+    // Optional Stardoc-derived documentation
     DocumentationInfo documentation = 13;
-    // the http response for the docs_url
+    // HTTP status of docs_url
     ResourceStatus docs_url_status = 14;
-    // the http response for the source_url
+    // HTTP status of source URL
     ResourceStatus url_status = 15;
-     // the git commit SHA for the source URL (resolved from tags/releases, only from github for now)
+    // Git commit SHA resolved from source URL (GitHub releases/tags)
     string commit_sha = 16;
 }
 
-// Attestations represents an attestations.json file for a module version
+// Attestations represents an attestations.json file for a module version.
 message Attestations {
-    // Attestation represents a single attestation entry
+    // Attestation represents a single attestation entry.
     message Attestation {
         // URL to the attestation file
         string url = 1;
         // Integrity hash of the attestation
         string integrity = 2;
     }
-    // Media type for the attestations file
+    // Media type (e.g., 'application/vnd.dev.sigstore.bundle+json;version=0.1')
     string media_type = 1;
-    // Map of file names to their attestations
+    // Map of filenames to their attestations
     map<string, Attestation> attestations = 2;
 }
 
-// ModuleVersion represents a Bazel module version and its dependencies
+// A specific version of a Bazel module with dependencies and metadata
 message ModuleVersion {
     // Module name
     string name = 1;
-    // Module version
+    // Semantic version (e.g., "1.2.3")
     string version = 2;
-    // compat level
+    // Compatibility level for this version
     int32 compatibility_level = 3;
-    // bazel compatibility
+    // Bazel versions compatible with this module version
     repeated string bazel_compatibility = 4;
-    // optional repo_name
+    // Optional repository name override
     string repo_name = 5;
-    // Module dependencies
+    // Direct dependencies of this module version
     repeated ModuleDependency deps = 6;
-    // Source information from source.json
+    // Source download information from source.json
     ModuleSource source = 7;
-    // Attestations information from attestations.json
+    // Cryptographic attestations from attestations.json
     Attestations attestations = 8;
-    // Presubmit configuration from presubmit.yml
+    // Presubmit test configuration from presubmit.yml
     Presubmit presubmit = 9;
-    // optional toolchains to be registered
+    // Toolchains to register when this module is loaded
     repeated string toolchains_to_register = 10;
-    // Optional overrides, indexed by module name
-    repeated ModuleDependencyOverride override = 11; 
-    // information about when the MODULE.bazel file for the version was committed.
+    // Dependency overrides defined in this module version
+    repeated ModuleDependencyOverride override = 11;
+    // Git commit metadata for the MODULE.bazel file
     ModuleCommit commit = 12;
-    // repository metadadata.  This is canonically stored and serialized on the
-    // parent Module, but for the sake of the UI, can be attached to the
-    // ModuleVersion for easier template rendering.
+    // Repository metadata (denormalized from parent Module for UI convenience)
     RepositoryMetadata repository_metadata = 13;
-    // flag that marks if the current version is the latest one
+    // Whether this is the latest version of the module
     bool is_latest_version = 14;
 }
 
-// ModuleCommit captures metadata about a git commit for the MODULE.bazel file.
+// Git commit metadata for a MODULE.bazel file submission
 message ModuleCommit {
-    // the commit sha
+    // Commit SHA-1 hash
     string sha1 = 1;
-    // the commit date
+    // Commit timestamp (ISO 8601 format)
     string date = 2;
-    // the commit message
+    // Commit message text
     string message = 3;
-    // if the pull_request number could be extracted from the commit message
+    // Pull request number extracted from commit message
     string pull_request = 4;
 }
 
+// Override for a module dependency's source or version
 message ModuleDependencyOverride {
-    // The module name this override applies to
+    // Target module name for this override
     string module_name = 5;
-    // the textual representation
+    // Original MODULE.bazel code snippet
     string code = 6;
     oneof override {
         GitOverride git_override = 1;
@@ -274,160 +308,119 @@ message ModuleDependencyOverride {
     }
 }
 
-// ModuleDependency represents a module dependency
+// A dependency on another Bazel module
 message ModuleDependency {
-    // Module name
+    // Dependency module name
     string name = 1;
-    // Module version
+    // Required version
     string version = 2;
-    // optional reponame
+    // Optional repository name override
     string repo_name = 3;
-    // Whether this is a dev dependency
+    // Whether this is a dev-only dependency
     bool dev = 4;
-    // max_compatibility_level
+    // Maximum compatibility level accepted
     int32 max_compatibility_level = 5;
-    // Optional override for the dependency
+    // Override for this dependency's source or version
     ModuleDependencyOverride override = 6;
-    // true of this dependency does not resolve to a version that exists in the
-    // same registry (boost.pin_version has these)
+    // Whether version doesn't exist in registry (e.g., from pin_version)
     bool unresolved = 7;
 }
 
-// GitOverride represents a git_override directive
-// Example:
-//
-// git_override(
-//     module_name = "pybind11_abseil",
-//     commit = "70f8b693b3b70573ca785ef62d9f48054f45d786",
-//     patch_strip = 1,
-//     patches = ["//patches:pybind11_abseil.patch"],
-//     remote = "https://github.com/pybind/pybind11_abseil.git",
-// )
+// Override dependency with a specific Git commit
+// Example: git_override(module_name = "foo", commit = "abc123", remote = "https://github.com/...")
 message GitOverride {
-    // Git commit hash
+    // Git commit SHA
     string commit = 1;
-    // Number of leading path components to strip from patch files
+    // Number of leading path components to strip when applying patches
     int32 patch_strip = 2;
-    // List of patch files to apply
+    // Patch files to apply to the source
     repeated string patches = 3;
-    // Git remote URL
+    // Git repository URL
     string remote = 4;
-    // branch
+    // Git branch name
     string branch = 5;
 }
 
-// ArchiveOverride represents an archive_override directive
-// Example:
-//
-// archive_override(
-//     module_name = "com_google_protobuf_v25",
-//     integrity = "sha256-e+7ZxRHWMs/3wirACU3Xcg5VAVMDnV2n4Fm8zrSIR0o=",
-//     patch_strip = 1,
-//     patches = [
-//         "@com_google_protobuf//:patches/protobuf_v25/0001-Add-MODULE.bazel.patch",
-//         "@com_google_protobuf//:patches/protobuf_v25/0002-Examples-MODULE.bazel.patch",
-//         "@com_google_protobuf//:patches/protobuf_v25/0003-relative-labels.patch",
-//         "@com_google_protobuf//:patches/protobuf_v25/0004-Add-utf8_range-dependency.patch",
-//         "@com_google_protobuf//:patches/protobuf_v25/0005-Make-rules_ruby-a-dev-only-dependency.patch",
-//         "@com_google_protobuf//:patches/protobuf_v25/0006-Add-repo_name.patch",
-//         "@com_google_protobuf//:patches/protobuf_v25/0007-Java-bazel8.patch",
-//     ],
-//     strip_prefix = "protobuf-25.0",
-//     urls = ["https://github.com/protocolbuffers/protobuf/releases/download/v25.0/protobuf-25.0.tar.gz"],
-// )
+// Override dependency with an archive download
+// Example: archive_override(module_name = "foo", urls = ["https://..."], integrity = "sha256-...")
 message ArchiveOverride {
-    // Integrity hash (e.g., "sha256-...")
+    // Subresource integrity hash (e.g., "sha256-...")
     string integrity = 1;
-    // Number of leading path components to strip from patch files
+    // Number of leading path components to strip when applying patches
     int32 patch_strip = 2;
-    // List of patch files to apply
+    // Patch files to apply to the extracted archive
     repeated string patches = 3;
-    // Directory prefix to strip from the archive
+    // Directory prefix to strip from extracted archive contents
     string strip_prefix = 4;
-    // URLs to the archive
+    // Download URLs for the archive
     repeated string urls = 5;
 }
 
-// SingleVersionOverride represents a single_version_override directive
-// Example:
-//
-// single_version_override(
-//     module_name = "rules_ruby",
-//     patch_strip = 1,
-//     patches = [
-//         "@com_google_protobuf//:Disable_bundle_install.patch",
-//         "@com_google_protobuf//:Neverlink_jruby_jars.patch",
-//     ],
-//     version = "0.17.3",
-// )
+// Override dependency to use a specific version with optional patches
+// Example: single_version_override(module_name = "foo", version = "1.2.3", patches = ["//patches:fix.patch"])
 message SingleVersionOverride {
-    // Number of leading path components to strip from patch files
+    // Number of leading path components to strip when applying patches
     int32 patch_strip = 1;
-    // List of patch files to apply
+    // Patch files to apply to the version
     repeated string patches = 2;
-    // Version to use
+    // Specific version to use
     string version = 3;
 }
 
-// LocalPathOverride represents a local_path_override directive
-// Example:
-//
-// local_path_override(
-//     module_name = "bazel_worker_api",
-//     path = "../proto",
-//
+// Override dependency with a local filesystem path
+// Example: local_path_override(module_name = "foo", path = "../local/foo")
 message LocalPathOverride {
-    // Local filesystem path to the module
+    // Path to the local module directory
     string path = 1;
 }
 
-// Presubmit represents a presubmit.yml file for CI testing
+// CI/CD testing configuration from presubmit.yml
 message Presubmit {
-    // Optional bcr_test_module configuration
+    // Test module configuration for BCR presubmit checks
     message BcrTestModule {
-        // Module path
+        // Path to the module being tested
         string module_path = 1;
-        // Matrix configuration
+        // Platform and Bazel version matrix
         PresubmitMatrix matrix = 2;
-        // Tasks to run
+        // Named tasks to execute
         map<string, PresubmitTask> tasks = 3;
     }
 
-    // Matrix configuration for platforms and bazel versions
+    // Test matrix for platforms and Bazel versions
     message PresubmitMatrix {
-        // List of platforms (e.g., "ubuntu2004", "macos", "windows")
+        // Platforms to test on (e.g., "ubuntu2004", "macos", "windows")
         repeated string platform = 1;
-        // List of bazel versions (e.g., "7.x", "8.x", "rolling")
+        // Bazel versions to test with (e.g., "7.x", "8.x", "rolling")
         repeated string bazel = 2;
     }
 
-    // A presubmit task configuration
+    // A single test task in the presubmit configuration
     message PresubmitTask {
         // Task name
         string name = 1;
-        // Platform (can be a template like "${{ platform }}" or literal)
+        // Target platform (literal or template like "${{ platform }}")
         string platform = 2;
-        // Bazel version (can be a template like "${{ bazel }}" or literal)
+        // Bazel version (literal or template like "${{ bazel }}")
         string bazel = 3;
-        // Build flags to pass to bazel build
+        // Additional flags for bazel build
         repeated string build_flags = 4;
-        // Test flags to pass to bazel test
+        // Additional flags for bazel test
         repeated string test_flags = 5;
-        // Build targets
+        // Targets to build
         repeated string build_targets = 6;
-        // Test targets
+        // Targets to test
         repeated string test_targets = 7;
     }
 
-    // bcr_test_module configuration (if present)
+    // Test module configuration (preferred format)
     BcrTestModule bcr_test_module = 1;
-    // Top-level matrix (if bcr_test_module not present)
+    // Top-level matrix (legacy format, used if bcr_test_module absent)
     PresubmitMatrix matrix = 2;
-    // Top-level tasks (if bcr_test_module not present)
+    // Top-level tasks (legacy format, used if bcr_test_module absent)
     map<string, PresubmitTask> tasks = 3;
 }
 
-// SymbolType represents the type of symbol
+// Type of Starlark symbol in a .bzl file
 enum SymbolType {
     SYMBOL_TYPE_UNKNOWN = 0;
     SYMBOL_TYPE_RULE = 1;
@@ -442,15 +435,15 @@ enum SymbolType {
     SYMBOL_TYPE_LOAD_STMT = 10;
 }
 
-// SymbolInfo represents information about a symbol in a Bazel module
+// Information about a Starlark symbol exported from a .bzl file
 message SymbolInfo {
-    // the type of symbol
+    // Symbol type (rule, function, provider, etc.)
     SymbolType type = 1;
-    // the name of the symbol, which should match the name of the info type (e.g rule_name, provider_name, etc)
+    // Symbol name
     string name = 2;
-    // a truncated description from the underlying info
+    // Brief description extracted from docstring
     string description = 3;
-    // the underlying actual info data
+    // Detailed symbol metadata
     oneof info {
         build.stack.starlark.v1beta1.Rule rule = 4;
         build.stack.starlark.v1beta1.Function func = 5;
@@ -465,77 +458,81 @@ message SymbolInfo {
     }
 }
 
-// Set of symbols in a file.
+// Documentation for a single .bzl file
 message FileInfo {
-    // label that provides the symbols (e.g. //lib/private:copy_file.bzl)
+    // File label (e.g., "//lib/private:copy_file.bzl")
     build.stack.starlark.v1beta1.Label label = 1;
-    // a list of symbols
+    // Symbols exported by this file
     repeated SymbolInfo symbol = 2;
-    // a truncated description from the ModuleInfo.module_docstring
+    // File description from module docstring
     string description = 3;
-    // an error message, if the symbols from the file could not be
-    // extracted.ArchiveOverride
+    // Error message if symbol extraction failed
     string error = 5;
 }
 
+// Source of documentation for a module
 enum DocumentationSource {
     DOCUMENTATION_SOURCE_UNKNOWN = 0;
-    PUBLISHED = 1;
-    BEST_EFFORT = 2;
+    PUBLISHED = 1;        // From published docs.json
+    BEST_EFFORT = 2;      // Generated from source analysis
 }
 
-// Set of documented bzl files for a module.
+// Complete documentation for a module version
 message DocumentationInfo {
+    // Module name
     string module_name = 1;
+    // Module version
     string version = 2;
+    // Documented .bzl files
     repeated FileInfo file = 3;
+    // Documentation source type
     DocumentationSource source = 4;
 }
 
-// Set of documented modules.
+// Registry of all module documentation
 message DocumentationRegistry {
+    // Documentation for all module versions
     repeated DocumentationInfo documentation = 1;
 }
 
-// Represents a node in the dependency tree computed by MVS algorithm.
+// Node in a dependency tree resolved by Minimum Version Selection
 message DependencyTreeNode {
-    // The resolved module version for this dependency
+    // Resolved module version
     ModuleVersion module_version = 1;
-    // The originally requested version (may differ from module_version.version if upgraded)
+    // Originally requested version (may differ if MVS upgraded it)
     string requested_version = 2;
-    // Whether this version was upgraded by MVS
+    // Whether MVS selected a higher version than requested
     bool upgraded = 3;
-    // Whether this is a dev dependency
+    // Whether this is a dev-only dependency
     bool dev = 4;
-    // Child dependencies of this node
+    // Transitive dependencies
     repeated DependencyTreeNode children = 5;
-    // Whether this node's children were pruned because the node was already visited in the tree
+    // Whether children were pruned to avoid duplication
     bool pruned = 6;
-    // The type of override applied to this dependency (empty string if no override)
-    // Possible values: "single_version", "git", "archive", "local_path"
+    // Override type if applied: "single_version", "git", "archive", "local_path"
     string override_type = 7;
 }
 
-// Represents the complete dependency tree for a module version.
+// Complete dependency tree for a module version after MVS resolution
 message DependencyTree {
-    // The root module version
+    // Root module version
     ModuleVersion module_version = 1;
-    // Child dependencies of the root module
+    // Direct dependencies
     repeated DependencyTreeNode children = 2;
 }
 
-// Represents a node in the file load graph showing load dependencies.
+// Node in the file load dependency graph
 message FileLoadTreeNode {
-    // The file at this node
+    // File at this node
     FileInfo file = 1;
-    // Files that this file loads (load dependencies)
+    // Files loaded by this file
     repeated FileLoadTreeNode children = 2;
-    // Whether this node's children were pruned to avoid cycles
+    // Whether children were pruned to prevent cycles
     bool pruned = 3;
 }
 
-// Represents the complete file load graph for a module.
+// Complete file load dependency graph for a module
 message FileLoadTree {
-    // Root files (files not loaded by any other file in the module)
+    // Root files (not loaded by other files in the module)
     repeated FileLoadTreeNode roots = 1;
 }
