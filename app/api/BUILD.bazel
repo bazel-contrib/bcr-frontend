@@ -2,7 +2,7 @@ load("@rules_rust//rust:defs.bzl", "rust_shared_library")
 load("@rules_rust_wasm_bindgen//:defs.bzl", "rust_wasm_bindgen", "rust_wasm_bindgen_toolchain")
 
 rust_shared_library(
-    name = "centrl_api_lib",
+    name = "api_lib",
     srcs = glob(["src/**/*.rs"]),
     crate_root = "src/lib.rs",
     edition = "2021",
@@ -18,9 +18,9 @@ rust_shared_library(
 )
 
 rust_wasm_bindgen(
-    name = "centrl_api_wasm",
+    name = "api_wasm",
     target = "web",  # Use 'web' target for Cloudflare Workers compatibility
-    wasm_file = ":centrl_api_lib",
+    wasm_file = ":api_lib",
 )
 
 rust_wasm_bindgen_toolchain(
@@ -40,6 +40,6 @@ sh_binary(
     srcs = ["deploy.sh"],
     data = [
         "wrangler.toml",
-        ":centrl_api_wasm",
+        ":api_wasm",
     ],
 )
