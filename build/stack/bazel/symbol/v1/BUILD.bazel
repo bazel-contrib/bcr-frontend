@@ -15,7 +15,7 @@ proto_library(
 proto_compiled_sources(
     name = "sympb_go_compiled_sources",
     srcs = ["symbol.pb.go"],
-    output_mappings = ["symbol.pb.go=github.com/stackb/centrl/build/stack/bazel/symbol/v1/symbol.pb.go"],
+    output_mappings = ["symbol.pb.go=github.com/bazel-contrib/bcr-frontend/build/stack/bazel/symbol/v1/symbol.pb.go"],
     plugins = ["@build_stack_rules_proto//plugin/golang/protobuf:protoc-gen-go"],
     proto = "sympb_proto",
     visibility = ["//visibility:public"],
@@ -24,7 +24,7 @@ proto_compiled_sources(
 go_library(
     name = "symbol",
     srcs = ["symbol.pb.go"],
-    importpath = "github.com/stackb/centrl/build/stack/bazel/symbol/v1",
+    importpath = "github.com/bazel-contrib/bcr-frontend/build/stack/bazel/symbol/v1",
     visibility = ["//visibility:public"],
     deps = [
         "//build/stack/starlark/v1beta1",

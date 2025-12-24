@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package build.stack.bazel.help.v1;
 
-option go_package = "github.com/stackb/centrl/build/stack/bazel/help/v1;bhpb";
+option go_package = "github.com/bazel-contrib/bcr-frontend/build/stack/bazel/help/v1;bhpb";
 
 // BazelOption represents a Bazel command-line flag.
 message BazelOption {

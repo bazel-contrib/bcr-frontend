@@ -7,7 +7,7 @@
 package sympb
 
 import (
-	v1beta1 "github.com/stackb/centrl/build/stack/starlark/v1beta1"
+	v1beta1 "github.com/bazel-contrib/bcr-frontend/build/stack/starlark/v1beta1"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
@@ -720,7 +720,7 @@ const file_build_stack_bazel_symbol_v1_symbol_proto_rawDesc = "" +
 	"\fSymbolSource\x12\x19\n" +
 	"\x15SYMBOL_SOURCE_UNKNOWN\x10\x00\x12\r\n" +
 	"\tPUBLISHED\x10\x01\x12\x0f\n" +
-	"\vBEST_EFFORT\x10\x02B<Z:github.com/stackb/centrl/build/stack/bazel/symbol/v1;sympbb\x06proto3"
+	"\vBEST_EFFORT\x10\x02BIZGgithub.com/bazel-contrib/bcr-frontend/build/stack/bazel/symbol/v1;sympbb\x06proto3"
 
 var (
 	file_build_stack_bazel_symbol_v1_symbol_proto_rawDescOnce sync.Once

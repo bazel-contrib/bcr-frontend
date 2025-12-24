@@ -14,7 +14,7 @@ proto_library(
 proto_compiled_sources(
     name = "stardoc_output_go_compiled_sources",
     srcs = ["stardoc_output.pb.go"],
-    output_mappings = ["stardoc_output.pb.go=github.com/stackb/centrl/stardoc_output/stardoc_output.pb.go"],
+    output_mappings = ["stardoc_output.pb.go=github.com/bazel-contrib/bcr-frontend/stardoc_output/stardoc_output.pb.go"],
     plugins = ["@build_stack_rules_proto//plugin/golang/protobuf:protoc-gen-go"],
     proto = "stardoc_output_proto",
     visibility = ["//visibility:public"],
@@ -23,7 +23,7 @@ proto_compiled_sources(
 go_library(
     name = "stardoc_output",
     srcs = ["stardoc_output.pb.go"],
-    importpath = "github.com/stackb/centrl/stardoc_output",
+    importpath = "github.com/bazel-contrib/bcr-frontend/stardoc_output",
     visibility = ["//visibility:public"],
     deps = [
         "@org_golang_google_protobuf//reflect/protoreflect:go_default_library",

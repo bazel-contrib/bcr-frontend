@@ -14,8 +14,8 @@ import (
 	"github.com/junkblocker/codesearch/regexp"
 	"github.com/samthor/sre2"
 
-	lgpb "github.com/stackb/centrl/build/stack/livegrep/v1"
-	"github.com/stackb/centrl/pkg/status"
+	lgpb "github.com/bazel-contrib/bcr-frontend/build/stack/livegrep/v1"
+	"github.com/bazel-contrib/bcr-frontend/pkg/status"
 )
 
 var lineNoRegexp = stdRegexp.MustCompile(`:[0-9]+:`)

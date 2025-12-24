@@ -7,7 +7,7 @@ go_library(
         "predeclared.go",
         "starlark.go",
     ],
-    importpath = "github.com/stackb/centrl/pkg/modulebazel",
+    importpath = "github.com/bazel-contrib/bcr-frontend/pkg/modulebazel",
     visibility = ["//visibility:public"],
     deps = [
         "//build/stack/bazel/registry/v1:registry",

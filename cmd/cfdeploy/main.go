@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/stackb/centrl/pkg/cf"
+	"github.com/bazel-contrib/bcr-frontend/pkg/cf"
 )
 
 func main() {

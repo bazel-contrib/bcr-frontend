@@ -6,7 +6,7 @@ go_library(
         "gh.go",
         "url.go",
     ],
-    importpath = "github.com/stackb/centrl/pkg/gh",
+    importpath = "github.com/bazel-contrib/bcr-frontend/pkg/gh",
     visibility = ["//visibility:public"],
     deps = [
         "//build/stack/bazel/registry/v1:registry",

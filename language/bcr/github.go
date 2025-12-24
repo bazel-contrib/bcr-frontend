@@ -8,9 +8,9 @@ import (
 	"sync"
 	"time"
 
+	bzpb "github.com/bazel-contrib/bcr-frontend/build/stack/bazel/registry/v1"
+	"github.com/bazel-contrib/bcr-frontend/pkg/gh"
 	"github.com/schollz/progressbar/v3"
-	bzpb "github.com/stackb/centrl/build/stack/bazel/registry/v1"
-	"github.com/stackb/centrl/pkg/gh"
 )
 
 func (ext *bcrExtension) configureGithubClient() {

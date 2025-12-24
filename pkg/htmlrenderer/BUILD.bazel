@@ -14,7 +14,7 @@ go_library(
         "node.exe",
         "renderer.mjs",
     ],
-    importpath = "github.com/stackb/centrl/pkg/htmlrenderer",
+    importpath = "github.com/bazel-contrib/bcr-frontend/pkg/htmlrenderer",
     visibility = ["//visibility:public"],
     deps = [
         "//build/stack/centrl/render/v1:render",

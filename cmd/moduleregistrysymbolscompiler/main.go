@@ -7,8 +7,8 @@ import (
 	"os"
 	"strings"
 
-	sympb "github.com/stackb/centrl/build/stack/bazel/symbol/v1"
-	"github.com/stackb/centrl/pkg/protoutil"
+	sympb "github.com/bazel-contrib/bcr-frontend/build/stack/bazel/symbol/v1"
+	"github.com/bazel-contrib/bcr-frontend/pkg/protoutil"
 )
 
 const toolName = "moduleregistrysymbolscompiler"

@@ -15,7 +15,7 @@ exports_files([
 # -- Gazelle language "walk" ---
 #
 # -- Gazelle language "go" ---
-# gazelle:prefix github.com/stackb/centrl
+# gazelle:prefix github.com/bazel-contrib/bcr-frontend
 # gazelle:go_generate_proto false
 #
 # -- Gazelle language "protobuf" ---
@@ -83,6 +83,7 @@ proto_compile_assets(
     deps = [
         "//build/stack/bazel/help/v1:bhpb_go_compiled_sources",
         "//build/stack/bazel/registry/v1:bzpb_go_compiled_sources",
+        "//build/stack/bazel/symbol/v1:sympb_go_compiled_sources",
         "//build/stack/centrl/render/v1:rnpb_go_compiled_sources",
         "//build/stack/livegrep/v1:livegrep_go_compiled_sources",
         "//build/stack/starlark/v1beta1:v1beta1_go_compiled_sources",

@@ -8,9 +8,9 @@ import (
 	"path/filepath"
 	"strings"
 
+	bzpb "github.com/bazel-contrib/bcr-frontend/build/stack/bazel/registry/v1"
+	slpb "github.com/bazel-contrib/bcr-frontend/build/stack/starlark/v1beta1"
 	"github.com/bazelbuild/bazel-gazelle/label"
-	bzpb "github.com/stackb/centrl/build/stack/bazel/registry/v1"
-	slpb "github.com/stackb/centrl/build/stack/starlark/v1beta1"
 )
 
 const (

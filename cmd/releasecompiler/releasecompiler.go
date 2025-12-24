@@ -15,7 +15,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/stackb/centrl/pkg/paramsfile"
+	"github.com/bazel-contrib/bcr-frontend/pkg/paramsfile"
 )
 
 const toolName = "releasecompiler"

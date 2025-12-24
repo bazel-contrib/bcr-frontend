@@ -14,7 +14,7 @@ This package provides Go bindings for the Cloudflare Pages API, allowing you to 
 ## Installation
 
 ```bash
-go get github.com/stackb/centrl/pkg/cf
+go get github.com/bazel-contrib/bcr-frontend/pkg/cf
 ```
 
 ## Usage
@@ -26,7 +26,7 @@ package main
 
 import (
     "log"
-    "github.com/stackb/centrl/pkg/cf"
+    "github.com/bazel-contrib/bcr-frontend/pkg/cf"
 )
 
 func main() {

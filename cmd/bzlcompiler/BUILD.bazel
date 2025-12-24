@@ -13,7 +13,7 @@ go_library(
         "files.go",
         "server.go",
     ],
-    importpath = "github.com/stackb/centrl/cmd/bzlcompiler",
+    importpath = "github.com/bazel-contrib/bcr-frontend/cmd/bzlcompiler",
     visibility = ["//visibility:private"],
     deps = [
         "//blaze/worker",

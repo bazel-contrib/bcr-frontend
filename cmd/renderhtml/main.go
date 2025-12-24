@@ -10,12 +10,12 @@ import (
 	"path"
 	"time"
 
-	rnpb "github.com/stackb/centrl/build/stack/centrl/render/v1"
-	"github.com/stackb/centrl/pkg/htmlrenderer"
-	"github.com/stackb/centrl/pkg/paramsfile"
+	rnpb "github.com/bazel-contrib/bcr-frontend/build/stack/centrl/render/v1"
+	"github.com/bazel-contrib/bcr-frontend/pkg/htmlrenderer"
+	"github.com/bazel-contrib/bcr-frontend/pkg/paramsfile"
 
-	wppb "github.com/stackb/centrl/blaze/worker"
-	"github.com/stackb/centrl/pkg/protoutil"
+	wppb "github.com/bazel-contrib/bcr-frontend/blaze/worker"
+	"github.com/bazel-contrib/bcr-frontend/pkg/protoutil"
 )
 
 type Config struct {

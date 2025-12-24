@@ -4,7 +4,7 @@ package build.stack.centrl.render.v1;
 
 import "build/stack/centrl/render/v1/template.proto";
 
-option go_package = "github.com/stackb/centrl/build/stack/centrl/render/v1;rnpb";
+option go_package = "github.com/bazel-contrib/bcr-frontend/build/stack/centrl/render/v1;rnpb";
 
 // RenderRequest holds a list of filenames to be rendered.
 message RenderRequest {

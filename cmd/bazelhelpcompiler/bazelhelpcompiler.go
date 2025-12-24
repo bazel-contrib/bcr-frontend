@@ -11,8 +11,8 @@ import (
 	"regexp"
 	"strings"
 
-	bhpb "github.com/stackb/centrl/build/stack/bazel/help/v1"
-	"github.com/stackb/centrl/pkg/protoutil"
+	bhpb "github.com/bazel-contrib/bcr-frontend/build/stack/bazel/help/v1"
+	"github.com/bazel-contrib/bcr-frontend/pkg/protoutil"
 )
 
 var (

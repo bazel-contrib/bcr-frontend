@@ -3,7 +3,7 @@ load("@rules_go//go:def.bzl", "go_library")
 go_library(
     name = "netutil",
     srcs = ["netutil.go"],
-    importpath = "github.com/stackb/centrl/pkg/netutil",
+    importpath = "github.com/bazel-contrib/bcr-frontend/pkg/netutil",
     visibility = ["//visibility:public"],
     deps = ["@com_github_schollz_progressbar_v3//:go_default_library"],
 )

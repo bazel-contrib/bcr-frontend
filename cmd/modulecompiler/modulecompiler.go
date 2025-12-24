@@ -7,11 +7,11 @@ import (
 	"os"
 	"slices"
 
-	bzpb "github.com/stackb/centrl/build/stack/bazel/registry/v1"
-	"github.com/stackb/centrl/pkg/metadatajson"
-	"github.com/stackb/centrl/pkg/paramsfile"
-	"github.com/stackb/centrl/pkg/protoutil"
-	"github.com/stackb/centrl/pkg/repositorymetadatajson"
+	bzpb "github.com/bazel-contrib/bcr-frontend/build/stack/bazel/registry/v1"
+	"github.com/bazel-contrib/bcr-frontend/pkg/metadatajson"
+	"github.com/bazel-contrib/bcr-frontend/pkg/paramsfile"
+	"github.com/bazel-contrib/bcr-frontend/pkg/protoutil"
+	"github.com/bazel-contrib/bcr-frontend/pkg/repositorymetadatajson"
 )
 
 const toolName = "modulecompiler"

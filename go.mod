@@ -1,4 +1,4 @@
-module github.com/stackb/centrl
+module github.com/bazel-contrib/bcr-frontend
 
 go 1.24.0
 

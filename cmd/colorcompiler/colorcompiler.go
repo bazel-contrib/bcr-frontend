@@ -8,8 +8,8 @@ import (
 	"os"
 	"strings"
 
-	"github.com/stackb/centrl/pkg/css"
-	"github.com/stackb/centrl/pkg/paramsfile"
+	"github.com/bazel-contrib/bcr-frontend/pkg/css"
+	"github.com/bazel-contrib/bcr-frontend/pkg/paramsfile"
 	"github.com/teacat/noire"
 )
 

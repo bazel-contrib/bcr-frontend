@@ -11,12 +11,12 @@ import (
 	"sort"
 	"strings"
 
+	bzpb "github.com/bazel-contrib/bcr-frontend/build/stack/bazel/registry/v1"
+	"github.com/bazel-contrib/bcr-frontend/pkg/modulebazel"
+	"github.com/bazel-contrib/bcr-frontend/pkg/netutil"
 	"github.com/bazelbuild/bazel-gazelle/label"
 	"github.com/bazelbuild/bazel-gazelle/rule"
 	"github.com/bazelbuild/buildtools/build"
-	bzpb "github.com/stackb/centrl/build/stack/bazel/registry/v1"
-	"github.com/stackb/centrl/pkg/modulebazel"
-	"github.com/stackb/centrl/pkg/netutil"
 )
 
 const (

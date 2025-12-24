@@ -3,7 +3,7 @@ load("@rules_go//go:def.bzl", "go_library")
 go_library(
     name = "metadatajson",
     srcs = ["metadatajson.go"],
-    importpath = "github.com/stackb/centrl/pkg/metadatajson",
+    importpath = "github.com/bazel-contrib/bcr-frontend/pkg/metadatajson",
     visibility = ["//visibility:public"],
     deps = [
         "//build/stack/bazel/registry/v1:registry",

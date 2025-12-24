@@ -6,7 +6,7 @@ go_library(
         "delimited.go",
         "io.go",
     ],
-    importpath = "github.com/stackb/centrl/pkg/protoutil",
+    importpath = "github.com/bazel-contrib/bcr-frontend/pkg/protoutil",
     visibility = ["//visibility:public"],
     deps = [
         "@org_golang_google_protobuf//encoding/protojson:go_default_library",

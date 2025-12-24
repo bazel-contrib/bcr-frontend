@@ -7,9 +7,9 @@ import (
 	"os"
 	"strings"
 
+	lgpb "github.com/bazel-contrib/bcr-frontend/build/stack/livegrep/v1"
+	"github.com/bazel-contrib/bcr-frontend/pkg/codesearch"
 	"github.com/junkblocker/codesearch/index"
-	lgpb "github.com/stackb/centrl/build/stack/livegrep/v1"
-	"github.com/stackb/centrl/pkg/codesearch"
 )
 
 type Config struct {

@@ -36,7 +36,7 @@ go_library(
         "single_version_override.go",
         "stardoc.go",
     ],
-    importpath = "github.com/stackb/centrl/language/bcr",
+    importpath = "github.com/bazel-contrib/bcr-frontend/language/bcr",
     visibility = ["//visibility:public"],
     deps = [
         "//build/stack/bazel/registry/v1:registry",

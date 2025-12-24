@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package build.stack.centrl.render.v1;
 
-option go_package = "github.com/stackb/centrl/build/stack/centrl/render/v1;rnpb";
+option go_package = "github.com/bazel-contrib/bcr-frontend/build/stack/centrl/render/v1;rnpb";
 
 message Template {
     // filename of the template

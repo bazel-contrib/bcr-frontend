@@ -18,7 +18,7 @@ proto_library(
 proto_compiled_sources(
     name = "bzpb_go_compiled_sources",
     srcs = ["bcr.pb.go"],
-    output_mappings = ["bcr.pb.go=github.com/stackb/centrl/build/stack/bazel/registry/v1/bcr.pb.go"],
+    output_mappings = ["bcr.pb.go=github.com/bazel-contrib/bcr-frontend/build/stack/bazel/registry/v1/bcr.pb.go"],
     plugins = ["@build_stack_rules_proto//plugin/golang/protobuf:protoc-gen-go"],
     proto = "bzpb_proto",
     visibility = ["//visibility:public"],
@@ -27,7 +27,7 @@ proto_compiled_sources(
 go_library(
     name = "registry",
     srcs = ["bcr.pb.go"],
-    importpath = "github.com/stackb/centrl/build/stack/bazel/registry/v1",
+    importpath = "github.com/bazel-contrib/bcr-frontend/build/stack/bazel/registry/v1",
     visibility = ["//visibility:public"],
     deps = [
         "//build/stack/bazel/symbol/v1:symbol",

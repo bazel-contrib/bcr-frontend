@@ -1449,8 +1449,8 @@ const file_stardoc_output_stardoc_output_proto_rawDesc = "" +
 	"\x1aPARAM_ROLE_POSITIONAL_ONLY\x10\x02\x12\x1b\n" +
 	"\x17PARAM_ROLE_KEYWORD_ONLY\x10\x03\x12\x16\n" +
 	"\x12PARAM_ROLE_VARARGS\x10\x04\x12\x15\n" +
-	"\x11PARAM_ROLE_KWARGS\x10\x05Bp\n" +
-	"0com.google.devtools.build.lib.starlarkdocextractB\x13StardocOutputProtosZ'github.com/stackb/centrl/stardoc_outputb\x06proto3"
+	"\x11PARAM_ROLE_KWARGS\x10\x05B}\n" +
+	"0com.google.devtools.build.lib.starlarkdocextractB\x13StardocOutputProtosZ4github.com/bazel-contrib/bcr-frontend/stardoc_outputb\x06proto3"
 
 var (
 	file_stardoc_output_stardoc_output_proto_rawDescOnce sync.Once

@@ -3,7 +3,7 @@ load("@rules_go//go:def.bzl", "go_binary", "go_library")
 go_library(
     name = "codesearchcompiler_lib",
     srcs = ["main.go"],
-    importpath = "github.com/stackb/centrl/cmd/codesearchcompiler",
+    importpath = "github.com/bazel-contrib/bcr-frontend/cmd/codesearchcompiler",
     visibility = ["//visibility:private"],
     deps = ["@com_github_junkblocker_codesearch//index:go_default_library"],
 )

@@ -1,9 +1,9 @@
 package stardoc
 
 import (
-	sympb "github.com/stackb/centrl/build/stack/bazel/symbol/v1"
-	slpb "github.com/stackb/centrl/build/stack/starlark/v1beta1"
-	sdpb "github.com/stackb/centrl/stardoc_output"
+	sympb "github.com/bazel-contrib/bcr-frontend/build/stack/bazel/symbol/v1"
+	slpb "github.com/bazel-contrib/bcr-frontend/build/stack/starlark/v1beta1"
+	sdpb "github.com/bazel-contrib/bcr-frontend/stardoc_output"
 )
 
 func processDocString(doc string) string {

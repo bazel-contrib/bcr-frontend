@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package build.stack.bazel.symbol.v1;
 
-option go_package = "github.com/stackb/centrl/build/stack/bazel/symbol/v1;sympb";
+option go_package = "github.com/bazel-contrib/bcr-frontend/build/stack/bazel/symbol/v1;sympb";
 
 import "build/stack/starlark/v1beta1/starlark.proto";
 

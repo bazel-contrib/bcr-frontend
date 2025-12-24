@@ -3,8 +3,8 @@ package bcr
 import (
 	"fmt"
 
+	bzpb "github.com/bazel-contrib/bcr-frontend/build/stack/bazel/registry/v1"
 	"github.com/bazelbuild/bazel-gazelle/rule"
-	bzpb "github.com/stackb/centrl/build/stack/bazel/registry/v1"
 )
 
 const moduleMaintainerKind = "module_maintainer"

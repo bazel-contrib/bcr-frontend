@@ -7,9 +7,9 @@ import (
 	"strconv"
 	"strings"
 
+	bzpb "github.com/bazel-contrib/bcr-frontend/build/stack/bazel/registry/v1"
 	"github.com/bazelbuild/bazel-gazelle/rule"
 	"github.com/bazelbuild/buildtools/build"
-	bzpb "github.com/stackb/centrl/build/stack/bazel/registry/v1"
 )
 
 // ExecFile evaluates a MODULE.bazel as starlark file into a ModuleVersion protobuf

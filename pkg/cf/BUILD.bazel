@@ -7,7 +7,7 @@ go_library(
         "client.go",
         "workers.go",
     ],
-    importpath = "github.com/stackb/centrl/pkg/cf",
+    importpath = "github.com/bazel-contrib/bcr-frontend/pkg/cf",
     visibility = ["//visibility:public"],
     deps = [
         "@com_github_zeebo_blake3//:go_default_library",

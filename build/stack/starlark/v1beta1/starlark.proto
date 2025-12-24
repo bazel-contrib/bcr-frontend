@@ -8,7 +8,7 @@ import "stardoc_output/stardoc_output.proto";
 
 option java_package = "build.stack.starlark.v1beta1";
 option java_outer_classname = "StarlarkProtos";
-option go_package = "github.com/stackb/centrl/build/stack/starlark/v1beta1";
+option go_package = "github.com/bazel-contrib/bcr-frontend/build/stack/starlark/v1beta1";
 
 // ModuleCategory corresponds to corresponds to
 // StarlarkDocumentationCategory.java.

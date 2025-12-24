@@ -8,12 +8,12 @@ import (
 	"path/filepath"
 	"time"
 
-	slpb "github.com/stackb/centrl/build/stack/starlark/v1beta1"
+	slpb "github.com/bazel-contrib/bcr-frontend/build/stack/starlark/v1beta1"
 
-	"github.com/stackb/centrl/pkg/paramsfile"
+	"github.com/bazel-contrib/bcr-frontend/pkg/paramsfile"
 
-	wppb "github.com/stackb/centrl/blaze/worker"
-	"github.com/stackb/centrl/pkg/protoutil"
+	wppb "github.com/bazel-contrib/bcr-frontend/blaze/worker"
+	"github.com/bazel-contrib/bcr-frontend/pkg/protoutil"
 )
 
 const (

@@ -21,9 +21,9 @@ import (
 	"github.com/amenzhinsky/go-memexec"
 	"github.com/rs/zerolog"
 
-	rnpb "github.com/stackb/centrl/build/stack/centrl/render/v1"
-	"github.com/stackb/centrl/pkg/fsutil"
-	"github.com/stackb/centrl/pkg/netutil"
+	rnpb "github.com/bazel-contrib/bcr-frontend/build/stack/centrl/render/v1"
+	"github.com/bazel-contrib/bcr-frontend/pkg/fsutil"
+	"github.com/bazel-contrib/bcr-frontend/pkg/netutil"
 )
 
 const (

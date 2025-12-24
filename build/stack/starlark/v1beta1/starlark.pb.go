@@ -7,7 +7,7 @@
 package v1beta1
 
 import (
-	stardoc_output "github.com/stackb/centrl/stardoc_output"
+	stardoc_output "github.com/bazel-contrib/bcr-frontend/stardoc_output"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
@@ -1791,8 +1791,8 @@ const file_build_stack_starlark_v1beta1_starlark_proto_rawDesc = "" +
 	"\bStarlark\x12e\n" +
 	"\n" +
 	"ModuleInfo\x12/.build.stack.starlark.v1beta1.ModuleInfoRequest\x1a$.build.stack.starlark.v1beta1.Module\"\x00\x12_\n" +
-	"\x04Ping\x12).build.stack.starlark.v1beta1.PingRequest\x1a*.build.stack.starlark.v1beta1.PingResponse\"\x00Be\n" +
-	"\x1cbuild.stack.starlark.v1beta1B\x0eStarlarkProtosZ5github.com/stackb/centrl/build/stack/starlark/v1beta1b\x06proto3"
+	"\x04Ping\x12).build.stack.starlark.v1beta1.PingRequest\x1a*.build.stack.starlark.v1beta1.PingResponse\"\x00Br\n" +
+	"\x1cbuild.stack.starlark.v1beta1B\x0eStarlarkProtosZBgithub.com/bazel-contrib/bcr-frontend/build/stack/starlark/v1beta1b\x06proto3"
 
 var (
 	file_build_stack_starlark_v1beta1_starlark_proto_rawDescOnce sync.Once

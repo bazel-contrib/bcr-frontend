@@ -6,11 +6,11 @@ import (
 	"log"
 	"path/filepath"
 
+	bzpb "github.com/bazel-contrib/bcr-frontend/build/stack/bazel/registry/v1"
+	gitpkg "github.com/bazel-contrib/bcr-frontend/pkg/git"
 	"github.com/bazelbuild/bazel-gazelle/config"
 	"github.com/bazelbuild/bazel-gazelle/resolve"
 	"github.com/bazelbuild/bazel-gazelle/rule"
-	bzpb "github.com/stackb/centrl/build/stack/bazel/registry/v1"
-	gitpkg "github.com/stackb/centrl/pkg/git"
 )
 
 const moduleRegistryKind = "module_registry"

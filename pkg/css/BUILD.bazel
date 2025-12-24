@@ -3,6 +3,6 @@ load("@rules_go//go:def.bzl", "go_library")
 go_library(
     name = "css",
     srcs = ["identifier.go"],
-    importpath = "github.com/stackb/centrl/pkg/css",
+    importpath = "github.com/bazel-contrib/bcr-frontend/pkg/css",
     visibility = ["//visibility:public"],
 )

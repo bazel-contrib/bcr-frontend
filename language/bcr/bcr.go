@@ -11,6 +11,11 @@ import (
 	"slices"
 	"strings"
 
+	bzpb "github.com/bazel-contrib/bcr-frontend/build/stack/bazel/registry/v1"
+	"github.com/bazel-contrib/bcr-frontend/pkg/attestationsjson"
+	"github.com/bazel-contrib/bcr-frontend/pkg/metadatajson"
+	"github.com/bazel-contrib/bcr-frontend/pkg/modulebazel"
+	"github.com/bazel-contrib/bcr-frontend/pkg/sourcejson"
 	"github.com/bazelbuild/bazel-gazelle/config"
 	"github.com/bazelbuild/bazel-gazelle/label"
 	"github.com/bazelbuild/bazel-gazelle/language"
@@ -19,11 +24,6 @@ import (
 	"github.com/bazelbuild/bazel-gazelle/rule"
 	"github.com/dominikbraun/graph"
 	"github.com/google/go-github/v66/github"
-	bzpb "github.com/stackb/centrl/build/stack/bazel/registry/v1"
-	"github.com/stackb/centrl/pkg/attestationsjson"
-	"github.com/stackb/centrl/pkg/metadatajson"
-	"github.com/stackb/centrl/pkg/modulebazel"
-	"github.com/stackb/centrl/pkg/sourcejson"
 )
 
 const (

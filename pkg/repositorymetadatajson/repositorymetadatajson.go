@@ -6,7 +6,7 @@ import (
 	"os"
 	"strconv"
 
-	bzpb "github.com/stackb/centrl/build/stack/bazel/registry/v1"
+	bzpb "github.com/bazel-contrib/bcr-frontend/build/stack/bazel/registry/v1"
 )
 
 // jsonRepositoryMetadata is the intermediate JSON structure

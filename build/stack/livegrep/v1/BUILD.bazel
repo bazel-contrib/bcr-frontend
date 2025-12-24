@@ -15,8 +15,8 @@ proto_compiled_sources(
         "livegrep_grpc.pb.go",
     ],
     output_mappings = [
-        "livegrep.pb.go=github.com/stackb/centrl/build/stack/livegrep/v1/livegrep.pb.go",
-        "livegrep_grpc.pb.go=github.com/stackb/centrl/build/stack/livegrep/v1/livegrep_grpc.pb.go",
+        "livegrep.pb.go=github.com/bazel-contrib/bcr-frontend/build/stack/livegrep/v1/livegrep.pb.go",
+        "livegrep_grpc.pb.go=github.com/bazel-contrib/bcr-frontend/build/stack/livegrep/v1/livegrep_grpc.pb.go",
     ],
     plugins = [
         "@build_stack_rules_proto//plugin/golang/protobuf:protoc-gen-go",
@@ -32,7 +32,7 @@ go_library(
         "livegrep.pb.go",
         "livegrep_grpc.pb.go",
     ],
-    importpath = "github.com/stackb/centrl/build/stack/livegrep/v1",
+    importpath = "github.com/bazel-contrib/bcr-frontend/build/stack/livegrep/v1",
     visibility = ["//visibility:public"],
     deps = [
         "@org_golang_google_grpc//:go_default_library",

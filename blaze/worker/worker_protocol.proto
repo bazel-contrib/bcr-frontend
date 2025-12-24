@@ -17,7 +17,7 @@ syntax = "proto3";
 package blaze.worker;
 
 option java_package = "com.google.devtools.build.lib.worker";
-option go_package = "github.com/stackb/centrl/gazelle/blaze/worker/worker_protocol;worker_protocol";
+option go_package = "github.com/bazel-contrib/bcr-frontend/gazelle/blaze/worker/worker_protocol;worker_protocol";
 
 // An input file.
 message Input {

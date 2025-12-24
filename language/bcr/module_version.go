@@ -5,11 +5,11 @@ import (
 	"log"
 	"slices"
 
+	bzpb "github.com/bazel-contrib/bcr-frontend/build/stack/bazel/registry/v1"
 	"github.com/bazelbuild/bazel-gazelle/label"
 	"github.com/bazelbuild/bazel-gazelle/resolve"
 	"github.com/bazelbuild/bazel-gazelle/rule"
 	"github.com/bazelbuild/buildtools/build"
-	bzpb "github.com/stackb/centrl/build/stack/bazel/registry/v1"
 )
 
 const (

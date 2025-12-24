@@ -3,7 +3,7 @@ load("@rules_go//go:def.bzl", "go_binary", "go_library")
 go_library(
     name = "sitemapcompiler_lib",
     srcs = ["main.go"],
-    importpath = "github.com/stackb/centrl/cmd/sitemapcompiler",
+    importpath = "github.com/bazel-contrib/bcr-frontend/cmd/sitemapcompiler",
     visibility = ["//visibility:private"],
     deps = [
         "//build/stack/bazel/registry/v1:registry",

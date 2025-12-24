@@ -3,6 +3,6 @@ load("@rules_go//go:def.bzl", "go_library")
 go_library(
     name = "fsutil",
     srcs = ["fsutil.go"],
-    importpath = "github.com/stackb/centrl/pkg/fsutil",
+    importpath = "github.com/bazel-contrib/bcr-frontend/pkg/fsutil",
     visibility = ["//visibility:public"],
 )

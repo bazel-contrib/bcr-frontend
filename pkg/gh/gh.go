@@ -11,9 +11,9 @@ import (
 	"sync"
 	"time"
 
+	bzpb "github.com/bazel-contrib/bcr-frontend/build/stack/bazel/registry/v1"
 	"github.com/google/go-github/v66/github"
 	"github.com/shurcooL/githubv4"
-	bzpb "github.com/stackb/centrl/build/stack/bazel/registry/v1"
 	"golang.org/x/oauth2"
 	"golang.org/x/sync/errgroup"
 	"golang.org/x/time/rate"

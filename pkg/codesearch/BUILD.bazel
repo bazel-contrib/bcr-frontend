@@ -3,7 +3,7 @@ load("@rules_go//go:def.bzl", "go_library")
 go_library(
     name = "codesearch",
     srcs = ["codesearch.go"],
-    importpath = "github.com/stackb/centrl/pkg/codesearch",
+    importpath = "github.com/bazel-contrib/bcr-frontend/pkg/codesearch",
     visibility = ["//visibility:public"],
     deps = [
         "//build/stack/livegrep/v1:livegrep",

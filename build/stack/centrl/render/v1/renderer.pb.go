@@ -137,7 +137,7 @@ const file_build_stack_centrl_render_v1_renderer_proto_rawDesc = "" +
 	"\x05error\x18\x02 \x01(\tR\x05error\x12%\n" +
 	"\x0eelapsed_millis\x18\x03 \x01(\x03R\relapsedMillis2q\n" +
 	"\bRenderer\x12e\n" +
-	"\x06Render\x12+.build.stack.centrl.render.v1.RenderRequest\x1a,.build.stack.centrl.render.v1.RenderResponse\"\x00B<Z:github.com/stackb/centrl/build/stack/centrl/render/v1;rnpbb\x06proto3"
+	"\x06Render\x12+.build.stack.centrl.render.v1.RenderRequest\x1a,.build.stack.centrl.render.v1.RenderResponse\"\x00BIZGgithub.com/bazel-contrib/bcr-frontend/build/stack/centrl/render/v1;rnpbb\x06proto3"
 
 var (
 	file_build_stack_centrl_render_v1_renderer_proto_rawDescOnce sync.Once

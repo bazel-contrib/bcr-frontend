@@ -428,7 +428,7 @@ const file_build_stack_bazel_help_v1_help_proto_rawDesc = "" +
 	"\x12BazelHelpParseMode\x12\t\n" +
 	"\x05USAGE\x10\x00\x12\f\n" +
 	"\bCATEGORY\x10\x01\x12\b\n" +
-	"\x04FLAG\x10\x02B9Z7github.com/stackb/centrl/build/stack/bazel/help/v1;bhpbb\x06proto3"
+	"\x04FLAG\x10\x02BFZDgithub.com/bazel-contrib/bcr-frontend/build/stack/bazel/help/v1;bhpbb\x06proto3"
 
 var (
 	file_build_stack_bazel_help_v1_help_proto_rawDescOnce sync.Once

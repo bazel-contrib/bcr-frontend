@@ -6,7 +6,7 @@ import (
 	"os/exec"
 	"strings"
 
-	bzpb "github.com/stackb/centrl/build/stack/bazel/registry/v1"
+	bzpb "github.com/bazel-contrib/bcr-frontend/build/stack/bazel/registry/v1"
 )
 
 // GetFileCreationCommit returns the commit information for when a file was first added (created)

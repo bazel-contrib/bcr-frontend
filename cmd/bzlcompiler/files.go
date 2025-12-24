@@ -7,9 +7,9 @@ import (
 	"path/filepath"
 	"strings"
 
+	bzpb "github.com/bazel-contrib/bcr-frontend/build/stack/bazel/registry/v1"
 	"github.com/bazelbuild/bazel-gazelle/label"
 	"github.com/bazelbuild/buildtools/build"
-	bzpb "github.com/stackb/centrl/build/stack/bazel/registry/v1"
 	"google.golang.org/grpc/status"
 )
 

@@ -3,7 +3,7 @@ load("@rules_go//go:def.bzl", "go_binary", "go_library")
 go_library(
     name = "renderhtml_lib",
     srcs = ["main.go"],
-    importpath = "github.com/stackb/centrl/cmd/renderhtml",
+    importpath = "github.com/bazel-contrib/bcr-frontend/cmd/renderhtml",
     visibility = ["//visibility:private"],
     deps = [
         "//blaze/worker",

@@ -3,8 +3,8 @@ package stardoc
 import (
 	"log"
 
+	slpb "github.com/bazel-contrib/bcr-frontend/build/stack/starlark/v1beta1"
 	"github.com/bazelbuild/bazel-gazelle/label"
-	slpb "github.com/stackb/centrl/build/stack/starlark/v1beta1"
 )
 
 // ParseLabel parses a Bazel label string into its components

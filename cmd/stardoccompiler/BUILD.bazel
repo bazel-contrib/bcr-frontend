@@ -3,7 +3,7 @@ load("@rules_go//go:def.bzl", "go_binary", "go_library")
 go_library(
     name = "stardoccompiler_lib",
     srcs = ["main.go"],
-    importpath = "github.com/stackb/centrl/cmd/stardoccompiler",
+    importpath = "github.com/bazel-contrib/bcr-frontend/cmd/stardoccompiler",
     visibility = ["//visibility:private"],
     deps = [
         "//build/stack/bazel/symbol/v1:symbol",

@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package build.stack.livegrep.v1;
 
-option go_package = "github.com/stackb/centrl/build/stack/livegrep/v1;livegrep";
+option go_package = "github.com/bazel-contrib/bcr-frontend/build/stack/livegrep/v1;livegrep";
 
 message IndexSpec {
   string name = 1;

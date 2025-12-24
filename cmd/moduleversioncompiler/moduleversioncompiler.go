@@ -8,14 +8,14 @@ import (
 	"regexp"
 	"strings"
 
-	bzpb "github.com/stackb/centrl/build/stack/bazel/registry/v1"
-	sympb "github.com/stackb/centrl/build/stack/bazel/symbol/v1"
-	"github.com/stackb/centrl/pkg/attestationsjson"
-	"github.com/stackb/centrl/pkg/modulebazel"
-	"github.com/stackb/centrl/pkg/paramsfile"
-	"github.com/stackb/centrl/pkg/presubmityml"
-	"github.com/stackb/centrl/pkg/protoutil"
-	"github.com/stackb/centrl/pkg/sourcejson"
+	bzpb "github.com/bazel-contrib/bcr-frontend/build/stack/bazel/registry/v1"
+	sympb "github.com/bazel-contrib/bcr-frontend/build/stack/bazel/symbol/v1"
+	"github.com/bazel-contrib/bcr-frontend/pkg/attestationsjson"
+	"github.com/bazel-contrib/bcr-frontend/pkg/modulebazel"
+	"github.com/bazel-contrib/bcr-frontend/pkg/paramsfile"
+	"github.com/bazel-contrib/bcr-frontend/pkg/presubmityml"
+	"github.com/bazel-contrib/bcr-frontend/pkg/protoutil"
+	"github.com/bazel-contrib/bcr-frontend/pkg/sourcejson"
 )
 
 const toolName = "moduleversioncompiler"

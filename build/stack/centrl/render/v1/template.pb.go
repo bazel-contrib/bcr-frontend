@@ -162,7 +162,7 @@ const file_build_stack_centrl_render_v1_template_proto_rawDesc = "" +
 	"\x04kind\x18\x02 \x01(\tR\x04kind\x12<\n" +
 	"\x05files\x18\x03 \x03(\v2&.build.stack.centrl.render.v1.TemplateR\x05files\x12\x16\n" +
 	"\x06sha256\x18\x04 \x01(\tR\x06sha256\x12,\n" +
-	"\x12render_time_millis\x18\x05 \x01(\x03R\x10renderTimeMillisB<Z:github.com/stackb/centrl/build/stack/centrl/render/v1;rnpbb\x06proto3"
+	"\x12render_time_millis\x18\x05 \x01(\x03R\x10renderTimeMillisBIZGgithub.com/bazel-contrib/bcr-frontend/build/stack/centrl/render/v1;rnpbb\x06proto3"
 
 var (
 	file_build_stack_centrl_render_v1_template_proto_rawDescOnce sync.Once

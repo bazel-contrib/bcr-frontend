@@ -6,10 +6,10 @@ import (
 	"log"
 	"os"
 
-	sympb "github.com/stackb/centrl/build/stack/bazel/symbol/v1"
-	"github.com/stackb/centrl/pkg/protoutil"
-	"github.com/stackb/centrl/pkg/stardoc"
-	sdpb "github.com/stackb/centrl/stardoc_output"
+	sympb "github.com/bazel-contrib/bcr-frontend/build/stack/bazel/symbol/v1"
+	"github.com/bazel-contrib/bcr-frontend/pkg/protoutil"
+	"github.com/bazel-contrib/bcr-frontend/pkg/stardoc"
+	sdpb "github.com/bazel-contrib/bcr-frontend/stardoc_output"
 )
 
 const toolName = "stardoccompiler"

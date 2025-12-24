@@ -3,7 +3,7 @@ load("@rules_go//go:def.bzl", "go_binary", "go_library")
 go_library(
     name = "moduleversioncompiler_lib",
     srcs = ["moduleversioncompiler.go"],
-    importpath = "github.com/stackb/centrl/cmd/moduleversioncompiler",
+    importpath = "github.com/bazel-contrib/bcr-frontend/cmd/moduleversioncompiler",
     visibility = ["//visibility:public"],
     deps = [
         "//build/stack/bazel/registry/v1:registry",

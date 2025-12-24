@@ -7,8 +7,8 @@
 package bzpb
 
 import (
-	v1 "github.com/stackb/centrl/build/stack/bazel/symbol/v1"
-	_ "github.com/stackb/centrl/build/stack/starlark/v1beta1"
+	v1 "github.com/bazel-contrib/bcr-frontend/build/stack/bazel/symbol/v1"
+	_ "github.com/bazel-contrib/bcr-frontend/build/stack/starlark/v1beta1"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
@@ -2384,7 +2384,7 @@ const file_build_stack_bazel_registry_v1_bcr_proto_rawDesc = "" +
 	"\n" +
 	"\x06GITHUB\x10\x01\x12\n" +
 	"\n" +
-	"\x06GITLAB\x10\x02B=Z;github.com/stackb/centrl/build/stack/bazel/registry/v1;bzpbb\x06proto3"
+	"\x06GITLAB\x10\x02BJZHgithub.com/bazel-contrib/bcr-frontend/build/stack/bazel/registry/v1;bzpbb\x06proto3"
 
 var (
 	file_build_stack_bazel_registry_v1_bcr_proto_rawDescOnce sync.Once

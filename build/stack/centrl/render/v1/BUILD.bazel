@@ -19,9 +19,9 @@ proto_compiled_sources(
         "template.pb.go",
     ],
     output_mappings = [
-        "renderer.pb.go=github.com/stackb/centrl/build/stack/centrl/render/v1/renderer.pb.go",
-        "renderer_grpc.pb.go=github.com/stackb/centrl/build/stack/centrl/render/v1/renderer_grpc.pb.go",
-        "template.pb.go=github.com/stackb/centrl/build/stack/centrl/render/v1/template.pb.go",
+        "renderer.pb.go=github.com/bazel-contrib/bcr-frontend/build/stack/centrl/render/v1/renderer.pb.go",
+        "renderer_grpc.pb.go=github.com/bazel-contrib/bcr-frontend/build/stack/centrl/render/v1/renderer_grpc.pb.go",
+        "template.pb.go=github.com/bazel-contrib/bcr-frontend/build/stack/centrl/render/v1/template.pb.go",
     ],
     plugins = [
         "@build_stack_rules_proto//plugin/golang/protobuf:protoc-gen-go",
@@ -38,7 +38,7 @@ go_library(
         "renderer_grpc.pb.go",
         "template.pb.go",
     ],
-    importpath = "github.com/stackb/centrl/build/stack/centrl/render/v1",
+    importpath = "github.com/bazel-contrib/bcr-frontend/build/stack/centrl/render/v1",
     visibility = ["//visibility:public"],
     deps = [
         "@org_golang_google_grpc//:go_default_library",

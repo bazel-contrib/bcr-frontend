@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package build.stack.bazel.registry.v1;
 
-option go_package = "github.com/stackb/centrl/build/stack/bazel/registry/v1;bzpb";
+option go_package = "github.com/bazel-contrib/bcr-frontend/build/stack/bazel/registry/v1;bzpb";
 
 import "build/stack/bazel/symbol/v1/symbol.proto";
 import "build/stack/starlark/v1beta1/starlark.proto";

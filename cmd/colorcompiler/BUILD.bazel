@@ -3,7 +3,7 @@ load("@rules_go//go:def.bzl", "go_binary", "go_library")
 go_library(
     name = "colorcompiler_lib",
     srcs = ["colorcompiler.go"],
-    importpath = "github.com/stackb/centrl/cmd/colorcompiler",
+    importpath = "github.com/bazel-contrib/bcr-frontend/cmd/colorcompiler",
     visibility = ["//visibility:private"],
     deps = [
         "//pkg/css",

@@ -8,8 +8,8 @@ import (
 	"os"
 	"time"
 
-	bzpb "github.com/stackb/centrl/build/stack/bazel/registry/v1"
-	"github.com/stackb/centrl/pkg/protoutil"
+	bzpb "github.com/bazel-contrib/bcr-frontend/build/stack/bazel/registry/v1"
+	"github.com/bazel-contrib/bcr-frontend/pkg/protoutil"
 )
 
 // URLSet represents the root element of a sitemap

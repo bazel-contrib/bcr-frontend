@@ -3,7 +3,7 @@ load("@rules_go//go:def.bzl", "go_binary", "go_library", "go_test")
 go_library(
     name = "bazelhelpcompiler_lib",
     srcs = ["bazelhelpcompiler.go"],
-    importpath = "github.com/stackb/centrl/cmd/bazelhelpcompiler",
+    importpath = "github.com/bazel-contrib/bcr-frontend/cmd/bazelhelpcompiler",
     visibility = ["//visibility:private"],
     deps = [
         "//build/stack/bazel/help/v1:help",

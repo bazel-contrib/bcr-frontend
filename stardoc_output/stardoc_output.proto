@@ -22,7 +22,7 @@ package stardoc_output;
 // option java_api_version = 2;
 option java_package = "com.google.devtools.build.lib.starlarkdocextract";
 option java_outer_classname = "StardocOutputProtos";
-option go_package = "github.com/stackb/centrl/stardoc_output";
+option go_package = "github.com/bazel-contrib/bcr-frontend/stardoc_output";
 
 // The root output proto of Stardoc. An invocation of Stardoc on a single file
 // will output exactly one instance of this proto, representing all

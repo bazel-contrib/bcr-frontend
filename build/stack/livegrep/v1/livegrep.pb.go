@@ -1152,7 +1152,7 @@ const file_build_stack_livegrep_v1_livegrep_proto_rawDesc = "" +
 	"\n" +
 	"CodeSearch\x12Q\n" +
 	"\x04Info\x12$.build.stack.livegrep.v1.InfoRequest\x1a#.build.stack.livegrep.v1.ServerInfo\x12S\n" +
-	"\x06Search\x12\x1e.build.stack.livegrep.v1.Query\x1a).build.stack.livegrep.v1.CodeSearchResultB;Z9github.com/stackb/centrl/build/stack/livegrep/v1;livegrepb\x06proto3"
+	"\x06Search\x12\x1e.build.stack.livegrep.v1.Query\x1a).build.stack.livegrep.v1.CodeSearchResultBHZFgithub.com/bazel-contrib/bcr-frontend/build/stack/livegrep/v1;livegrepb\x06proto3"
 
 var (
 	file_build_stack_livegrep_v1_livegrep_proto_rawDescOnce sync.Once

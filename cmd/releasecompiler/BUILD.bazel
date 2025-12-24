@@ -3,7 +3,7 @@ load("@rules_go//go:def.bzl", "go_binary", "go_library")
 go_library(
     name = "releasecompiler_lib",
     srcs = ["releasecompiler.go"],
-    importpath = "github.com/stackb/centrl/cmd/releasecompiler",
+    importpath = "github.com/bazel-contrib/bcr-frontend/cmd/releasecompiler",
     visibility = ["//visibility:private"],
     deps = ["//pkg/paramsfile"],
 )

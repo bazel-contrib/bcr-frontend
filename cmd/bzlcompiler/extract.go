@@ -6,9 +6,9 @@ import (
 	"path/filepath"
 	"time"
 
-	sympb "github.com/stackb/centrl/build/stack/bazel/symbol/v1"
-	slpb "github.com/stackb/centrl/build/stack/starlark/v1beta1"
-	"github.com/stackb/centrl/pkg/stardoc"
+	sympb "github.com/bazel-contrib/bcr-frontend/build/stack/bazel/symbol/v1"
+	slpb "github.com/bazel-contrib/bcr-frontend/build/stack/starlark/v1beta1"
+	"github.com/bazel-contrib/bcr-frontend/pkg/stardoc"
 )
 
 func extractModuleVersionSymbols(cfg *config, bzlFileByPath map[string]*bzlFile, filesToExtract []string) (*sympb.ModuleVersionSymbols, error) {

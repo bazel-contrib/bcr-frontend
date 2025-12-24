@@ -6,6 +6,6 @@ go_library(
         "paramsfile.go",
         "stringslice.go",
     ],
-    importpath = "github.com/stackb/centrl/pkg/paramsfile",
+    importpath = "github.com/bazel-contrib/bcr-frontend/pkg/paramsfile",
     visibility = ["//visibility:public"],
 )

@@ -3,7 +3,7 @@ load("@rules_go//go:def.bzl", "go_library")
 go_library(
     name = "gl",
     srcs = ["gl.go"],
-    importpath = "github.com/stackb/centrl/pkg/gl",
+    importpath = "github.com/bazel-contrib/bcr-frontend/pkg/gl",
     visibility = ["//visibility:public"],
     deps = [
         "//build/stack/bazel/registry/v1:registry",

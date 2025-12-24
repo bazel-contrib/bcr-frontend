@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	slpb "github.com/stackb/centrl/build/stack/starlark/v1beta1"
+	slpb "github.com/bazel-contrib/bcr-frontend/build/stack/starlark/v1beta1"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"

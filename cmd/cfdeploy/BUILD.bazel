@@ -3,7 +3,7 @@ load("@rules_go//go:def.bzl", "go_binary", "go_library")
 go_library(
     name = "cfdeploy_lib",
     srcs = ["main.go"],
-    importpath = "github.com/stackb/centrl/cmd/cfdeploy",
+    importpath = "github.com/bazel-contrib/bcr-frontend/cmd/cfdeploy",
     visibility = ["//visibility:private"],
     deps = ["//pkg/cf"],
 )
