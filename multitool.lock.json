@@ -1,0 +1,21 @@
+{
+  "$schema": "https://raw.githubusercontent.com/theoremlp/rules_multitool/main/lockfile.schema.json",
+  "biome": {
+    "binaries": [
+      {
+        "kind": "file",
+        "url": "https://github.com/biomejs/biome/releases/download/%40biomejs%2Fbiome%402.3.10/biome-darwin-arm64",
+        "sha256": "adc11155b54557baab9498376472e7371ac5ca798a15c7134212d1ed1c4a1102",
+        "os": "macos",
+        "cpu": "arm64"
+      },
+      {
+        "kind": "file",
+        "url": "https://github.com/biomejs/biome/releases/download/%40biomejs%2Fbiome%402.3.10/biome-linux-x64",
+        "sha256": "94633f4516184d8f5c058df4958e92e2311d49da9f00c3e01eee8ef64a70d303",
+        "os": "linux",
+        "cpu": "x86_64"
+      }      
+    ]
+  }
+}

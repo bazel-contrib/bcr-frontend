@@ -34,7 +34,7 @@ biome_format = rule(
             default = "format",
         ),
         "_biome": attr.label(
-            default = "@github_com_biomejs_biome_releases_download_biomejs_biome_2_3_10_biome_darwin_arm64//file",
+            default = "@multitool//tools/biome:biome",
             executable = True,
             cfg = "exec",
         ),
