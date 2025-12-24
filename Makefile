@@ -14,8 +14,8 @@ bcr_clean:
 	(cd data/bazel-central-registry && git sparse-checkout set --no-cone modules)
 
 .PHONY: bcr
-bcr:
-	GITHUB_TOKEN=ghp_XXX bazel run bcr
+bcr: bcr_clean bcr_update
+	bazel run bcr
 
 # Code generation targets
 .PHONY: regenerate_protos

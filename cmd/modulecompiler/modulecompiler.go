@@ -81,30 +81,30 @@ func run(args []string) error {
 		module.Versions = append(module.Versions, &version)
 	}
 
-	// Sort versions by commit date (newest first).  This is safe to sort by
-	// string comparison here because the commit dates are in ISO 8601 format
-	// (RFC3339), which is specifically designed to be lexicographically
-	// sortable
+	// Sort versions according to moduleMetadata.Versions order (latest last),
+	// then reverse to put latest first
+	versionOrder := make(map[string]int)
+	for i, v := range metadata.Versions {
+		versionOrder[v] = i
+	}
+
 	slices.SortFunc(module.Versions, func(a, b *bzpb.ModuleVersion) int {
-		// Handle nil commits
-		if a.Commit == nil && b.Commit == nil {
+		aOrder, aExists := versionOrder[a.Version]
+		bOrder, bExists := versionOrder[b.Version]
+
+		// If version not in metadata, put at end
+		if !aExists && !bExists {
 			return 0
 		}
-		if a.Commit == nil {
-			return 1 // Put versions without commits at the end
+		if !aExists {
+			return 1
 		}
-		if b.Commit == nil {
+		if !bExists {
 			return -1
 		}
 
-		// Compare dates (reverse order for newest first)
-		if a.Commit.Date > b.Commit.Date {
-			return -1
-		}
-		if a.Commit.Date < b.Commit.Date {
-			return 1
-		}
-		return 0
+		// Compare by metadata order (reversed - higher index = newer = comes first)
+		return bOrder - aOrder
 	})
 
 	// Write the compiled ModuleVersion to output file
