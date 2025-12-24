@@ -1,4 +1,4 @@
-name = "centrl-api"
+name = "bcr-frontend-api"
 main = "index.mjs"
 compatibility_date = "2024-12-01"
 
@@ -12,12 +12,3 @@ compatibility_date = "2024-12-01"
 globs = ["**/*.wasm"]
 type = "CompiledWasm"
 fallthrough = true
-
-# Uncomment and configure routes once your Cloudflare zone is set up
-# [env.production]
-# name = "centrl-api"
-# routes = [{ pattern = "bcr.stack.build/api/*", zone_name = "bcr.stack.build" }]
-
-# [env.staging]
-# name = "centrl-api-staging"
-# routes = [{ pattern = "staging.bcr.stack.build/api/*", zone_name = "bcr.stack.build" }]

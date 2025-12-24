@@ -1,5 +1,5 @@
 [package]
-name = "centrl-api"
+name = "bcr-frontend-api"
 version = "0.1.0"
 edition = "2021"
 
