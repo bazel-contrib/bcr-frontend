@@ -1,0 +1,19 @@
+# the gazelle extension modifies the use_repo(starlark_repository) call, so use
+# a different extension target name for ones the gazelle extension should not
+# touch.
+starlark_repository_internal = use_extension("@build_stack_rules_proto//extensions:starlark_repository.bzl", "starlark_repository", dev_dependency = True)
+starlark_repository_internal.archive(
+    name = "bzl.bazel_tools",
+    build_directives = [
+        "gazelle:starlarkrepository_root tools",
+        "gazelle:starlarkrepository_root src/main/starlark/builtins_bzl",
+    ],
+    build_file_generation = "clean",
+    languages = ["starlarkrepository"],
+    strip_prefix = "bazel-8.4.2",
+    urls = ["https://github.com/bazelbuild/bazel/archive/refs/tags/8.4.2.zip"],
+)
+use_repo(
+    starlark_repository_internal,
+    "bzl.bazel_tools",
+)

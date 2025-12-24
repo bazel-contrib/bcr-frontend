@@ -8,3 +8,7 @@
 
 # Added by cargo
 /target
+
+# This file is modified during a gazelle bcr run.  It has base content, but
+# generally we don't care about the diff.
+data/generated.MODULE.bazel

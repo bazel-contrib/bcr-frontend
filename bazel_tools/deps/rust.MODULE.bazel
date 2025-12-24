@@ -1,0 +1,34 @@
+# -------------------------------------------------------------------
+# Configuration: Rust/Cargo
+# -------------------------------------------------------------------
+
+crate = use_extension("@rules_rs//rs:extensions.bzl", "crate")
+crate.from_cargo(
+    name = "crates",
+    cargo_lock = "//:Cargo.lock",
+    cargo_toml = "//:Cargo.toml",
+    platform_triples = [
+        "aarch64-apple-darwin",
+        "x86_64-unknown-linux-gnu",
+        "wasm32-unknown-unknown",
+    ],
+)
+crate.annotation(
+    crate = "protoc-gen-prost",
+    gen_binaries = ["protoc-gen-prost"],
+)
+crate.annotation(
+    crate = "protoc-gen-prost-serde",
+    gen_binaries = ["protoc-gen-prost-serde"],
+)
+crate.annotation(
+    crate = "wasm-bindgen-cli",
+    gen_binaries = ["wasm-bindgen"],
+)
+use_repo(crate, "crates")
+
+register_toolchains(
+    # override the default toolchain to match the wasm-bindgen version wanted by
+    # workerd API ("@rules_rust_wasm_bindgen//:default_wasm_bindgen_toolchain")
+    "//bazel_tools/rust:wasm_bindgen_toolchain",
+)

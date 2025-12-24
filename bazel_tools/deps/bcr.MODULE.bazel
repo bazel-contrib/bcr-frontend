@@ -1,0 +1,76 @@
+# -------------------------------------------------------------------
+# Dependencies
+# -------------------------------------------------------------------
+
+bazel_dep(name = "bazel_skylib", version = "1.8.2", dev_dependency = True)
+bazel_dep(name = "build_stack_rules_proto", version = "4.1.1", dev_dependency = True)
+bazel_dep(name = "buildifier_prebuilt", version = "8.2.1.1", dev_dependency = True)
+bazel_dep(name = "gazelle", version = "0.47.0", dev_dependency = True, repo_name = "bazel_gazelle")
+bazel_dep(name = "rules_go", version = "0.59.0", dev_dependency = True)
+bazel_dep(name = "rules_java", version = "8.16.1", dev_dependency = True)
+bazel_dep(name = "rules_multitool", version = "1.11.1", dev_dependency = True)
+bazel_dep(name = "rules_proto", version = "7.1.0", dev_dependency = True)
+bazel_dep(name = "rules_rs", version = "0.0.16", dev_dependency = True)
+bazel_dep(name = "rules_rust_wasm_bindgen", version = "0.68.1")
+bazel_dep(name = "rules_rust", version = "0.68.1", dev_dependency = True)
+bazel_dep(name = "rules_tsickle", version = "1.1.0", dev_dependency = True)
+bazel_dep(name = "stackb_rules_closure", version = "1.0.0", dev_dependency = True)
+bazel_dep(name = "stackb_ui_js", version = "1.0.0", dev_dependency = True)
+
+# -------------------------------------------------------------------
+# Overrides
+# -------------------------------------------------------------------
+
+# Commit: 3bcf945833dc086651abb8ebfb83dc8bf9da90ce
+# Date: 2025-12-13 15:49:51 +0000 UTC
+# URL: https://github.com/stackb/rules_proto/commit/3bcf945833dc086651abb8ebfb83dc8bf9da90ce
+#
+# checkpoint functioning version
+# Size: 4101266 (4.1 MB)
+archive_override(
+    module_name = "build_stack_rules_proto",
+    sha256 = "ca886c5aed0a93ea2c10397c50f6d2743109347e52832096ebb2e1846ffa3b14",
+    strip_prefix = "rules_proto-3bcf945833dc086651abb8ebfb83dc8bf9da90ce",
+    urls = ["https://github.com/stackb/rules_proto/archive/3bcf945833dc086651abb8ebfb83dc8bf9da90ce.tar.gz"],
+)
+
+# Commit: 8c7ea42b02671b60182ce298a1f386bee9960136
+# Date: 2025-12-10 18:31:16 +0000 UTC
+# URL: https://github.com/stackb/rules_closure/commit/8c7ea42b02671b60182ce298a1f386bee9960136
+#
+# safevalues: suppress checktypes on elements
+# Size: 5017676 (5.0 MB)
+archive_override(
+    module_name = "stackb_rules_closure",
+    sha256 = "72db2d8f1fba23d87c41722b5ba87d08736e8a94e7a58bda8a6fe0076956dc65",
+    strip_prefix = "rules_closure-8c7ea42b02671b60182ce298a1f386bee9960136",
+    urls = ["https://github.com/stackb/rules_closure/archive/8c7ea42b02671b60182ce298a1f386bee9960136.tar.gz"],
+)
+
+# Commit: a306339df9da4f83594970b0406751798d9818c9
+# Date: 2025-11-20 01:32:03 +0000 UTC
+# URL: https://github.com/stackb/ui.js/commit/a306339df9da4f83594970b0406751798d9818c9
+#
+# Refactor tests location (#11)
+# Size: 68907 (69 kB)
+archive_override(
+    module_name = "stackb_ui_js",
+    sha256 = "82b2f5e96acb760291df86bfa991c863cb2f54ce1380f7bc6e5c901458517193",
+    strip_prefix = "ui.js-a306339df9da4f83594970b0406751798d9818c9",
+    urls = ["https://github.com/stackb/ui.js/archive/a306339df9da4f83594970b0406751798d9818c9.tar.gz"],
+)
+
+# Commit: 263ee701cba6b75e1f8eddad5adcdf74718318b1
+# Date: 2025-10-08 21:32:22 +0000 UTC
+# URL: https://github.com/protocolbuffers/protobuf-javascript/commit/263ee701cba6b75e1f8eddad5adcdf74718318b1
+#
+# remove writeZigzagVarint64BigInt
+# Size: 401599 (402 kB)
+archive_override(
+    module_name = "protobuf_javascript",
+    patch_strip = 1,
+    patches = ["protobuf_javascript.patch"],
+    sha256 = "8a50071fbca5e4a26361e6c9d81dd842207f0005f7cc1720226f20c25a231805",
+    strip_prefix = "protobuf-javascript-263ee701cba6b75e1f8eddad5adcdf74718318b1",
+    urls = ["https://github.com/protocolbuffers/protobuf-javascript/archive/263ee701cba6b75e1f8eddad5adcdf74718318b1.tar.gz"],
+)

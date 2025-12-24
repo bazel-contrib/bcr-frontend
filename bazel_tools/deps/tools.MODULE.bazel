@@ -1,0 +1,34 @@
+# -------------------------------------------------------------------
+# Configuration: tools
+# -------------------------------------------------------------------
+
+multitool = use_extension("@rules_multitool//multitool:extension.bzl", "multitool")
+multitool.hub(lockfile = "//:multitool.lock.json")
+use_repo(multitool, "multitool")
+
+# -------------------------------------------------------------------
+# Configuration: colors.json
+# -------------------------------------------------------------------
+
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+
+# Branch: master
+# Commit: 427cd04c0c95613318b7eadf5da46e056b062d79
+# Date: 2025-11-10 19:24:07 +0000 UTC
+# URL: https://github.com/ozh/github-colors/commit/427cd04c0c95613318b7eadf5da46e056b062d79
+#
+# update colours
+# Size: 25068 (25 kB)
+http_archive(
+    name = "com_github_ozh_github_colors",
+    build_file_content = """
+filegroup(
+    name = "colors_json",
+    srcs = ["colors.json"],
+    visibility = ["//visibility:public"],    
+)
+""",
+    sha256 = "719fb2723dac3ed23ccd2f4e97c29dc1878778f727bc33973a41908d82bbccbb",
+    strip_prefix = "github-colors-427cd04c0c95613318b7eadf5da46e056b062d79",
+    urls = ["https://github.com/ozh/github-colors/archive/427cd04c0c95613318b7eadf5da46e056b062d79.tar.gz"],
+)

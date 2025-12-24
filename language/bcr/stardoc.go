@@ -361,14 +361,14 @@ func (ext *bcrExtension) finalizeBzlSrcsAndDeps(bzlRepositories rankedModuleVers
 	}
 }
 
-// mergeModuleBazelFile updates the MODULE.bazel file with additional rules if
-// needed.
-func mergeModuleBazelFile(repoRoot string, binaryProtoHttpArchives []*rule.Rule, bzlRepositories rankedModuleVersionMap) error {
+// mergeGeneratedModuleBazelFile updates the MODULE.bazel file with additional
+// rules.
+func mergeGeneratedModuleBazelFile(repoRoot string, binaryProtoHttpArchives []*rule.Rule, bzlRepositories rankedModuleVersionMap) error {
 	if len(binaryProtoHttpArchives) == 0 && len(bzlRepositories) == 0 {
 		return nil
 	}
 
-	filename := filepath.Join(repoRoot, "MODULE.bazel")
+	filename := filepath.Join(repoRoot, "data/generated.MODULE.bazel")
 	f, err := modulebazel.LoadFile(filename, "")
 	if err != nil {
 		return fmt.Errorf("parsing: %v", err)

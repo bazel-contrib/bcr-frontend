@@ -1,0 +1,35 @@
+# -------------------------------------------------------------------
+# Configuration: Go
+# -------------------------------------------------------------------
+
+go_sdk = use_extension("@rules_go//go:extensions.bzl", "go_sdk")
+go_sdk.from_file(go_mod = "//:go.mod")
+use_repo(
+    go_sdk,
+    go_sdk = "go_default_sdk",
+)
+
+go_deps = use_extension("@bazel_gazelle//:extensions.bzl", "go_deps")
+go_deps.from_file(go_mod = "//:go.mod")
+use_repo(
+    go_deps,
+    "com_github_amenzhinsky_go_memexec",
+    "com_github_bazelbuild_buildtools",
+    "com_github_chromedp_chromedp",
+    "com_github_dominikbraun_graph",
+    "com_github_google_go_github_v66",
+    "com_github_junkblocker_codesearch",
+    "com_github_rs_zerolog",
+    "com_github_samthor_sre2",
+    "com_github_schollz_progressbar_v3",
+    "com_github_shurcool_githubv4",
+    "com_github_teacat_noire",
+    "com_github_zeebo_blake3",
+    "in_gopkg_yaml_v3",
+    "net_starlark_go",
+    "org_golang_google_grpc",
+    "org_golang_google_protobuf",
+    "org_golang_x_oauth2",
+    "org_golang_x_sync",
+    "org_golang_x_time",
+)
