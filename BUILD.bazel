@@ -79,6 +79,7 @@ gazelle(
 proto_compile_assets(
     name = "proto_assets",
     deps = [
+        "//build/stack/bazel/help/v1:bhpb_go_compiled_sources",
         "//build/stack/bazel/registry/v1:bzpb_go_compiled_sources",
         "//build/stack/centrl/render/v1:rnpb_go_compiled_sources",
         "//build/stack/livegrep/v1:livegrep_go_compiled_sources",

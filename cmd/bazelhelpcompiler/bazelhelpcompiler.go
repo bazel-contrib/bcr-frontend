@@ -11,7 +11,7 @@ import (
 	"regexp"
 	"strings"
 
-	bzpb "github.com/stackb/centrl/build/stack/bazel/registry/v1"
+	bhpb "github.com/stackb/centrl/build/stack/bazel/help/v1"
 	"github.com/stackb/centrl/pkg/protoutil"
 )
 
@@ -85,8 +85,8 @@ func parseFlags(args []string) (cfg Config, err error) {
 	return
 }
 
-func compileBazelHelpVersion(cfg *Config) (*bzpb.BazelHelpVersion, error) {
-	help := bzpb.BazelHelpVersion{
+func compileBazelHelpVersion(cfg *Config) (*bhpb.BazelHelpVersion, error) {
+	help := bhpb.BazelHelpVersion{
 		Version: cfg.Version,
 	}
 
@@ -101,7 +101,7 @@ func compileBazelHelpVersion(cfg *Config) (*bzpb.BazelHelpVersion, error) {
 	return &help, nil
 }
 
-func parseHelpFileForCommand(filename string) (*bzpb.BazelHelpCommand, error) {
+func parseHelpFileForCommand(filename string) (*bhpb.BazelHelpCommand, error) {
 	content, err := os.ReadFile(filename)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read file: %w", err)
@@ -110,38 +110,38 @@ func parseHelpFileForCommand(filename string) (*bzpb.BazelHelpCommand, error) {
 	return parseHelp(bytes.NewReader(content)), nil
 }
 
-func parseHelp(in io.Reader) *bzpb.BazelHelpCommand {
-	cmd := &bzpb.BazelHelpCommand{}
+func parseHelp(in io.Reader) *bhpb.BazelHelpCommand {
+	cmd := &bhpb.BazelHelpCommand{}
 	scanner := bufio.NewScanner(in)
 
-	mode := bzpb.BazelHelpParseMode_USAGE
-	var category *bzpb.BazelHelpCategory
-	var currentFlag *bzpb.BazelOption
+	mode := bhpb.BazelHelpParseMode_USAGE
+	var category *bhpb.BazelHelpCategory
+	var currentFlag *bhpb.BazelOption
 	var previousLine string
 
 	for scanner.Scan() {
 		line := scanner.Text()
 
 		switch mode {
-		case bzpb.BazelHelpParseMode_USAGE:
+		case bhpb.BazelHelpParseMode_USAGE:
 			if isOptionLine(line) {
 				// Previous line is the category title
-				category = &bzpb.BazelHelpCategory{Title: previousLine}
+				category = &bhpb.BazelHelpCategory{Title: previousLine}
 				cmd.Category = append(cmd.Category, category)
 
 				currentFlag = newFlag(line, category)
 				if currentFlag.Name == "" {
 					log.Printf("%sINVALID line: %q", toolName, line)
 				}
-				mode = bzpb.BazelHelpParseMode_FLAG
+				mode = bhpb.BazelHelpParseMode_FLAG
 			} else {
 				cmd.Usage = append(cmd.Usage, line)
 			}
 
-		case bzpb.BazelHelpParseMode_FLAG:
+		case bhpb.BazelHelpParseMode_FLAG:
 			if line == "" {
 				// Blank line indicates end of category
-				mode = bzpb.BazelHelpParseMode_USAGE
+				mode = bhpb.BazelHelpParseMode_USAGE
 				category = nil
 				currentFlag = nil
 			} else if isOptionLine(line) {
@@ -164,7 +164,7 @@ func isOptionLine(line string) bool {
 	return strings.HasPrefix(line, "\t--") || strings.HasPrefix(line, "  --")
 }
 
-func extractTags(cmd *bzpb.BazelHelpCommand) {
+func extractTags(cmd *bhpb.BazelHelpCommand) {
 	for _, category := range cmd.Category {
 		for _, option := range category.Option {
 			for i, line := range option.Description {
@@ -190,7 +190,7 @@ func extractTags(cmd *bzpb.BazelHelpCommand) {
 	}
 }
 
-func newFlag(line string, category *bzpb.BazelHelpCategory) *bzpb.BazelOption {
+func newFlag(line string, category *bhpb.BazelHelpCategory) *bhpb.BazelOption {
 	matches := regexpMatch(helpFlagRegexp, line)
 	if matches == nil {
 		matches = make(map[string]string)
@@ -199,7 +199,7 @@ func newFlag(line string, category *bzpb.BazelHelpCategory) *bzpb.BazelOption {
 	optionType := normalizeType(matches["type"])
 	defaultValue := normalizeDefault(matches["default"])
 
-	option := &bzpb.BazelOption{
+	option := &bhpb.BazelOption{
 		Name:    matches["name"],
 		Type:    optionType,
 		Default: defaultValue,

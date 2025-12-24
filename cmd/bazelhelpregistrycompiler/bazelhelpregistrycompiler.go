@@ -6,7 +6,7 @@ import (
 	"log"
 	"os"
 
-	bzpb "github.com/stackb/centrl/build/stack/bazel/registry/v1"
+	bhpb "github.com/stackb/centrl/build/stack/bazel/help/v1"
 	"github.com/stackb/centrl/pkg/protoutil"
 )
 
@@ -42,10 +42,10 @@ func run(args []string) error {
 		return fmt.Errorf("at least one input file is required")
 	}
 
-	var registry bzpb.BazelHelpRegistry
+	var registry bhpb.BazelHelpRegistry
 
 	for _, filename := range cfg.InputFiles {
-		var version bzpb.BazelHelpVersion
+		var version bhpb.BazelHelpVersion
 		if err := protoutil.ReadFile(filename, &version); err != nil {
 			return err
 		}

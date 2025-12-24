@@ -59,7 +59,7 @@ func BuildAssetManifest(assetDir string) (map[string]AssetInfo, map[string][]byt
 		return nil, nil, fmt.Errorf("failed to load .assetsignore: %w", err)
 	}
 
-	err = filepath.Walk(assetDir, func(path string, info os.File, err error) error {
+	err = filepath.Walk(assetDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}

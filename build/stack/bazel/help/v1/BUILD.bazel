@@ -1,4 +1,5 @@
 load("@build_stack_rules_proto//rules:proto_compiled_sources.bzl", "proto_compiled_sources")
+load("@rules_go//go:def.bzl", "go_library")
 load("@rules_proto//proto:defs.bzl", "proto_library")
 
 proto_library(
@@ -14,4 +15,15 @@ proto_compiled_sources(
     plugins = ["@build_stack_rules_proto//plugin/golang/protobuf:protoc-gen-go"],
     proto = "bhpb_proto",
     visibility = ["//visibility:public"],
+)
+
+go_library(
+    name = "help",
+    srcs = ["help.pb.go"],
+    importpath = "github.com/stackb/centrl/build/stack/bazel/help/v1",
+    visibility = ["//visibility:public"],
+    deps = [
+        "@org_golang_google_protobuf//reflect/protoreflect:go_default_library",
+        "@org_golang_google_protobuf//runtime/protoimpl:go_default_library",
+    ],
 )
