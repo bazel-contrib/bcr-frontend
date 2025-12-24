@@ -1,270 +1,255 @@
 {namespace soy.registry}
 
 import {
-    octiconAlert16,
-    octiconBook16,
-    octiconCheck16,
-    octiconCheckCircleFill16,
-    octiconCode16,
-    octiconContainer16,
-    octiconContainer24,
-    octiconCopy16,
-    octiconDotFill16,
-    octiconFileAdded16,
-    octiconFileDiff16,
-    octiconFileZip16,
-    octiconGitCommit16,
-    octiconGitPullRequest16,
-    octiconHome16,
-    octiconNorthStar16,
-    octiconMail16,
-    octiconMarkGithub16,
-    octiconMarkGithub24,
-    octiconSparkleFill16,
-    octiconSquareFill16,
-    octiconSquareFill24,
-    octiconStar16,
-    octiconVerified16
+  octiconAlert16,
+  octiconBook16,
+  octiconCheck16,
+  octiconCheckCircleFill16,
+  octiconCode16,
+  octiconContainer16,
+  octiconContainer24,
+  octiconCopy16,
+  octiconDotFill16,
+  octiconFileAdded16,
+  octiconFileDiff16,
+  octiconFileZip16,
+  octiconGitCommit16,
+  octiconGitPullRequest16,
+  octiconHome16,
+  octiconNorthStar16,
+  octiconMail16,
+  octiconMarkGithub16,
+  octiconMarkGithub24,
+  octiconSparkleFill16,
+  octiconSquareFill16,
+  octiconSquareFill24,
+  octiconStar16,
+  octiconVerified16
 } from 'app/bcr/octicons.soy';
 import {
-    ModuleVersionSymbols,
-    SymbolSource
+  ModuleVersionSymbols,
+  SymbolSource
 } from 'build/stack/bazel/symbol/v1/symbol.proto';
 import {
-    Attestations,
-    GitOverride,
-    LocalPathOverride,
-    Maintainer,
-    Module,
-    Registry,
-    ModuleDependency,
-    ModuleDependencyOverride,
-    ModuleVersion,
-    ModuleSource,
-    ModuleMetadata,
-    RepositoryMetadata
+  Attestations,
+  GitOverride,
+  LocalPathOverride,
+  Maintainer,
+  Module,
+  Registry,
+  ModuleDependency,
+  ModuleDependencyOverride,
+  ModuleVersion,
+  ModuleSource,
+  ModuleMetadata,
+  RepositoryMetadata
 } from 'build/stack/bazel/registry/v1/bcr.proto';
 import {
-    bcrModuleVersionOverlayFileUrl,
-    bcrModuleVersionPatchFileUrl,
-    githubAvatarUrl,
-    githubRepoUrl,
-    githubUserUrl,
-    mailtoUrl,
-    maintainerUrl,
-    maintainersUrl,
-    moduleUrl,
-    modulesUrl,
-    moduleVersionDocsUrl,
-    moduleVersionUrl,
-    registryPullRequestUrl,
-    repositoryUrl,
-    rootUrl
+  bcrModuleVersionOverlayFileUrl,
+  bcrModuleVersionPatchFileUrl,
+  githubAvatarUrl,
+  githubRepoUrl,
+  githubUserUrl,
+  mailtoUrl,
+  maintainerUrl,
+  maintainersUrl,
+  moduleUrl,
+  modulesUrl,
+  moduleVersionDocsUrl,
+  moduleVersionUrl,
+  registryPullRequestUrl,
+  repositoryUrl,
+  rootUrl
 } from 'app/bcr/uri.soy';
 
 {template moduleVersionOverview}
   {@param current: ModuleVersion}
   {@param module: Module}
-<div class="mt-3 Box Box--condensed">
-  <div class="Box-header">
+  <div class="mt-3 Box Box--condensed">
+    <div class="Box-header">
       <span class="Box-title">{$current.getName()}</span> <a href="#">{$current.getVersion()}</a>
-  </div>
-  <div class="Box-body d-flex flex-wrap">
-    {for $version in $module.getVersionsList()}
+    </div>
+    <div class="Box-body d-flex flex-wrap">
+      {for $version in $module.getVersionsList()}
         <a class="Box-row-link mr-2" href="#">{$version.getVersion()}</a>
-    {/for}
+      {/for}
+    </div>
   </div>
-</div>
 {/template}
-
 
 {template maintainersLink kind="html<a>"}
-<a class="mr-2" href="{maintainersUrl()}">maintainers</a>
+  <a class="mr-2" href="{maintainersUrl()}">maintainers</a>
 {/template}
-
 
 {template maintainerLink kind="html<a>"}
   {@param maintainer: Maintainer}
-<a class="mr-2" href="{maintainerUrl(maintainer: $maintainer)}">{$maintainer.getName()}</a>
+  <a class="mr-2" href="{maintainerUrl(maintainer: $maintainer)}">{$maintainer.getName()}</a>
 {/template}
-
 
 {template moduleVersionBazelDep kind="text"}
   {@param name: string}
   {@param version: string}
-bazel_dep(name = "{$name}", version = "{$version}")
+  bazel_dep(name = "{$name}", version = "{$version}")
 {/template}
-
 
 {template copyToClipboardButton}
   {@param content: string}
-<button class="btn btn-octicon" aria-label="Copy to clipboard" data-clippy='{$content}'>
+  <button class="btn btn-octicon" aria-label="Copy to clipboard" data-clippy='{$content}'>
     {octiconCopy16()}
-</button>
+  </button>
 {/template}
-
 
 {template moduleVersionModuleBazel}
   {@param moduleVersion: ModuleVersion}
-<div class="Box Box--condensed hide-sm">
-  <div class="Box-header">
+  <div class="Box Box--condensed hide-sm">
+    <div class="Box-header">
       <div class="Box-title d-flex flex-items-center flex-justify-between">
         <div class="text-mono">
-        MODULE.bazel
+          MODULE.bazel
         </div>
         {copyToClipboardButton(content: moduleVersionBazelDep(name: $moduleVersion.getName(), version: $moduleVersion.getVersion()))}
       </div>
-  </div>
-  <div class="Box-body p-3">
+    </div>
+    <div class="Box-body p-3">
       <pre class="width-full {css('shiki')}"><code lang="py">{moduleVersionBazelDep(name: $moduleVersion.getName(), version: $moduleVersion.getVersion())}</code></pre>
+    </div>
   </div>
-</div>
-
 {/template}
-
 
 {template maintainerModuleVersionTable}
   {@param moduleVersions: list<ModuleVersion>}
-<div class="">
-  <div class="f3 mb-2">
+  <div class="">
+    <div class="f3 mb-2">
       <span class="">Modules {counterLabel(count: length($moduleVersions))}</span>
+    </div>
+    <div>
+      {for $moduleVersion in $moduleVersions}
+        {moduleVersionButton(moduleVersion: $moduleVersion)}
+      {/for}
+    </div>
   </div>
-  <div>
-    {for $moduleVersion in $moduleVersions}
-      {moduleVersionButton(moduleVersion: $moduleVersion)}
-    {/for}
-  </div>
-</div>
 {/template}
-
 
 {template moduleDependencyTable}
   {@param title: string}
   {@param deps: list<ModuleDependency>}
-<div class="Box Box--condensed">
-  <div class="Box-header">
+  <div class="Box Box--condensed">
+    <div class="Box-header">
       <span class="Box-title">{$title} {counterLabel(count: length($deps))}</span>
+    </div>
+    <div class="Box-body width-full">
+      {for $dep in $deps}
+        <div class="mx-1 my-2">
+          {moduleDependencyRow(dep: $dep)}
+        </div>
+      {/for}
+    </div>
   </div>
-  <div class="Box-body width-full">
-    {for $dep in $deps}
-      <div class="mx-1 my-2">
-        {moduleDependencyRow(dep: $dep)}
-      </div>
-    {/for}
-  </div>
-</div>
 {/template}
-
 
 {template moduleDependencyOverride}
   {@param override: ModuleDependencyOverride}
-<div class="Box Box--condensed">
-  <div class="Box-header">
+  <div class="Box Box--condensed">
+    <div class="Box-header">
       <div class="Box-title d-flex flex-items-center flex-justify-between">
-      <span>override <span class="text-light">{$override.getModuleName()}</span></span>
-     {copyToClipboardButton(content: $override.getCode())}
+        <span>override <span class="text-light">{$override.getModuleName()}</span></span>
+        {copyToClipboardButton(content: $override.getCode())}
       </div>
-
-  </div>
-  <div class="Box-body width-full overflow-auto p-3">
-    <pre class="{css('shiki')}"><code lang="py">
+    </div>
+    <div class="Box-body width-full overflow-auto p-3">
+      <pre class="{css('shiki')}"><code lang="py">
 {$override.getCode()}
-    </code></pre>
+      </code></pre>
+    </div>
   </div>
-</div>
 {/template}
-
 
 {template maintainersTable}
   {@param maintainers: list<Maintainer>}
-<div>
-  {sectionHeader(title: 'Maintainers', count: length($maintainers))}
-  <div class="d-flex flex-wrap">
-    {for $maintainer in $maintainers}
+  <div>
+    {sectionHeader(title: 'Maintainers', count: length($maintainers))}
+    <div class="d-flex flex-wrap">
+      {for $maintainer in $maintainers}
         <div class="m-1">
-        {maintainerAvatar(maintainer: $maintainer)}
+          {maintainerAvatar(maintainer: $maintainer)}
         </div>
-    {/for}
+      {/for}
+    </div>
   </div>
-</div>
 {/template}
-
 
 {template attestationsTable}
   {@param moduleVersion: ModuleVersion}
   {@param attestations: Attestations}
-<div>
-  {sectionHeader(title: 'Source Attestations', count: $attestations.getAttestationsMap()?.size)}
   <div>
-    {for $filename in $attestations.getAttestationsMap()?.keys()}
-      {let $att: $attestations.getAttestationsMap()?.get($filename) /}
-      <a class="Link--muted d-flex flex-items-center mb-1" href="{$att?.getUrl()}">
-        <span class="mr-2">{octiconVerified16(fill: 'var(--color-ansi-magenta-bright)')}</span>
-        <span class="text-bold mr-1">{$filename|truncate:48}</span>
-      </a>
-    {/for}
+    {sectionHeader(title: 'Source Attestations', count: $attestations.getAttestationsMap()?.size)}
+    <div>
+      {for $filename in $attestations.getAttestationsMap()?.keys()}
+        {let $att: $attestations.getAttestationsMap()?.get($filename) /}
+        <a class="Link--muted d-flex flex-items-center mb-1" href="{$att?.getUrl()}">
+          <span class="mr-2">{octiconVerified16(fill: 'var(--color-ansi-magenta-bright)')}</span>
+          <span class="text-bold mr-1">{$filename|truncate:48}</span>
+        </a>
+      {/for}
+    </div>
   </div>
-</div>
 {/template}
-
 
 {template compatibilityTable}
   {@param moduleVersion: ModuleVersion}
-<div>
-  {sectionHeader(title: 'Compatibility')}
-  <div class="d-flex flex-wrap">
-    {if length($moduleVersion.getBazelCompatibilityList())}
+  <div>
+    {sectionHeader(title: 'Compatibility')}
+    <div class="d-flex flex-wrap">
+      {if length($moduleVersion.getBazelCompatibilityList())}
         {for $version in $moduleVersion.getBazelCompatibilityList()}
-            <label class="Label Label--attention">Bazel {$version}</label>
+          <label class="Label Label--attention">Bazel {$version}</label>
         {/for}
-    {else}
+      {else}
         <span class="text-light text-italic">Unspecified</span>
-    {/if}
+      {/if}
+    </div>
   </div>
-</div>
 {/template}
-
 
 {template moduleSourceTable}
   {@param moduleVersion: ModuleVersion}
   {@param source: ModuleSource}
-<div>
-  {sectionHeader(title: 'Source Details')}
   <div>
-    <div class="mb-2">
-      {if $moduleVersion.getCommit()}
+    {sectionHeader(title: 'Source Details')}
+    <div>
+      <div class="mb-2">
+        {if $moduleVersion.getCommit()}
           {if $moduleVersion.getCommit().getPullRequest()}
             <a class="Link--muted d-flex flex-items-center mb-2" href="{registryPullRequestUrl(pr: $moduleVersion.getCommit().getPullRequest())}">
               <span class="mr-2">{octiconGitPullRequest16(fill: 'var(--color-done-fg)')}</span>
               <span title="{$moduleVersion.getCommit().getMessage()}"><span class="text-mono">#{$moduleVersion.getCommit().getPullRequest()}</span> <span class="text-light">{$moduleVersion.getCommit().getMessage()|truncate:32}</span></span>
             </a>
           {/if}
-      {/if}
-      {if $source.getUrl()}
+        {/if}
+        {if $source.getUrl()}
           <a class="Link--muted d-flex flex-items-center mb-2" href="{$source.getUrl()}" title="{$source.getUrl()}">
             <span class="mr-2">{octiconFileZip16()}</span>
             <span>{$source.getUrl()|truncate:32}</span>
           </a>
-      {/if}
+        {/if}
+      </div>
+      {for $filename in $source.getPatchesMap().keys()}
+        {let $integrity: $source.getPatchesMap().get($filename) /}
+        <a class="Link--muted d-flex flex-items-center mb-1" href="{bcrModuleVersionPatchFileUrl(moduleVersion: $moduleVersion, filename: $filename)}" title="Patch file">
+          <span class="mr-2">{octiconFileDiff16()}</span>
+          <span class="mr-1">{$filename|truncate:48}</span>
+        </a>
+      {/for}
+      {for $filename in $source.getOverlayMap().keys()}
+        {let $integrity: $source.getOverlayMap().get($filename) /}
+        <a class="Link--muted d-flex flex-items-center mb-1" href="{bcrModuleVersionOverlayFileUrl(moduleVersion: $moduleVersion, filename: $filename)}" title="Patch file">
+          <span class="mr-2">{octiconFileAdded16()}</span>
+          <span class="mr-1">{$filename|truncate:48}</span>
+        </a>
+      {/for}
     </div>
-    {for $filename in $source.getPatchesMap().keys()}
-      {let $integrity: $source.getPatchesMap().get($filename) /}
-      <a class="Link--muted d-flex flex-items-center mb-1" href="{bcrModuleVersionPatchFileUrl(moduleVersion: $moduleVersion, filename: $filename)}" title="Patch file">
-        <span class="mr-2">{octiconFileDiff16()}</span>
-        <span class="mr-1">{$filename|truncate:48}</span>
-      </a>
-    {/for}
-    {for $filename in $source.getOverlayMap().keys()}
-      {let $integrity: $source.getOverlayMap().get($filename) /}
-      <a class="Link--muted d-flex flex-items-center mb-1" href="{bcrModuleVersionOverlayFileUrl(moduleVersion: $moduleVersion, filename: $filename)}" title="Patch file">
-        <span class="mr-2">{octiconFileAdded16()}</span>
-        <span class="mr-1">{$filename|truncate:48}</span>
-      </a>
-    {/for}
   </div>
-</div>
 {/template}
-
 
 {template moduleVersionTable}
   {@param versionData: list<[version: string, compat: int, commitDate: string, directDeps: list<ModuleVersion>, ageSummary: string|null]>}
@@ -273,70 +258,69 @@ bazel_dep(name = "{$name}", version = "{$version}")
   {@param yanked: map<string,string>}
   {@param totalDeps: int}
   {@param? timeSinceLatest: string}
-<div>
-  {sectionHeader(title: 'Versions', count: length($versionData))}
+  <div>
+    {sectionHeader(title: 'Versions', count: length($versionData))}
 
-  <table class="width-full">
-    {if $timeSinceLatest && length($versionData) > 0}
-      <tr style="opacity: 0.5;">
-        <td title="Unreleased; time since latest release" colspan="2" class="py-1">
-          <div style="display: flex; align-items: center;">
-            <span style="position: relative; padding-right: 0.5em;">
-              <span class="{css('skeleton-box')} {css('next-version')}"></span>
-            </span>
-            <span style="flex: 1; border-bottom: 1px dotted var(--color-border-muted); margin: 0 0.5em;"></span>
-            <span class="text-small color-fg-muted" style="padding-left: 0.5em;">+{$timeSinceLatest}</span>
-          </div>
-        </td>
-      </tr>
-    {/if}
-    {for $data in $versionData}
-      {let $version: $data.version /}
-      {let $commitDate: $data.commitDate /}
-      {let $depCount: length($data.directDeps) /}
-      {let $percentage: $totalDeps > 0 ? round(($depCount * 100) / $totalDeps) : 0 /}
+    <table class="width-full">
+      {if $timeSinceLatest && length($versionData) > 0}
+        <tr style="opacity: 0.5;">
+          <td title="Unreleased; time since latest release" colspan="2" class="py-1">
+            <div style="display: flex; align-items: center;">
+              <span style="position: relative; padding-right: 0.5em;">
+                <span class="{css('skeleton-box')} {css('next-version')}"></span>
+              </span>
+              <span style="flex: 1; border-bottom: 1px dotted var(--color-border-muted); margin: 0 0.5em;"></span>
+              <span class="text-small color-fg-muted" style="padding-left: 0.5em;">+{$timeSinceLatest}</span>
+            </div>
+          </td>
+        </tr>
+      {/if}
+      {for $data in $versionData}
+        {let $version: $data.version /}
+        {let $commitDate: $data.commitDate /}
+        {let $depCount: length($data.directDeps) /}
+        {let $percentage: $totalDeps > 0 ? round(($depCount * 100) / $totalDeps) : 0 /}
 
-      <tr class="{if ($currentVersion === $version)}Box-row-link{/if}">
-        <td title="{$version}; compatibility level {$data.compat}" colspan="2" class="py-1" style="background: linear-gradient(to right, var(--color-accent-muted) {$percentage}%, transparent {$percentage}%);">
-          <div style="display: flex; align-items: center;">
-            <span style="position: relative; padding-right: 0.5em;" data-version="{$version}">
-              {if $currentVersion === $version}
-                <span class="text-bold">{$version|truncate:18}</span>
-              {else}
-                <a class="Box-row-link" href="{moduleVersionUrl(name: $moduleName, version: $version)}"
-                    {if $yanked.get($version)}style="text-decoration: line-through; color: var(--color-fg-muted);"{/if}
-                >{$version|truncate:18}</a>
+        <tr class="{if ($currentVersion === $version)}Box-row-link{/if}">
+          <td title="{$version}; compatibility level {$data.compat}" colspan="2" class="py-1" style="background: linear-gradient(to right, var(--color-accent-muted) {$percentage}%, transparent {$percentage}%);">
+            <div style="display: flex; align-items: center;">
+              <span style="position: relative; padding-right: 0.5em;" data-version="{$version}">
+                {if $currentVersion === $version}
+                  <span class="text-bold">{$version|truncate:18}</span>
+                {else}
+                  <a class="Box-row-link" href="{moduleVersionUrl(name: $moduleName, version: $version)}"
+                      {if $yanked.get($version)}style="text-decoration: line-through; color: var(--color-fg-muted);"{/if}
+                  >{$version|truncate:18}</a>
+                {/if}
+                {if $data.ageSummary}
+                  <sup class="color-fg-attention">{sp}+{$data.ageSummary}</sup>
+                {/if}
+              </span>
+              <span style="flex: 1; border-bottom: 1px dotted var(--color-border-muted); margin: 0 0.5em;"></span>
+              {if $depCount > 0}
+                <span class="text-small color-fg-muted" style="padding: 0 0.5em;">{$percentage}%<sup>{sp}{$depCount}</sup></span>
               {/if}
-              {if $data.ageSummary}
-                <sup class="color-fg-attention">{sp}+{$data.ageSummary}</sup>
-              {/if}
-            </span>
-            <span style="flex: 1; border-bottom: 1px dotted var(--color-border-muted); margin: 0 0.5em;"></span>
-            {if $depCount > 0}
-              <span class="text-small color-fg-muted" style="padding: 0 0.5em;">{$percentage}%<sup>{sp}{$depCount}</sup></span>
-            {/if}
-            <span class="text-small color-fg-muted" style="padding-left: 0.5em;">{$commitDate}</span>
-          </div>
-        </td>
-      </tr>
-    {/for}
-  </table>
-</div>
+              <span class="text-small color-fg-muted" style="padding-left: 0.5em;">{$commitDate}</span>
+            </div>
+          </td>
+        </tr>
+      {/for}
+    </table>
+  </div>
 {/template}
-
 
 {template moduleVersions}
   {@param registry: Registry}
-<div class="{css('modules')}">
+  <div class="{css('modules')}">
     {for $module in $registry.getModulesList()}
-        {if length($module.getVersionsList()) > 0}
-            {call moduleVersionOverview}
-                {param module: $module /}
-                {param current: $module.getVersionsList()[length($module.getVersionsList())-1] /}
-            {/call}
-        {/if}
+      {if length($module.getVersionsList()) > 0}
+        {call moduleVersionOverview}
+          {param module: $module /}
+          {param current: $module.getVersionsList()[length($module.getVersionsList())-1] /}
+        {/call}
+      {/if}
     {/for}
-</div>
+  </div>
 {/template}
 
 // ====================================================================
@@ -344,445 +328,420 @@ bazel_dep(name = "{$name}", version = "{$version}")
 // ====================================================================
 
 {template rootLink kind="html<a>"}
-<a href="{rootUrl()}">#</a>
+  <a href="{rootUrl()}">#</a>
 {/template}
-
 
 {template modulesLink kind="html<a>"}
-<a href="{modulesUrl()}">modules</a>
+  <a href="{modulesUrl()}">modules</a>
 {/template}
-
 
 {template moduleLink kind="html<a>"}
   {@param name: string}
-<a href="{moduleUrl(name: $name)}">{$name}</a>
+  <a href="{moduleUrl(name: $name)}">{$name}</a>
 {/template}
-
 
 {template moduleVersionLink kind="html<a>"}
   {@param moduleVersion: ModuleVersion}
-<a href="{moduleVersionUrl(name: $moduleVersion.getName(), version: $moduleVersion.getVersion())}">{$moduleVersion.getVersion()}</a>
+  <a href="{moduleVersionUrl(name: $moduleVersion.getName(), version: $moduleVersion.getVersion())}">{$moduleVersion.getVersion()}</a>
 {/template}
-
 
 {template sanitizeLangName kind="text"}
   {@param? lang: string}
-{if $lang}
-{$lang.replaceAll(' ', '-').replaceAll('+', 'plus').replaceAll('#', 'sharp')}
-{else}
-unknown
-{/if}
+  {if $lang}
+    {$lang.replaceAll(' ', '-').replaceAll('+', 'plus').replaceAll('#', 'sharp')}
+  {else}
+    unknown
+  {/if}
 {/template}
-
 
 {template moduleVersionsListComponent}
   {@param moduleVersions: list<ModuleVersion>}
-<div class="mt-3">
-{if length($moduleVersions) > 0}
-  {for $moduleVersion in $moduleVersions}
-    {moduleVersionButton(moduleVersion: $moduleVersion)}
-  {/for}
-{else}
-  {moduleVersionsListBlankslate()}
-{/if}
-</div>
+  <div class="mt-3">
+    {if length($moduleVersions) > 0}
+      {for $moduleVersion in $moduleVersions}
+        {moduleVersionButton(moduleVersion: $moduleVersion)}
+      {/for}
+    {else}
+      {moduleVersionsListBlankslate()}
+    {/if}
+  </div>
 {/template}
-
 
 {template moduleVersionsListBlankslate}
-<div class="blankslate-container">
-<div class="blankslate">
-  <div class="blankslate-icon">
-    {octiconContainer24()}
+  <div class="blankslate-container">
+    <div class="blankslate">
+      <div class="blankslate-icon">
+        {octiconContainer24()}
+      </div>
+      <h3 class="mb-1">No modules found</h3>
+      <p>There are no modules matching the current filter.</p>
+    </div>
   </div>
-  <h3 class="mb-1">No modules found</h3>
-  <p>There are no modules matching the current filter.</p>
-</div>
-</div>
 {/template}
-
 
 {template sectionHeader}
   {@param title: string}
   {@param? class: string}
   {@param? style: string}
   {@param? count: int}
-<h2 class="h3 d-flex flex-items-center mb-2 {if $class}{$class}{/if}" {if $style}style="{$style}"{/if}>
-  <span>{$title}</span>
-  {if $count != null}
-    <span class="ml-1" style="margin-top: -4px">{counterLabel(count: $count)}</span>
-  {/if}
-</h2>
+  <h2 class="h3 d-flex flex-items-center mb-2 {if $class}{$class}{/if}" {if $style}style="{$style}"{/if}>
+    <span>{$title}</span>
+    {if $count != null}
+      <span class="ml-1" style="margin-top: -4px">{counterLabel(count: $count)}</span>
+    {/if}
+  </h2>
 {/template}
-
 
 {template sectionDivider}
-<div class="border-top my-3"></div>
+  <div class="border-top my-3"></div>
 {/template}
-
 
 {template moduleVersionAboutTable}
   {@param module: Module}
   {@param moduleVersion: ModuleVersion}
   {@param? repositoryMetadata: RepositoryMetadata}
   {@param? commitDate: string}
-<div>
-  {sectionHeader(title: 'About')}
-  <p class="f4 mb-3 color-fg-muted">
-    {if $repositoryMetadata?.getDescription()}
+  <div>
+    {sectionHeader(title: 'About')}
+    <p class="f4 mb-3 color-fg-muted">
+      {if $repositoryMetadata?.getDescription()}
         {$repositoryMetadata.getDescription()}
-    {else}
-      No description provided.
+      {else}
+        No description provided.
+      {/if}
+    </p>
+    {if $repositoryMetadata?.getType() === 1} // GITHUB
+      {githubRepoAvatar(org: $repositoryMetadata?.getOrganization(), name: $repositoryMetadata?.getName(), title: true)}
     {/if}
-  </p>
-  {if $repositoryMetadata?.getType() === 1} // GITHUB
-    {githubRepoAvatar(org: $repositoryMetadata?.getOrganization(), name: $repositoryMetadata?.getName(), title: true)}
-  {/if}
-  <div class="mt-3">
-    {if $module.getMetadata()?.getHomepage()}
+    <div class="mt-3">
+      {if $module.getMetadata()?.getHomepage()}
         <a class="Link--muted d-flex flex-items-center mb-2" href="{$module.getMetadata()?.getHomepage()}">
           <span class="mr-2">{octiconHome16()}</span>
           <span>Homepage</span>
         </a>
-    {/if}
-    {if $moduleVersion.getSource()?.getDocsUrl()}
+      {/if}
+      {if $moduleVersion.getSource()?.getDocsUrl()}
         <a class="Link--muted d-flex flex-items-center mb-2" href="{$moduleVersion.getSource().getDocsUrl()}">
           <span class="mr-2">{octiconBook16()}</span>
           <span>Documentation</span>
         </a>
-    {/if}
-    {if $repositoryMetadata?.getStargazers() > 0}
+      {/if}
+      {if $repositoryMetadata?.getStargazers() > 0}
         <div class="d-flex flex-items-center mb-2 color-fg-muted">
           <span class="mr-2">{octiconStar16()}</span>
           <span class="mr-1 text-bold">{$repositoryMetadata.getStargazers()}</span>
           <span>star{if $repositoryMetadata.getStargazers() > 1}s{/if}</span>
         </div>
-    {/if}
-    {if $commitDate}
+      {/if}
+      {if $commitDate}
         <div class="d-flex flex-items-center mb-2 color-fg-muted">
           <span class="mr-2">{octiconGitCommit16()}</span>
           <span>{$commitDate}</span>
         </div>
-    {/if}
+      {/if}
+    </div>
   </div>
-</div>
 {/template}
-
 
 {template moduleLanguageTable}
   {@param languageData: list<[name: string, sanitizedName: string, percentage: number, isPrimary: bool]>}
-<div>
-  {sectionHeader(title: 'Languages')}
+  <div>
+    {sectionHeader(title: 'Languages')}
 
-  // Language breakdown bar
-  <div class="mb-2" style="display: flex; height: 8px; overflow: hidden; border-radius: 6px">
-    {for $lang in $languageData}
-      {if $lang.percentage > 0}
-        <span style="width: {$lang.percentage}%; background-color: var(--lang-{$lang.sanitizedName}-bg, #ccc)" title="{$lang.name}: {$lang.percentage}%">{sp}</span>
-      {/if}
-    {/for}
-  </div>
-
-  // Language list
-  <div class="mb-2">
-    {for $lang in $languageData}
-      <div class="d-flex flex-items-center {if $lang.isPrimary}{else}text-small{/if}">
-        <span class="mr-2">{octiconDotFill16(fill: 'var(--lang-' + $lang.sanitizedName + '-bg, currentColor)')}</span>
-        {if $lang.isPrimary}
-          <a class="Link--primary text-bold" href="{modulesUrl()}/list/all/{$lang.name}">{$lang.name}</a>
-        {else}
-          <span>{$lang.name}</span>
+    // Language breakdown bar
+    <div class="mb-2" style="display: flex; height: 8px; overflow: hidden; border-radius: 6px">
+      {for $lang in $languageData}
+        {if $lang.percentage > 0}
+          <span style="width: {$lang.percentage}%; background-color: var(--lang-{$lang.sanitizedName}-bg, #ccc)" title="{$lang.name}: {$lang.percentage}%">{sp}</span>
         {/if}
-        <span class="ml-2 color-fg-muted">{$lang.percentage}%</span>
-      </div>
-    {/for}
-  </div>
-</div>
-{/template}
+      {/for}
+    </div>
 
+    // Language list
+    <div class="mb-2">
+      {for $lang in $languageData}
+        <div class="d-flex flex-items-center {if $lang.isPrimary}{else}text-small{/if}">
+          <span class="mr-2">{octiconDotFill16(fill: 'var(--lang-' + $lang.sanitizedName + '-bg, currentColor)')}</span>
+          {if $lang.isPrimary}
+            <a class="Link--primary text-bold" href="{modulesUrl()}/list/all/{$lang.name}">{$lang.name}</a>
+          {else}
+            <span>{$lang.name}</span>
+          {/if}
+          <span class="ml-2 color-fg-muted">{$lang.percentage}%</span>
+        </div>
+      {/for}
+    </div>
+  </div>
+{/template}
 
 {template moduleDependencyRow}
   {@inject latestVersions: map<string,ModuleVersion>}
   {@inject versionDistances: map<string,map<string,[versionsBehind: int, ageSummary: string|null]>>}
   {@param dep: ModuleDependency}
-{let $latest: $latestVersions.get($dep.getName()) /}
-{let $override: $dep.getOverride() /}
-{let $distanceMap: $versionDistances.get($dep.getName()) /}
-<div style="display: flex; align-items: center;">
-  <span style="padding-right: 0.5em;">
-    <a class="Box-row-link" href="{moduleVersionUrl(name: $dep.getName(), version: $dep.getVersion())}">
-      {$dep.getName()|truncate:32}
-      <span class="ml-1 text-light text-small">
-        {if $override}
-          (
-          {if $dep.getVersion()}<span class="mr-1" style="text-decoration: line-through;">{$dep.getVersion()|truncate:32}</span>{/if}
-          <span class="text-bold" style="color: var(--fgColor-attention, var(--color-attention-fg))">override</span>
-          )
-        {elseif $dep.getUnresolved()}
-          (
-          <span class="mr-1" style="text-decoration: line-through;">{$dep.getVersion()|truncate:32}</span>
-          <span class="text-bold" style="color: var(--fgColor-danger, var(--color-danger-fg))">unresolved</span>
-          )
+  {let $latest: $latestVersions.get($dep.getName()) /}
+  {let $override: $dep.getOverride() /}
+  {let $distanceMap: $versionDistances.get($dep.getName()) /}
+  <div style="display: flex; align-items: center;">
+    <span style="padding-right: 0.5em;">
+      <a class="Box-row-link" href="{moduleVersionUrl(name: $dep.getName(), version: $dep.getVersion())}">
+        {$dep.getName()|truncate:32}
+        <span class="ml-1 text-light text-small">
+          {if $override}
+            (
+            {if $dep.getVersion()}<span class="mr-1" style="text-decoration: line-through;">{$dep.getVersion()|truncate:32}</span>{/if}
+            <span class="text-bold" style="color: var(--fgColor-attention, var(--color-attention-fg))">override</span>
+            )
+          {elseif $dep.getUnresolved()}
+            (
+            <span class="mr-1" style="text-decoration: line-through;">{$dep.getVersion()|truncate:32}</span>
+            <span class="text-bold" style="color: var(--fgColor-danger, var(--color-danger-fg))">unresolved</span>
+            )
+          {else}
+            {$dep.getVersion()|truncate:32}
+          {/if}
+        </span>
+        {if $dep.getRepoName()}
+          <span class="ml-1 text-light text-small">as <span class="text-semibold">{$dep.getRepoName()}</span></span>
+        {/if}
+      </a>
+    </span>
+    {if $latest}
+      <span style="flex: 1; border-bottom: 1px dotted var(--color-border-muted); margin: 0 0.5em;"></span>
+      <span style="padding-left: 0.5em;">
+        {if $dep.getVersion() == $latest.getVersion()}
+          {octiconCheck16(class: 'Label--success')}
         {else}
-          {$dep.getVersion()|truncate:32}          
+          {if $distanceMap}
+            {let $distanceInfo: $distanceMap.get($dep.getVersion()) /}
+            <a class="Box-row-link text-light text-small" href="{moduleVersionUrl(name: $dep.getName(), version: $latest.getVersion())}">
+              {$latest.getVersion()|truncate:32}
+              {if $distanceInfo && $distanceInfo.versionsBehind > 0}
+                <span title="Version Distance">
+                  <sup style="padding-left: 3px">
+                    +{$distanceInfo.versionsBehind}
+                    {if $distanceInfo.ageSummary}
+                      <span class="color-fg-attention">{sp}({$distanceInfo.ageSummary})</span>
+                    {/if}
+                  </sup>
+                </span>
+              {/if}
+            </a>
+          {else}
+            <a class="Box-row-link text-light text-small" href="{moduleVersionUrl(name: $dep.getName(), version: $latest.getVersion())}">
+              {$latest.getVersion()|truncate:32}
+            </a>
+          {/if}
         {/if}
       </span>
-      {if $dep.getRepoName()}
-          <span class="ml-1 text-light text-small">as <span class="text-semibold">{$dep.getRepoName()}</span></span>
-      {/if}
-    </a>
-  </span>
-  {if $latest}
-    <span style="flex: 1; border-bottom: 1px dotted var(--color-border-muted); margin: 0 0.5em;"></span>
-    <span style="padding-left: 0.5em;">
-      {if $dep.getVersion() == $latest.getVersion()}
-        {octiconCheck16(class: 'Label--success')}
-      {else}
-        {if $distanceMap}
-          {let $distanceInfo: $distanceMap.get($dep.getVersion()) /}
-          <a class="Box-row-link text-light text-small" href="{moduleVersionUrl(name: $dep.getName(), version: $latest.getVersion())}">
-            {$latest.getVersion()|truncate:32}
-            {if $distanceInfo && $distanceInfo.versionsBehind > 0}
-              <span title="Version Distance">
-                <sup style="padding-left: 3px">
-                  +{$distanceInfo.versionsBehind}
-                  {if $distanceInfo.ageSummary}
-                    <span class="color-fg-attention">{sp}({$distanceInfo.ageSummary})</span>
-                  {/if}
-                </sup>
-              </span>
-            {/if}
-          </a>
-        {else}
-          <a class="Box-row-link text-light text-small" href="{moduleVersionUrl(name: $dep.getName(), version: $latest.getVersion())}">
-            {$latest.getVersion()|truncate:32}
-          </a>
-        {/if}
-      {/if}
-    </span>
-  {/if}
-</div>
+    {/if}
+  </div>
 {/template}
-
 
 {template moduleVersionButton}
   {@param moduleVersion: ModuleVersion}
-{let $lang: $moduleVersion.getRepositoryMetadata()?.getPrimaryLanguage() /}
-{let $sanitizedLang: sanitizeLangName(lang: $lang) /}
-<a href="{moduleVersionUrl(name: $moduleVersion.getName(), version: $moduleVersion.getVersion())}" class="btn btn mr-2 mb-2">
-  {octiconSquareFill16(fill: 'var(--lang-' + $sanitizedLang + '-bg, currentColor)')}
-  {$moduleVersion.getName()|truncate:32}
-  <span class="text-light text-small ml-1">{$moduleVersion.getVersion()|truncate:32}</span>
-</a>
+  {let $lang: $moduleVersion.getRepositoryMetadata()?.getPrimaryLanguage() /}
+  {let $sanitizedLang: sanitizeLangName(lang: $lang) /}
+  <a href="{moduleVersionUrl(name: $moduleVersion.getName(), version: $moduleVersion.getVersion())}" class="btn btn mr-2 mb-2">
+    {octiconSquareFill16(fill: 'var(--lang-' + $sanitizedLang + '-bg, currentColor)')}
+    {$moduleVersion.getName()|truncate:32}
+    <span class="text-light text-small ml-1">{$moduleVersion.getVersion()|truncate:32}</span>
+  </a>
 {/template}
-
 
 {template maintainerCard}
   {@param maintainer: Maintainer}
-<div class="d-flex flex-column flex-items-center text-center anim-hover-grow" style="width: 96px">
+  <div class="d-flex flex-column flex-items-center text-center anim-hover-grow" style="width: 96px">
     <div class="mb-2">
-        {maintainerAvatar(maintainer: $maintainer, size: 80)}
+      {maintainerAvatar(maintainer: $maintainer, size: 80)}
     </div>
     <div class="f6 lh-condensed">
-        <a class="Link--primary no-underline" href="{maintainerUrl(maintainer: $maintainer)}">
-            {$maintainer.getName() || '@' + $maintainer.getGithub()}
-        </a>
+      <a class="Link--primary no-underline" href="{maintainerUrl(maintainer: $maintainer)}">
+        {$maintainer.getName() || '@' + $maintainer.getGithub()}
+      </a>
     </div>
-</div>
+  </div>
 {/template}
-
 
 {template githubRepoAvatar}
   {@param org: string}
   {@param name: string}
   {@param? size: int}
   {@param? title: bool}
-<a class="d-inline-flex flex-column flex-content-start" href="{githubRepoUrl(org: $org, name: $name)}" title="@{$org}">
-  {if $title}
-    <span class="text-small mb-1 color-fg-muted" style="min-width: 0; word-break: break-all">@{$org}/{$name}</span>
-  {/if}
+  <a class="d-inline-flex flex-column flex-content-start" href="{githubRepoUrl(org: $org, name: $name)}" title="@{$org}">
+    {if $title}
+      <span class="text-small mb-1 color-fg-muted" style="min-width: 0; word-break: break-all">@{$org}/{$name}</span>
+    {/if}
     <img class="avatar flex-shrink-0 rounded" style="padding: 2px" width="{$size ? $size : 42}" height="{$size ? $size : 42}" src="{githubAvatarUrl(name: $org)}" alt="@{$org}">
-</a>
+  </a>
 {/template}
 
 {template maintainerAvatar}
   {@param maintainer: Maintainer}
   {@param? size: int}
-<a class="d-inline-block" href="{maintainerUrl(maintainer: $maintainer)}" title="{$maintainer.getName() || '@' + $maintainer.getGithub()}">
+  <a class="d-inline-block" href="{maintainerUrl(maintainer: $maintainer)}" title="{$maintainer.getName() || '@' + $maintainer.getGithub()}">
     <img class="avatar circle" width="{$size ? $size : 48}" height="{$size ? $size : 48}" src="{githubAvatarUrl(name: $maintainer.getGithub())}" alt="@{$maintainer.getGithub()}">
-</a>
+  </a>
 {/template}
-
 
 {template labelValue}
   {@param label: string}
   {@param value: string}
-<label><span class="text-semibold">{$label|truncate:32,true}</span> {$value|truncate:32,true}</label>
+  <label><span class="text-semibold">{$label|truncate:32,true}</span> {$value|truncate:32,true}</label>
 {/template}
-
 
 {template maintainerProfile}
   {@param maintainer: Maintainer}
-<div style="max-width: 296px;">
-  <div class="d-flex mb-3">
-    <img class="avatar rounded-3" width="192" height="192" src="{githubAvatarUrl(name: $maintainer.getGithub())}" alt="@{$maintainer.getGithub()}">
+  <div style="max-width: 296px;">
+    <div class="d-flex mb-3">
+      <img class="avatar rounded-3" width="192" height="192" src="{githubAvatarUrl(name: $maintainer.getGithub())}" alt="@{$maintainer.getGithub()}">
+    </div>
+    <h2 class="f3 text-bold mb-3">
+      {$maintainer.getName() || '@' + $maintainer.getGithub()}
+    </h2>
+    <div class="mt-3">
+      {if $maintainer.getGithub()}
+        <a class="Link--muted d-flex flex-items-center mb-2" href="{githubUserUrl(name: $maintainer.getGithub())}">
+          <span class="mr-2">{octiconMarkGithub16()}</span>
+          <span>@{$maintainer.getGithub()}</span>
+        </a>
+      {/if}
+      {if $maintainer.getEmail()}
+        <a class="Link--muted d-flex flex-items-center mb-2" href="{mailtoUrl(to: $maintainer.getEmail())}">
+          <span class="mr-2">{octiconMail16()}</span>
+          <span>{$maintainer.getEmail()}</span>
+        </a>
+      {/if}
+    </div>
   </div>
-  <h2 class="f3 text-bold mb-3">
-    {$maintainer.getName() || '@' + $maintainer.getGithub()}
-  </h2>
-  <div class="mt-3">
-    {if $maintainer.getGithub()}
-      <a class="Link--muted d-flex flex-items-center mb-2" href="{githubUserUrl(name: $maintainer.getGithub())}">
-        <span class="mr-2">{octiconMarkGithub16()}</span>
-        <span>@{$maintainer.getGithub()}</span>
-      </a>
-    {/if}
-    {if $maintainer.getEmail()}
-      <a class="Link--muted d-flex flex-items-center mb-2" href="{mailtoUrl(to: $maintainer.getEmail())}">
-        <span class="mr-2">{octiconMail16()}</span>
-        <span>{$maintainer.getEmail()}</span>
-      </a>
-    {/if}
-  </div>
-</div>
 {/template}
-
 
 {template maintainersList}
   {@param maintainers: list<Maintainer>}
-<div class="mt-3">
-  <div class="d-flex flex-wrap">
-    {for $maintainer in $maintainers}
-      {if $maintainer?.getGithub()}
-        <div class="m-2">
-          {maintainerCard(maintainer: $maintainer)}
-        </div>
-      {/if}
-    {/for}
+  <div class="mt-3">
+    <div class="d-flex flex-wrap">
+      {for $maintainer in $maintainers}
+        {if $maintainer?.getGithub()}
+          <div class="m-2">
+            {maintainerCard(maintainer: $maintainer)}
+          </div>
+        {/if}
+      {/for}
+    </div>
   </div>
-</div>
 {/template}
 
 {template documentationSourceOcticon}
   {@param source: SymbolSource}
-{if $source == SymbolSource.PUBLISHED}
-  {octiconNorthStar16(fill: 'var(--color-success-fg)')}
-{elseif $source == SymbolSource.BEST_EFFORT}
-  {octiconNorthStar16(fill: 'var(--color-attention-fg)')}
-{else}
-  {octiconNorthStar16()}
-{/if}
-
+  {if $source == SymbolSource.PUBLISHED}
+    {octiconNorthStar16(fill: 'var(--color-success-fg)')}
+  {elseif $source == SymbolSource.BEST_EFFORT}
+    {octiconNorthStar16(fill: 'var(--color-attention-fg)')}
+  {else}
+    {octiconNorthStar16()}
+  {/if}
 {/template}
 
 {template docsList}
   {@param docsMap: map<string,ModuleVersionSymbols>}
-<div class="mt-3">
-  {for $key in $docsMap.keys()}
-    {let $docs: $docsMap.get($key) /}
-    {if $docs}
-      <a class="btn btn mr-2 mb-2" href="{moduleVersionDocsUrl(name: $docs.getModuleName(), version: $docs.getVersion())}">
-        {documentationSourceOcticon(source: $docs.getSource())}
-        <span class="ml-1">{$docs.getModuleName()|truncate:32}</span>
-        <span class="text-light text-small ml-1">{$docs.getVersion()|truncate:32}</span>
-      </a>
-    {/if}
-  {/for}
-</div>
+  <div class="mt-3">
+    {for $key in $docsMap.keys()}
+      {let $docs: $docsMap.get($key) /}
+      {if $docs}
+        <a class="btn btn mr-2 mb-2" href="{moduleVersionDocsUrl(name: $docs.getModuleName(), version: $docs.getVersion())}">
+          {documentationSourceOcticon(source: $docs.getSource())}
+          <span class="ml-1">{$docs.getModuleName()|truncate:32}</span>
+          <span class="text-light text-small ml-1">{$docs.getVersion()|truncate:32}</span>
+        </a>
+      {/if}
+    {/for}
+  </div>
 {/template}
-
 
 {template moduleVersionHeader}
   {@param metadata: ModuleMetadata}
   {@param moduleVersion: ModuleVersion}
   {@param? isLatest: bool}
-{let $lang: $moduleVersion.getRepositoryMetadata()?.getPrimaryLanguage() /}
-{let $sanitizedLang: sanitizeLangName(lang: $lang) /}
-{let $repoMeta: $moduleVersion.getRepositoryMetadata() /}
-<div class="f2-light d-flex flex-justify-between flex-items-center">
-  <div>
-    <span class="f1 text-semibold">{$moduleVersion.getName()}</span>
-    {sp}
-    <span class="f2 d-inline-block">
-      {$moduleVersion.getVersion()}
-      {if $isLatest}
+  {let $lang: $moduleVersion.getRepositoryMetadata()?.getPrimaryLanguage() /}
+  {let $sanitizedLang: sanitizeLangName(lang: $lang) /}
+  {let $repoMeta: $moduleVersion.getRepositoryMetadata() /}
+  <div class="f2-light d-flex flex-justify-between flex-items-center">
+    <div>
+      <span class="f1 text-semibold">{$moduleVersion.getName()}</span>
+      {sp}
+      <span class="f2 d-inline-block">
+        {$moduleVersion.getVersion()}
+        {if $isLatest}
           <span class="Label Label--success ml-2" style="transform: translateY(-3px)">Latest {octiconCheck16()}</span>
-      {/if}
-    </span>
+        {/if}
+      </span>
+    </div>
+    {if $repoMeta}
+      <a class="btn btn-sm btn-invisible" href="{githubRepoUrl(org: $repoMeta.getOrganization(), name: $repoMeta.getName())}" target="_blank" rel="noopener" title="View on GitHub">
+        {octiconMarkGithub24()}
+      </a>
+    {/if}
   </div>
-  {if $repoMeta}
-    <a class="btn btn-sm btn-invisible" href="{githubRepoUrl(org: $repoMeta.getOrganization(), name: $repoMeta.getName())}" target="_blank" rel="noopener" title="View on GitHub">
-      {octiconMarkGithub24()}
-    </a>
-  {/if}
-</div>
 
-{if $metadata.getYankedVersionsMap()}
-  {for $version in $metadata.getYankedVersionsMap().keys()}
+  {if $metadata.getYankedVersionsMap()}
+    {for $version in $metadata.getYankedVersionsMap().keys()}
       {if $version == $moduleVersion.getVersion()}
-          {let $message: $metadata.getYankedVersionsMap().get($version) /}
-          <div class="Subhead-description">
-              {yankedMessage(message: $message)}
-          </div>
+        {let $message: $metadata.getYankedVersionsMap().get($version) /}
+        <div class="Subhead-description">
+          {yankedMessage(message: $message)}
+        </div>
       {/if}
-  {/for}
-{/if}
+    {/for}
+  {/if}
 
-{if $metadata.getDeprecated()}
-  <div class="Subhead-description">
-    {deprecationMessage(message: $metadata.getDeprecated())}
-  </div>
-{/if}
+  {if $metadata.getDeprecated()}
+    <div class="Subhead-description">
+      {deprecationMessage(message: $metadata.getDeprecated())}
+    </div>
+  {/if}
 {/template}
-
 
 {template deprecationMessage}
-    {@param message: string}
-<div>
-  {octiconAlert16()}
-  <span class="text-bold mx-1">Deprecation Notice:</span>
-  <span class="text-italic Label--attention">{$message}</span>
-</div>
+  {@param message: string}
+  <div>
+    {octiconAlert16()}
+    <span class="text-bold mx-1">Deprecation Notice:</span>
+    <span class="text-italic Label--attention">{$message}</span>
+  </div>
 {/template}
-
 
 {template yankedMessage}
-    {@param? message: string}
-<div>
-  {octiconAlert16()}
-  <span class="text-bold mx-1">Yanked Version:</span>
-  <span class="text-italic Label--danger">{$message ? $message : 'No message provided.'}</span>
-</div>
+  {@param? message: string}
+  <div>
+    {octiconAlert16()}
+    <span class="text-bold mx-1">Yanked Version:</span>
+    <span class="text-italic Label--danger">{$message ? $message : 'No message provided.'}</span>
+  </div>
 {/template}
-
 
 {template moduleVersionBreadcrumb}
   {@param moduleVersion: ModuleVersion}
-<div class="d-flex flex-justify-between">
-  <ol>
-    <li class="breadcrumb-item">{rootLink()}</li>
-    <li class="breadcrumb-item">{modulesLink()}</li>
-    <li class="breadcrumb-item">{moduleLink(name: $moduleVersion.getName())}</li>
-    <li class="breadcrumb-item breadcrumb-item-selected">{moduleVersionLink(moduleVersion: $moduleVersion)}</li>
-  </ol>
-</div>
+  <div class="d-flex flex-justify-between">
+    <ol>
+      <li class="breadcrumb-item">{rootLink()}</li>
+      <li class="breadcrumb-item">{modulesLink()}</li>
+      <li class="breadcrumb-item">{moduleLink(name: $moduleVersion.getName())}</li>
+      <li class="breadcrumb-item breadcrumb-item-selected">{moduleVersionLink(moduleVersion: $moduleVersion)}</li>
+    </ol>
+  </div>
 {/template}
-
 
 {template maintainerBreadcrumb}
   {@param maintainer: Maintainer}
-<div>
-  <ol class="text-lg">
-    <li class="breadcrumb-item">{rootLink()}</li>
-    <li class="breadcrumb-item">{maintainersLink()}</li>
-    <li class="breadcrumb-item breadcrumb-item-selected">{maintainerLink(maintainer: $maintainer)}</li>
-  </ol>
-</div>
+  <div>
+    <ol class="text-lg">
+      <li class="breadcrumb-item">{rootLink()}</li>
+      <li class="breadcrumb-item">{maintainersLink()}</li>
+      <li class="breadcrumb-item breadcrumb-item-selected">{maintainerLink(maintainer: $maintainer)}</li>
+    </ol>
+  </div>
 {/template}
-
 
 {template counterLabel}
   {@param count: int}
-<label class="Counter ml-1">{$count}</label>
+  <label class="Counter ml-1">{$count}</label>
 {/template}
-

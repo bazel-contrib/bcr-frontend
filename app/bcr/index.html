@@ -1,35 +1,43 @@
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
-<html lang="en" xml:lang="en" xmlns="http://www.w3.org/1999/xhtml" data-color-mode="light" data-light-theme="light"
-  data-dark-theme="dark_dimmed">
+<html
+	lang="en"
+	xml:lang="en"
+	xmlns="http://www.w3.org/1999/xhtml"
+	data-color-mode="light"
+	data-light-theme="light"
+	data-dark-theme="dark_dimmed"
+>
+	<head>
+		<title>Bazel Central Registry</title>
+		<meta content="text/html; charset=utf-8" http-equiv="Content-Type">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<link rel="icon" href="/favicon.png">
+		<link href="/{bcr.css}" type="text/css" rel="stylesheet">
+		<link
+			rel="stylesheet"
+			href="https://cdnjs.cloudflare.com/ajax/libs/Primer/21.1.1/primer.css"
+			integrity="sha512-DQRZcDaNuIkb4JiH6PHalnncWllAK5txkJVocLdyfglJSavW/HxQaJRJeRw5eEPnp+kD1QImSxCwUiOsRrCMEw=="
+			crossorigin="anonymous"
+			referrerpolicy="no-referrer"
+		>
+		<script src="/{bcr.js}"></script>
+		<script src="/{registry.pb.gz.b64.js}"></script>
+	</head>
 
-<head>
-  <title>Bazel Central Registry</title>
-  <meta content="text/html; charset=utf-8" http-equiv="Content-Type" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <link rel="icon" href="/favicon.png" />
-  <link href="/{bcr.css}" type="text/css" rel="stylesheet" />
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/Primer/21.1.1/primer.css"
-    integrity="sha512-DQRZcDaNuIkb4JiH6PHalnncWllAK5txkJVocLdyfglJSavW/HxQaJRJeRw5eEPnp+kD1QImSxCwUiOsRrCMEw=="
-    crossorigin="anonymous" referrerpolicy="no-referrer" />
-  <script src="/{bcr.js}"></script>
-  <script src="/{registry.pb.gz.b64.js}"></script>
-</head>
+	<body style="margin: 0 auto">
+		<script type="module">
+		import { codeToHtml } from "https://esm.sh/shiki@3.0.0";
+		import { marked } from "https://esm.sh/marked@12.0.0";
 
-<body style="margin: 0 auto">
-  <script type="module">
-    import { codeToHtml } from 'https://esm.sh/shiki@3.0.0'
-    import { marked } from 'https://esm.sh/marked@12.0.0'
+		window.codeToHtml = codeToHtml;
+		window.marked = marked;
 
-    window.codeToHtml = codeToHtml;
-    window.marked = marked;
+		window.marked.setOptions({
+			gfm: true, // GitHub Flavored Markdown
+			breaks: false, // but not with GFM line breaks
+		});
 
-    window.marked.setOptions({
-      gfm: true,     // GitHub Flavored Markdown
-      breaks: false,  // but not with GFM line breaks
-    });
-
-    bcr.main(REGISTRY_DATA);
-  </script>
-</body>
-
+		bcr.main(REGISTRY_DATA);
+		</script>
+	</body>
 </html>

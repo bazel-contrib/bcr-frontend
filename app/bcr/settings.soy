@@ -10,40 +10,39 @@ import {
 
 {template settingsSelect}
   {@inject pathUrl: string}
-<div class="PageLayout PageLayout--panePos-start PageLayout--hasPaneDivider PageLayout--responsive-stackRegions PageLayout--responsive-panePos-start mt-3" style="--Layout-pane-width: 10rem">
-  <div class="PageLayout-columns">
-    <div class="PageLayout-pane">
-    {sectionHeader(title: 'Settings', style: 'font-size: var(--h1-size)')}
+  <div class="PageLayout PageLayout--panePos-start PageLayout--hasPaneDivider PageLayout--responsive-stackRegions PageLayout--responsive-panePos-start mt-3" style="--Layout-pane-width: 10rem">
+    <div class="PageLayout-columns">
+      <div class="PageLayout-pane">
+        {sectionHeader(title: 'Settings', style: 'font-size: var(--h1-size)')}
 
-      <nav class="SideNav" style="background-color: transparent; border: none">
-        <a href="/#/{$pathUrl}/appearance" class="SideNav-item d-flex flex-items-center p-1 pl-2 m-1 rounded" style="border: none; box-shadow: none">
-          {octiconPaintbrush16(class: 'mr-2', fill: 'var(--color-fg-emphasis)')}
-          {sp}
-          Appearance
-          {octiconChevronRight16(fill: 'var(--color-fg-subtle)')}
-        </a>
-      </nav>
+        <nav class="SideNav" style="background-color: transparent; border: none">
+          <a href="/#/{$pathUrl}/appearance" class="SideNav-item d-flex flex-items-center p-1 pl-2 m-1 rounded" style="border: none; box-shadow: none">
+            {octiconPaintbrush16(class: 'mr-2', fill: 'var(--color-fg-emphasis)')}
+            {sp}
+            Appearance
+            {octiconChevronRight16(fill: 'var(--color-fg-subtle)')}
+          </a>
+        </nav>
+      </div>
+      <div class="PageLayout-content valign-top {css('content')}"></div>
     </div>
-    <div class="PageLayout-content valign-top {css('content')}"></div>
   </div>
-</div>
 {/template}
 
-
 {template settingsAppearanceComponent}
-<div>
-  {sectionHeader(title: 'Theme preferences', class: 'border-bottom mb-3')}
+  <div>
+    {sectionHeader(title: 'Theme preferences', class: 'border-bottom mb-3')}
 
-  <div class="FormControl-spacingWrapper" style="max-width: 50%;">
-    <label class="FormControl-label">
-      Color mode
-    </label>
-    <select class="form-select {css('theme')}">
-      <option value="light">Light</option>
-      <option value="dark">Dark</option>
-      <option value="auto">Auto (system preference)</option>
-    </select>
-    <p class="FormControl-caption">Choose your color theme preference (persisted in localStorage).</p>
+    <div class="FormControl-spacingWrapper" style="max-width: 50%;">
+      <label class="FormControl-label">
+        Color mode
+      </label>
+      <select class="form-select {css('theme')}">
+        <option value="light">Light</option>
+        <option value="dark">Dark</option>
+        <option value="auto">Auto (system preference)</option>
+      </select>
+      <p class="FormControl-caption">Choose your color theme preference (persisted in localStorage).</p>
+    </div>
   </div>
-</div>
 {/template}

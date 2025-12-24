@@ -4,73 +4,71 @@
  */
 
 .app-container {
-  background: var(--color-canvas-default);
-  color: var(--color-fg-default);
-  font-family: sans-serif;
-  margin: 1em auto;
-  padding: 0 1em;
-  width: 960px;
+	background: var(--color-canvas-default);
+	color: var(--color-fg-default);
+	font-family: sans-serif;
+	margin: 1em auto;
+	padding: 0 1em;
+	width: 960px;
 }
 
 .app-logo {
-  display: inline-block;
-  max-width: 120px;
+	display: inline-block;
+	max-width: 120px;
 }
-
 
 /* Dossier-inspired autocomplete */
 
 .dossier-ac {
-  z-index: 200;
+	z-index: 200;
 }
 
 .ac-renderer {
-  z-index: 200;
-  position: absolute;
-  background: var(--color-canvas-overlay);
-  border: 1px solid var(--color-border-default);
-  box-shadow: var(--color-shadow-medium);
-  /* width: 300px; */
-  margin-top: 8px;
-  padding: 8px;
-  border-radius: 3px;
-  border-top-left-radius: 0;
-  border-top-right-radius: 0;
+	z-index: 200;
+	position: absolute;
+	background: var(--color-canvas-overlay);
+	border: 1px solid var(--color-border-default);
+	box-shadow: var(--color-shadow-medium);
+	/* width: 300px; */
+	margin-top: 8px;
+	padding: 8px;
+	border-radius: 3px;
+	border-top-left-radius: 0;
+	border-top-right-radius: 0;
 }
 
 .ac-row {
-  cursor: pointer;
-  padding: 8px;
-  line-height: 18px;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-  overflow: hidden;
+	cursor: pointer;
+	padding: 8px;
+	line-height: 18px;
+	white-space: nowrap;
+	text-overflow: ellipsis;
+	overflow: hidden;
 }
 
 .ac-highlighted {
-  background-color: var(--color-neutral-muted);
+	background-color: var(--color-neutral-muted);
 }
 
 .ac-active {
-  background-color: var(--color-action-list-item-default-selected-bg);
-  color: var(--color-fg-default);
+	background-color: var(--color-action-list-item-default-selected-bg);
+	color: var(--color-fg-default);
 }
 
 /* Highlighted search text in autocomplete */
 .ac-renderer b,
 .ac-row b {
-  background-color: var(--color-search-keyword-hl);
-  font-weight: 600;
+	background-color: var(--color-search-keyword-hl);
+	font-weight: 600;
 }
 
 .marked {
-  font-size: 14px !important;
-  overflow-x: auto;
-  overflow-wrap: break-word;
-  word-break: break-word;
-  max-width: 100%
+	font-size: 14px !important;
+	overflow-x: auto;
+	overflow-wrap: break-word;
+	word-break: break-word;
+	max-width: 100%;
 }
-
 
 /*
  * Copyright 2007 The Closure Library Authors. All Rights Reserved.
@@ -86,132 +84,132 @@
  */
 
 .goog-tree-root:focus {
-  outline: none;
+	outline: none;
 }
 
 .goog-tree-row {
-  white-space: nowrap;
-  font: icon;
-  line-height: 16px;
-  height: 24px;
+	white-space: nowrap;
+	font: icon;
+	line-height: 16px;
+	height: 24px;
 }
 
 .goog-tree-row span {
-  overflow: hidden;
-  text-overflow: ellipsis;
+	overflow: hidden;
+	text-overflow: ellipsis;
 }
 
 .goog-tree-children {
-  background-repeat: repeat-y;
-  background-image: url(//ssl.gstatic.com/closure/tree/I.png) !important;
-  background-position-y: 1px !important;
-  /* IE only */
-  font: icon;
+	background-repeat: repeat-y;
+	background-image: url(//ssl.gstatic.com/closure/tree/I.png) !important;
+	background-position-y: 1px !important;
+	/* IE only */
+	font: icon;
 }
 
 .goog-tree-children-nolines {
-  font: icon;
+	font: icon;
 }
 
 .goog-tree-icon {
-  background-image: url(//ssl.gstatic.com/closure/tree/tree.png);
+	background-image: url(//ssl.gstatic.com/closure/tree/tree.png);
 }
 
 .goog-tree-expand-icon {
-  vertical-align: middle;
-  height: 16px;
-  width: 16px;
-  cursor: default;
+	vertical-align: middle;
+	height: 16px;
+	width: 16px;
+	cursor: default;
 }
 
 .goog-tree-expand-icon-plus {
-  width: 19px;
-  background-position: 0 0;
+	width: 19px;
+	background-position: 0 0;
 }
 
 .goog-tree-expand-icon-minus {
-  width: 19px;
-  background-position: -24px 0;
+	width: 19px;
+	background-position: -24px 0;
 }
 
 .goog-tree-expand-icon-tplus {
-  width: 19px;
-  background-position: -48px 0;
+	width: 19px;
+	background-position: -48px 0;
 }
 
 .goog-tree-expand-icon-tminus {
-  width: 19px;
-  background-position: -72px 0;
+	width: 19px;
+	background-position: -72px 0;
 }
 
 .goog-tree-expand-icon-lplus {
-  width: 19px;
-  background-position: -96px 0;
+	width: 19px;
+	background-position: -96px 0;
 }
 
 .goog-tree-expand-icon-lminus {
-  width: 19px;
-  background-position: -120px 0;
+	width: 19px;
+	background-position: -120px 0;
 }
 
 .goog-tree-expand-icon-t {
-  width: 19px;
-  background-position: -144px 0;
+	width: 19px;
+	background-position: -144px 0;
 }
 
 .goog-tree-expand-icon-l {
-  width: 19px;
-  background-position: -168px 0;
+	width: 19px;
+	background-position: -168px 0;
 }
 
 .goog-tree-expand-icon-blank {
-  width: 19px;
-  background-position: -168px -24px;
+	width: 19px;
+	background-position: -168px -24px;
 }
 
 .goog-tree-collapsed-folder-icon {
-  vertical-align: middle;
-  height: 16px;
-  width: 16px;
-  background-position: -0px -24px;
+	vertical-align: middle;
+	height: 16px;
+	width: 16px;
+	background-position: -0px -24px;
 }
 
 .goog-tree-expanded-folder-icon {
-  vertical-align: middle;
-  height: 16px;
-  width: 16px;
-  background-position: -24px -24px;
+	vertical-align: middle;
+	height: 16px;
+	width: 16px;
+	background-position: -24px -24px;
 }
 
 .goog-tree-file-icon {
-  vertical-align: middle;
-  height: 16px;
-  width: 16px;
-  background-position: -48px -24px;
+	vertical-align: middle;
+	height: 16px;
+	width: 16px;
+	background-position: -48px -24px;
 }
 
 .goog-tree-item-label {
-  margin-left: 3px;
-  padding: 1px 2px 1px 2px;
-  text-decoration: none;
-  color: WindowText;
-  cursor: default;
+	margin-left: 3px;
+	padding: 1px 2px 1px 2px;
+	text-decoration: none;
+	color: WindowText;
+	cursor: default;
 }
 
 .goog-tree-item-label:hover {
-  text-decoration: underline;
+	text-decoration: underline;
 }
 
 .selected .goog-tree-item-label {
-  background-color: ButtonFace;
-  color: ButtonText;
+	background-color: ButtonFace;
+	color: ButtonText;
 }
 
 .focused .selected .goog-tree-item-label {
-  background-color: Highlight;
-  color: HighlightText;
+	background-color: Highlight;
+	color: HighlightText;
 }
 
 .goog-tree-hide-root {
-  display: none;
+	display: none;
 }

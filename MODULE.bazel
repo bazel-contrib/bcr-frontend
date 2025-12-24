@@ -67,8 +67,6 @@ archive_override(
     urls = ["https://github.com/stackb/ui.js/archive/a306339df9da4f83594970b0406751798d9818c9.tar.gz"],
 )
 
-# NOTE: cannot upgrade past protobuf editions...
-#
 # Commit: 263ee701cba6b75e1f8eddad5adcdf74718318b1
 # Date: 2025-10-08 21:32:22 +0000 UTC
 # URL: https://github.com/protocolbuffers/protobuf-javascript/commit/263ee701cba6b75e1f8eddad5adcdf74718318b1

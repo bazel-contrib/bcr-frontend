@@ -19,231 +19,208 @@ import {
 // ====================================================================
 
 {template rootUrl kind="uri"}
-/#/
+  /#/
 {/template}
-
 
 {template maintainersUrl kind="uri"}
-{rootUrl()}maintainers
+  {rootUrl()}maintainers
 {/template}
-
 
 {template modulesUrl kind="uri"}
-{rootUrl()}modules
+  {rootUrl()}modules
 {/template}
-
 
 {template moduleUrl kind="uri"}
   {@param name: string}
-{modulesUrl()}/{$name}
+  {modulesUrl()}/{$name}
 {/template}
-
 
 {template moduleVersionUrl kind="uri"}
   {@param name: string}
   {@param version: string}
-{moduleUrl(name: $name)}/{$version}
+  {moduleUrl(name: $name)}/{$version}
 {/template}
-
 
 {template moduleVersionDocsUrl kind="uri"}
   {@param name: string}
   {@param version: string}
-{moduleVersionUrl(name: $name, version: $version)}/docs
+  {moduleVersionUrl(name: $name, version: $version)}/docs
 {/template}
-
 
 {template maintainerUrl kind="uri"}
   {@param maintainer: Maintainer}
-{if $maintainer.getGithub()}
+  {if $maintainer.getGithub()}
     {maintainersUrl()}/{$maintainer.getGithub()}
-{elseif $maintainer.getEmail()}
+  {elseif $maintainer.getEmail()}
     {maintainersUrl()}/{$maintainer.getEmail()}
-{else}
+  {else}
     {maintainersUrl()}/{$maintainer.getName()}
-{/if}
+  {/if}
 {/template}
-
 
 {template githubAvatarUrl kind="uri"}
   {@param name: string}
-{if $name}
-https://github.com/{$name}.png
-{else}
-https://github.com/bazelbuild.png
-{/if}
+  {if $name}
+    https://github.com/{$name}.png
+  {else}
+    https://github.com/bazelbuild.png
+  {/if}
 {/template}
-
 
 {template githubUserUrl kind="uri"}
   {@param name: string}
-https://github.com/{$name}
+  https://github.com/{$name}
 {/template}
-
 
 {template githubRepoUrl kind="uri"}
   {@param org: string}
   {@param name: string}
-https://github.com/{$org}/{$name}
+  https://github.com/{$org}/{$name}
 {/template}
-
 
 {template mailtoUrl kind="uri"}
   {@param to: string}
-mailto:{$to}
+  mailto:{$to}
 {/template}
-
 
 {template repositoryUrl kind="uri"}
   {@param repo: string}
-{if $repo.startsWith("github:")}
-https://github.com/{$repo.substring("github:".length)}
-{elseif $repo.startsWith("gitlab:")}
-https://gitlab.com/{$repo.substring("gitlab:".length)}
-{elseif $repo.startsWith("https:")}
-{$repo}
-{else}
-{$repo}
-{/if}
+  {if $repo.startsWith("github:")}
+    https://github.com/{$repo.substring("github:".length)}
+  {elseif $repo.startsWith("gitlab:")}
+    https://gitlab.com/{$repo.substring("gitlab:".length)}
+  {elseif $repo.startsWith("https:")}
+    {$repo}
+  {else}
+    {$repo}
+  {/if}
 {/template}
-
 
 {template registryPullRequestUrl kind="uri"}
   {@param pr: string}
-https://github.com/bazelbuild/bazel-central-registry/pull/{$pr}
+  https://github.com/bazelbuild/bazel-central-registry/pull/{$pr}
 {/template}
-
 
 {template bcrModuleVersionPatchFileUrl kind="uri"}
   {@inject repositoryUrl: string}
   {@inject repositoryCommit: string}
   {@param moduleVersion: ModuleVersion}
   {@param filename: string}
-{$repositoryUrl}/tree/{$repositoryCommit}/modules/{$moduleVersion.getName()}/{$moduleVersion.getVersion()}/patches/{$filename}
+  {$repositoryUrl}/tree/{$repositoryCommit}/modules/{$moduleVersion.getName()}/{$moduleVersion.getVersion()}/patches/{$filename}
 {/template}
-
 
 {template bcrModuleVersionOverlayFileUrl kind="uri"}
   {@inject repositoryUrl: string}
   {@inject repositoryCommit: string}
   {@param moduleVersion: ModuleVersion}
   {@param filename: string}
-{$repositoryUrl}/tree/{$repositoryCommit}/modules/{$moduleVersion.getName()}/{$moduleVersion.getVersion()}/overlay/{$filename}
+  {$repositoryUrl}/tree/{$repositoryCommit}/modules/{$moduleVersion.getName()}/{$moduleVersion.getVersion()}/overlay/{$filename}
 {/template}
-
 
 {template fileInfoUrl kind="uri"}
   {@inject baseUrl: string}
   {@param? label: Label}
-{let $pkg: $label?.getPkg() /}
-{let $name: $label?.getName() /}
-/#/{$baseUrl}/{if $pkg}{$pkg}/{/if}{$name}
+  {let $pkg: $label?.getPkg() /}
+  {let $name: $label?.getName() /}
+  /#/{$baseUrl}/{if $pkg}{$pkg}/{/if}{$name}
 {/template}
-
 
 {template symbolInfoUrl kind="uri"}
   {@param file: File}
   {@param sym: Symbol}
-{fileInfoUrl(label: $file.getLabel())}/{$sym.getName()}
+  {fileInfoUrl(label: $file.getLabel())}/{$sym.getName()}
 {/template}
-
 
 {template githubSourceUrl kind="uri"}
   {@param moduleVersion: ModuleVersion}
   {@param? label: Label}
   {@param? location: SymbolLocation}
-{if $moduleVersion.getRepositoryMetadata()?.getType() == RepositoryType.GITHUB && $label}
-{let $org: $moduleVersion.getRepositoryMetadata().getOrganization() /}
-{let $repo: $moduleVersion.getRepositoryMetadata().getName() /}
-{let $pkg: $label.getPkg() /}
-{let $name: $label.getName() /}
-{let $path: $pkg ? $pkg + '/' + $name : $name /}
-{let $commitSha: $moduleVersion.getSource()?.getCommitSha() /}
-{if $commitSha}
-https://github.com/{$org}/{$repo}/blob/{$commitSha}/{$path}?plain=1{if $location && $location.getStart()}#L{$location.getStart().getLine()}{if $location.getEnd() && $location.getEnd().getLine() != $location.getStart().getLine()}-L{$location.getEnd().getLine()}{/if}{/if}
-{/if}
-{/if}
+  {if $moduleVersion.getRepositoryMetadata()?.getType() == RepositoryType.GITHUB && $label}
+    {let $org: $moduleVersion.getRepositoryMetadata().getOrganization() /}
+    {let $repo: $moduleVersion.getRepositoryMetadata().getName() /}
+    {let $pkg: $label.getPkg() /}
+    {let $name: $label.getName() /}
+    {let $path: $pkg ? $pkg + '/' + $name : $name /}
+    {let $commitSha: $moduleVersion.getSource()?.getCommitSha() /}
+    {if $commitSha}
+      https://github.com/{$org}/{$repo}/blob/{$commitSha}/{$path}?plain=1{if $location && $location.getStart()}#L{$location.getStart().getLine()}{if $location.getEnd() && $location.getEnd().getLine() != $location.getStart().getLine()}-L{$location.getEnd().getLine()}{/if}{/if}
+    {/if}
+  {/if}
 {/template}
-
 
 {template githubRepoUrlFromModuleVersion kind="uri"}
   {@param moduleVersion: ModuleVersion}
-{if $moduleVersion.getRepositoryMetadata()?.getType() == RepositoryType.GITHUB}
-{let $org: $moduleVersion.getRepositoryMetadata().getOrganization() /}
-{let $repo: $moduleVersion.getRepositoryMetadata().getName() /}
-{let $commitSha: $moduleVersion.getSource()?.getCommitSha() /}
-{if $commitSha}
-https://github.com/{$org}/{$repo}/tree/{$commitSha}
-{/if}
-{/if}
+  {if $moduleVersion.getRepositoryMetadata()?.getType() == RepositoryType.GITHUB}
+    {let $org: $moduleVersion.getRepositoryMetadata().getOrganization() /}
+    {let $repo: $moduleVersion.getRepositoryMetadata().getName() /}
+    {let $commitSha: $moduleVersion.getSource()?.getCommitSha() /}
+    {if $commitSha}
+      https://github.com/{$org}/{$repo}/tree/{$commitSha}
+    {/if}
+  {/if}
 {/template}
-
 
 {template githubRawUrl kind="uri"}
   {@param moduleVersion: ModuleVersion}
   {@param label: Label}
-{if $moduleVersion.getRepositoryMetadata()?.getType() == RepositoryType.GITHUB}
-{let $org: $moduleVersion.getRepositoryMetadata().getOrganization() /}
-{let $repo: $moduleVersion.getRepositoryMetadata().getName() /}
-{let $pkg: $label.getPkg() /}
-{let $name: $label.getName() /}
-{let $path: $pkg ? $pkg + '/' + $name : $name /}
-{let $commitSha: $moduleVersion.getSource()?.getCommitSha() /}
-{if $commitSha}
-https://raw.githubusercontent.com/{$org}/{$repo}/{$commitSha}/{$path}
-{/if}
-{/if}
+  {if $moduleVersion.getRepositoryMetadata()?.getType() == RepositoryType.GITHUB}
+    {let $org: $moduleVersion.getRepositoryMetadata().getOrganization() /}
+    {let $repo: $moduleVersion.getRepositoryMetadata().getName() /}
+    {let $pkg: $label.getPkg() /}
+    {let $name: $label.getName() /}
+    {let $path: $pkg ? $pkg + '/' + $name : $name /}
+    {let $commitSha: $moduleVersion.getSource()?.getCommitSha() /}
+    {if $commitSha}
+      https://raw.githubusercontent.com/{$org}/{$repo}/{$commitSha}/{$path}
+    {/if}
+  {/if}
 {/template}
-
 
 {template loadLabelUrl kind="uri"}
   {@param label: Label}
-{let $repo: $label.getRepo() /}
-{let $pkg: $label.getPkg() /}
-{let $name: $label.getName() /}
-{if $repo}
-  /#/modules/{$repo}/latest/docs/{if $pkg}{$pkg}/{/if}{$name}
-{else}
-  // {# Local file - no link #}
-{/if}
+  {let $repo: $label.getRepo() /}
+  {let $pkg: $label.getPkg() /}
+  {let $name: $label.getName() /}
+  {if $repo}
+    /#/modules/{$repo}/latest/docs/{if $pkg}{$pkg}/{/if}{$name}
+  {else}
+    // {# Local file - no link #}
+  {/if}
 {/template}
-
 
 {template labelUri kind="uri"}
   {@inject pathUrl: string}
   {@param repo: string}
   {@param pkg: string}
   {@param name: string}
-/#/{$pathUrl}
-{if $repo.length > 1}/external/{$repo}{else}/@{/if}
-/package/
-{if $pkg}{$pkg}{else}:{/if}
-{if $name}
+  /#/{$pathUrl}
+  {if $repo.length > 1}/external/{$repo}{else}/@{/if}
+  /package/
+  {if $pkg}{$pkg}{else}:{/if}
+  {if $name}
     /
     {if $name != '*'}
-        {$name}
+      {$name}
     {/if}
-{/if}
+  {/if}
 {/template}
-
 
 {template renderLabel kind="text"}
   {@param label: Label}
-{let $repo: $label.getRepo() /}
-{let $pkg: $label.getPkg() /}
-{let $name: $label.getName() /}
-{if $repo}@{$repo}//{/if}{if $pkg}{$pkg}:{/if}{$name}
+  {let $repo: $label.getRepo() /}
+  {let $pkg: $label.getPkg() /}
+  {let $name: $label.getName() /}
+  {if $repo}@{$repo}//{/if}{if $pkg}{$pkg}:{/if}{$name}
 {/template}
-
 
 {template moduleLabelDocsUri kind="uri"}
   {@param label: Label}
-{let $repo: $label.getRepo() /}
-{let $pkg: $label.getPkg() /}
-{let $name: $label.getName() /}
-{if $repo}
-  {modulesUrl()}/{$repo}/latest/docs/{if $pkg}{$pkg}/{/if}{$name}
-{else}
-  {renderLabel(label: $label)}
-{/if}
+  {let $repo: $label.getRepo() /}
+  {let $pkg: $label.getPkg() /}
+  {let $name: $label.getName() /}
+  {if $repo}
+    {modulesUrl()}/{$repo}/latest/docs/{if $pkg}{$pkg}/{/if}{$name}
+  {else}
+    {renderLabel(label: $label)}
+  {/if}
 {/template}

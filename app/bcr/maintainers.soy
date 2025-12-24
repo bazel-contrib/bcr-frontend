@@ -1,6 +1,9 @@
 {namespace soy.centrl.maintainers}
 
-import {Maintainer, ModuleVersion} from 'build/stack/bazel/registry/v1/bcr.proto';
+import {
+  Maintainer,
+  ModuleVersion
+} from 'build/stack/bazel/registry/v1/bcr.proto';
 import {
   maintainerBreadcrumb,
   maintainerModuleVersionTable,
@@ -8,54 +11,50 @@ import {
   maintainersList
 } from 'app/bcr/registry.soy';
 
-
 {template maintainersSelect}
-<div>
-  <div class="{css('content')}"></div>
-</div>
+  <div>
+    <div class="{css('content')}"></div>
+  </div>
 {/template}
-
 
 {template maintainersMapSelectNav}
-<div>
-  <nav class="UnderlineNav">
-    <div class="UnderlineNav-body {css('nav')}">
-      <div class="f4">Maintainers:</div>
-    </div>
-  </nav>
-  <div class="{css('content')}"></div>
-</div>
+  <div>
+    <nav class="UnderlineNav">
+      <div class="UnderlineNav-body {css('nav')}">
+        <div class="f4">Maintainers:</div>
+      </div>
+    </nav>
+    <div class="{css('content')}"></div>
+  </div>
 {/template}
-
 
 {template maintainersMapComponent}
   {@param maintainers: list<Maintainer>}
-<div>
-  {maintainersList(maintainers: $maintainers)}
-</div>
+  <div>
+    {maintainersList(maintainers: $maintainers)}
+  </div>
 {/template}
-
 
 {template maintainerComponent}
   {@param maintainer: Maintainer}
   {@param moduleVersions: list<ModuleVersion>}
-<div>
-  <div class="PageLayout PageLayout--panePos-start PageLayout--hasPaneDivider PageLayout--responsive-stackRegions PageLayout--responsive-panePos-start mt-3">
-    <div class="PageLayout-wrapper">
-      <div class="PageLayout-columns">
-        <div class="PageLayout-content">
-          {call maintainerModuleVersionTable}
-            {param moduleVersions: $moduleVersions /}
-          {/call}
-        </div>
+  <div>
+    <div class="PageLayout PageLayout--panePos-start PageLayout--hasPaneDivider PageLayout--responsive-stackRegions PageLayout--responsive-panePos-start mt-3">
+      <div class="PageLayout-wrapper">
+        <div class="PageLayout-columns">
+          <div class="PageLayout-content">
+            {call maintainerModuleVersionTable}
+              {param moduleVersions: $moduleVersions /}
+            {/call}
+          </div>
 
-        <div class="PageLayout-pane">
-          {call maintainerProfile}
-            {param maintainer: $maintainer /}
-          {/call}
+          <div class="PageLayout-pane">
+            {call maintainerProfile}
+              {param maintainer: $maintainer /}
+            {/call}
+          </div>
         </div>
       </div>
     </div>
   </div>
-</div>
 {/template}

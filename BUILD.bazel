@@ -1,7 +1,7 @@
 load("@bazel_gazelle//:def.bzl", "gazelle", "gazelle_binary")
 load("@build_stack_rules_proto//rules:proto_compile_assets.bzl", "proto_compile_assets")
 load("@build_stack_rules_proto//rules:proto_gazelle.bzl", "proto_gazelle")
-load("//bazel_tools/biome:biome.bzl", "biome_format")
+load("//bazel_tools/formatting:biome.bzl", "biome_format")
 
 exports_files([
     "rules_proto_config.yaml",
@@ -13,7 +13,6 @@ exports_files([
 # ----------------------------------------------------
 #
 # -- Gazelle language "walk" ---
-# gazelle:exclude thirdparty
 #
 # -- Gazelle language "go" ---
 # gazelle:prefix github.com/stackb/centrl
@@ -33,6 +32,7 @@ gazelle_binary(
     visibility = ["//visibility:public"],
 )
 
+# ProTip: `bazel run //:gazelle` to update BUILD files
 proto_gazelle(
     name = "gazelle",
     cfgs = ["//:rules_proto_config.yaml"],
@@ -77,6 +77,7 @@ gazelle(
 )
 
 # ProTip: bazel run //:proto_assets (to regenerate .pb.go files)
+#
 proto_compile_assets(
     name = "proto_assets",
     deps = [
@@ -89,6 +90,9 @@ proto_compile_assets(
     ],
 )
 
+# ProTip: `bazel run //:format` to format css,js,html files
+#
+# NOTE: .soy files have no formatter - ask AI to do it
 biome_format(
     name = "format",
 )
