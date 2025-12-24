@@ -9,8 +9,9 @@ const dom = goog.require("goog.dom");
 const soy = goog.require("goog.soy");
 const { ContentSelect } = goog.require("bcrfrontend.ContentSelect");
 const { SelectNav } = goog.require("bcrfrontend.SelectNav");
-const { createMaintainersMap, maintainerModuleVersions } =
-	goog.require("bcrfrontend.registry");
+const { createMaintainersMap, maintainerModuleVersions } = goog.require(
+	"bcrfrontend.registry",
+);
 const {
 	maintainersSelect,
 	maintainersMapSelectNav,

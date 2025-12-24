@@ -10,7 +10,9 @@ const soy = goog.require("goog.soy");
 const { MarkdownComponent } = goog.require("bcrfrontend.markdown");
 const { Route } = goog.require("stack.ui");
 const { ContentSelect } = goog.require("bcrfrontend.ContentSelect");
-const { presubmitComponent, presubmitSelect } = goog.require("soy.bcrfrontend.app");
+const { presubmitComponent, presubmitSelect } = goog.require(
+	"soy.bcrfrontend.app",
+);
 const { highlightAll } = goog.require("bcrfrontend.syntax");
 
 /**

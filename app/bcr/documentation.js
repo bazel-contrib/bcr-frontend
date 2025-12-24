@@ -32,9 +32,12 @@ const soy = goog.require("goog.soy");
 const { getApplication } = goog.require("bcrfrontend.common");
 const { Component, Route } = goog.require("stack.ui");
 const { ContentSelect } = goog.require("bcrfrontend.ContentSelect");
-const { GitHubSourceFileComponent } = goog.require("bcrfrontend.githubsourcefile");
-const { MarkdownComponent, formatMarkdownAll } =
-	goog.require("bcrfrontend.markdown");
+const { GitHubSourceFileComponent } = goog.require(
+	"bcrfrontend.githubsourcefile",
+);
+const { MarkdownComponent, formatMarkdownAll } = goog.require(
+	"bcrfrontend.markdown",
+);
 const { SelectNav } = goog.require("bcrfrontend.SelectNav");
 const {
 	aspectInfoComponent,
@@ -60,8 +63,9 @@ const {
 	symbolTypeName,
 	valueInfoComponent,
 } = goog.require("soy.bcrfrontend.app");
-const { createDocumentationMap, getLatestModuleVersion } =
-	goog.require("bcrfrontend.registry");
+const { createDocumentationMap, getLatestModuleVersion } = goog.require(
+	"bcrfrontend.registry",
+);
 const { highlightAll } = goog.require("bcrfrontend.syntax");
 const {
 	generateAspectExample,

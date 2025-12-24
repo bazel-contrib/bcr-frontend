@@ -14,8 +14,9 @@ const ModuleVersion = goog.require(
 const Registry = goog.require("proto.build.stack.bazel.registry.v1.Registry");
 const jsunit = goog.require("goog.testing.jsunit");
 const testSuite = goog.require("goog.testing.testSuite");
-const { calculateAgeSummary, getVersionDistances } =
-	goog.require("bcrfrontend.registry");
+const { calculateAgeSummary, getVersionDistances } = goog.require(
+	"bcrfrontend.registry",
+);
 
 testSuite({
 	teardown: () => {},

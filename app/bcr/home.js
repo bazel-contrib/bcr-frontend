@@ -9,9 +9,12 @@ const SymbolType = goog.require("proto.build.stack.bazel.symbol.v1.SymbolType");
 const dom = goog.require("goog.dom");
 const soy = goog.require("goog.soy");
 const { ContentSelect } = goog.require("bcrfrontend.ContentSelect");
-const { createMaintainersMap, createModuleMap } =
-	goog.require("bcrfrontend.registry");
-const { homeOverviewComponent, homeSelect } = goog.require("soy.bcrfrontend.app");
+const { createMaintainersMap, createModuleMap } = goog.require(
+	"bcrfrontend.registry",
+);
+const { homeOverviewComponent, homeSelect } = goog.require(
+	"soy.bcrfrontend.app",
+);
 const { formatRelativePast } = goog.require("bcrfrontend.format");
 const { Component, Route } = goog.require("stack.ui");
 
