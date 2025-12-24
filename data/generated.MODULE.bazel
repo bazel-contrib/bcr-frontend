@@ -1,0 +1,6 @@
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+
+starlark_repository = use_extension("@build_stack_rules_proto//extensions:starlark_repository.bzl", "starlark_repository", dev_dependency = True)
+use_repo(
+    starlark_repository,
+)
