@@ -1,4 +1,4 @@
-goog.module("centrl.starlark");
+goog.module("bcrfrontend.starlark");
 
 const AttributeInfo = goog.require("proto.stardoc_output.AttributeInfo");
 const AttributeType = goog.require("proto.stardoc_output.AttributeType");

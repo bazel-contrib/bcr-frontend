@@ -2,12 +2,12 @@
  * @fileoverview TreeView component for rendering DependencyTree with Primer styling.
  */
 
-goog.module("centrl.treeview");
+goog.module("bcrfrontend.treeview");
 
 const Component = goog.require("goog.ui.Component");
 const soy = goog.require("goog.soy");
-const { dependencyTree } = goog.require("soy.centrl.treeview");
-const { DependencyTree } = goog.requireType("centrl.mvs");
+const { dependencyTree } = goog.require("soy.bcrfrontend.treeview");
+const { DependencyTree } = goog.requireType("bcrfrontend.mvs");
 
 /**
  * TreeView component that renders a DependencyTree.

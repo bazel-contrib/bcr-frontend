@@ -1,4 +1,4 @@
-goog.module("centrl.App");
+goog.module("bcrfrontend.App");
 
 const ComponentEventType = goog.require("goog.ui.Component.EventType");
 const Registry = goog.require("proto.build.stack.bazel.registry.v1.Registry");
@@ -9,16 +9,16 @@ const events = goog.require("goog.events");
 const soy = goog.require("goog.soy");
 const { App, Component, Route, RouteEvent, RouteEventType } =
 	goog.require("stack.ui");
-const { Application, SearchProvider } = goog.requireType("centrl.common");
-const { BodySelect } = goog.require("centrl.body");
+const { Application, SearchProvider } = goog.requireType("bcrfrontend.common");
+const { BodySelect } = goog.require("bcrfrontend.body");
 const { DocumentationSearchHandler } = goog.require(
-	"centrl.documentation_search",
+	"bcrfrontend.documentation_search",
 );
-const { MVS } = goog.require("centrl.mvs");
-const { ModuleSearchHandler } = goog.require("centrl.module_search");
-const { SearchComponent } = goog.require("centrl.search");
-const { copyToClipboard } = goog.require("centrl.clipboard");
-const { registryApp, toastSuccess } = goog.require("soy.centrl.app");
+const { MVS } = goog.require("bcrfrontend.mvs");
+const { ModuleSearchHandler } = goog.require("bcrfrontend.module_search");
+const { SearchComponent } = goog.require("bcrfrontend.search");
+const { copyToClipboard } = goog.require("bcrfrontend.clipboard");
+const { registryApp, toastSuccess } = goog.require("soy.bcrfrontend.app");
 
 /**
  * Top-level app component.

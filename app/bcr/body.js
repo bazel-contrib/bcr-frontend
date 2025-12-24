@@ -1,17 +1,17 @@
-goog.module("centrl.body");
+goog.module("bcrfrontend.body");
 
 const Registry = goog.require("proto.build.stack.bazel.registry.v1.Registry");
 const dom = goog.require("goog.dom");
 const soy = goog.require("goog.soy");
-const { ContentSelect } = goog.require("centrl.ContentSelect");
-const { formatRelativePast } = goog.require("centrl.format");
+const { ContentSelect } = goog.require("bcrfrontend.ContentSelect");
+const { formatRelativePast } = goog.require("bcrfrontend.format");
 const { Route } = goog.requireType("stack.ui");
-const { DocsSelect } = goog.require("centrl.documentation");
-const { HomeSelect } = goog.require("centrl.home");
-const { MaintainersSelect } = goog.require("centrl.maintainers");
-const { ModulesMapSelect } = goog.require("centrl.modules");
-const { SettingsSelect } = goog.require("centrl.settings");
-const { bodySelect } = goog.require("soy.centrl.app");
+const { DocsSelect } = goog.require("bcrfrontend.documentation");
+const { HomeSelect } = goog.require("bcrfrontend.home");
+const { MaintainersSelect } = goog.require("bcrfrontend.maintainers");
+const { ModulesMapSelect } = goog.require("bcrfrontend.modules");
+const { SettingsSelect } = goog.require("bcrfrontend.settings");
+const { bodySelect } = goog.require("soy.bcrfrontend.app");
 
 /**
  * @enum {string}

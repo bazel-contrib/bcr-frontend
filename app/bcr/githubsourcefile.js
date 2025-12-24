@@ -1,4 +1,4 @@
-goog.module("centrl.githubsourcefile");
+goog.module("bcrfrontend.githubsourcefile");
 
 const Module = goog.require("proto.build.stack.bazel.registry.v1.Module");
 const ModuleVersion = goog.require(
@@ -10,8 +10,8 @@ const RepositoryType = goog.require(
 const dom = goog.require("goog.dom");
 const soy = goog.require("goog.soy");
 const { Component } = goog.require("stack.ui");
-const { getLatestModuleVersion } = goog.require("centrl.registry");
-const { highlightAll } = goog.require("centrl.syntax");
+const { getLatestModuleVersion } = goog.require("bcrfrontend.registry");
+const { highlightAll } = goog.require("bcrfrontend.syntax");
 
 /**
  * Component for displaying source files from GitHub repositories.

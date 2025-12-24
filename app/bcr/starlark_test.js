@@ -1,4 +1,4 @@
-goog.module("centrl.starlarkTest");
+goog.module("bcrfrontend.starlarkTest");
 goog.setTestOnly();
 
 const Aspect = goog.require("proto.build.stack.starlark.v1beta1.Aspect");
@@ -49,7 +49,7 @@ const StarlarkFunctionInfo = goog.require(
 );
 const Symbol = goog.require("proto.build.stack.bazel.symbol.v1.Symbol");
 const jsunit = goog.require("goog.testing.jsunit");
-const starlark = goog.require("centrl.starlark");
+const starlark = goog.require("bcrfrontend.starlark");
 const testSuite = goog.require("goog.testing.testSuite");
 const {
 	generateAspectExample,
@@ -62,7 +62,7 @@ const {
 	getAttributeExampleValue,
 	getFieldExampleValue,
 	getParameterExampleValue,
-} = goog.require("centrl.starlark");
+} = goog.require("bcrfrontend.starlark");
 
 testSuite({
 	teardown: () => {},
@@ -761,4 +761,4 @@ testSuite({
 	},
 });
 
-goog.exportSymbol("centrl.starlarkTest", testSuite);
+goog.exportSymbol("bcrfrontend.starlarkTest", testSuite);

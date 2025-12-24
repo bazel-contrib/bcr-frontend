@@ -1,7 +1,7 @@
 /**
  * @fileoverview SearchComponent widget for controlling the top navigation bar's search box.
  */
-goog.module("centrl.search");
+goog.module("bcrfrontend.search");
 
 const asserts = goog.require("goog.asserts");
 const AutoComplete = goog.require("goog.ui.ac.AutoComplete");
@@ -14,8 +14,8 @@ const {
 	DefaultSearchHandlerName,
 	SearchableSelect,
 	SearchProvider,
-} = goog.require("centrl.common");
-const { Searchable } = goog.requireType("centrl.common");
+} = goog.require("bcrfrontend.common");
+const { Searchable } = goog.requireType("bcrfrontend.common");
 const { Component } = goog.require("stack.ui");
 
 /**

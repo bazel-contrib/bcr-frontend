@@ -1,4 +1,4 @@
-goog.module("centrl.modules");
+goog.module("bcrfrontend.modules");
 
 const Module = goog.require("proto.build.stack.bazel.registry.v1.Module");
 const ModuleDependency = goog.require(
@@ -14,14 +14,14 @@ const events = goog.require("goog.events");
 const soy = goog.require("goog.soy");
 const style = goog.require("goog.style");
 const { Component, Route } = goog.require("stack.ui");
-const { getApplication } = goog.require("centrl.common");
-const { ContentComponent } = goog.require("centrl.ContentComponent");
-const { ContentSelect } = goog.require("centrl.ContentSelect");
+const { getApplication } = goog.require("bcrfrontend.common");
+const { ContentComponent } = goog.require("bcrfrontend.ContentComponent");
+const { ContentSelect } = goog.require("bcrfrontend.ContentSelect");
 const { ModuleVersionSymbolsSelect, DocumentationReadmeComponent } =
-	goog.require("centrl.documentation");
-const { PresubmitSelect } = goog.require("centrl.presubmit");
-const { MvsDependencyTree } = goog.require("centrl.mvs_tree");
-const { SelectNav } = goog.require("centrl.SelectNav");
+	goog.require("bcrfrontend.documentation");
+const { PresubmitSelect } = goog.require("bcrfrontend.presubmit");
+const { MvsDependencyTree } = goog.require("bcrfrontend.mvs_tree");
+const { SelectNav } = goog.require("bcrfrontend.SelectNav");
 const {
 	moduleBlankslateComponent,
 	moduleSelect,
@@ -33,10 +33,10 @@ const {
 	moduleVersionsFilterSelect,
 	modulesMapSelect,
 	modulesMapSelectNav,
-} = goog.require("soy.centrl.app");
+} = goog.require("soy.bcrfrontend.app");
 const { moduleVersionsListComponent } = goog.require("soy.registry");
 const { computeLanguageData, sanitizeLanguageName, unsanitizeLanguageName } =
-	goog.require("centrl.language");
+	goog.require("bcrfrontend.language");
 const {
 	calculateAgeSummary,
 	createModuleMap,
@@ -47,9 +47,9 @@ const {
 	getModuleDirectDeps,
 	getVersionDistances,
 	getYankedMap,
-} = goog.require("centrl.registry");
-const { formatDate, formatRelativePast } = goog.require("centrl.format");
-const { highlightAll } = goog.require("centrl.syntax");
+} = goog.require("bcrfrontend.registry");
+const { formatDate, formatRelativePast } = goog.require("bcrfrontend.format");
+const { highlightAll } = goog.require("bcrfrontend.syntax");
 
 /**
  * @enum {string}

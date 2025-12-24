@@ -1,4 +1,4 @@
-goog.module("centrl.maintainers");
+goog.module("bcrfrontend.maintainers");
 
 const Maintainer = goog.require(
 	"proto.build.stack.bazel.registry.v1.Maintainer",
@@ -7,16 +7,17 @@ const Registry = goog.require("proto.build.stack.bazel.registry.v1.Registry");
 const arrays = goog.require("goog.array");
 const dom = goog.require("goog.dom");
 const soy = goog.require("goog.soy");
-const { ContentSelect } = goog.require("centrl.ContentSelect");
-const { SelectNav } = goog.require("centrl.SelectNav");
-const { createMaintainersMap, maintainerModuleVersions } =
-	goog.require("centrl.registry");
+const { ContentSelect } = goog.require("bcrfrontend.ContentSelect");
+const { SelectNav } = goog.require("bcrfrontend.SelectNav");
+const { createMaintainersMap, maintainerModuleVersions } = goog.require(
+	"bcrfrontend.registry",
+);
 const {
 	maintainersSelect,
 	maintainersMapSelectNav,
 	maintainersMapComponent,
 	maintainerComponent,
-} = goog.require("soy.centrl.maintainers");
+} = goog.require("soy.bcrfrontend.maintainers");
 const { Component, Route } = goog.require("stack.ui");
 
 /**

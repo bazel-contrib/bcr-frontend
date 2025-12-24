@@ -1,4 +1,4 @@
-goog.module("centrl.documentation");
+goog.module("bcrfrontend.documentation");
 
 const ModuleVersionSymbols = goog.require(
 	"proto.build.stack.bazel.symbol.v1.ModuleVersionSymbols",
@@ -29,13 +29,16 @@ const arrays = goog.require("goog.array");
 const dom = goog.require("goog.dom");
 const path = goog.require("goog.string.path");
 const soy = goog.require("goog.soy");
-const { getApplication } = goog.require("centrl.common");
+const { getApplication } = goog.require("bcrfrontend.common");
 const { Component, Route } = goog.require("stack.ui");
-const { ContentSelect } = goog.require("centrl.ContentSelect");
-const { GitHubSourceFileComponent } = goog.require("centrl.githubsourcefile");
-const { MarkdownComponent, formatMarkdownAll } =
-	goog.require("centrl.markdown");
-const { SelectNav } = goog.require("centrl.SelectNav");
+const { ContentSelect } = goog.require("bcrfrontend.ContentSelect");
+const { GitHubSourceFileComponent } = goog.require(
+	"bcrfrontend.githubsourcefile",
+);
+const { MarkdownComponent, formatMarkdownAll } = goog.require(
+	"bcrfrontend.markdown",
+);
+const { SelectNav } = goog.require("bcrfrontend.SelectNav");
 const {
 	aspectInfoComponent,
 	bzlFileSourceComponent,
@@ -59,10 +62,11 @@ const {
 	symbolInfoComponent,
 	symbolTypeName,
 	valueInfoComponent,
-} = goog.require("soy.centrl.app");
-const { createDocumentationMap, getLatestModuleVersion } =
-	goog.require("centrl.registry");
-const { highlightAll } = goog.require("centrl.syntax");
+} = goog.require("soy.bcrfrontend.app");
+const { createDocumentationMap, getLatestModuleVersion } = goog.require(
+	"bcrfrontend.registry",
+);
+const { highlightAll } = goog.require("bcrfrontend.syntax");
 const {
 	generateAspectExample,
 	generateFunctionExample,
@@ -72,7 +76,7 @@ const {
 	generateRepositoryRuleExample,
 	generateRuleExample,
 	generateRuleMacroExample,
-} = goog.require("centrl.starlark");
+} = goog.require("bcrfrontend.starlark");
 const { setElementInnerHtml } = goog.require(
 	"google3.third_party.javascript.safevalues.dom.elements.element",
 );

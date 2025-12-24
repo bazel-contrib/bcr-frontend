@@ -1,4 +1,4 @@
-goog.module("centrl.registry");
+goog.module("bcrfrontend.registry");
 
 const Maintainer = goog.require(
 	"proto.build.stack.bazel.registry.v1.Maintainer",

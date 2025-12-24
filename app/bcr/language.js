@@ -1,4 +1,4 @@
-goog.module("centrl.language");
+goog.module("bcrfrontend.language");
 
 const RepositoryMetadata = goog.require(
 	"proto.build.stack.bazel.registry.v1.RepositoryMetadata",

@@ -1,7 +1,7 @@
 /**
  * @fileoverview DocumentationSearchHandler for autocomplete search of documentation symbols (rules, functions, providers, etc).
  */
-goog.module("centrl.documentation_search");
+goog.module("bcrfrontend.documentation_search");
 
 const asserts = goog.require("goog.asserts");
 const AutoComplete = goog.require("goog.ui.ac.AutoComplete");
@@ -12,9 +12,9 @@ const EventTarget = goog.require("goog.events.EventTarget");
 const InputHandler = goog.require("goog.ui.ac.InputHandler");
 const Renderer = goog.require("goog.ui.ac.Renderer");
 const soy = goog.require("goog.soy");
-const { Application, SearchProvider } = goog.requireType("centrl.common");
-const { Searchable } = goog.requireType("centrl.common");
-const { symbolSearchRow } = goog.require("soy.centrl.app");
+const { Application, SearchProvider } = goog.requireType("bcrfrontend.common");
+const { Searchable } = goog.requireType("bcrfrontend.common");
+const { symbolSearchRow } = goog.require("soy.bcrfrontend.app");
 const File = goog.requireType("proto.build.stack.bazel.symbol.v1.File");
 const Registry = goog.require("proto.build.stack.bazel.registry.v1.Registry");
 const Symbol = goog.requireType("proto.build.stack.bazel.symbol.v1.Symbol");

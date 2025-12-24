@@ -1,4 +1,4 @@
-goog.module("centrl.syntax");
+goog.module("bcrfrontend.syntax");
 
 const asserts = goog.require("goog.asserts");
 const arrays = goog.require("goog.array");

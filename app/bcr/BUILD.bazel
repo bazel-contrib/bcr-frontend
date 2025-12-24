@@ -150,7 +150,7 @@ closure_js_test(
     name = "registry_test",
     srcs = ["registry_test.js"],
     compilation_level = "ADVANCED",
-    entry_points = ["goog:centrl.registryTest"],
+    entry_points = ["goog:bcrfrontend.registryTest"],
     deps = [
         ":registry",
         "//build/stack/bazel/registry/v1:bzpb_js",
@@ -175,7 +175,7 @@ closure_js_test(
     name = "starlark_test",
     srcs = ["starlark_test.js"],
     compilation_level = "ADVANCED",
-    entry_points = ["goog:centrl.starlarkTest"],
+    entry_points = ["goog:bcrfrontend.starlarkTest"],
     deps = [
         ":starlark",
         "//build/stack/bazel/registry/v1:bzpb_js",

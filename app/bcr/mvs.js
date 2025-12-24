@@ -7,7 +7,7 @@
  * The algorithm selects the minimal (youngest) set of module versions that satisfies all constraints.
  */
 
-goog.module("centrl.mvs");
+goog.module("bcrfrontend.mvs");
 
 const ModuleVersion = goog.require(
 	"proto.build.stack.bazel.registry.v1.ModuleVersion",

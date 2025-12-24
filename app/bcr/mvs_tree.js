@@ -2,11 +2,11 @@
  * @fileoverview MVS Dependency Tree component using template-based TreeView.
  */
 
-goog.module("centrl.mvs_tree");
+goog.module("bcrfrontend.mvs_tree");
 
 const Component = goog.require("goog.ui.Component");
-const { TreeView } = goog.require("centrl.treeview");
-const { MVS } = goog.require("centrl.mvs");
+const { TreeView } = goog.require("bcrfrontend.treeview");
+const { MVS } = goog.require("bcrfrontend.mvs");
 
 /**
  * Component that displays an MVS dependency tree using the new TreeView.

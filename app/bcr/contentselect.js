@@ -1,14 +1,14 @@
 /**
  * @fileoverview ContentSelect base class for Select components with not-found handling.
  */
-goog.module("centrl.ContentSelect");
+goog.module("bcrfrontend.ContentSelect");
 
 const dom = goog.require("goog.dom");
 const soy = goog.require("goog.soy");
 const Select = goog.require("stack.ui.Select");
 const { Component } = goog.require("stack.ui");
 const { Route } = goog.requireType("stack.ui");
-const { notFoundComponent } = goog.require("soy.centrl.app");
+const { notFoundComponent } = goog.require("soy.bcrfrontend.app");
 
 /**
  * Tab name constant for the not found page.

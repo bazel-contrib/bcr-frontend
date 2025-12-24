@@ -1,7 +1,7 @@
 /**
  * @fileoverview ContentComponent base class.
  */
-goog.module("centrl.ContentComponent");
+goog.module("bcrfrontend.ContentComponent");
 
 const dom = goog.require("goog.dom");
 const { Component } = goog.require("stack.ui");

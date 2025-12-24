@@ -1,4 +1,4 @@
-goog.module("centrl.home");
+goog.module("bcrfrontend.home");
 
 const Module = goog.require("proto.build.stack.bazel.registry.v1.Module");
 const ModuleVersion = goog.require(
@@ -8,11 +8,14 @@ const Registry = goog.require("proto.build.stack.bazel.registry.v1.Registry");
 const SymbolType = goog.require("proto.build.stack.bazel.symbol.v1.SymbolType");
 const dom = goog.require("goog.dom");
 const soy = goog.require("goog.soy");
-const { ContentSelect } = goog.require("centrl.ContentSelect");
-const { createMaintainersMap, createModuleMap } =
-	goog.require("centrl.registry");
-const { homeOverviewComponent, homeSelect } = goog.require("soy.centrl.app");
-const { formatRelativePast } = goog.require("centrl.format");
+const { ContentSelect } = goog.require("bcrfrontend.ContentSelect");
+const { createMaintainersMap, createModuleMap } = goog.require(
+	"bcrfrontend.registry",
+);
+const { homeOverviewComponent, homeSelect } = goog.require(
+	"soy.bcrfrontend.app",
+);
+const { formatRelativePast } = goog.require("bcrfrontend.format");
 const { Component, Route } = goog.require("stack.ui");
 
 /**

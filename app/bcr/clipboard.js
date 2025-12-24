@@ -1,4 +1,4 @@
-goog.module("centrl.clipboard");
+goog.module("bcrfrontend.clipboard");
 
 const dom = goog.require("goog.dom");
 

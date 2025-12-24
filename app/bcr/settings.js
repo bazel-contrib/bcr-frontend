@@ -1,15 +1,15 @@
 /**
  * @fileoverview Settings components for theme and appearance configuration.
  */
-goog.module("centrl.settings");
+goog.module("bcrfrontend.settings");
 
 const dom = goog.require("goog.dom");
 const events = goog.require("goog.events");
 const soy = goog.require("goog.soy");
 const { Component, Route } = goog.require("stack.ui");
-const { ContentSelect } = goog.require("centrl.ContentSelect");
+const { ContentSelect } = goog.require("bcrfrontend.ContentSelect");
 const { settingsAppearanceComponent, settingsSelect } = goog.require(
-	"soy.centrl.settings",
+	"soy.bcrfrontend.settings",
 );
 
 /**

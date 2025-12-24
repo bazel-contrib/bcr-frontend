@@ -1,4 +1,4 @@
-goog.module("centrl.registryTest");
+goog.module("bcrfrontend.registryTest");
 goog.setTestOnly();
 
 const Module = goog.require("proto.build.stack.bazel.registry.v1.Module");
@@ -14,8 +14,9 @@ const ModuleVersion = goog.require(
 const Registry = goog.require("proto.build.stack.bazel.registry.v1.Registry");
 const jsunit = goog.require("goog.testing.jsunit");
 const testSuite = goog.require("goog.testing.testSuite");
-const { calculateAgeSummary, getVersionDistances } =
-	goog.require("centrl.registry");
+const { calculateAgeSummary, getVersionDistances } = goog.require(
+	"bcrfrontend.registry",
+);
 
 testSuite({
 	teardown: () => {},
@@ -245,4 +246,4 @@ testSuite({
 	},
 });
 
-goog.exportSymbol("centrl.registryTest", testSuite);
+goog.exportSymbol("bcrfrontend.registryTest", testSuite);

@@ -1,7 +1,7 @@
 /**
  * @fileoverview ModuleSearchHandler for autocomplete search of Module objects.
  */
-goog.module("centrl.module_search");
+goog.module("bcrfrontend.module_search");
 
 const asserts = goog.require("goog.asserts");
 const AutoComplete = goog.require("goog.ui.ac.AutoComplete");
@@ -14,10 +14,10 @@ const Module = goog.require("proto.build.stack.bazel.registry.v1.Module");
 const Registry = goog.require("proto.build.stack.bazel.registry.v1.Registry");
 const Renderer = goog.require("goog.ui.ac.Renderer");
 const soy = goog.require("goog.soy");
-const { Application, SearchProvider } = goog.require("centrl.common");
-const { Searchable } = goog.requireType("centrl.common");
-const { moduleSearchRow } = goog.require("soy.centrl.app");
-const { sanitizeLanguageName } = goog.require("centrl.language");
+const { Application, SearchProvider } = goog.require("bcrfrontend.common");
+const { Searchable } = goog.requireType("bcrfrontend.common");
+const { moduleSearchRow } = goog.require("soy.bcrfrontend.app");
+const { sanitizeLanguageName } = goog.require("bcrfrontend.language");
 
 /**
  * Provider implementation that handles autocompletion of Module instances.

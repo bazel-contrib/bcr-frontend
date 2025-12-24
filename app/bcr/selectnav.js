@@ -1,7 +1,7 @@
 /**
  * @fileoverview SelectNav base class for navigation-based select components.
  */
-goog.module("centrl.SelectNav");
+goog.module("bcrfrontend.SelectNav");
 
 const ComponentEventType = goog.require("goog.ui.Component.EventType");
 const arrays = goog.require("goog.array");
@@ -10,8 +10,8 @@ const dom = goog.require("goog.dom");
 const events = goog.require("goog.events");
 const soy = goog.require("goog.soy");
 const { Component, Route } = goog.require("stack.ui");
-const { ContentSelect } = goog.require("centrl.ContentSelect");
-const { navItem } = goog.require("soy.centrl.app");
+const { ContentSelect } = goog.require("bcrfrontend.ContentSelect");
+const { navItem } = goog.require("soy.bcrfrontend.app");
 
 /**
  * @abstract

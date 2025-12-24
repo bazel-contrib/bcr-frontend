@@ -1,4 +1,4 @@
-goog.module("centrl.markdown");
+goog.module("bcrfrontend.markdown");
 
 const arrays = goog.require("goog.array");
 const dom = goog.require("goog.dom");
@@ -8,7 +8,7 @@ const { SafeHtml, sanitizeHtml } = goog.require(
 	"google3.third_party.javascript.safevalues.index",
 );
 const { copyToClipboardButton } = goog.require("soy.registry");
-const { highlight } = goog.require("centrl.syntax");
+const { highlight } = goog.require("bcrfrontend.syntax");
 const { setElementInnerHtml } = goog.require(
 	"google3.third_party.javascript.safevalues.dom.elements.element",
 );

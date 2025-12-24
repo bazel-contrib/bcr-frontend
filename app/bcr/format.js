@@ -1,4 +1,4 @@
-goog.module("centrl.format");
+goog.module("bcrfrontend.format");
 
 const relative = goog.require("goog.date.relative");
 
