@@ -17,13 +17,12 @@ bazel_dep(name = "gazelle", version = "0.47.0", dev_dependency = True, repo_name
 bazel_dep(name = "rules_go", version = "0.59.0", dev_dependency = True)
 bazel_dep(name = "rules_java", version = "8.16.1", dev_dependency = True)
 bazel_dep(name = "rules_proto", version = "7.1.0", dev_dependency = True)
+bazel_dep(name = "rules_rs", version = "0.0.16", dev_dependency = True)
+bazel_dep(name = "rules_rust_wasm_bindgen", version = "0.68.1")
+bazel_dep(name = "rules_rust", version = "0.68.1", dev_dependency = True)
 bazel_dep(name = "rules_tsickle", version = "1.1.0", dev_dependency = True)
 bazel_dep(name = "stackb_rules_closure", version = "1.0.0", dev_dependency = True)
 bazel_dep(name = "stackb_ui_js", version = "1.0.0", dev_dependency = True)
-bazel_dep(name = "rules_rs", version = "0.0.16", dev_dependency = True)
-bazel_dep(name = "rules_rust", version = "0.68.1", dev_dependency = True)
-
-bazel_dep(name = "rules_rust_wasm_bindgen", version = "0.68.1")
 
 # -------------------------------------------------------------------
 # Overrides
@@ -181,6 +180,22 @@ filegroup(
     sha256 = "719fb2723dac3ed23ccd2f4e97c29dc1878778f727bc33973a41908d82bbccbb",
     strip_prefix = "github-colors-427cd04c0c95613318b7eadf5da46e056b062d79",
     urls = ["https://github.com/ozh/github-colors/archive/427cd04c0c95613318b7eadf5da46e056b062d79.tar.gz"],
+)
+
+# -------------------------------------------------------------------
+# Configuration: linting
+# -------------------------------------------------------------------
+
+http_file = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_file")
+
+# Date: Wed, 24 Dec 2025 16:49:19 GMT
+# Last-Modified: Wed, 17 Dec 2025 14:35:06 GMT
+# Size: 39902576 (40 MB)
+http_file(
+    name = "github_com_biomejs_biome_releases_download_biomejs_biome_2_3_10_biome_darwin_arm64",
+    sha256 = "adc11155b54557baab9498376472e7371ac5ca798a15c7134212d1ed1c4a1102",
+    urls = ["https://github.com/biomejs/biome/releases/download/%40biomejs%2Fbiome%402.3.10/biome-darwin-arm64"],
+    executable = True,
 )
 
 # -------------------------------------------------------------------

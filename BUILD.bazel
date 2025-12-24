@@ -1,6 +1,7 @@
 load("@bazel_gazelle//:def.bzl", "gazelle", "gazelle_binary")
 load("@build_stack_rules_proto//rules:proto_compile_assets.bzl", "proto_compile_assets")
 load("@build_stack_rules_proto//rules:proto_gazelle.bzl", "proto_gazelle")
+load("//bazel_tools/biome:biome.bzl", "biome_format")
 
 exports_files([
     "rules_proto_config.yaml",
@@ -86,4 +87,8 @@ proto_compile_assets(
         "//build/stack/starlark/v1beta1:v1beta1_go_compiled_sources",
         "//stardoc_output:stardoc_output_go_compiled_sources",
     ],
+)
+
+biome_format(
+    name = "format",
 )
