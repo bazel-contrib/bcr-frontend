@@ -139,9 +139,7 @@ closure_js_library(
 
 closure_js_library(
     name = "registry",
-    srcs = [
-        "registry.js",
-    ],
+    srcs = ["registry.js"],
     deps = [
         "//build/stack/bazel/registry/v1:bzpb_js",
         "@stackb_rules_closure//closure/goog/string",
@@ -156,6 +154,34 @@ closure_js_test(
     deps = [
         ":registry",
         "//build/stack/bazel/registry/v1:bzpb_js",
+        "@stackb_rules_closure//closure/goog/testing:asserts",
+        "@stackb_rules_closure//closure/goog/testing:jsunit",
+        "@stackb_rules_closure//closure/goog/testing:testsuite",
+    ],
+)
+
+closure_js_library(
+    name = "starlark",
+    srcs = ["starlark.js"],
+    deps = [
+        "//build/stack/bazel/registry/v1:bzpb_js",
+        "//build/stack/bazel/symbol/v1:sympb_js",
+        "//build/stack/starlark/v1beta1:v1beta1_js",
+        "//stardoc_output:stardoc_output_js",
+    ],
+)
+
+closure_js_test(
+    name = "starlark_test",
+    srcs = ["starlark_test.js"],
+    compilation_level = "ADVANCED",
+    entry_points = ["goog:centrl.starlarkTest"],
+    deps = [
+        ":starlark",
+        "//build/stack/bazel/registry/v1:bzpb_js",
+        "//build/stack/bazel/symbol/v1:sympb_js",
+        "//build/stack/starlark/v1beta1:v1beta1_js",
+        "//stardoc_output:stardoc_output_js",
         "@stackb_rules_closure//closure/goog/testing:asserts",
         "@stackb_rules_closure//closure/goog/testing:jsunit",
         "@stackb_rules_closure//closure/goog/testing:testsuite",
@@ -186,7 +212,6 @@ closure_js_library(
         "search.js",
         "selectnav.js",
         "settings.js",
-        "starlark.js",
         "syntax.js",
         "treeview.js",
         ":shiki",
@@ -196,6 +221,7 @@ closure_js_library(
         ":common",
         ":registry",
         ":soy",
+        ":starlark",
         "//build/stack/bazel/registry/v1:bzpb_js",
         "//build/stack/bazel/symbol/v1:sympb_js",
         "//build/stack/starlark/v1beta1:v1beta1_js",

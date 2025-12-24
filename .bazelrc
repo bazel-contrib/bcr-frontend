@@ -12,4 +12,3 @@ build --tool_java_runtime_version=21
 # for malformed docs URL archives that contain no content.  Consider putting
 # this under a transistion.
 common --noincompatible_disallow_empty_glob
-# common --repository_cache=m

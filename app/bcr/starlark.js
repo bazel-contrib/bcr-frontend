@@ -123,42 +123,49 @@ class StarlarkCallBuilder {
         /** @type {!Array<string>} */
         const argLines = [];
 
+        // Count total arguments to determine trailing commas
+        const totalArgCount = this.positionalArgs_.length +
+            this.keywordArgs_.length +
+            (this.varargs_ ? 1 : 0) +
+            (this.kwargs_ ? 1 : 0);
+
+        let argIndex = 0;
+
         // Positional arguments
         this.positionalArgs_.forEach((value) => {
-            argLines.push(`    ${value}`);
+            argIndex++;
+            const isLast = argIndex === totalArgCount;
+            const comma = isLast ? ',' : ',';  // All args get trailing comma except **kwargs
+            argLines.push(`    ${value}${comma}`);
         });
 
-        // Keyword arguments
+        // Keyword arguments - need to add commas before comments
         this.keywordArgs_.forEach((arg) => {
+            argIndex++;
+            const isLast = argIndex === totalArgCount;
+            const comma = isLast ? ',' : ',';  // All args get trailing comma except **kwargs
             // Suppress "# required" comment for "name" attribute (implicitly required)
             const comment = (arg.required && arg.name !== 'name') ? '  # required' : '';
-            argLines.push(`    ${arg.name} = ${arg.value}${comment}`);
+            argLines.push(`    ${arg.name} = ${arg.value}${comma}${comment}`);
         });
 
         // Varargs
         if (this.varargs_) {
-            argLines.push(`    *${this.varargs_}`);
+            argIndex++;
+            const isLast = argIndex === totalArgCount;
+            const comma = isLast ? ',' : ',';
+            argLines.push(`    *${this.varargs_}${comma}`);
         }
 
-        // Kwargs
+        // Kwargs - never gets trailing comma
         if (this.kwargs_) {
             argLines.push(`    **${this.kwargs_}`);
         }
 
-        // Add commas to all arguments, except no trailing comma after **kwargs-style args
-        for (let i = 0; i < argLines.length; i++) {
-            const isLast = i === argLines.length - 1;
-            const argLine = argLines[i];
-            const endsWithKwargs = isLast && argLine.trim().startsWith('**');
-
-            if (endsWithKwargs) {
-                // No trailing comma after **kwargs (or any **parameter)
-                lines.push(argLine);
-            } else {
-                // All other arguments get trailing commas
-                lines.push(argLine + ',');
-            }
-        }
+        // Add all argument lines
+        argLines.forEach((line) => {
+            lines.push(line);
+        });
 
         lines.push(')');
 
@@ -469,7 +476,10 @@ function generateModuleExtensionExample(moduleVersion, file, sym) {
 
     // Module extension usage in MODULE.bazel
     lines.push('# In MODULE.bazel:');
-    lines.push(`${extName} = use_extension("${formatLabel(file.getLabel())}", "${extName}")`);
+    const label = file.getLabel();
+    const extLabel = label ? label.clone() : new Label();
+    extLabel.setRepo(moduleVersion.getName());
+    lines.push(`${extName} = use_extension("${formatLabel(extLabel)}", "${extName}")`);
     lines.push('');
 
     // Generate example for each tag class
@@ -678,4 +688,7 @@ function formatLabel(label) {
 
     return result;
 }
+
+// Export StarlarkCallBuilder for testing
+exports.StarlarkCallBuilder = StarlarkCallBuilder;
 
