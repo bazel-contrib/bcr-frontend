@@ -17,6 +17,12 @@ jobs:
     runs-on: self-hosted
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - name: Clean submodule
+        run: make bcr_clean
+
       - uses: bazel-contrib/setup-bazel@0.15.0
       - name: format check
         run: |
