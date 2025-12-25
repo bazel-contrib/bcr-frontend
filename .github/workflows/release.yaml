@@ -77,14 +77,18 @@ jobs:
           --//app/bcr:release_type=production
           //app/bcr:deploy
 
-      - name: Create PR for submodule update
+      - name: Commit and push submodule update
         if: steps.check_updates.outputs.has_updates == 'true' && github.event_name == 'schedule'
+        id: commit
         run: |
           # Get the new commit SHA for PR description
           NEW_SHA=$(git -C data/bazel-central-registry rev-parse HEAD)
+          echo "new_sha=$NEW_SHA" >> $GITHUB_OUTPUT
 
           # Create a branch for the update
           BRANCH_NAME="bcr-update-$(date +%Y%m%d-%H%M%S)"
+          echo "branch_name=$BRANCH_NAME" >> $GITHUB_OUTPUT
+
           git checkout -b "$BRANCH_NAME"
 
           git config user.name "github-actions[bot]"
@@ -96,12 +100,15 @@ jobs:
           BCR commit: $NEW_SHA"
           git push -u origin "$BRANCH_NAME"
 
-          # Create PR with auto-merge label
-          gh pr create \
-            --title "Update BCR submodule to latest" \
-            --body "Automated update of bazel-central-registry submodule to \`$NEW_SHA\`
+      - name: Create Pull Request
+        if: steps.check_updates.outputs.has_updates == 'true' && github.event_name == 'schedule'
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          branch: ${{ steps.commit.outputs.branch_name }}
+          title: "Update BCR submodule to latest"
+          body: |
+            Automated update of bazel-central-registry submodule to `${{ steps.commit.outputs.new_sha }}`
 
-          This PR was automatically created by the release workflow." \
-            --label "bcr-auto-update" \
-            --base main \
-            --head "$BRANCH_NAME"
+            This PR was automatically created by the release workflow.
+          labels: bcr-auto-update
