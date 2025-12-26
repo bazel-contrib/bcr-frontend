@@ -21,14 +21,14 @@ jobs:
       pull-requests: write
       packages: write
     env:
-      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GITHUB_TOKEN: ${{ secrets.BCR_AUTOMATION_TOKEN }}
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
     steps:
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.event.pull_request.head.ref }}
           submodules: true
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.BCR_AUTOMATION_TOKEN }}
 
       - name: Get BCR commit hash
         id: bcr_commit
@@ -49,7 +49,7 @@ jobs:
             --squash \
             --delete-branch
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.BCR_AUTOMATION_TOKEN }}
 
       - name: Clean and initialize BCR
         run: make bcr_clean bcr_init bcr_update
@@ -81,4 +81,4 @@ jobs:
           bazel run @multitool//tools/gh:gh -- pr comment ${{ github.event.pull_request.number }} \
             --body "❌ Deployment failed for BCR commit \`${{ steps.bcr_commit.outputs.sha }}\`. Auto-merge has been disabled. Please review the logs and merge manually after fixing."
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.BCR_AUTOMATION_TOKEN }}

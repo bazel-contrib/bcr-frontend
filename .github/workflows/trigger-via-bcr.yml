@@ -11,12 +11,12 @@ jobs:
       contents: write
       pull-requests: write
     env:
-      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GITHUB_TOKEN: ${{ secrets.BCR_AUTOMATION_TOKEN }}
     steps:
       - uses: actions/checkout@v4
         with:
           submodules: true
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.BCR_AUTOMATION_TOKEN }}
 
       - name: Update submodule to specified commit
         run: |
