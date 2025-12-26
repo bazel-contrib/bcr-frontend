@@ -52,7 +52,7 @@ jobs:
             echo "ℹ️  BCR is up to date at $CURRENT_SHA"
           fi
 
-      - uses: bazel-contrib/setup-bazel@0.15.0
+      - uses: bazel-contrib/setup-bazel@0.16.0
         if: steps.check_updates.outputs.has_updates == 'true' || github.event_name == 'workflow_dispatch'
 
       - name: init/update submodule

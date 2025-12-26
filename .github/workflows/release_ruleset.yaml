@@ -82,7 +82,7 @@ jobs:
         with:
           ref: ${{ inputs.tag_name }}
 
-      - uses: bazel-contrib/setup-bazel@0.15.0
+      - uses: bazel-contrib/setup-bazel@0.16.0
         with:
           disk-cache: ${{ inputs.mount_bazel_caches }}
           repository-cache: ${{ inputs.mount_bazel_caches }}
