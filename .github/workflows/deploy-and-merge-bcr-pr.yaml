@@ -10,10 +10,8 @@ concurrency:
 
 jobs:
   deploy-and-merge:
-    # Only run on PRs with the bcr-auto-update label and created by github-actions[bot]
-    if: |
-      contains(github.event.pull_request.labels.*.name, 'bcr-auto-update') &&
-      github.event.pull_request.user.login == 'github-actions[bot]'
+    # Only run on PRs with the bcr-auto-update label
+    if: contains(github.event.pull_request.labels.*.name, 'bcr-auto-update')
     runs-on: self-hosted
     environment: deploy
     permissions:
