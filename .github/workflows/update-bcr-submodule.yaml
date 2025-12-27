@@ -3,8 +3,14 @@ name: Update BCR Submodule
 on:
   workflow_dispatch:
     inputs:
-      tag_name:
-        description: "Tag name (e.g., v1.0.0)"
+      bcr_commit:
+        description: "Specific BCR commit SHA (optional, defaults to latest)"
+        required: false
+        type: string
+  workflow_call:
+    inputs:
+      bcr_commit:
+        description: "Specific BCR commit SHA (optional, defaults to latest)"
         required: false
         type: string
   schedule:
@@ -38,8 +44,17 @@ jobs:
           CURRENT_SHA=$(git -C data/bazel-central-registry rev-parse HEAD)
           echo "Current BCR SHA: $CURRENT_SHA"
 
-          # Fetch latest from upstream
-          git submodule update --remote data/bazel-central-registry
+          # If specific commit requested, use it; otherwise get latest
+          if [ -n "${{ inputs.bcr_commit }}" ]; then
+            echo "Using specified BCR commit: ${{ inputs.bcr_commit }}"
+            cd data/bazel-central-registry
+            git fetch origin
+            git checkout "${{ inputs.bcr_commit }}"
+            cd ../..
+          else
+            echo "Fetching latest BCR commit"
+            git submodule update --remote data/bazel-central-registry
+          fi
 
           # Check new commit
           NEW_SHA=$(git -C data/bazel-central-registry rev-parse HEAD)
@@ -47,9 +62,11 @@ jobs:
 
           if [ "$CURRENT_SHA" != "$NEW_SHA" ]; then
             echo "has_updates=true" >> $GITHUB_OUTPUT
+            echo "new_sha=$NEW_SHA" >> $GITHUB_OUTPUT
             echo "✅ BCR has updates: $CURRENT_SHA -> $NEW_SHA"
           else
             echo "has_updates=false" >> $GITHUB_OUTPUT
+            echo "new_sha=$NEW_SHA" >> $GITHUB_OUTPUT
             echo "ℹ️  BCR is up to date at $CURRENT_SHA"
           fi
 
@@ -59,28 +76,39 @@ jobs:
       - name: Create PR for submodule update
         if: steps.check_updates.outputs.has_updates == 'true'
         run: |
-          # Get the new commit SHA
-          NEW_SHA=$(git -C data/bazel-central-registry rev-parse HEAD)
+          NEW_SHA="${{ steps.check_updates.outputs.new_sha }}"
+
+          # Determine PR title and body based on trigger
+          if [ -n "${{ inputs.bcr_commit }}" ]; then
+            PR_TITLE="Update BCR submodule to $NEW_SHA"
+            PR_BODY="Automated update of bazel-central-registry submodule to \`$NEW_SHA\`
+
+          This PR was automatically created by repository_dispatch from bazel-central-registry."
+            BRANCH_NAME="bcr-update-from-dispatch-$(date +%Y%m%d-%H%M%S)"
+          else
+            PR_TITLE="Update BCR submodule to latest"
+            PR_BODY="Automated update of bazel-central-registry submodule to \`$NEW_SHA\`
+
+          This PR was automatically created by the scheduled update workflow."
+            BRANCH_NAME="bcr-update-$(date +%Y%m%d-%H%M%S)"
+          fi
 
           # Create a branch for the update
-          BRANCH_NAME="bcr-update-$(date +%Y%m%d-%H%M%S)"
           git checkout -b "$BRANCH_NAME"
 
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add data/bazel-central-registry
-          git commit -m "Update BCR submodule to latest
+          git commit -m "Update BCR submodule to $NEW_SHA
 
-          Automated update from scheduled workflow run.
+          Automated update.
           BCR commit: $NEW_SHA"
           git push -u origin "$BRANCH_NAME"
 
           # Create PR using gh CLI via multitool
           bazel run @multitool//tools/gh:gh -- pr create \
-            --title "Update BCR submodule to latest" \
-            --body "Automated update of bazel-central-registry submodule to \`$NEW_SHA\`
-
-          This PR was automatically created by the scheduled update workflow." \
+            --title "$PR_TITLE" \
+            --body "$PR_BODY" \
             --head "$BRANCH_NAME" \
             --base "main" \
             --label "bcr-auto-update"

@@ -1,58 +1,12 @@
-name: Create PR from BCR Repository Dispatch
+name: Trigger BCR Update via Repository Dispatch
 
 on:
   repository_dispatch:
     types: [on-bcr-trigger]
 
 jobs:
-  create-pr:
-    runs-on: self-hosted
-    permissions:
-      contents: write
-      pull-requests: write
-    env:
-      GITHUB_TOKEN: ${{ secrets.BCR_AUTOMATION_TOKEN }}
-    steps:
-      - uses: actions/checkout@v6
-        with:
-          submodules: true
-          token: ${{ secrets.BCR_AUTOMATION_TOKEN }}
-
-      - name: Update submodule to specified commit
-        run: |
-          BCR_COMMIT="${{ github.event.client_payload.bcrCommitHash }}"
-          echo "Updating BCR submodule to commit: $BCR_COMMIT"
-
-          cd data/bazel-central-registry
-          git fetch origin
-          git checkout "$BCR_COMMIT"
-          cd ../..
-
-      - uses: bazel-contrib/setup-bazel@0.16.0
-
-      - name: Create PR for submodule update
-        run: |
-          BCR_COMMIT="${{ github.event.client_payload.bcrCommitHash }}"
-
-          # Create a branch for the update
-          BRANCH_NAME="bcr-update-from-dispatch-$(date +%Y%m%d-%H%M%S)"
-          git checkout -b "$BRANCH_NAME"
-
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add data/bazel-central-registry
-          git commit -m "Update BCR submodule to $BCR_COMMIT
-
-          Automated update triggered by repository_dispatch from bazel-central-registry.
-          BCR commit: $BCR_COMMIT"
-          git push -u origin "$BRANCH_NAME"
-
-          # Create PR using gh CLI via multitool
-          bazel run @multitool//tools/gh:gh -- pr create \
-            --title "Update BCR submodule to $BCR_COMMIT" \
-            --body "Automated update of bazel-central-registry submodule to \`$BCR_COMMIT\`
-
-          This PR was automatically created by repository_dispatch from bazel-central-registry." \
-            --head "$BRANCH_NAME" \
-            --base "main" \
-            --label "bcr-auto-update"
+  trigger-update:
+    uses: ./.github/workflows/update-bcr-submodule.yaml
+    with:
+      bcr_commit: ${{ github.event.client_payload.bcrCommitHash }}
+    secrets: inherit
