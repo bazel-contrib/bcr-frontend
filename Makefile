@@ -2,7 +2,9 @@
 .PHONY: bcr_init
 bcr_init:
 	git submodule update --init data/bazel-central-registry
-	(cd data/bazel-central-registry && git sparse-checkout set --no-cone modules)
+	(cd data/bazel-central-registry && git sparse-checkout init --no-cone)
+	(cd data/bazel-central-registry && git sparse-checkout set modules)
+	(cd data/bazel-central-registry && git fetch --unshallow || true)
 
 .PHONY: bcr_update
 bcr_update:
@@ -11,7 +13,8 @@ bcr_update:
 .PHONY: bcr_clean
 bcr_clean:
 	(cd data/bazel-central-registry && git reset --hard && git clean -fd)
-	(cd data/bazel-central-registry && git sparse-checkout set --no-cone modules)
+	(cd data/bazel-central-registry && git sparse-checkout init --no-cone)
+	(cd data/bazel-central-registry && git sparse-checkout set modules)
 
 .PHONY: bcr
 bcr: bcr_clean bcr_update
