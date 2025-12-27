@@ -10,7 +10,7 @@ require (
 	github.com/bazelbuild/buildtools v0.0.0-20250930140053-2eb4fccefb52
 	github.com/chromedp/chromedp v0.14.2
 	github.com/dominikbraun/graph v0.23.0
-	github.com/google/go-github/v66 v66.0.0
+	github.com/google/go-github/v80 v80.0.0
 	github.com/google/go-github/v80 v80.0.0
 	github.com/junkblocker/codesearch v1.4.0
 	github.com/rs/zerolog v1.34.0
