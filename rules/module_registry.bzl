@@ -488,7 +488,7 @@ module_registry = rule(
             providers = [java_common.JavaRuntimeInfo],
         ),
         "_starlarkserverjar": attr.label(
-            default = "//cmd/bzlcompiler:constellate_jar_file",
+            default = "@github_com_pcj_bazel_releases_download_constellate_v0_1_0_constellate_server_jar//jar:file",
             allow_single_file = True,
         ),
         "_bzl_bazel_tools": attr.label(
