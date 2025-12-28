@@ -32,3 +32,17 @@ filegroup(
     strip_prefix = "github-colors-427cd04c0c95613318b7eadf5da46e056b062d79",
     urls = ["https://github.com/ozh/github-colors/archive/427cd04c0c95613318b7eadf5da46e056b062d79.tar.gz"],
 )
+
+# -------------------------------------------------------------------
+# Configuration: constellate server
+# -------------------------------------------------------------------
+
+http_jar = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_jar")
+
+# Last-Modified: Sun, 28 Dec 2025 02:03:29 GMT
+# Size: 43986646 (44 MB)
+http_jar(
+    name = "github_com_pcj_bazel_releases_download_constellate_v0_1_0_constellate_server_jar",
+    sha256 = "7ea38770f0d8616820c352b34bdc7e959874493d43f65d821dc2045a2107dd63",
+    urls = ["https://github.com/pcj/bazel/releases/download/constellate-v0.1.0/constellate-server.jar"],
+)

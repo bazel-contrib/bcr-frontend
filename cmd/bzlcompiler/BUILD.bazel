@@ -2,7 +2,6 @@ load("@rules_go//go:def.bzl", "go_binary", "go_library", "go_test")
 
 # load("@rules_java//java:java_library.bzl", "java_library")
 load("@rules_java//java:java_binary.bzl", "java_binary")
-load("@rules_java//java:java_import.bzl", "java_import")
 
 go_library(
     name = "bzlcompiler_lib",
@@ -37,22 +36,11 @@ go_binary(
     visibility = ["//visibility:public"],
 )
 
-filegroup(
-    name = "constellate_jar_file",
-    srcs = ["constellate.jar"],
-    visibility = ["//visibility:public"],
-)
-
-java_import(
-    name = "constellate_jar",
-    jars = ["constellate.jar"],
-)
-
 # ProTip: grpcurl -plaintext localhost:3524 list
 java_binary(
     name = "starlarkserver",
     main_class = "build.stack.devtools.build.constellate.RemoteStarlarkServer",
-    runtime_deps = ["constellate_jar"],
+    runtime_deps = ["@github_com_pcj_bazel_releases_download_constellate_v0_1_0_constellate_server_jar//jar"],
 )
 
 go_test(

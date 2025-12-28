@@ -67,7 +67,7 @@ gazelle(
         "--repository-metadata-set-file=$BUILD_WORKING_DIRECTORY/repository-metadata.json",
         "--bazel-release-set-file=$BUILD_WORKING_DIRECTORY/bazel-releases.json",
         "--registry-root=data/bazel-central-registry",
-        "--registry-url=https://registry.bazel.build",
+        "--registry-url=https://bcr.stack.build",
         "--blacklisted_url=",
         "--exclude=.cache",  # exists in CI?
         "--exclude=$HOME",  # exists in CI?
