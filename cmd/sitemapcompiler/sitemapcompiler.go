@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path"
 	"time"
 
 	bzpb "github.com/bazel-contrib/bcr-frontend/build/stack/bazel/registry/v1"
@@ -148,6 +149,52 @@ func generateSitemap(registry *bzpb.Registry, baseURL string) (*URLSet, error) {
 			}
 
 			sitemap.URLs = append(sitemap.URLs, versionURL)
+
+			// Add documentation file and symbol URLs
+			if version.Source != nil && version.Source.Documentation != nil {
+				for _, file := range version.Source.Documentation.File {
+					if file.Label == nil {
+						continue
+					}
+
+					// Construct file path from label components
+					filePath := path.Join(file.Label.Pkg, file.Label.Name)
+
+					// Add URL for the documentation file
+					fileURL := URL{
+						Loc:        fmt.Sprintf("%s/modules/%s/%s/docs/%s", baseURL, module.Name, version.Version, filePath),
+						ChangeFreq: "monthly",
+						Priority:   0.6,
+					}
+
+					// Add lastmod if we have commit date
+					if version.Commit != nil && version.Commit.Date != "" {
+						if t, err := time.Parse(time.RFC3339, version.Commit.Date); err == nil {
+							fileURL.LastMod = t.Format("2006-01-02")
+						}
+					}
+
+					sitemap.URLs = append(sitemap.URLs, fileURL)
+
+					// Add URLs for each symbol in the file
+					for _, sym := range file.Symbol {
+						symbolURL := URL{
+							Loc:        fmt.Sprintf("%s/%s", fileURL.Loc, sym.Name),
+							ChangeFreq: "monthly",
+							Priority:   0.5,
+						}
+
+						// Add lastmod if we have commit date
+						if version.Commit != nil && version.Commit.Date != "" {
+							if t, err := time.Parse(time.RFC3339, version.Commit.Date); err == nil {
+								symbolURL.LastMod = t.Format("2006-01-02")
+							}
+						}
+
+						sitemap.URLs = append(sitemap.URLs, symbolURL)
+					}
+				}
+			}
 		}
 	}
 
