@@ -343,7 +343,9 @@ class ModuleVersionSymbolsSelect extends ContentSelect {
 	 * @param {!File} file
 	 */
 	addFile(file) {
-		this.fileTrie_.add(this.getFilePrefix(file), file);
+		const prefix = this.getFilePrefix(file);
+		// Use set instead of add to handle duplicate file paths
+		this.fileTrie_.set(prefix, file);
 	}
 
 	/**
