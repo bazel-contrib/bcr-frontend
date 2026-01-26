@@ -22,6 +22,7 @@ const { ModuleVersionSymbolsSelect, DocumentationReadmeComponent } =
 const { PresubmitSelect } = goog.require("bcrfrontend.presubmit");
 const { MvsDependencyTree } = goog.require("bcrfrontend.mvs_tree");
 const { SelectNav } = goog.require("bcrfrontend.SelectNav");
+const { isDocumentDisplayModeMaintainer } = goog.require("bcrfrontend.settings");
 const {
 	moduleBlankslateComponent,
 	moduleSelect,
@@ -473,8 +474,10 @@ class ModuleVersionComponent extends Component {
 		highlightAll(this.getElementStrict());
 
 		this.enterDependencies();
-		this.enterDevDependencies();
-		this.enterDependents();
+		if (isDocumentDisplayModeMaintainer()) {
+			this.enterDevDependencies();
+			this.enterDependents();
+		}
 		this.enterReadme();
 	}
 

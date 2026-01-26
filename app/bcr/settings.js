@@ -23,6 +23,14 @@ const LocalStorageKey = {
 /**
  * @enum {string}
  */
+const DisplayMode = {
+	CONSUMER: "consumer",
+	MAINTAINER: "maintainer",
+};
+
+/**
+ * @enum {string}
+ */
 const TabName = {
 	APPEARANCE: "appearance",
 };
@@ -153,7 +161,7 @@ class SettingsAppearanceComponent extends Component {
 		if (displayMode) {
 			this.setDocumentDisplayMode(displayMode);
 		} else {
-			displayMode = "consumer";
+			displayMode = DisplayMode.CONSUMER;
 			this.setLocalStorageDisplayMode(displayMode);
 			this.setDocumentDisplayMode(displayMode);
 		}
@@ -170,9 +178,10 @@ class SettingsAppearanceComponent extends Component {
 	 * @param {!events.BrowserEvent=} e
 	 */
 	handleDisplaySelectChange(e) {
-		const displayMode = this.displaySelectEl_.value || "consumer";
+		const displayMode = this.displaySelectEl_.value || DisplayMode.CONSUMER;
 		this.setDocumentDisplayMode(displayMode);
 		this.setLocalStorageDisplayMode(displayMode);
+		window.location.reload();
 	}
 
 	/**
@@ -248,4 +257,26 @@ class SettingsAppearanceComponent extends Component {
 		);
 	}
 }
+
+/**
+ * Get the current display mode from the document.
+ * @return {string}
+ */
+function getDocumentDisplayMode() {
+	return (
+		document.documentElement.getAttribute("data-display-mode") ||
+		DisplayMode.CONSUMER
+	);
+}
+
+/**
+ * Check if the display mode is "maintainer".
+ * @return {boolean}
+ */
+function isDocumentDisplayModeMaintainer() {
+	return getDocumentDisplayMode() === DisplayMode.MAINTAINER;
+}
+
 exports.SettingsSelect = SettingsSelect;
+exports.DisplayMode = DisplayMode;
+exports.isDocumentDisplayModeMaintainer = isDocumentDisplayModeMaintainer;
