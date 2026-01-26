@@ -17,6 +17,7 @@ const { settingsAppearanceComponent, settingsSelect } = goog.require(
  */
 const LocalStorageKey = {
 	COLOR_MODE: "color-mode",
+	DISPLAY_MODE: "display-mode",
 };
 
 /**
@@ -82,6 +83,9 @@ class SettingsAppearanceComponent extends Component {
 
 		/** @private @type {?HTMLSelectElement} */
 		this.themeSelectEl_ = null;
+
+		/** @private @type {?HTMLSelectElement} */
+		this.displaySelectEl_ = null;
 	}
 
 	/**
@@ -98,6 +102,7 @@ class SettingsAppearanceComponent extends Component {
 		super.enterDocument();
 
 		this.enterThemeSelect();
+		this.enterDisplaySelect();
 	}
 
 	/**
@@ -105,6 +110,7 @@ class SettingsAppearanceComponent extends Component {
 	 */
 	exitDocument() {
 		this.themeSelectEl_ = null;
+		this.displaySelectEl_ = null;
 		super.exitDocument();
 	}
 
@@ -136,6 +142,37 @@ class SettingsAppearanceComponent extends Component {
 		const colorMode = this.themeSelectEl_.value || "auto";
 		this.setDocumentColorMode(colorMode);
 		this.setLocalStorageColorMode(colorMode);
+	}
+
+	enterDisplaySelect() {
+		this.displaySelectEl_ = /** @type {!HTMLSelectElement} */ (
+			this.getCssElement("display")
+		);
+
+		let displayMode = this.getLocalStorageDisplayMode();
+		if (displayMode) {
+			this.setDocumentDisplayMode(displayMode);
+		} else {
+			displayMode = "consumer";
+			this.setLocalStorageDisplayMode(displayMode);
+			this.setDocumentDisplayMode(displayMode);
+		}
+		this.displaySelectEl_.value = displayMode;
+
+		this.getHandler().listen(
+			this.displaySelectEl_,
+			events.EventType.CHANGE,
+			this.handleDisplaySelectChange,
+		);
+	}
+
+	/**
+	 * @param {!events.BrowserEvent=} e
+	 */
+	handleDisplaySelectChange(e) {
+		const displayMode = this.displaySelectEl_.value || "consumer";
+		this.setDocumentDisplayMode(displayMode);
+		this.setLocalStorageDisplayMode(displayMode);
 	}
 
 	/**
@@ -173,6 +210,32 @@ class SettingsAppearanceComponent extends Component {
 		if (window.localStorage) {
 			window.localStorage.setItem(LocalStorageKey.COLOR_MODE, colorMode);
 		}
+	}
+
+	/**
+	 * @returns {?string}
+	 */
+	getLocalStorageDisplayMode() {
+		return window.localStorage?.getItem(LocalStorageKey.DISPLAY_MODE);
+	}
+
+	/**
+	 * @param {string} displayMode
+	 */
+	setLocalStorageDisplayMode(displayMode) {
+		if (window.localStorage) {
+			window.localStorage.setItem(LocalStorageKey.DISPLAY_MODE, displayMode);
+		}
+	}
+
+	/**
+	 * @param {string} displayMode
+	 */
+	setDocumentDisplayMode(displayMode) {
+		this.displaySelectEl_.ownerDocument.documentElement.setAttribute(
+			"data-display-mode",
+			displayMode,
+		);
 	}
 
 	/**
