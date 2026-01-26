@@ -262,10 +262,9 @@ function calculateAgeSummary(totalDays) {
 }
 exports.calculateAgeSummary = calculateAgeSummary;
 
-
 /**
  * Calculate the time since the latest version.
- * @param {!Module} module 
+ * @param {!Module} module
  * @returns {string|undefined} The formatted age, or undefined if no latest
  * commit was found for the calculation.
  */

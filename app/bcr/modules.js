@@ -292,7 +292,7 @@ function getCachedVersionData(registry, module) {
 		}
 
 		versionData.push(
-			/** @type{!VersionData} **/({
+			/** @type{!VersionData} **/ ({
 				version: v.getVersion(),
 				compat: v.getCompatibilityLevel(),
 				commitDate: formatDate(v.getCommit().getDate()),
@@ -610,8 +610,8 @@ class ModuleVersionDependenciesComponent extends ContentComponent {
 			this.deps_.length > 0
 				? this.deps_
 				: this.moduleVersion_
-					.getDepsList()
-					.filter((d) => d.getDev() === this.dev_);
+						.getDepsList()
+						.filter((d) => d.getDev() === this.dev_);
 
 		// Get the set of module names in this dependency list
 		const depModuleNames = new Set(deps.map((d) => d.getName()));
@@ -1542,10 +1542,10 @@ class ModuleVersionsFilterSelect extends ContentSelect {
 
 		return names.map(
 			(name) =>
-				/** @type {!Language} */({
-				name,
-				sanitizedName: sanitizeLanguageName(name),
-			}),
+				/** @type {!Language} */ ({
+					name,
+					sanitizedName: sanitizeLanguageName(name),
+				}),
 		);
 	}
 
