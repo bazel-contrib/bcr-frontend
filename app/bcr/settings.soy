@@ -31,18 +31,30 @@ import {
 
 {template settingsAppearanceComponent}
   <div>
-    {sectionHeader(title: 'Theme preferences', class: 'border-bottom mb-3')}
+    {sectionHeader(title: 'Display Preferences', class: 'border-bottom mb-3')}
 
     <div class="FormControl-spacingWrapper" style="max-width: 50%;">
       <label class="FormControl-label">
-        Color mode
+        Theme Color Mode
       </label>
       <select class="form-select {css('theme')}">
         <option value="light">Light</option>
         <option value="dark">Dark</option>
         <option value="auto">Auto (system preference)</option>
       </select>
-      <p class="FormControl-caption">Choose your color theme preference (persisted in localStorage).</p>
+      <p class="FormControl-caption">Choose your color theme preference.</p>
     </div>
+
+    <div class="FormControl-spacingWrapper mt-3" style="max-width: 50%;">
+      <label class="FormControl-label">
+        Display View Mode
+      </label>
+      <select class="form-select {css('display')}">
+        <option value="consumer">Module Consumer (more focused)</option>
+        <option value="maintainer">Module Maintainer (more detail)</option>
+      </select>
+      <p class="FormControl-caption">Choose your display preference.</p>
+    </div>
+
   </div>
 {/template}

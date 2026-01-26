@@ -17,6 +17,15 @@ const { settingsAppearanceComponent, settingsSelect } = goog.require(
  */
 const LocalStorageKey = {
 	COLOR_MODE: "color-mode",
+	DISPLAY_MODE: "display-mode",
+};
+
+/**
+ * @enum {string}
+ */
+const DisplayMode = {
+	CONSUMER: "consumer",
+	MAINTAINER: "maintainer",
 };
 
 /**
@@ -82,6 +91,9 @@ class SettingsAppearanceComponent extends Component {
 
 		/** @private @type {?HTMLSelectElement} */
 		this.themeSelectEl_ = null;
+
+		/** @private @type {?HTMLSelectElement} */
+		this.displaySelectEl_ = null;
 	}
 
 	/**
@@ -98,6 +110,7 @@ class SettingsAppearanceComponent extends Component {
 		super.enterDocument();
 
 		this.enterThemeSelect();
+		this.enterDisplaySelect();
 	}
 
 	/**
@@ -105,6 +118,7 @@ class SettingsAppearanceComponent extends Component {
 	 */
 	exitDocument() {
 		this.themeSelectEl_ = null;
+		this.displaySelectEl_ = null;
 		super.exitDocument();
 	}
 
@@ -136,6 +150,38 @@ class SettingsAppearanceComponent extends Component {
 		const colorMode = this.themeSelectEl_.value || "auto";
 		this.setDocumentColorMode(colorMode);
 		this.setLocalStorageColorMode(colorMode);
+	}
+
+	enterDisplaySelect() {
+		this.displaySelectEl_ = /** @type {!HTMLSelectElement} */ (
+			this.getCssElement("display")
+		);
+
+		let displayMode = this.getLocalStorageDisplayMode();
+		if (displayMode) {
+			this.setDocumentDisplayMode(displayMode);
+		} else {
+			displayMode = DisplayMode.CONSUMER;
+			this.setLocalStorageDisplayMode(displayMode);
+			this.setDocumentDisplayMode(displayMode);
+		}
+		this.displaySelectEl_.value = displayMode;
+
+		this.getHandler().listen(
+			this.displaySelectEl_,
+			events.EventType.CHANGE,
+			this.handleDisplaySelectChange,
+		);
+	}
+
+	/**
+	 * @param {!events.BrowserEvent=} e
+	 */
+	handleDisplaySelectChange(e) {
+		const displayMode = this.displaySelectEl_.value || DisplayMode.CONSUMER;
+		this.setDocumentDisplayMode(displayMode);
+		this.setLocalStorageDisplayMode(displayMode);
+		window.location.reload();
 	}
 
 	/**
@@ -176,6 +222,32 @@ class SettingsAppearanceComponent extends Component {
 	}
 
 	/**
+	 * @returns {?string}
+	 */
+	getLocalStorageDisplayMode() {
+		return window.localStorage?.getItem(LocalStorageKey.DISPLAY_MODE);
+	}
+
+	/**
+	 * @param {string} displayMode
+	 */
+	setLocalStorageDisplayMode(displayMode) {
+		if (window.localStorage) {
+			window.localStorage.setItem(LocalStorageKey.DISPLAY_MODE, displayMode);
+		}
+	}
+
+	/**
+	 * @param {string} displayMode
+	 */
+	setDocumentDisplayMode(displayMode) {
+		this.displaySelectEl_.ownerDocument.documentElement.setAttribute(
+			"data-display-mode",
+			displayMode,
+		);
+	}
+
+	/**
 	 * @param {string} cssName
 	 * @return {!HTMLElement}
 	 */
@@ -185,4 +257,26 @@ class SettingsAppearanceComponent extends Component {
 		);
 	}
 }
+
+/**
+ * Get the current display mode from the document.
+ * @return {string}
+ */
+function getDocumentDisplayMode() {
+	return (
+		document.documentElement.getAttribute("data-display-mode") ||
+		DisplayMode.CONSUMER
+	);
+}
+
+/**
+ * Check if the display mode is "maintainer".
+ * @return {boolean}
+ */
+function isDocumentDisplayModeMaintainer() {
+	return getDocumentDisplayMode() === DisplayMode.MAINTAINER;
+}
+
 exports.SettingsSelect = SettingsSelect;
+exports.DisplayMode = DisplayMode;
+exports.isDocumentDisplayModeMaintainer = isDocumentDisplayModeMaintainer;

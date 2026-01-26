@@ -22,6 +22,9 @@ const { ModuleVersionSymbolsSelect, DocumentationReadmeComponent } =
 const { PresubmitSelect } = goog.require("bcrfrontend.presubmit");
 const { MvsDependencyTree } = goog.require("bcrfrontend.mvs_tree");
 const { SelectNav } = goog.require("bcrfrontend.SelectNav");
+const { isDocumentDisplayModeMaintainer } = goog.require(
+	"bcrfrontend.settings",
+);
 const {
 	moduleBlankslateComponent,
 	moduleSelect,
@@ -250,13 +253,15 @@ function getCachedVersionData(registry, module) {
 		return versionDataCache.get(cacheKey);
 	}
 
-	// console.log(`Computing version data for ${module.getName()}...`);
-	// const startTime = performance.now();
-
 	/** @type {!Array<!VersionData>} */
 	const versionData = [];
 	let totalDeps = 0;
-	const versions = module.getVersionsList();
+	const versions = module.getVersionsList().slice();
+	versions.sort((a, b) => {
+		return (
+			new Date(b.getCommit().getDate()) - new Date(a.getCommit().getDate())
+		);
+	});
 
 	for (let i = 0; i < versions.length; i++) {
 		const v = versions[i];
@@ -286,7 +291,9 @@ function getCachedVersionData(registry, module) {
 						ageSummary = "<1h";
 					}
 				} else {
-					ageSummary = "(non-positive date)";
+					// negative days - should not happen given we sorted by date
+					// already!
+					ageSummary = calculateAgeSummary(totalDays);
 				}
 			}
 		}
@@ -304,9 +311,6 @@ function getCachedVersionData(registry, module) {
 
 	const result = { versionData, totalDeps };
 	versionDataCache.set(cacheKey, result);
-
-	// const endTime = performance.now();
-	// console.log(`Computed version data for ${module.getName()} in ${(endTime - startTime).toFixed(2)}ms`);
 
 	return result;
 }
@@ -471,8 +475,10 @@ class ModuleVersionComponent extends Component {
 		highlightAll(this.getElementStrict());
 
 		this.enterDependencies();
-		this.enterDevDependencies();
-		this.enterDependents();
+		if (isDocumentDisplayModeMaintainer()) {
+			this.enterDevDependencies();
+			this.enterDependents();
+		}
 		this.enterReadme();
 	}
 
