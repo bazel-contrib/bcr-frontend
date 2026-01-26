@@ -22,7 +22,9 @@ const { ModuleVersionSymbolsSelect, DocumentationReadmeComponent } =
 const { PresubmitSelect } = goog.require("bcrfrontend.presubmit");
 const { MvsDependencyTree } = goog.require("bcrfrontend.mvs_tree");
 const { SelectNav } = goog.require("bcrfrontend.SelectNav");
-const { isDocumentDisplayModeMaintainer } = goog.require("bcrfrontend.settings");
+const { isDocumentDisplayModeMaintainer } = goog.require(
+	"bcrfrontend.settings",
+);
 const {
 	moduleBlankslateComponent,
 	moduleSelect,
@@ -257,8 +259,7 @@ function getCachedVersionData(registry, module) {
 	const versions = module.getVersionsList().slice();
 	versions.sort((a, b) => {
 		return (
-			new Date(b.getCommit().getDate()) -
-			new Date(a.getCommit().getDate())
+			new Date(b.getCommit().getDate()) - new Date(a.getCommit().getDate())
 		);
 	});
 
@@ -298,7 +299,7 @@ function getCachedVersionData(registry, module) {
 		}
 
 		versionData.push(
-			/** @type{!VersionData} **/({
+			/** @type{!VersionData} **/ ({
 				version: v.getVersion(),
 				compat: v.getCompatibilityLevel(),
 				commitDate: formatDate(v.getCommit().getDate()),
@@ -615,8 +616,8 @@ class ModuleVersionDependenciesComponent extends ContentComponent {
 			this.deps_.length > 0
 				? this.deps_
 				: this.moduleVersion_
-					.getDepsList()
-					.filter((d) => d.getDev() === this.dev_);
+						.getDepsList()
+						.filter((d) => d.getDev() === this.dev_);
 
 		// Get the set of module names in this dependency list
 		const depModuleNames = new Set(deps.map((d) => d.getName()));
@@ -993,22 +994,22 @@ class ModuleVersionDependentsComponent extends ContentComponent {
 	renderDependentsMatrix(container, data) {
 		// Wrapper for horizontal scroll with grab cursor
 		const wrapper = dom.createDom("div", {
-			"class": "m-1",
-			"style": "overflow-x: scroll; cursor: grab;",
-			"onmousedown": /** @this {!HTMLElement} */ function () {
+			class: "m-1",
+			style: "overflow-x: scroll; cursor: grab;",
+			onmousedown: /** @this {!HTMLElement} */ function () {
 				this.style.cursor = "grabbing";
 			},
-			"onmouseup": /** @this {!HTMLElement} */ function () {
+			onmouseup: /** @this {!HTMLElement} */ function () {
 				this.style.cursor = "grab";
 			},
-			"onmouseleave": /** @this {!HTMLElement} */ function () {
+			onmouseleave: /** @this {!HTMLElement} */ function () {
 				this.style.cursor = "grab";
 			},
 		});
 
 		const table = dom.createDom("table", {
-			"class": "width-full p-0",
-			"style": "border-collapse: collapse;",
+			class: "width-full p-0",
+			style: "border-collapse: collapse;",
 		});
 
 		// Header row
@@ -1016,8 +1017,8 @@ class ModuleVersionDependentsComponent extends ContentComponent {
 		const headerRow = dom.createDom("tr");
 
 		const moduleHeader = dom.createDom("th", {
-			"class": "text-left p-1 pr-2 position-sticky",
-			"style": "z-index: 2;",
+			class: "text-left p-1 pr-2 position-sticky",
+			style: "z-index: 2;",
 		});
 		dom.appendChild(headerRow, moduleHeader);
 
@@ -1025,7 +1026,7 @@ class ModuleVersionDependentsComponent extends ContentComponent {
 			const headerContent = dom.createDom(
 				"div",
 				{
-					"style":
+					style:
 						"writing-mode: vertical-rl; transform: rotate(180deg); white-space: nowrap; min-height: 100px; display: flex; align-items: left; justify-content: left;",
 				},
 				version,
@@ -1034,7 +1035,7 @@ class ModuleVersionDependentsComponent extends ContentComponent {
 			const th = dom.createDom(
 				"th",
 				{
-					"class": "text-left text-small p-1 pl-2",
+					class: "text-left text-small p-1 pl-2",
 				},
 				headerContent,
 			);
@@ -1068,15 +1069,15 @@ class ModuleVersionDependentsComponent extends ContentComponent {
 			const versionText = dom.createDom(
 				"span",
 				{
-					"class": "mr-1 text-light text-small",
+					class: "mr-1 text-light text-small",
 				},
 				latestVersion,
 			);
 			const moduleLink = dom.createDom(
 				"a",
 				{
-					"href": `/#/modules/${moduleName}/${latestVersion}`,
-					"class": "Box-row-link",
+					href: `/#/modules/${moduleName}/${latestVersion}`,
+					class: "Box-row-link",
 				},
 				[versionText, moduleNameText],
 			);
@@ -1084,8 +1085,8 @@ class ModuleVersionDependentsComponent extends ContentComponent {
 			const moduleCell = dom.createDom(
 				"td",
 				{
-					"class": "p-1 pr-2 position-sticky text-right",
-					"style": "left: 0;",
+					class: "p-1 pr-2 position-sticky text-right",
+					style: "left: 0;",
 				},
 				moduleLink,
 			);
@@ -1100,8 +1101,8 @@ class ModuleVersionDependentsComponent extends ContentComponent {
 				const cell = dom.createDom(
 					"td",
 					{
-						"class": cellClasses,
-						"style": "max-width: 2em; width: 2em;",
+						class: cellClasses,
+						style: "max-width: 2em; width: 2em;",
 					},
 					isAtFront ? "•" : "",
 				);
@@ -1547,10 +1548,10 @@ class ModuleVersionsFilterSelect extends ContentSelect {
 
 		return names.map(
 			(name) =>
-				/** @type {!Language} */({
-				name,
-				sanitizedName: sanitizeLanguageName(name),
-			}),
+				/** @type {!Language} */ ({
+					name,
+					sanitizedName: sanitizeLanguageName(name),
+				}),
 		);
 	}
 
