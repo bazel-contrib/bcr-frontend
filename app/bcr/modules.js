@@ -38,6 +38,7 @@ const { moduleVersionsListComponent } = goog.require("soy.registry");
 const { computeLanguageData, sanitizeLanguageName, unsanitizeLanguageName } =
 	goog.require("bcrfrontend.language");
 const {
+	calculateAgeSinceLatestVersion,
 	calculateAgeSummary,
 	createModuleMap,
 	createModuleVersionMap,
@@ -291,7 +292,7 @@ function getCachedVersionData(registry, module) {
 		}
 
 		versionData.push(
-			/** @type{!VersionData} **/ ({
+			/** @type{!VersionData} **/({
 				version: v.getVersion(),
 				compat: v.getCompatibilityLevel(),
 				commitDate: formatDate(v.getCommit().getDate()),
@@ -338,6 +339,7 @@ class ModuleVersionSelectNav extends SelectNav {
 	 */
 	createDom() {
 		const { versionData, totalDeps } = this.versionData_;
+		const timeSinceLatest = calculateAgeSinceLatestVersion(this.module_);
 
 		this.setElementInternal(
 			soy.renderAsElement(moduleVersionSelectNav, {
@@ -345,6 +347,7 @@ class ModuleVersionSelectNav extends SelectNav {
 				metadata: asserts.assertObject(this.module_.getMetadata()),
 				versionData,
 				totalDeps,
+				timeSinceLatest,
 			}),
 		);
 	}
@@ -430,25 +433,6 @@ class ModuleVersionComponent extends Component {
 	createDom() {
 		const { versionData, totalDeps } = this.versionData_;
 
-		// Calculate time since latest release
-		let timeSinceLatest = "";
-		if (versionData.length > 0) {
-			const latestVersion = this.module_.getVersionsList()[0];
-			const latestCommit = latestVersion.getCommit();
-			if (latestCommit) {
-				const latestDate = new Date(latestCommit.getDate());
-				const now = new Date();
-				const diffMs = now - latestDate;
-				const totalDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-				if (totalDays > 0) {
-					timeSinceLatest = calculateAgeSummary(totalDays);
-				} else if (totalDays === 0) {
-					const totalHours = Math.floor(diffMs / (1000 * 60 * 60));
-					timeSinceLatest = totalHours > 0 ? `${totalHours}h` : "<1h";
-				}
-			}
-		}
-
 		this.setElementInternal(
 			soy.renderAsElement(
 				moduleVersionComponent,
@@ -467,7 +451,6 @@ class ModuleVersionComponent extends Component {
 					),
 					versionData,
 					totalDeps,
-					timeSinceLatest,
 				},
 				{
 					repositoryUrl: this.registry_.getRepositoryUrl(),
@@ -490,7 +473,6 @@ class ModuleVersionComponent extends Component {
 		this.enterDependencies();
 		this.enterDevDependencies();
 		this.enterDependents();
-		this.enterNextVersion();
 		this.enterReadme();
 	}
 
@@ -575,49 +557,6 @@ class ModuleVersionComponent extends Component {
 		this.addChild(component, false);
 		component.render(readmeEl);
 	}
-
-	enterNextVersion() {
-		const rootEl = this.getElementStrict();
-
-		// Find the next-version placeholder element
-		const placeholderEl = dom.getElementByClass(
-			goog.getCssName("next-version"),
-			rootEl,
-		);
-		if (!placeholderEl) {
-			return;
-		}
-
-		// Get the latest version from versionData
-		const { versionData } = this.versionData_;
-		if (!versionData || versionData.length === 0) {
-			return;
-		}
-
-		const latestVersion = versionData[0].version;
-
-		// Find the element with data-version matching the latest version
-		const versionEls = dom.findElements(
-			rootEl,
-			(el) => el.getAttribute("data-version") === latestVersion,
-		);
-		if (versionEls.length === 0) {
-			return;
-		}
-
-		const versionContainerEl = versionEls[0];
-
-		// Get the first child element (the actual text span or link, not the container with padding)
-		const textEl = dom.getFirstElementChild(versionContainerEl);
-		if (!textEl) {
-			return;
-		}
-
-		// Measure the width of the text element and set it on the placeholder
-		// Add a few pixels for visual comfort
-		const size = style.getSize(textEl);
-		style.setStyle(placeholderEl, "width", `${size.width + 2}px`);
-	}
 }
 
 class ModuleVersionDependenciesComponent extends ContentComponent {
@@ -671,8 +610,8 @@ class ModuleVersionDependenciesComponent extends ContentComponent {
 			this.deps_.length > 0
 				? this.deps_
 				: this.moduleVersion_
-						.getDepsList()
-						.filter((d) => d.getDev() === this.dev_);
+					.getDepsList()
+					.filter((d) => d.getDev() === this.dev_);
 
 		// Get the set of module names in this dependency list
 		const depModuleNames = new Set(deps.map((d) => d.getName()));
@@ -1603,10 +1542,10 @@ class ModuleVersionsFilterSelect extends ContentSelect {
 
 		return names.map(
 			(name) =>
-				/** @type {!Language} */ ({
-					name,
-					sanitizedName: sanitizeLanguageName(name),
-				}),
+				/** @type {!Language} */({
+				name,
+				sanitizedName: sanitizeLanguageName(name),
+			}),
 		);
 	}
 

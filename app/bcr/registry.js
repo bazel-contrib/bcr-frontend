@@ -262,6 +262,31 @@ function calculateAgeSummary(totalDays) {
 }
 exports.calculateAgeSummary = calculateAgeSummary;
 
+
+/**
+ * Calculate the time since the latest version.
+ * @param {!Module} module 
+ * @returns {string|undefined} The formatted age, or undefined if no latest
+ * commit was found for the calculation.
+ */
+function calculateAgeSinceLatestVersion(module) {
+	const latestVersion = module.getVersionsList()[0];
+	const latestCommit = latestVersion.getCommit();
+	if (!latestCommit) {
+		return undefined;
+	}
+	const latestDate = new Date(latestCommit.getDate());
+	const now = new Date();
+	const diffMs = now - latestDate;
+	const totalDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+	if (totalDays > 0) {
+		return calculateAgeSummary(totalDays);
+	}
+	const totalHours = Math.floor(diffMs / (1000 * 60 * 60));
+	return totalHours > 0 ? `${totalHours}h` : "<1h";
+}
+exports.calculateAgeSinceLatestVersion = calculateAgeSinceLatestVersion;
+
 /**
  * Calculate version distances and age summary for each module.
  * @param {!Registry} registry
