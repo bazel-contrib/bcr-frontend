@@ -250,13 +250,16 @@ function getCachedVersionData(registry, module) {
 		return versionDataCache.get(cacheKey);
 	}
 
-	// console.log(`Computing version data for ${module.getName()}...`);
-	// const startTime = performance.now();
-
 	/** @type {!Array<!VersionData>} */
 	const versionData = [];
 	let totalDeps = 0;
-	const versions = module.getVersionsList();
+	const versions = module.getVersionsList().slice();
+	versions.sort((a, b) => {
+		return (
+			new Date(b.getCommit().getDate()) -
+			new Date(a.getCommit().getDate())
+		);
+	});
 
 	for (let i = 0; i < versions.length; i++) {
 		const v = versions[i];
@@ -286,13 +289,15 @@ function getCachedVersionData(registry, module) {
 						ageSummary = "<1h";
 					}
 				} else {
-					ageSummary = "(non-positive date)";
+					// negative days - should not happen given we sorted by date
+					// already!
+					ageSummary = calculateAgeSummary(totalDays);
 				}
 			}
 		}
 
 		versionData.push(
-			/** @type{!VersionData} **/ ({
+			/** @type{!VersionData} **/({
 				version: v.getVersion(),
 				compat: v.getCompatibilityLevel(),
 				commitDate: formatDate(v.getCommit().getDate()),
@@ -304,9 +309,6 @@ function getCachedVersionData(registry, module) {
 
 	const result = { versionData, totalDeps };
 	versionDataCache.set(cacheKey, result);
-
-	// const endTime = performance.now();
-	// console.log(`Computed version data for ${module.getName()} in ${(endTime - startTime).toFixed(2)}ms`);
 
 	return result;
 }
@@ -610,8 +612,8 @@ class ModuleVersionDependenciesComponent extends ContentComponent {
 			this.deps_.length > 0
 				? this.deps_
 				: this.moduleVersion_
-						.getDepsList()
-						.filter((d) => d.getDev() === this.dev_);
+					.getDepsList()
+					.filter((d) => d.getDev() === this.dev_);
 
 		// Get the set of module names in this dependency list
 		const depModuleNames = new Set(deps.map((d) => d.getName()));
@@ -1542,10 +1544,10 @@ class ModuleVersionsFilterSelect extends ContentSelect {
 
 		return names.map(
 			(name) =>
-				/** @type {!Language} */ ({
-					name,
-					sanitizedName: sanitizeLanguageName(name),
-				}),
+				/** @type {!Language} */({
+				name,
+				sanitizedName: sanitizeLanguageName(name),
+			}),
 		);
 	}
 
