@@ -257,24 +257,10 @@ import {
   {@param? currentVersion: string}
   {@param yanked: map<string,string>}
   {@param totalDeps: int}
-  {@param? timeSinceLatest: string}
   <div>
     {sectionHeader(title: 'Versions', count: length($versionData))}
 
     <table class="width-full">
-      {if $timeSinceLatest && length($versionData) > 0}
-        <tr style="opacity: 0.5;">
-          <td title="Unreleased; time since latest release" colspan="2" class="py-1">
-            <div style="display: flex; align-items: center;">
-              <span style="position: relative; padding-right: 0.5em;">
-                <span class="{css('skeleton-box')} {css('next-version')}"></span>
-              </span>
-              <span style="flex: 1; border-bottom: 1px dotted var(--color-border-muted); margin: 0 0.5em;"></span>
-              <span class="text-small color-fg-muted" style="padding-left: 0.5em;">+{$timeSinceLatest}</span>
-            </div>
-          </td>
-        </tr>
-      {/if}
       {for $data in $versionData}
         {let $version: $data.version /}
         {let $commitDate: $data.commitDate /}
@@ -661,6 +647,8 @@ import {
   {@param metadata: ModuleMetadata}
   {@param moduleVersion: ModuleVersion}
   {@param? isLatest: bool}
+  {@param? timeSinceLatest: string}
+
   {let $lang: $moduleVersion.getRepositoryMetadata()?.getPrimaryLanguage() /}
   {let $sanitizedLang: sanitizeLangName(lang: $lang) /}
   {let $repoMeta: $moduleVersion.getRepositoryMetadata() /}
@@ -672,6 +660,7 @@ import {
         {$moduleVersion.getVersion()}
         {if $isLatest}
           <span class="Label Label--success ml-2" style="transform: translateY(-3px)">Latest {octiconCheck16()}</span>
+          <span class="text-small color-fg-muted ml-2">published {$timeSinceLatest} ago</span>
         {/if}
       </span>
     </div>

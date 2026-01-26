@@ -113,3 +113,33 @@ issues](https://github.com/bazel-contrib/bcr-frontend/issues).
 Unless you explicitly state otherwise, any contribution intentionally submitted
 for inclusion in the work by you, as defined in the Apache-2.0 license, shall be
 licensed as below, without any additional terms or conditions.
+
+## Quick Start
+
+Have a `GITHUB_TOKEN` available (for rate limit increases):
+
+```sh
+$ export GITHUB_TOKEN=ghp_...
+```
+
+Step 1: initialize (or update) the bcr submodule:
+
+```sh
+$ make bcr_init
+$ make bcr_update
+```
+
+Step 2: run the gazelle extension over it (with GITHUB_TOKEN):
+
+```sh
+$ bazel run bcr
+```
+
+Step 3: build and run a development server over the release assets (consider `ibazel` for iterative development):
+
+```sh
+$ bazel run //app/bcr:release
+...
+releaseserver: Starting server on http://localhost:8080
+releaseserver: Press Ctrl+C to stop
+```

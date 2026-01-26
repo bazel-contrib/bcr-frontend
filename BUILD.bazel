@@ -68,7 +68,7 @@ gazelle(
         "--bazel-release-set-file=$BUILD_WORKING_DIRECTORY/bazel-releases.json",
         "--registry-root=data/bazel-central-registry",
         "--registry-url=https://bcr.stack.build",
-        "--blacklisted_url=",
+        "--blacklisted_url=https://netcologne.dl.sourceforge.net/project/perfmon2/libpfm4/libpfm-4.11.0.tar.gz",
         "--exclude=.cache",  # exists in CI?
         "--exclude=$HOME",  # exists in CI?
         "--exclude=modules",

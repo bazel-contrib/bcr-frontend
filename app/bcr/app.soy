@@ -454,12 +454,14 @@ import {
   {@param moduleVersion: ModuleVersion}
   {@param metadata: ModuleMetadata}
   {@param versionData: list<[version: string, compat: int, commitDate: string, directDeps: list<ModuleVersion>, ageSummary: string|null]>}
+  {@param? timeSinceLatest: string}
 <div>
   {let $isLatest: length($versionData) > 0 && $versionData[0].version == $moduleVersion.getVersion() /}
   {call moduleVersionHeader}
     {param metadata: $metadata /}
     {param moduleVersion: $moduleVersion /}
     {param isLatest: $isLatest /}
+    {param timeSinceLatest: $timeSinceLatest /}
   {/call}
   <nav class="UnderlineNav">
     <div class="UnderlineNav-body {css('nav')}">
@@ -481,7 +483,6 @@ import {
   {@param commitDate: string}
   {@param versionData: list<[version: string, compat: int, commitDate: string, directDeps: list<ModuleVersion>, ageSummary: string|null]>}
   {@param languageData: list<[name: string, sanitizedName: string, percentage: number, isPrimary: bool]>}
-  {@param timeSinceLatest: string}
 <div class="PageLayout PageLayout--panePos-end PageLayout--hasPaneDivider PageLayout--responsive-stackRegions">
 <div class="PageLayout-columns">
   <div class="PageLayout-content">
@@ -566,7 +567,6 @@ import {
           {param currentVersion: $moduleVersion.getVersion() /}
           {param yanked: $yanked /}
           {param totalDeps: $totalDeps /}
-          {param timeSinceLatest: $timeSinceLatest /}
         {/call}
       </div>
     </div>
