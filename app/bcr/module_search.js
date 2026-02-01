@@ -69,7 +69,7 @@ class ModuleSearchHandler extends EventTarget {
 	getSearchProvider() {
 		/** @type {!SearchProvider} */
 		const provider = {
-			name: "module",
+			name: "modules",
 			desc: `Search ${this.modules_.size} modules in registry`,
 			incremental: false,
 			inputHandler: this.inputHandler_,
@@ -102,6 +102,7 @@ class ModuleSearchHandler extends EventTarget {
 			this.inputHandler_,
 		));
 		ac.setMaxMatches(15);
+		ac.setAutoHilite(false);
 
 		this.inputHandler_.attachAutoComplete(ac);
 	}

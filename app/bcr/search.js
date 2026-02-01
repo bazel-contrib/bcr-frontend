@@ -19,7 +19,7 @@ const { Searchable } = goog.requireType("bcrfrontend.common");
 const { Component } = goog.require("stack.ui");
 
 /**
- * Widget for controlling the top navigation bar's search box.
+ * Widget for controlling the top navigation bar search box.
  */
 class SearchComponent extends EventTarget {
 	/**
@@ -153,6 +153,8 @@ class SearchComponent extends EventTarget {
 	 * @private
 	 */
 	handleFormSubmit(e) {
+		console.log(`handleFormSubmit`, e);
+
 		e.preventDefault();
 		e.stopPropagation();
 
@@ -160,7 +162,12 @@ class SearchComponent extends EventTarget {
 			document.execCommand("selectall", null, false);
 		}, 50);
 
-		this.submit(this.inputEl_.value);
+		// no row was selected.  Navigate to the full search results list
+		const value = this.getValue();
+		const provider = this.currentProviderName_;
+		if (value && provider) {
+			this.app_.setLocation(["search", provider, value]);
+		}
 	}
 
 	/**
@@ -185,6 +192,12 @@ class SearchComponent extends EventTarget {
 	handleAcUpdate(e) {
 		if (e.row) {
 			this.submit(e.row);
+		} else {
+			const value = this.getValue();
+			const provider = this.currentProviderName_;
+			if (value && provider) {
+				this.app_.setLocation(["search", provider, value]);
+			}
 		}
 
 		// Only blur and clear if this was a selection (Enter key), not navigation

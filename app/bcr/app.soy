@@ -10,6 +10,7 @@ import {
     octiconChevronRight16,
     octiconChevronUp24,
     octiconCode16,
+    octiconDiamond16,
     octiconDotFill16,
     octiconDotFill24,
     octiconFeedPerson16,
@@ -99,6 +100,7 @@ import {
   moduleVersionModuleBazel,
   moduleVersions,
   moduleVersionTable,
+  sanitizeLangName,
   sectionDivider,
   sectionHeader
 } from 'app/bcr/registry.soy';
@@ -171,7 +173,7 @@ import {
       </form>
       <div class="" style="position: absolute; top: 100%; right: 0; z-index: 1;">
         <div class="BtnGroup d-inline-flex markdown-body" style="margin-top: 0px; background: transparent;">
-          <button class="BtnGroup-item btn btn-sm btn-octicon {css('search-scope-modules')}" type="button" data-searchprovider="module">
+          <button class="BtnGroup-item btn btn-sm btn-octicon {css('search-scope-modules')}" type="button" data-searchprovider="modules">
             <span class="f6 text-light hide-sm">Module Search</span> <span class="f6 text-light hide-md hide-lg hide-xl">Modules</span> {kbd(key: '/')}
           </button>
           <button class="BtnGroup-item btn btn-sm btn-octicon {css('search-scope-docs')}" type="button" data-searchprovider="symbol">
@@ -183,6 +185,7 @@ import {
   </div>
   <div class="Header-item">
     <div class="BtnGroup">
+      {headerLink(path: "modules/bazel_tools", label: "Bazel", octicon: octiconDiamond16())}
       {headerLink(path: "modules", label: "Modules", octicon: octiconPackage16())}
       {headerLink(path: "maintainers", label: "Maintainers", octicon: octiconFeedPerson16())}
       {headerLink(path: "docs", label: "Documentation", octicon: octiconNorthStar16())}
@@ -214,6 +217,7 @@ import {
 </div>
 {/template}
 
+
 {template homeSelect}
 <div>
   <div class="{css('content')}">
@@ -221,12 +225,78 @@ import {
 </div>
 {/template}
 
+
+{template searchSelectNav}
+<div>
+  <nav class="UnderlineNav">
+    <div class="UnderlineNav-body {css('nav')}">
+      <div class="f4">Search:</div>
+    </div>
+  </nav>
+  <div class="{css('content')}">
+  </div>
+</div>
+{/template}
+
+
+{template moduleSearchComponent}
+<div>
+  <div class="{css('content')}">
+  </div>
+</div>
+{/template}
+
+
+{template searchModulesResultsList}
+  {@param tokens: list<string>}
+  {@param results: list<ModuleVersion>}
+  <div class="mt-3 m">
+    <div class="mt-3">
+      {call sectionHeader}
+        {param title: 'Search Results' /}
+        {param count: length($results) /}
+      {/call}
+      <p class="color-fg-muted mb-3">
+        Searching for: <b>{for $token, $index in $tokens}{$token}{if $index < length($tokens) - 1}, {/if}{/for}</b>
+      </p>
+    </div>
+    {if length($results) > 0}
+      <div class="Box Box--condensed">
+        {for $mv, $index in $results}
+          {let $lang: $mv.getRepositoryMetadata()?.getPrimaryLanguage() /}
+          {let $sanitizedLang: sanitizeLangName(lang: $lang) /}
+          {let $description: $mv.getRepositoryMetadata()?.getDescription() /}
+          <a href="{moduleVersionUrl(name: $mv.getName(), version: $mv.getVersion())}"
+             class="Box-row d-flex flex-items-center"
+             style="text-decoration: none;">
+            {octiconSquareFill16(fill: 'var(--lang-' + $sanitizedLang + '-bg, currentColor)')}
+            <span class="ml-2" style="min-width: 280px;">
+              <span class="text-bold">{$mv.getName()}</span>
+              <span class="color-fg-muted text-small ml-2">{$mv.getVersion()}</span>
+            </span>
+            {if $description}
+              <span class="color-fg-muted text-small" style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                {$description|truncate:100}
+              </span>
+            {/if}
+          </a>
+        {/for}
+      </div>
+    {else}
+      <div class="blankslate">
+        <p>No modules found matching your search.</p>
+      </div>
+    {/if}
+  </div>
+{/template}
+
+
 {template moduleVersionList}
   {@param registry: Registry}
 <div>
-    {call moduleVersions}
-        {param registry: $registry /}
-    {/call}
+  {call moduleVersions}
+      {param registry: $registry /}
+  {/call}
 </div>
 {/template}
 

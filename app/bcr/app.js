@@ -152,7 +152,7 @@ class RegistryApp extends App {
 			this.documentationSearchHandler_.getSearchProvider(),
 		);
 
-		this.search_.setCurrentSearchProviderByName("module");
+		this.search_.setCurrentSearchProviderByName("modules");
 	}
 
 	/**
@@ -268,7 +268,7 @@ class RegistryApp extends App {
 	/**
 	 * @param {!events.Event} e
 	 */
-	handleRouteBegin(e) {}
+	handleRouteBegin(e) { }
 
 	/**
 	 * @param {!events.Event} e
