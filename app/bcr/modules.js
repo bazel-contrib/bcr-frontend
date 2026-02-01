@@ -27,15 +27,17 @@ const { isDocumentDisplayModeMaintainer } = goog.require(
 );
 const {
 	moduleBlankslateComponent,
+	moduleSearchComponent,
 	moduleSelect,
+	modulesMapSelect,
+	modulesMapSelectNav,
 	moduleVersionBlankslateComponent,
 	moduleVersionComponent,
 	moduleVersionDependenciesComponent,
 	moduleVersionDependentsComponent,
 	moduleVersionSelectNav,
 	moduleVersionsFilterSelect,
-	modulesMapSelect,
-	modulesMapSelectNav,
+	searchModulesResultsList,
 } = goog.require("soy.bcrfrontend.app");
 const { moduleVersionsListComponent } = goog.require("soy.registry");
 const { computeLanguageData, sanitizeLanguageName, unsanitizeLanguageName } =
@@ -299,7 +301,7 @@ function getCachedVersionData(registry, module) {
 		}
 
 		versionData.push(
-			/** @type{!VersionData} **/ ({
+			/** @type{!VersionData} **/({
 				version: v.getVersion(),
 				compat: v.getCompatibilityLevel(),
 				commitDate: formatDate(v.getCommit().getDate()),
@@ -616,8 +618,8 @@ class ModuleVersionDependenciesComponent extends ContentComponent {
 			this.deps_.length > 0
 				? this.deps_
 				: this.moduleVersion_
-						.getDepsList()
-						.filter((d) => d.getDev() === this.dev_);
+					.getDepsList()
+					.filter((d) => d.getDev() === this.dev_);
 
 		// Get the set of module names in this dependency list
 		const depModuleNames = new Set(deps.map((d) => d.getName()));
@@ -1548,10 +1550,10 @@ class ModuleVersionsFilterSelect extends ContentSelect {
 
 		return names.map(
 			(name) =>
-				/** @type {!Language} */ ({
-					name,
-					sanitizedName: sanitizeLanguageName(name),
-				}),
+				/** @type {!Language} */({
+				name,
+				sanitizedName: sanitizeLanguageName(name),
+			}),
 		);
 	}
 
@@ -1574,6 +1576,86 @@ class ModuleVersionsFilterSelect extends ContentSelect {
 		return result;
 	}
 }
+
+
+class ModuleSearchComponent extends ContentComponent {
+	/**
+	 * @param {!Registry} registry
+	 * @param {?dom.DomHelper=} opt_domHelper
+	 */
+	constructor(
+		registry,
+		opt_domHelper,
+	) {
+		super(opt_domHelper);
+
+		/** @private @const @type {!Registry} */
+		this.registry_ = registry;
+	}
+
+	/**
+	 * @override
+	 */
+	createDom() {
+		this.setElementInternal(
+			soy.renderAsElement(moduleSearchComponent),
+		);
+	}
+
+	/**
+	 * @override
+	 */
+	enterDocument() {
+		super.enterDocument();
+
+		highlightAll(this.getElementStrict());
+	}
+
+	/**
+	 * @override
+	 * @param {!Route} route
+	 */
+	goDown(route) {
+		const tokens = route.unmatchedPath();
+		const results = this.searchModules(tokens);
+		const el = this.getContentElement();
+		soy.renderElement(el, searchModulesResultsList, {
+			tokens,
+			results,
+		});
+		route.done(this);
+	}
+
+	/**
+	 * Search modules by matching tokens against names and descriptions.
+	 * @param {!Array<string>} tokens
+	 * @return {!Array<!ModuleVersion>}
+	 */
+	searchModules(tokens) {
+		const results = [];
+		/** @type {!Array<string>} */
+		const lowerTokens = tokens.map((t) => t.toLowerCase());
+
+		for (const module of this.registry_.getModulesList()) {
+			const name = module.getName().toLowerCase();
+			const description =
+				module.getRepositoryMetadata()?.getDescription()?.toLowerCase() || "";
+
+			// Check if any token matches name or description
+			const matches = lowerTokens.some(
+				(token) => name.includes(token) || description.includes(token),
+			);
+
+			if (matches && module.getVersionsList().length > 0) {
+				// Get the first (latest) version
+				results.push(module.getVersionsList()[0]);
+			}
+		}
+		return results;
+	}
+}
+exports.ModuleSearchComponent = ModuleSearchComponent;
+
 
 class ModuleVersionsListComponent extends Component {
 	/**
