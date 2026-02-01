@@ -301,7 +301,7 @@ function getCachedVersionData(registry, module) {
 		}
 
 		versionData.push(
-			/** @type{!VersionData} **/({
+			/** @type{!VersionData} **/ ({
 				version: v.getVersion(),
 				compat: v.getCompatibilityLevel(),
 				commitDate: formatDate(v.getCommit().getDate()),
@@ -618,8 +618,8 @@ class ModuleVersionDependenciesComponent extends ContentComponent {
 			this.deps_.length > 0
 				? this.deps_
 				: this.moduleVersion_
-					.getDepsList()
-					.filter((d) => d.getDev() === this.dev_);
+						.getDepsList()
+						.filter((d) => d.getDev() === this.dev_);
 
 		// Get the set of module names in this dependency list
 		const depModuleNames = new Set(deps.map((d) => d.getName()));
@@ -1550,10 +1550,10 @@ class ModuleVersionsFilterSelect extends ContentSelect {
 
 		return names.map(
 			(name) =>
-				/** @type {!Language} */({
-				name,
-				sanitizedName: sanitizeLanguageName(name),
-			}),
+				/** @type {!Language} */ ({
+					name,
+					sanitizedName: sanitizeLanguageName(name),
+				}),
 		);
 	}
 
@@ -1577,16 +1577,12 @@ class ModuleVersionsFilterSelect extends ContentSelect {
 	}
 }
 
-
 class ModuleSearchComponent extends ContentComponent {
 	/**
 	 * @param {!Registry} registry
 	 * @param {?dom.DomHelper=} opt_domHelper
 	 */
-	constructor(
-		registry,
-		opt_domHelper,
-	) {
+	constructor(registry, opt_domHelper) {
 		super(opt_domHelper);
 
 		/** @private @const @type {!Registry} */
@@ -1597,9 +1593,7 @@ class ModuleSearchComponent extends ContentComponent {
 	 * @override
 	 */
 	createDom() {
-		this.setElementInternal(
-			soy.renderAsElement(moduleSearchComponent),
-		);
+		this.setElementInternal(soy.renderAsElement(moduleSearchComponent));
 	}
 
 	/**
@@ -1655,7 +1649,6 @@ class ModuleSearchComponent extends ContentComponent {
 	}
 }
 exports.ModuleSearchComponent = ModuleSearchComponent;
-
 
 class ModuleVersionsListComponent extends Component {
 	/**

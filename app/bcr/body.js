@@ -9,7 +9,9 @@ const { ContentSelect } = goog.require("bcrfrontend.ContentSelect");
 const { DocsSelect } = goog.require("bcrfrontend.documentation");
 const { HomeSelect } = goog.require("bcrfrontend.home");
 const { MaintainersSelect } = goog.require("bcrfrontend.maintainers");
-const { ModulesMapSelect, ModuleSearchComponent } = goog.require("bcrfrontend.modules");
+const { ModulesMapSelect, ModuleSearchComponent } = goog.require(
+	"bcrfrontend.modules",
+);
 const { SelectNav } = goog.require("bcrfrontend.SelectNav");
 const { SettingsSelect } = goog.require("bcrfrontend.settings");
 const { bodySelect, searchSelectNav } = goog.require("soy.bcrfrontend.app");
@@ -105,7 +107,10 @@ class BodySelect extends ContentSelect {
 			return;
 		}
 		if (name === TabName.SEARCH) {
-			this.addTab(TabName.SEARCH, new SearchSelectNav(this.registry_, this.dom_));
+			this.addTab(
+				TabName.SEARCH,
+				new SearchSelectNav(this.registry_, this.dom_),
+			);
 			this.select(name, route);
 			return;
 		}
@@ -123,7 +128,6 @@ class BodySelect extends ContentSelect {
 }
 exports.BodySelect = BodySelect;
 
-
 class SearchSelectNav extends SelectNav {
 	/**
 	 * @param {!Registry} registry
@@ -140,9 +144,7 @@ class SearchSelectNav extends SelectNav {
 	 * @override
 	 */
 	createDom() {
-		this.setElementInternal(
-			soy.renderAsElement(searchSelectNav),
-		);
+		this.setElementInternal(soy.renderAsElement(searchSelectNav));
 	}
 
 	/**

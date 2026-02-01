@@ -268,7 +268,7 @@ class RegistryApp extends App {
 	/**
 	 * @param {!events.Event} e
 	 */
-	handleRouteBegin(e) { }
+	handleRouteBegin(e) {}
 
 	/**
 	 * @param {!events.Event} e
