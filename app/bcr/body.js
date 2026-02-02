@@ -3,15 +3,21 @@ goog.module("bcrfrontend.body");
 const Registry = goog.require("proto.build.stack.bazel.registry.v1.Registry");
 const dom = goog.require("goog.dom");
 const soy = goog.require("goog.soy");
-const { ContentSelect } = goog.require("bcrfrontend.ContentSelect");
 const { formatRelativePast } = goog.require("bcrfrontend.format");
 const { Route } = goog.requireType("stack.ui");
+const { ContentSelect } = goog.require("bcrfrontend.ContentSelect");
 const { DocsSelect } = goog.require("bcrfrontend.documentation");
 const { HomeSelect } = goog.require("bcrfrontend.home");
 const { MaintainersSelect } = goog.require("bcrfrontend.maintainers");
-const { ModulesMapSelect } = goog.require("bcrfrontend.modules");
+const { DocumentationSearchComponent } = goog.require(
+	"bcrfrontend.documentation",
+);
+const { ModulesMapSelect, ModuleSearchComponent } = goog.require(
+	"bcrfrontend.modules",
+);
+const { SelectNav } = goog.require("bcrfrontend.SelectNav");
 const { SettingsSelect } = goog.require("bcrfrontend.settings");
-const { bodySelect } = goog.require("soy.bcrfrontend.app");
+const { bodySelect, searchSelectNav } = goog.require("soy.bcrfrontend.app");
 
 /**
  * @enum {string}
@@ -22,7 +28,9 @@ const TabName = {
 	MAINTAINERS: "maintainers",
 	MODULES: "modules",
 	OVERVIEW: "overview",
+	SEARCH: "search",
 	SETTINGS: "settings",
+	SYMBOLS: "symbols",
 };
 
 /**
@@ -102,6 +110,14 @@ class BodySelect extends ContentSelect {
 			this.select(name, route);
 			return;
 		}
+		if (name === TabName.SEARCH) {
+			this.addTab(
+				TabName.SEARCH,
+				new SearchSelectNav(this.registry_, this.dom_),
+			);
+			this.select(name, route);
+			return;
+		}
 		if (name === TabName.MAINTAINERS) {
 			this.addTab(
 				TabName.MAINTAINERS,
@@ -115,3 +131,60 @@ class BodySelect extends ContentSelect {
 	}
 }
 exports.BodySelect = BodySelect;
+
+class SearchSelectNav extends SelectNav {
+	/**
+	 * @param {!Registry} registry
+	 * @param {?dom.DomHelper=} opt_domHelper
+	 */
+	constructor(registry, opt_domHelper) {
+		super(opt_domHelper);
+
+		/** @private @const @type {!Registry} */
+		this.registry_ = registry;
+	}
+
+	/**
+	 * @override
+	 */
+	createDom() {
+		this.setElementInternal(soy.renderAsElement(searchSelectNav));
+	}
+
+	/**
+	 * @override
+	 */
+	enterDocument() {
+		super.enterDocument();
+		this.addNavTab(
+			TabName.MODULES,
+			"Modules",
+			"Module Search",
+			undefined,
+			new ModuleSearchComponent(this.registry_, this.dom_),
+		);
+		this.addNavTab(
+			TabName.SYMBOLS,
+			"Symbols",
+			"Symbol Search",
+			undefined,
+			new DocumentationSearchComponent(this.registry_, this.dom_),
+		);
+	}
+
+	/**
+	 * @override
+	 * @returns {string}
+	 */
+	getDefaultTabName() {
+		return TabName.MODULES;
+	}
+
+	/**
+	 * @override
+	 * @param {!Route} route
+	 */
+	goHere(route) {
+		this.select(TabName.MODULES, route.add(TabName.MODULES));
+	}
+}

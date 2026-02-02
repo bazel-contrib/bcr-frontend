@@ -10,6 +10,7 @@ import {
     octiconChevronRight16,
     octiconChevronUp24,
     octiconCode16,
+    octiconDiamond16,
     octiconDotFill16,
     octiconDotFill24,
     octiconFeedPerson16,
@@ -96,9 +97,11 @@ import {
   moduleVersionBreadcrumb,
   moduleVersionButton,
   moduleVersionHeader,
+  moduleVersionListBox,
   moduleVersionModuleBazel,
   moduleVersions,
   moduleVersionTable,
+  sanitizeLangName,
   sectionDivider,
   sectionHeader
 } from 'app/bcr/registry.soy';
@@ -171,7 +174,7 @@ import {
       </form>
       <div class="" style="position: absolute; top: 100%; right: 0; z-index: 1;">
         <div class="BtnGroup d-inline-flex markdown-body" style="margin-top: 0px; background: transparent;">
-          <button class="BtnGroup-item btn btn-sm btn-octicon {css('search-scope-modules')}" type="button" data-searchprovider="module">
+          <button class="BtnGroup-item btn btn-sm btn-octicon {css('search-scope-modules')}" type="button" data-searchprovider="modules">
             <span class="f6 text-light hide-sm">Module Search</span> <span class="f6 text-light hide-md hide-lg hide-xl">Modules</span> {kbd(key: '/')}
           </button>
           <button class="BtnGroup-item btn btn-sm btn-octicon {css('search-scope-docs')}" type="button" data-searchprovider="symbol">
@@ -183,6 +186,7 @@ import {
   </div>
   <div class="Header-item">
     <div class="BtnGroup">
+      {headerLink(path: "modules/bazel_tools", label: "Bazel", octicon: octiconDiamond16())}
       {headerLink(path: "modules", label: "Modules", octicon: octiconPackage16())}
       {headerLink(path: "maintainers", label: "Maintainers", octicon: octiconFeedPerson16())}
       {headerLink(path: "docs", label: "Documentation", octicon: octiconNorthStar16())}
@@ -214,6 +218,7 @@ import {
 </div>
 {/template}
 
+
 {template homeSelect}
 <div>
   <div class="{css('content')}">
@@ -221,13 +226,100 @@ import {
 </div>
 {/template}
 
-{template moduleVersionList}
-  {@param registry: Registry}
+
+{template searchSelectNav}
 <div>
-    {call moduleVersions}
-        {param registry: $registry /}
-    {/call}
+  <nav class="UnderlineNav">
+    <div class="UnderlineNav-body {css('nav')}">
+      <div class="f4">Search:</div>
+    </div>
+  </nav>
+  <div class="{css('content')}">
+  </div>
 </div>
+{/template}
+
+
+{template moduleSearchComponent}
+<div>
+  <div class="{css('content')}">
+  </div>
+</div>
+{/template}
+
+
+{template searchModulesResultsList}
+  {@param tokens: list<string>}
+  {@param results: list<ModuleVersion>}
+  <div class="mt-3">
+    {call sectionHeader}
+      {param title: 'Search Results' /}
+      {param count: length($results) /}
+    {/call}
+    <p class="color-fg-muted mb-3">
+      Searching for: <b>{for $token, $index in $tokens}{$token}{if $index < length($tokens) - 1}, {/if}{/for}</b>
+    </p>
+    {if length($results) > 0}
+      {moduleVersionListBox(moduleVersions: $results)}
+    {else}
+      <div class="blankslate">
+        <p>No modules found matching your search.</p>
+      </div>
+    {/if}
+  </div>
+{/template}
+
+
+{template documentationSearchComponent}
+<div>
+  <div class="{css('content')}">
+  </div>
+</div>
+{/template}
+
+
+{template searchSymbolsResultsList}
+  {@param tokens: list<string>}
+  {@param results: list<[module: Module, version: ModuleVersion, file: File, sym: Symbol]>}
+  <div class="mt-3">
+    {call sectionHeader}
+      {param title: 'Search Results' /}
+      {param count: length($results) /}
+    {/call}
+    <p class="color-fg-muted mb-3">
+      Searching for: <b>{for $token, $index in $tokens}{$token}{if $index < length($tokens) - 1}, {/if}{/for}</b>
+    </p>
+    {if length($results) > 0}
+      <div class="Box Box--condensed">
+        {for $result in $results}
+          {let $label: $result.file.getLabel() /}
+          {let $pkg: $label?.getPkg() ?? '' /}
+          {let $name: $label?.getName() ?? '' /}
+          {let $filePath: $pkg ? $pkg + '/' + $name : $name /}
+          <a href="/#/modules/{$result.module.getName()}/{$result.version.getVersion()}/docs/{$filePath}/{$result.sym.getName()}"
+             class="Box-row d-flex flex-items-center"
+             style="text-decoration: none;">
+            {symbolTypeLabel(type: $result.sym.getType())}
+            <span style="min-width: 200px;">
+              <span class="text-bold">{$result.sym.getName()}</span>
+              <span class="color-fg-muted text-small ml-2" style="min-width: 200px;">
+                {$result.module.getName()}@{$result.version.getVersion()}
+              </span>
+            </span>
+            {if $result.sym.getDescription()}
+              <span class="color-fg-muted text-small ml-auto" style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                {$result.sym.getDescription()|truncate:80}
+              </span>
+            {/if}
+          </a>
+        {/for}
+      </div>
+    {else}
+      <div class="blankslate">
+        <p>No symbols found matching your search.</p>
+      </div>
+    {/if}
+  </div>
 {/template}
 
 
@@ -1141,8 +1233,7 @@ import {
 <div class="Subhead mb-2" style="border-bottom: none;">
   <div class="Subhead-heading d-flex flex-items-center flex-justify-between">
     <h3 class="d-flex flex-items-center">
-      {let $labelColor: symbolColor(type: $sym.getType()) /}
-      <span class="Label mr-2" style="background-color: var({$labelColor}); color: var(--color-fg-on-emphasis)">{symbolTypeName(type: $sym.getType())}</span>
+      {symbolTypeLabel(type: $sym.getType())}
       <span>{$sym.getName()}</span>
       {if $location && $location.getStart()}
         {let $fileLabel: $file.getLabel() /}
@@ -1273,7 +1364,7 @@ import {
 
     // Show additional called symbols if any
     {if $ruleMacro.getSymbolList() && length($ruleMacro.getSymbolList()) > 0}
-      <div class="Box mt-3">
+      <div class="Box Box--condensed mt-3">
         <div class="Box-header">
           <h3 class="Box-title">Additional Symbols Called</h3>
         </div>
@@ -1304,7 +1395,7 @@ import {
 
   {if $sym.getValue()}
     {let $value: $sym.getValue() /}
-    <div class="Box mt-3">
+    <div class="Box Box--condensed mt-3">
       <div class="Box-header">
         <h3 class="Box-title">Value</h3>
       </div>
@@ -1339,7 +1430,7 @@ import {
     {let $load: $sym.getLoad() /}
     {let $label: $load.getLabel() /}
     {if $label}
-      <div class="Box mt-3">
+      <div class="Box Box--condensed mt-3">
         <div class="Box-header">
           <h3 class="Box-title">Label</h3>
         </div>
@@ -1357,7 +1448,7 @@ import {
     {/if}
 
     {if length($load.getSymbolList()) > 0}
-      <div class="Box mt-3">
+      <div class="Box Box--condensed mt-3">
         <div class="Box-header">
           <h3 class="Box-title">Loaded Symbols {counterLabel(count: length($load.getSymbolList()))}</h3>
         </div>
@@ -1897,6 +1988,12 @@ import {
   {default}
     Unknown
 {/switch}
+{/template}
+
+{template symbolTypeLabel}
+  {@param type: int}
+  {let $labelColor: symbolColor(type: $type) /}
+  <label class="Label mr-2" style="background-color: var({$labelColor}); color: var(--color-fg-on-emphasis)">{symbolTypeName(type: $type)}</label>
 {/template}
 
 {template labelNameLink}

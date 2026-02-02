@@ -344,13 +344,36 @@ import {
   {@param moduleVersions: list<ModuleVersion>}
   <div class="mt-3">
     {if length($moduleVersions) > 0}
-      {for $moduleVersion in $moduleVersions}
-        {moduleVersionButton(moduleVersion: $moduleVersion)}
-      {/for}
+      {moduleVersionListBox(moduleVersions: $moduleVersions)}
     {else}
       {moduleVersionsListBlankslate()}
     {/if}
   </div>
+{/template}
+
+{template moduleVersionListBox}
+  {@param moduleVersions: list<ModuleVersion>}
+<div class="Box Box--condensed">
+  {for $mv, $index in $moduleVersions}
+    {let $lang: $mv.getRepositoryMetadata()?.getPrimaryLanguage() /}
+    {let $sanitizedLang: sanitizeLangName(lang: $lang) /}
+    {let $description: $mv.getRepositoryMetadata()?.getDescription() /}
+    <a href="{moduleVersionUrl(name: $mv.getName(), version: $mv.getVersion())}"
+        class="Box-row d-flex flex-items-center"
+        style="text-decoration: none;">
+      {octiconSquareFill16(fill: 'var(--lang-' + $sanitizedLang + '-bg, currentColor)')}
+      <span class="ml-2" style="min-width: 280px;">
+        <span class="text-bold">{$mv.getName()}</span>
+        <span class="color-fg-muted text-small ml-2">{$mv.getVersion()}</span>
+      </span>
+      {if $description}
+        <span class="color-fg-muted text-small ml-auto" style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+          {$description|truncate:100}
+        </span>
+      {/if}
+    </a>
+  {/for}
+</div>
 {/template}
 
 {template moduleVersionsListBlankslate}
@@ -557,7 +580,7 @@ import {
     {if $title}
       <span class="text-small mb-1 color-fg-muted" style="min-width: 0; word-break: break-all">@{$org}/{$name}</span>
     {/if}
-    <img class="avatar flex-shrink-0 rounded" style="padding: 2px" width="{$size ? $size : 42}" height="{$size ? $size : 42}" src="{githubAvatarUrl(name: $org)}" alt="@{$org}">
+    <img class="avatar flex-shrink-0 rounded" style="padding: 2px" width="{$size ? $size : 48}" height="{$size ? $size : 48}" src="{githubAvatarUrl(name: $org)}" alt="@{$org}">
   </a>
 {/template}
 
