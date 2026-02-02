@@ -9,6 +9,9 @@ const { ContentSelect } = goog.require("bcrfrontend.ContentSelect");
 const { DocsSelect } = goog.require("bcrfrontend.documentation");
 const { HomeSelect } = goog.require("bcrfrontend.home");
 const { MaintainersSelect } = goog.require("bcrfrontend.maintainers");
+const { DocumentationSearchComponent } = goog.require(
+	"bcrfrontend.documentation",
+);
 const { ModulesMapSelect, ModuleSearchComponent } = goog.require(
 	"bcrfrontend.modules",
 );
@@ -25,8 +28,9 @@ const TabName = {
 	MAINTAINERS: "maintainers",
 	MODULES: "modules",
 	OVERVIEW: "overview",
-	SETTINGS: "settings",
 	SEARCH: "search",
+	SETTINGS: "settings",
+	SYMBOLS: "symbols",
 };
 
 /**
@@ -158,6 +162,13 @@ class SearchSelectNav extends SelectNav {
 			"Module Search",
 			undefined,
 			new ModuleSearchComponent(this.registry_, this.dom_),
+		);
+		this.addNavTab(
+			TabName.SYMBOLS,
+			"Symbols",
+			"Symbol Search",
+			undefined,
+			new DocumentationSearchComponent(this.registry_, this.dom_),
 		);
 	}
 

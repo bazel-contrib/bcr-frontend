@@ -31,6 +31,7 @@ const path = goog.require("goog.string.path");
 const soy = goog.require("goog.soy");
 const { getApplication } = goog.require("bcrfrontend.common");
 const { Component, Route } = goog.require("stack.ui");
+const { ContentComponent } = goog.require("bcrfrontend.ContentComponent");
 const { ContentSelect } = goog.require("bcrfrontend.ContentSelect");
 const { GitHubSourceFileComponent } = goog.require(
 	"bcrfrontend.githubsourcefile",
@@ -48,6 +49,7 @@ const {
 	documentationInfoListComponent,
 	documentationInfoSelect,
 	documentationReadmeComponent,
+	documentationSearchComponent,
 	fileInfoListComponent,
 	fileInfoSelect,
 	fileInfoTreeComponent,
@@ -59,6 +61,7 @@ const {
 	repositoryRuleInfoComponent,
 	ruleInfoComponent,
 	ruleMacroInfoComponent,
+	searchSymbolsResultsList,
 	symbolInfoComponent,
 	symbolTypeName,
 	valueInfoComponent,
@@ -85,6 +88,48 @@ const { sanitizeHtml } = goog.require(
 );
 
 /**
+ * Map of search prefixes to symbol types.
+ * Supports filtering symbol search results by type.
+ * @const {!Map<string, !Array<number>>}
+ */
+const SYMBOL_TYPE_PREFIXES = new Map([
+	// Rule prefixes
+	["r", [SymbolType.SYMBOL_TYPE_RULE, SymbolType.SYMBOL_TYPE_REPOSITORY_RULE]],
+	["ru", [SymbolType.SYMBOL_TYPE_RULE]],
+	["rul", [SymbolType.SYMBOL_TYPE_RULE]],
+	["rule", [SymbolType.SYMBOL_TYPE_RULE]],
+	// Repository rule prefixes
+	["rep", [SymbolType.SYMBOL_TYPE_REPOSITORY_RULE]],
+	["repo", [SymbolType.SYMBOL_TYPE_REPOSITORY_RULE]],
+	["repository", [SymbolType.SYMBOL_TYPE_REPOSITORY_RULE]],
+	// Provider prefixes
+	["p", [SymbolType.SYMBOL_TYPE_PROVIDER]],
+	["pro", [SymbolType.SYMBOL_TYPE_PROVIDER]],
+	["prov", [SymbolType.SYMBOL_TYPE_PROVIDER]],
+	["provider", [SymbolType.SYMBOL_TYPE_PROVIDER]],
+	// Function prefixes
+	["f", [SymbolType.SYMBOL_TYPE_FUNCTION]],
+	["fn", [SymbolType.SYMBOL_TYPE_FUNCTION]],
+	["fun", [SymbolType.SYMBOL_TYPE_FUNCTION]],
+	["func", [SymbolType.SYMBOL_TYPE_FUNCTION]],
+	["function", [SymbolType.SYMBOL_TYPE_FUNCTION]],
+	// Aspect prefixes
+	["a", [SymbolType.SYMBOL_TYPE_ASPECT]],
+	["asp", [SymbolType.SYMBOL_TYPE_ASPECT]],
+	["aspect", [SymbolType.SYMBOL_TYPE_ASPECT]],
+	// Macro prefixes
+	["m", [SymbolType.SYMBOL_TYPE_MACRO, SymbolType.SYMBOL_TYPE_RULE_MACRO]],
+	["mac", [SymbolType.SYMBOL_TYPE_MACRO, SymbolType.SYMBOL_TYPE_RULE_MACRO]],
+	["macro", [SymbolType.SYMBOL_TYPE_MACRO, SymbolType.SYMBOL_TYPE_RULE_MACRO]],
+	["rm", [SymbolType.SYMBOL_TYPE_RULE_MACRO]],
+	["rulemacro", [SymbolType.SYMBOL_TYPE_RULE_MACRO]],
+	// Module extension prefixes
+	["e", [SymbolType.SYMBOL_TYPE_MODULE_EXTENSION]],
+	["ext", [SymbolType.SYMBOL_TYPE_MODULE_EXTENSION]],
+	["extension", [SymbolType.SYMBOL_TYPE_MODULE_EXTENSION]],
+]);
+
+/**
  * @typedef {{
  * type: SymbolType,
  * typeName: string,
@@ -108,6 +153,16 @@ var FileSymbolGroupList;
  * }}
  */
 let FileSymbol;
+
+/**
+ * @typedef {{
+ *   module: !Module,
+ *   version: !ModuleVersion,
+ *   file: !File,
+ *   sym: !Symbol,
+ * }}
+ */
+let SymbolSearchResult;
 
 /**
  * @enum {string}
@@ -1754,6 +1809,146 @@ class BzlFileSourceComponent extends GitHubSourceFileComponent {
 		);
 	}
 }
+
+/**
+ * Component that displays documentation symbol search results.
+ */
+class DocumentationSearchComponent extends ContentComponent {
+	/**
+	 * @param {!Registry} registry
+	 * @param {?dom.DomHelper=} opt_domHelper
+	 */
+	constructor(registry, opt_domHelper) {
+		super(opt_domHelper);
+
+		/** @private @const @type {!Registry} */
+		this.registry_ = registry;
+	}
+
+	/**
+	 * @override
+	 */
+	createDom() {
+		this.setElementInternal(soy.renderAsElement(documentationSearchComponent));
+	}
+
+	/**
+	 * @override
+	 */
+	enterDocument() {
+		super.enterDocument();
+	}
+
+	/**
+	 * @override
+	 * @param {!Route} route
+	 */
+	goDown(route) {
+		const tokens = route.unmatchedPath();
+		const results = this.searchSymbols(tokens);
+		const el = this.getContentElement();
+		soy.renderElement(el, searchSymbolsResultsList, { tokens, results });
+		route.done(this);
+	}
+
+	/**
+	 * Search symbols by matching tokens against names and descriptions.
+	 * Supports prefix filters like "r:foo" to filter by symbol type.
+	 * @param {!Array<string>} tokens
+	 * @return {!Array<!SymbolSearchResult>}
+	 */
+	searchSymbols(tokens) {
+		/** @type {!Array<!SymbolSearchResult>} */
+		const results = [];
+
+		// Parse tokens for type prefixes
+		const { typeFilters, queryTokens } = this.parseSearchTokens_(tokens);
+
+		/** @type {!Array<string>} */
+		const lowerTokens = queryTokens.map((t) => t.toLowerCase());
+
+		// If no query tokens remain after prefix parsing, return empty
+		if (lowerTokens.length === 0) {
+			return results;
+		}
+
+		for (const module of this.registry_.getModulesList()) {
+			const version = module.getVersionsList()[0]; // search most recent version only
+			const docs = version.getSource()?.getDocumentation();
+			if (!docs) continue;
+
+			for (const file of docs.getFileList()) {
+				if (file.getError() || !isPublicFile(file)) continue;
+
+				for (const sym of file.getSymbolList()) {
+					const symType = sym.getType();
+					// Skip LOAD and VALUE symbols
+					if (
+						symType === SymbolType.SYMBOL_TYPE_LOAD_STMT ||
+						symType === SymbolType.SYMBOL_TYPE_VALUE
+					) {
+						continue;
+					}
+
+					// Check type filter if present
+					if (typeFilters.length > 0 && !typeFilters.includes(symType)) {
+						continue;
+					}
+
+					const symName = sym.getName().toLowerCase();
+
+					if (lowerTokens.some((t) => symName.includes(t))) {
+						results.push({
+							module,
+							version,
+							file,
+							sym,
+						});
+					}
+				}
+			}
+		}
+		return results;
+	}
+
+	/**
+	 * Parse search tokens for type prefix filters.
+	 * Prefixes like "r:foo" filter by symbol type.
+	 * @param {!Array<string>} tokens
+	 * @return {{typeFilters: !Array<number>, queryTokens: !Array<string>}}
+	 * @private
+	 */
+	parseSearchTokens_(tokens) {
+		/** @type {!Array<number>} */
+		const typeFilters = [];
+		/** @type {!Array<string>} */
+		const queryTokens = [];
+
+		for (const token of tokens) {
+			const colonIdx = token.indexOf(":");
+			if (colonIdx > 0 && colonIdx < token.length - 1) {
+				const prefix = token.substring(0, colonIdx).toLowerCase();
+				const query = token.substring(colonIdx + 1);
+
+				const types = SYMBOL_TYPE_PREFIXES.get(prefix);
+				if (types) {
+					for (const t of types) {
+						if (!typeFilters.includes(t)) {
+							typeFilters.push(t);
+						}
+					}
+					queryTokens.push(query);
+					continue;
+				}
+			}
+			// No valid prefix, treat as regular query token
+			queryTokens.push(token);
+		}
+
+		return { typeFilters, queryTokens };
+	}
+}
+exports.DocumentationSearchComponent = DocumentationSearchComponent;
 
 /**
  * Build symbol groups for a file, organized by type.

@@ -97,6 +97,7 @@ import {
   moduleVersionBreadcrumb,
   moduleVersionButton,
   moduleVersionHeader,
+  moduleVersionListBox,
   moduleVersionModuleBazel,
   moduleVersions,
   moduleVersionTable,
@@ -250,38 +251,16 @@ import {
 {template searchModulesResultsList}
   {@param tokens: list<string>}
   {@param results: list<ModuleVersion>}
-  <div class="mt-3 m">
-    <div class="mt-3">
-      {call sectionHeader}
-        {param title: 'Search Results' /}
-        {param count: length($results) /}
-      {/call}
-      <p class="color-fg-muted mb-3">
-        Searching for: <b>{for $token, $index in $tokens}{$token}{if $index < length($tokens) - 1}, {/if}{/for}</b>
-      </p>
-    </div>
+  <div class="mt-3">
+    {call sectionHeader}
+      {param title: 'Search Results' /}
+      {param count: length($results) /}
+    {/call}
+    <p class="color-fg-muted mb-3">
+      Searching for: <b>{for $token, $index in $tokens}{$token}{if $index < length($tokens) - 1}, {/if}{/for}</b>
+    </p>
     {if length($results) > 0}
-      <div class="Box Box--condensed">
-        {for $mv, $index in $results}
-          {let $lang: $mv.getRepositoryMetadata()?.getPrimaryLanguage() /}
-          {let $sanitizedLang: sanitizeLangName(lang: $lang) /}
-          {let $description: $mv.getRepositoryMetadata()?.getDescription() /}
-          <a href="{moduleVersionUrl(name: $mv.getName(), version: $mv.getVersion())}"
-             class="Box-row d-flex flex-items-center"
-             style="text-decoration: none;">
-            {octiconSquareFill16(fill: 'var(--lang-' + $sanitizedLang + '-bg, currentColor)')}
-            <span class="ml-2" style="min-width: 280px;">
-              <span class="text-bold">{$mv.getName()}</span>
-              <span class="color-fg-muted text-small ml-2">{$mv.getVersion()}</span>
-            </span>
-            {if $description}
-              <span class="color-fg-muted text-small" style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-                {$description|truncate:100}
-              </span>
-            {/if}
-          </a>
-        {/for}
-      </div>
+      {moduleVersionListBox(moduleVersions: $results)}
     {else}
       <div class="blankslate">
         <p>No modules found matching your search.</p>
@@ -291,13 +270,56 @@ import {
 {/template}
 
 
-{template moduleVersionList}
-  {@param registry: Registry}
+{template documentationSearchComponent}
 <div>
-  {call moduleVersions}
-      {param registry: $registry /}
-  {/call}
+  <div class="{css('content')}">
+  </div>
 </div>
+{/template}
+
+
+{template searchSymbolsResultsList}
+  {@param tokens: list<string>}
+  {@param results: list<[module: Module, version: ModuleVersion, file: File, sym: Symbol]>}
+  <div class="mt-3">
+    {call sectionHeader}
+      {param title: 'Search Results' /}
+      {param count: length($results) /}
+    {/call}
+    <p class="color-fg-muted mb-3">
+      Searching for: <b>{for $token, $index in $tokens}{$token}{if $index < length($tokens) - 1}, {/if}{/for}</b>
+    </p>
+    {if length($results) > 0}
+      <div class="Box Box--condensed">
+        {for $result in $results}
+          {let $label: $result.file.getLabel() /}
+          {let $pkg: $label?.getPkg() ?? '' /}
+          {let $name: $label?.getName() ?? '' /}
+          {let $filePath: $pkg ? $pkg + '/' + $name : $name /}
+          <a href="/#/modules/{$result.module.getName()}/{$result.version.getVersion()}/docs/{$filePath}/{$result.sym.getName()}"
+             class="Box-row d-flex flex-items-center"
+             style="text-decoration: none;">
+            {symbolTypeLabel(type: $result.sym.getType())}
+            <span style="min-width: 200px;">
+              <span class="text-bold">{$result.sym.getName()}</span>
+              <span class="color-fg-muted text-small ml-2" style="min-width: 200px;">
+                {$result.module.getName()}@{$result.version.getVersion()}
+              </span>
+            </span>
+            {if $result.sym.getDescription()}
+              <span class="color-fg-muted text-small ml-auto" style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                {$result.sym.getDescription()|truncate:80}
+              </span>
+            {/if}
+          </a>
+        {/for}
+      </div>
+    {else}
+      <div class="blankslate">
+        <p>No symbols found matching your search.</p>
+      </div>
+    {/if}
+  </div>
 {/template}
 
 
@@ -1211,8 +1233,7 @@ import {
 <div class="Subhead mb-2" style="border-bottom: none;">
   <div class="Subhead-heading d-flex flex-items-center flex-justify-between">
     <h3 class="d-flex flex-items-center">
-      {let $labelColor: symbolColor(type: $sym.getType()) /}
-      <span class="Label mr-2" style="background-color: var({$labelColor}); color: var(--color-fg-on-emphasis)">{symbolTypeName(type: $sym.getType())}</span>
+      {symbolTypeLabel(type: $sym.getType())}
       <span>{$sym.getName()}</span>
       {if $location && $location.getStart()}
         {let $fileLabel: $file.getLabel() /}
@@ -1343,7 +1364,7 @@ import {
 
     // Show additional called symbols if any
     {if $ruleMacro.getSymbolList() && length($ruleMacro.getSymbolList()) > 0}
-      <div class="Box mt-3">
+      <div class="Box Box--condensed mt-3">
         <div class="Box-header">
           <h3 class="Box-title">Additional Symbols Called</h3>
         </div>
@@ -1374,7 +1395,7 @@ import {
 
   {if $sym.getValue()}
     {let $value: $sym.getValue() /}
-    <div class="Box mt-3">
+    <div class="Box Box--condensed mt-3">
       <div class="Box-header">
         <h3 class="Box-title">Value</h3>
       </div>
@@ -1409,7 +1430,7 @@ import {
     {let $load: $sym.getLoad() /}
     {let $label: $load.getLabel() /}
     {if $label}
-      <div class="Box mt-3">
+      <div class="Box Box--condensed mt-3">
         <div class="Box-header">
           <h3 class="Box-title">Label</h3>
         </div>
@@ -1427,7 +1448,7 @@ import {
     {/if}
 
     {if length($load.getSymbolList()) > 0}
-      <div class="Box mt-3">
+      <div class="Box Box--condensed mt-3">
         <div class="Box-header">
           <h3 class="Box-title">Loaded Symbols {counterLabel(count: length($load.getSymbolList()))}</h3>
         </div>
@@ -1967,6 +1988,12 @@ import {
   {default}
     Unknown
 {/switch}
+{/template}
+
+{template symbolTypeLabel}
+  {@param type: int}
+  {let $labelColor: symbolColor(type: $type) /}
+  <label class="Label mr-2" style="background-color: var({$labelColor}); color: var(--color-fg-on-emphasis)">{symbolTypeName(type: $type)}</label>
 {/template}
 
 {template labelNameLink}

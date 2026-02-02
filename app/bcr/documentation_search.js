@@ -14,8 +14,13 @@ const Renderer = goog.require("goog.ui.ac.Renderer");
 const soy = goog.require("goog.soy");
 const { Application, SearchProvider } = goog.requireType("bcrfrontend.common");
 const { Searchable } = goog.requireType("bcrfrontend.common");
+const { Route } = goog.requireType("stack.ui");
 const { symbolSearchRow } = goog.require("soy.bcrfrontend.app");
 const File = goog.requireType("proto.build.stack.bazel.symbol.v1.File");
+const Module = goog.requireType("proto.build.stack.bazel.registry.v1.Module");
+const ModuleVersion = goog.requireType(
+	"proto.build.stack.bazel.registry.v1.ModuleVersion",
+);
 const Registry = goog.require("proto.build.stack.bazel.registry.v1.Registry");
 const Symbol = goog.requireType("proto.build.stack.bazel.symbol.v1.Symbol");
 const SymbolType = goog.require("proto.build.stack.bazel.symbol.v1.SymbolType");
@@ -138,7 +143,7 @@ class DocumentationSearchHandler extends EventTarget {
 	getSearchProvider() {
 		/** @type {!SearchProvider} */
 		const provider = {
-			name: "symbol",
+			name: "symbols",
 			desc: `Search ${this.symbols_.size} symbols in documentation`,
 			incremental: false,
 			inputHandler: this.inputHandler_,
@@ -172,6 +177,7 @@ class DocumentationSearchHandler extends EventTarget {
 			this.inputHandler_,
 		));
 		ac.setMaxMatches(15);
+		ac.setAutoHilite(false);
 
 		this.inputHandler_.attachAutoComplete(ac);
 	}
