@@ -5,6 +5,7 @@ const dom = goog.require("goog.dom");
 const soy = goog.require("goog.soy");
 const { formatRelativePast } = goog.require("bcrfrontend.format");
 const { Route } = goog.requireType("stack.ui");
+const { getApplication } = goog.require("bcrfrontend.common");
 const { ContentSelect } = goog.require("bcrfrontend.ContentSelect");
 const { DocsSelect } = goog.require("bcrfrontend.documentation");
 const { HomeSelect } = goog.require("bcrfrontend.home");
@@ -106,8 +107,13 @@ class BodySelect extends ContentSelect {
 		// install the maintainers tab lazily as it loads quite a few images
 		// from github.
 		if (name === TabName.DOCS) {
-			this.addTab(TabName.DOCS, new DocsSelect(this.registry_, this.dom_));
-			this.select(name, route);
+			// Wait for symbols to be available before loading docs
+			getApplication(this)
+				.getRegistryWithSymbols()
+				.then(() => {
+					this.addTab(TabName.DOCS, new DocsSelect(this.registry_, this.dom_));
+					this.select(name, route);
+				});
 			return;
 		}
 		if (name === TabName.SEARCH) {

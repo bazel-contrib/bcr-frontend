@@ -23,12 +23,13 @@ def _compile_release_action(ctx):
     args.add(ctx.file.index_html)
     args.add("--registry_file")
     args.add(ctx.file.registry_file)
-    if ctx.file.documentation_registry_file:
-        args.add("--documentation_registry_file")
-        args.add(ctx.file.documentation_registry_file)
+    if ctx.file.module_registry_symbols_file:
+        args.add("--module_registry_symbols_file")
+        args.add(ctx.file.module_registry_symbols_file)
 
     # Collect files to exclude from hashing
     exclude_from_hash = [src.basename for src in ctx.files.srcs]
+
     # Add worker modules to exclude list (don't hash WASM/JS modules)
     exclude_from_hash.extend([mod.basename for mod in ctx.files.worker_modules])
     if len(exclude_from_hash) > 0:
@@ -43,7 +44,7 @@ def _compile_release_action(ctx):
         ctx.file.index_html,
         ctx.file.registry_file,
     ] + (
-        [ctx.file.documentation_registry_file] if ctx.file.documentation_registry_file else []
+        [ctx.file.module_registry_symbols_file] if ctx.file.module_registry_symbols_file else []
     )
 
     ctx.actions.run(
@@ -78,8 +79,8 @@ release_archive = rule(
             doc = "WASM/JS modules for Worker (excluded from hashing)",
         ),
         "index_html": attr.label(allow_single_file = True, mandatory = True),
-        "registry_file": attr.label(allow_single_file = True),
-        "documentation_registry_file": attr.label(allow_single_file = True),
+        "registry_file": attr.label(allow_single_file = True, mandatory = True),
+        "module_registry_symbols_file": attr.label(allow_single_file = True, mandatory = True),
         "_releasecompiler": attr.label(
             default = "//cmd/releasecompiler",
             executable = True,

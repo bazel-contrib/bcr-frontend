@@ -28,13 +28,17 @@ const { registryApp, toastSuccess } = goog.require("soy.bcrfrontend.app");
 class RegistryApp extends App {
 	/**
 	 * @param {!Registry} registry
+	 * @param {!Promise<!Registry>} registryWithSymbols
 	 * @param {?dom.DomHelper=} opt_domHelper
 	 */
-	constructor(registry, opt_domHelper) {
+	constructor(registry, registryWithSymbols, opt_domHelper) {
 		super(opt_domHelper);
 
 		/** @private @const */
 		this.registry_ = registry;
+
+		/** @private @const */
+		this.registryWithSymbols_ = registryWithSymbols;
 
 		/** @private @type {!Map<string,string>} */
 		this.options_ = new Map();
@@ -50,7 +54,7 @@ class RegistryApp extends App {
 
 		/** @const @private @type {!DocumentationSearchHandler} */
 		this.documentationSearchHandler_ = new DocumentationSearchHandler(
-			this.registry_,
+			this.registryWithSymbols_,
 		);
 
 		/** @private @type {?SearchComponent} */
@@ -82,6 +86,15 @@ class RegistryApp extends App {
 	 */
 	getMvs() {
 		return this.mvs_;
+	}
+
+	/**
+	 * Returns the promise that resolves when symbols are loaded and decorated.
+	 * @override
+	 * @returns {!Promise<!Registry>}
+	 */
+	getRegistryWithSymbols() {
+		return this.registryWithSymbols_;
 	}
 
 	/** @override */
@@ -141,9 +154,6 @@ class RegistryApp extends App {
 		events.listen(this.search_, events.EventType.BLUR, () =>
 			this.getKbd().setEnabled(true),
 		);
-
-		this.moduleSearchHandler_.addModules(this.registry_.getModulesList());
-		this.documentationSearchHandler_.addAllSymbols();
 
 		this.search_.addSearchProvider(
 			this.moduleSearchHandler_.getSearchProvider(),
