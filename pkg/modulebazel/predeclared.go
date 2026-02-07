@@ -144,7 +144,7 @@ func makeArchiveOverrideBuiltin(module *bzpb.ModuleVersion) goStarlarkFunction {
 			"module_name", &moduleName,
 			"integrity?", &integrity,
 			"patch_strip?", &patchStrip,
-			"patchArgs?", &patchArgs,
+			"patch_args?", &patchArgs,
 			"patches?", &patches,
 			"sha256?", &sha256,
 			"strip_prefix?", &stripPrefix,
