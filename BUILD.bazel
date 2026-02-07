@@ -69,6 +69,7 @@ gazelle(
         "--registry-root=data/bazel-central-registry",
         "--registry-url=https://bcr.stack.build",
         "--blacklisted_url=https://netcologne.dl.sourceforge.net/project/perfmon2/libpfm4/libpfm-4.11.0.tar.gz",
+        "--blacklisted_url=https://netcologne.dl.sourceforge.net/project/tinyxml/tinyxml/2.6.2/tinyxml_2_6_2.tar.gz",
         "--exclude=.cache",  # exists in CI?
         "--exclude=$HOME",  # exists in CI?
         "--exclude=modules",
