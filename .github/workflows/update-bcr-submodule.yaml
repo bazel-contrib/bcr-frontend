@@ -13,8 +13,6 @@ on:
         description: "Specific BCR commit SHA (optional, defaults to latest)"
         required: false
         type: string
-  schedule:
-    - cron: "*/30 * * * *" # Every 30 minutes
 
 concurrency:
   group: ${{ github.workflow }}

@@ -2,7 +2,9 @@ name: Deploy and Auto-Merge BCR PR
 
 on:
   pull_request:
-    types: [opened, synchronize, labeled]
+    # Note: Don't add 'labeled' - it fires simultaneously with 'opened' when PR is created with a label,
+    # causing duplicate runs. The BCR automation always creates PRs with the label attached.
+    types: [opened, synchronize]
 
 concurrency:
   group: deploy-bcr-pr-${{ github.event.pull_request.number }}
