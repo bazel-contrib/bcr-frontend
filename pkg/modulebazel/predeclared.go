@@ -134,17 +134,20 @@ func makeGitOverrideBuiltin(module *bzpb.ModuleVersion) goStarlarkFunction {
 
 func makeArchiveOverrideBuiltin(module *bzpb.ModuleVersion) goStarlarkFunction {
 	return func(thread *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
-		var moduleName, integrity, stripPrefix string
+		var moduleName, integrity, stripPrefix, sha256 string
 		var patchStrip int
 		patches := &starlark.List{}
+		patchArgs := &starlark.List{}
 		var urlsValue, urlValue starlark.Value
 
 		if err := starlark.UnpackArgs("archive_override", args, kwargs,
 			"module_name", &moduleName,
 			"integrity?", &integrity,
-			"strip_prefix?", &stripPrefix,
 			"patch_strip?", &patchStrip,
+			"patchArgs?", &patchArgs,
 			"patches?", &patches,
+			"sha256?", &sha256,
+			"strip_prefix?", &stripPrefix,
 			"url?", &urlValue,
 			"urls?", &urlsValue,
 		); err != nil {
@@ -178,9 +181,11 @@ func makeArchiveOverrideBuiltin(module *bzpb.ModuleVersion) goStarlarkFunction {
 			Override: &bzpb.ModuleDependencyOverride_ArchiveOverride{
 				ArchiveOverride: &bzpb.ArchiveOverride{
 					Integrity:   integrity,
-					StripPrefix: stripPrefix,
-					PatchStrip:  int32(patchStrip),
+					PatchArgs:   mustGetStringSlice(patchArgs),
 					Patches:     mustGetStringSlice(patches),
+					PatchStrip:  int32(patchStrip),
+					Sha256:      sha256,
+					StripPrefix: stripPrefix,
 					Urls:        urls,
 				},
 			},

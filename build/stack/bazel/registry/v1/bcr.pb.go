@@ -1533,6 +1533,8 @@ type ArchiveOverride struct {
 	Patches       []string               `protobuf:"bytes,3,rep,name=patches,proto3" json:"patches,omitempty"`
 	StripPrefix   string                 `protobuf:"bytes,4,opt,name=strip_prefix,json=stripPrefix,proto3" json:"strip_prefix,omitempty"`
 	Urls          []string               `protobuf:"bytes,5,rep,name=urls,proto3" json:"urls,omitempty"`
+	PatchArgs     []string               `protobuf:"bytes,6,rep,name=patch_args,json=patchArgs,proto3" json:"patch_args,omitempty"`
+	Sha256        string                 `protobuf:"bytes,7,opt,name=sha256,proto3" json:"sha256,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1600,6 +1602,20 @@ func (x *ArchiveOverride) GetUrls() []string {
 		return x.Urls
 	}
 	return nil
+}
+
+func (x *ArchiveOverride) GetPatchArgs() []string {
+	if x != nil {
+		return x.PatchArgs
+	}
+	return nil
+}
+
+func (x *ArchiveOverride) GetSha256() string {
+	if x != nil {
+		return x.Sha256
+	}
+	return ""
 }
 
 type SingleVersionOverride struct {
@@ -2323,14 +2339,17 @@ const file_build_stack_bazel_registry_v1_bcr_proto_rawDesc = "" +
 	"patchStrip\x12\x18\n" +
 	"\apatches\x18\x03 \x03(\tR\apatches\x12\x16\n" +
 	"\x06remote\x18\x04 \x01(\tR\x06remote\x12\x16\n" +
-	"\x06branch\x18\x05 \x01(\tR\x06branch\"\xa1\x01\n" +
+	"\x06branch\x18\x05 \x01(\tR\x06branch\"\xd8\x01\n" +
 	"\x0fArchiveOverride\x12\x1c\n" +
 	"\tintegrity\x18\x01 \x01(\tR\tintegrity\x12\x1f\n" +
 	"\vpatch_strip\x18\x02 \x01(\x05R\n" +
 	"patchStrip\x12\x18\n" +
 	"\apatches\x18\x03 \x03(\tR\apatches\x12!\n" +
 	"\fstrip_prefix\x18\x04 \x01(\tR\vstripPrefix\x12\x12\n" +
-	"\x04urls\x18\x05 \x03(\tR\x04urls\"l\n" +
+	"\x04urls\x18\x05 \x03(\tR\x04urls\x12\x1d\n" +
+	"\n" +
+	"patch_args\x18\x06 \x03(\tR\tpatchArgs\x12\x16\n" +
+	"\x06sha256\x18\a \x01(\tR\x06sha256\"l\n" +
 	"\x15SingleVersionOverride\x12\x1f\n" +
 	"\vpatch_strip\x18\x01 \x01(\x05R\n" +
 	"patchStrip\x12\x18\n" +
