@@ -5,6 +5,8 @@ on:
   push:
     branches: [master]
   pull_request:
+    paths-ignore:
+      - "data/bazel-central-registry"
   workflow_dispatch:
 
 concurrency:
