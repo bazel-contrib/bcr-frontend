@@ -165,6 +165,8 @@ func addOverride(dep *bzpb.ModuleDependency, moduleName string, overrides map[st
 				Integrity:   overrideRule.AttrString("integrity"),
 				PatchStrip:  parseInt32(overrideRule.AttrString("patch_strip")),
 				Patches:     overrideRule.AttrStrings("patches"),
+				PatchArgs:   overrideRule.AttrStrings("patch_args"),
+				Sha256:      overrideRule.AttrString("sha256"),
 				StripPrefix: overrideRule.AttrString("strip_prefix"),
 				Urls:        overrideRule.AttrStrings("urls"),
 			},

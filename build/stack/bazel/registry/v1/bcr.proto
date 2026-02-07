@@ -290,6 +290,10 @@ message ArchiveOverride {
     string strip_prefix = 4;
     // Download URLs for the archive
     repeated string urls = 5;
+    // patch_args is not an officially legitimate attribute of archive_override, but there are errors in the BCR so we include it to tolerate and not fail.
+    repeated string patch_args = 6;
+    // sha256 is not an officially legitimate attribute of archive_override, but there are errors in the BCR so we include it to tolerate and not fail.
+    string sha256 = 7;
 }
 
 // Override dependency to use a specific version with optional patches
