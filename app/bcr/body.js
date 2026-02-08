@@ -67,7 +67,6 @@ class BodySelect extends ContentSelect {
 	enterDocument() {
 		super.enterDocument();
 
-		this.addTab(TabName.HOME, new HomeSelect(this.registry_, this.dom_));
 		this.addTab(
 			TabName.MODULES,
 			new ModulesMapSelect(this.registry_, this.dom_),
@@ -104,31 +103,33 @@ class BodySelect extends ContentSelect {
 	 * @param {!Route} route
 	 */
 	selectFail(name, route) {
-		// install the maintainers tab lazily as it loads quite a few images
-		// from github.
+		if (name === TabName.HOME) {
+			// Wait for symbols to be available before loading docs
+			getApplication(this)
+				.getRegistryWithSymbols()
+				.then(() => {
+					this.addTab(name, new HomeSelect(this.registry_, this.dom_));
+					this.select(name, route);
+				});
+			return;
+		}
 		if (name === TabName.DOCS) {
 			// Wait for symbols to be available before loading docs
 			getApplication(this)
 				.getRegistryWithSymbols()
 				.then(() => {
-					this.addTab(TabName.DOCS, new DocsSelect(this.registry_, this.dom_));
+					this.addTab(name, new DocsSelect(this.registry_, this.dom_));
 					this.select(name, route);
 				});
 			return;
 		}
 		if (name === TabName.SEARCH) {
-			this.addTab(
-				TabName.SEARCH,
-				new SearchSelectNav(this.registry_, this.dom_),
-			);
+			this.addTab(name, new SearchSelectNav(this.registry_, this.dom_));
 			this.select(name, route);
 			return;
 		}
 		if (name === TabName.MAINTAINERS) {
-			this.addTab(
-				TabName.MAINTAINERS,
-				new MaintainersSelect(this.registry_, this.dom_),
-			);
+			this.addTab(name, new MaintainersSelect(this.registry_, this.dom_));
 			this.select(name, route);
 			return;
 		}
