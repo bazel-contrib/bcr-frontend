@@ -70,13 +70,22 @@ class ModuleSearchHandler extends EventTarget {
 		/** @type {!SearchProvider} */
 		const provider = {
 			name: "modules",
-			desc: `Search ${this.modules_.size} modules in registry`,
+			desc: `Search ${this.registry_.getModulesList().length} modules in registry`,
 			incremental: false,
 			inputHandler: this.inputHandler_,
 			onsubmit: goog.bind(this.handleSearchOnSubmit, this),
 			keyCode: events.KeyCodes.SLASH,
+			load: goog.bind(this.load, this),
 		};
 		return provider;
+	}
+
+	/**
+	 * Load handler - resolves immediately since data is available.
+	 * @returns {!Promise<void>}
+	 */
+	async load() {
+		this.addModules(this.registry_.getModulesList());
 	}
 
 	/**

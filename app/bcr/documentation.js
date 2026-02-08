@@ -369,10 +369,10 @@ class ModuleVersionSymbolsSelect extends ContentSelect {
 	/**
 	 * @param {!Module} module
 	 * @param {!ModuleVersion} moduleVersion
-	 * @param {?ModuleVersionSymbols} docs
+	 * @param {?ModuleVersionSymbols} symbols
 	 * @param {?dom.DomHelper=} opt_domHelper
 	 */
-	constructor(module, moduleVersion, docs, opt_domHelper) {
+	constructor(module, moduleVersion, symbols, opt_domHelper) {
 		super(opt_domHelper);
 
 		/** @private @const @type {!Module} */
@@ -382,13 +382,13 @@ class ModuleVersionSymbolsSelect extends ContentSelect {
 		this.moduleVersion_ = moduleVersion;
 
 		/** @private @const @type {?ModuleVersionSymbols} */
-		this.docs_ = docs;
+		this.symbols_ = symbols;
 
 		/** @const @private @type {!Trie<!File>}*/
 		this.fileTrie_ = new Trie();
 
-		if (docs) {
-			for (const file of docs.getFileList()) {
+		if (symbols) {
+			for (const file of symbols.getFileList()) {
 				this.addFile(file);
 			}
 		}
@@ -418,8 +418,8 @@ class ModuleVersionSymbolsSelect extends ContentSelect {
 		/** @type {!Array<FileSymbolGroupList>} */
 		let fileSymbols = [];
 
-		if (this.docs_) {
-			fileSymbols = buildFileSymbolGroups(this.docs_);
+		if (this.symbols_) {
+			fileSymbols = buildFileSymbolGroups(this.symbols_);
 		}
 
 		this.setElementInternal(
@@ -429,7 +429,7 @@ class ModuleVersionSymbolsSelect extends ContentSelect {
 					module: this.module_,
 					moduleVersion: this.moduleVersion_,
 					fileSymbols,
-					info: this.docs_ || undefined,
+					info: this.symbols_ || undefined,
 				},
 				{
 					baseUrl: this.getPathUrl(),
@@ -465,13 +465,13 @@ class ModuleVersionSymbolsSelect extends ContentSelect {
 			return;
 		}
 
-		if (this.docs_) {
+		if (this.symbols_) {
 			if (name === TabName.LIST) {
 				this.addTab(
 					name,
 					new ModuleVersionSymbolsListComponent(
 						this.moduleVersion_,
-						this.docs_,
+						this.symbols_,
 						this.dom_,
 					),
 				);
@@ -483,7 +483,7 @@ class ModuleVersionSymbolsSelect extends ContentSelect {
 					name,
 					new ModuleVersionSymbolsTreeComponent(
 						this.moduleVersion_,
-						this.docs_,
+						this.symbols_,
 						this.dom_,
 					),
 				);

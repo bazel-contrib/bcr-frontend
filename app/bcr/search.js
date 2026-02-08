@@ -284,7 +284,12 @@ class SearchComponent extends EventTarget {
 	/**
 	 * @param {!SearchProvider} provider
 	 */
-	attachProvider(provider) {
+	async attachProvider(provider) {
+		// Call load if provider has it
+		if (provider.load) {
+			await provider.load();
+		}
+
 		if (this.didAttachProviderInputHandler(provider)) {
 			return;
 		}

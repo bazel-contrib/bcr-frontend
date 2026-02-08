@@ -36,13 +36,13 @@ let FileSymbol;
 class DocumentationSearchHandler extends EventTarget {
 	/**
 	 * Construct a new DocumentationSearchHandler
-	 * @param {!Registry} registry The bazel central registry
+	 * @param {!Promise<!Registry>} registryWithSymbols Promise that resolves to registry with symbols
 	 */
-	constructor(registry) {
+	constructor(registryWithSymbols) {
 		super();
 
-		/** @private @const */
-		this.registry_ = registry;
+		/** @private @const @type {!Promise<!Registry>} */
+		this.registryWithSymbols_ = registryWithSymbols;
 
 		/** @private @const @type {!Map<string, string>} */
 		this.links_ = new Map();
@@ -67,17 +67,15 @@ class DocumentationSearchHandler extends EventTarget {
 
 		/** @private @type {?AutoComplete} */
 		this.ac_ = null;
-
-		// Index all symbols from documentation
-		this.indexSymbols_();
 	}
 
 	/**
 	 * Index all symbols from the documentation across all modules in the registry.
+	 * @param {!Registry} registry The registry with symbols loaded
 	 * @private
 	 */
-	indexSymbols_() {
-		for (const module of this.registry_.getModulesList()) {
+	indexSymbols_(registry) {
+		for (const module of registry.getModulesList()) {
 			const moduleName = module.getName();
 
 			for (const version of module.getVersionsList()) {
@@ -144,13 +142,24 @@ class DocumentationSearchHandler extends EventTarget {
 		/** @type {!SearchProvider} */
 		const provider = {
 			name: "symbols",
-			desc: `Search ${this.symbols_.size} symbols in documentation`,
+			desc: `Search symbols in documentation`,
 			incremental: false,
 			inputHandler: this.inputHandler_,
 			onsubmit: goog.bind(this.handleSearchOnSubmit, this),
 			keyCode: events.KeyCodes.PERIOD,
+			load: goog.bind(this.load, this),
 		};
 		return provider;
+	}
+
+	/**
+	 * Load handler - fetches symbols.pb.gz via the promise.
+	 * @returns {!Promise<void>}
+	 */
+	async load() {
+		const registry = await this.registryWithSymbols_;
+		this.indexSymbols_(registry);
+		this.addAllSymbols();
 	}
 
 	/**

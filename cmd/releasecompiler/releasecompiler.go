@@ -79,12 +79,14 @@ func run(args []string) error {
 		log.Printf("Processed registry file: %s -> %s", asset.OriginalName, asset.HashedName)
 	}
 
-	docAsset, err := processModuleRegistrySymbolsFile(cfg.ModuleRegistrySymbolsFile)
+	symbolsAssets, err := processModuleRegistrySymbolsFile(cfg.ModuleRegistrySymbolsFile)
 	if err != nil {
-		return fmt.Errorf("failed to process registry file: %v", err)
+		return fmt.Errorf("failed to process symbols file: %v", err)
 	}
-	assets = append(assets, *docAsset)
-	log.Printf("Processed documentation registry file: %s -> %s", docAsset.OriginalName, docAsset.HashedName)
+	for _, asset := range symbolsAssets {
+		assets = append(assets, asset)
+		log.Printf("Processed symbols file: %s -> %s", asset.OriginalName, asset.HashedName)
+	}
 
 	// Read and update index.html
 	indexContent, err := updateIndexHtml(cfg.IndexHtmlFile, assets)
@@ -156,32 +158,38 @@ func processRegistryFile(registryPath string) ([]HashedAsset, error) {
 	}, nil
 }
 
-func processModuleRegistrySymbolsFile(documentationRegistryPath string) (*HashedAsset, error) {
-	var b64Content string
-	if documentationRegistryPath != "" {
-		content, err := os.ReadFile(documentationRegistryPath)
-		if err != nil {
-			return nil, fmt.Errorf("failed to read doc registry file: %v", err)
-		}
-
-		b64Content, err = base64GzipEncode(content)
-		if err != nil {
-			return nil, fmt.Errorf("b64gz encoding: %v", err)
-		}
+func processModuleRegistrySymbolsFile(documentationRegistryPath string) ([]HashedAsset, error) {
+	if documentationRegistryPath == "" {
+		panic("symbols file path is required")
 	}
 
-	// Create JS file content
-	jsContent := fmt.Appendf(nil, "const DOCUMENTATION_REGISTRY_DATA = \"%s\";\n", b64Content)
+	// Read the symbols file
+	content, err := os.ReadFile(documentationRegistryPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read doc registry file: %v", err)
+	}
 
-	// Generate filename: registry.pb.gz.b64.js
-	originalName := "docs.pb.gz.b64.js"
-	hashedName := hashFilename(originalName, jsContent)
+	// Gzip the content
+	var gzipBuf bytes.Buffer
+	gzipWriter := gzip.NewWriter(&gzipBuf)
+	if _, err := gzipWriter.Write(content); err != nil {
+		return nil, fmt.Errorf("failed to gzip content: %v", err)
+	}
+	if err := gzipWriter.Close(); err != nil {
+		return nil, fmt.Errorf("failed to close gzip writer: %v", err)
+	}
+	gzipContent := gzipBuf.Bytes()
 
-	return &HashedAsset{
-		OriginalPath: documentationRegistryPath,
-		OriginalName: originalName,
-		HashedName:   hashedName,
-		Content:      jsContent,
+	// Output as symbols.pb.gz (no hashing - keep predictable name)
+	gzOriginalName := "symbols.pb.gz"
+
+	return []HashedAsset{
+		{
+			OriginalPath: documentationRegistryPath,
+			OriginalName: gzOriginalName,
+			HashedName:   gzOriginalName, // No hashing - keep original name
+			Content:      gzipContent,
+		},
 	}, nil
 }
 
@@ -319,7 +327,7 @@ func parseFlags(args []string) (cfg Config, err error) {
 	fs.StringVar(&cfg.OutputFile, "output_file", "", "the output file to write")
 	fs.StringVar(&cfg.IndexHtmlFile, "index_html_file", "", "the index.html file to read")
 	fs.StringVar(&cfg.RegistryFile, "registry_file", "", "the registry protobuf file to process (gzipped and base64 encoded)")
-	fs.StringVar(&cfg.ModuleRegistrySymbolsFile, "documentation_registry_file", "", "the documentation registry protobuf file to process (gzipped and base64 encoded)")
+	fs.StringVar(&cfg.ModuleRegistrySymbolsFile, "module_registry_symbols_file", "", "the documentation registry protobuf file to process (gzipped and base64 encoded)")
 	fs.StringVar(&excludeFromHashStr, "exclude_from_hash", "", "comma-separated list of basenames to exclude from hashing (e.g., favicon.png,robots.txt)")
 	fs.Usage = func() {
 		fmt.Fprintf(flag.CommandLine.Output(), "usage: %s @PARAMS_FILE", toolName)

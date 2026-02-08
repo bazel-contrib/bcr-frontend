@@ -43,6 +43,12 @@ class Application {
 	 * @param {string} _msg
 	 */
 	notifyError(_msg) {}
+
+	/**
+	 * Returns a promise that resolves when symbols are loaded and decorated.
+	 * @returns {!Promise<*>}
+	 */
+	getRegistryWithSymbols() {}
 }
 exports.Application = Application;
 
@@ -63,6 +69,7 @@ exports.getApplication = getApplication;
  * onsubmit: (function(!Application,string):undefined|null),
  * inputHandler: (!InputHandler|null),
  * keyCode: (number|undefined),
+ * load: (!function():!Promise<void>|undefined),
  * }}
  */
 var SearchProvider;

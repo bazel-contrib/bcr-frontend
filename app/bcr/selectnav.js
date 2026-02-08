@@ -77,6 +77,19 @@ class SelectNav extends ContentSelect {
 	}
 
 	/**
+	 * Adds a nav item without the component - component will be added lazily in selectFail.
+	 * @param {string} name
+	 * @param {string} label
+	 * @param {string} title
+	 * @param {number|undefined} count
+	 * @param {string} path The URL path for this tab
+	 */
+	addNavTabDeferred(name, label, title, count, path) {
+		const item = this.createMenuItem(name, label, title, count, path);
+		dom.append(this.getNavElement(), item);
+	}
+
+	/**
 	 * @param {string} name
 	 * @param {string} label
 	 * @param {string} title

@@ -89,8 +89,8 @@ def _compile_codesearch_index_action(ctx, deps):
 
     return output
 
-def _compile_documentation_registry(ctx, doc_results):
-    output = ctx.actions.declare_file("documentationregistry.pb")
+def _compile_module_registry_symbols(ctx, doc_results):
+    output = ctx.actions.declare_file("symbols.pb")
     inputs = [result.output for result in doc_results]
 
     args = ctx.actions.args()
@@ -337,7 +337,7 @@ Sitemap: {registry_url}/sitemap.xml
 
     return output
 
-def _compile_registry_action(ctx, filename, modules, docRegistry = None):
+def _compile_registry_action(ctx, filename, modules, symbols = None):
     output = ctx.actions.declare_file(filename)
     inputs = [] + modules
 
@@ -346,10 +346,10 @@ def _compile_registry_action(ctx, filename, modules, docRegistry = None):
     args.add(output)
     args.add("--registry_url")
     args.add(ctx.attr.registry_url)
-    if docRegistry:
+    if symbols:
         args.add("--documentation_registry_file")
-        args.add(docRegistry)
-        inputs.append(docRegistry)
+        args.add(symbols)
+        inputs.append(symbols)
     if ctx.attr.repository_url:
         args.add("--repository_url")
         args.add(ctx.attr.repository_url)
@@ -389,8 +389,8 @@ def _module_registry_impl(ctx):
     robots_txt = _write_robots_txt_action(ctx)
     codesearch_index = _compile_codesearch_index_action(ctx, deps)
     doc_results = _compile_documentation(ctx, deps)
-    documentation_registry_pb = _compile_documentation_registry(ctx, doc_results)
-    registry_pb = _compile_registry_action(ctx, "registry.pb", modules, documentation_registry_pb)
+    symbols_pb = _compile_module_registry_symbols(ctx, doc_results)
+    registry_pb = _compile_registry_action(ctx, "registry.pb", modules, symbols_pb)
     registrylite_pb = _compile_registry_action(ctx, "registrylite.pb", modules)
 
     sitemap_xml = _compile_sitemap_action(ctx, registry_pb)
@@ -408,7 +408,7 @@ def _module_registry_impl(ctx):
             registrylite_pb = [registrylite_pb],
             codesearch_index = [codesearch_index],
             docs = depset([r.output for r in doc_results]),
-            documentation_registry_pb = depset([documentation_registry_pb]),
+            symbols_pb = depset([symbols_pb]),
             bazel_help = depset([bazel_help]),
             **{d.mv.id.replace("@", "-"): depset([d.output]) for d in doc_results}
         ),

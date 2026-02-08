@@ -61,8 +61,10 @@ const { highlightAll } = goog.require("bcrfrontend.syntax");
  * @enum {string}
  */
 const TabName = {
+	DOCS: "docs",
 	LIST: "list",
 	OVERVIEW: "overview",
+	TESTING: "testing",
 };
 
 /**
@@ -385,27 +387,52 @@ class ModuleVersionSelectNav extends SelectNav {
 			),
 		);
 
-		const docs = this.moduleVersion_.getSource().getDocumentation();
-		this.addNavTab(
-			"docs",
+		// Add docs nav tab link - component will be added lazily in selectFail
+		this.addNavTabDeferred(
+			TabName.DOCS,
 			"Documentation",
 			"Generated Stardoc Documentation",
 			undefined,
-			new ModuleVersionSymbolsSelect(
-				this.module_,
-				this.moduleVersion_,
-				docs || null,
-			),
+			`${this.getPathUrl()}/${TabName.DOCS}`,
 		);
 
 		const presubmit = this.moduleVersion_.getPresubmit();
 		this.addNavTab(
-			"testing",
+			TabName.TESTING,
 			"Testing",
 			"Test Configuration",
 			undefined,
 			new PresubmitSelect(this.module_, this.moduleVersion_, presubmit || null),
 		);
+	}
+
+	/**
+	 * @override
+	 * @param {string} name
+	 * @param {!Route} route
+	 */
+	selectFail(name, route) {
+		if (name === TabName.DOCS) {
+			// Lazy load documentation tab - wait for symbols to be available
+			getApplication(this)
+				.getRegistryWithSymbols()
+				.then(() => {
+					const docs = this.moduleVersion_.getSource()?.getDocumentation();
+					// Use addTab since nav item was already added via addNavTabDeferred
+					this.addTab(
+						TabName.DOCS,
+						new ModuleVersionSymbolsSelect(
+							this.module_,
+							this.moduleVersion_,
+							docs || null,
+						),
+					);
+					this.select(name, route);
+				});
+			return;
+		}
+
+		super.selectFail(name, route);
 	}
 }
 
