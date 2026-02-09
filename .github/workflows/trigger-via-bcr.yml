@@ -1,12 +1,83 @@
-name: Trigger BCR Update via Repository Dispatch
+name: Deploy BCR Update
 
 on:
   repository_dispatch:
     types: [on-bcr-trigger]
+  workflow_dispatch:
+    inputs:
+      bcr_commit:
+        description: "BCR commit SHA to deploy (defaults to latest)"
+        required: false
+        type: string
+
+concurrency:
+  group: bcr-deploy
+  cancel-in-progress: false
 
 jobs:
-  trigger-update:
-    uses: ./.github/workflows/update-bcr-submodule.yaml
-    with:
-      bcr_commit: ${{ github.event.client_payload.bcrCommitHash }}
-    secrets: inherit
+  deploy:
+    runs-on: self-hosted
+    environment: deploy
+    permissions:
+      contents: read
+      packages: write
+    env:
+      GITHUB_TOKEN: ${{ secrets.BCR_AUTOMATION_TOKEN }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: main
+          submodules: true
+          token: ${{ secrets.BCR_AUTOMATION_TOKEN }}
+
+      - name: Determine BCR commit
+        id: bcr
+        run: |
+          if [ -n "${{ inputs.bcr_commit }}" ]; then
+            BCR_SHA="${{ inputs.bcr_commit }}"
+          elif [ -n "${{ github.event.client_payload.bcrCommitHash }}" ]; then
+            BCR_SHA="${{ github.event.client_payload.bcrCommitHash }}"
+          else
+            # Get latest BCR commit
+            cd data/bazel-central-registry
+            git fetch origin main
+            BCR_SHA=$(git rev-parse origin/main)
+            cd ../..
+          fi
+          echo "sha=$BCR_SHA" >> $GITHUB_OUTPUT
+          echo "Deploying BCR commit: $BCR_SHA"
+
+      - name: Update submodule to target commit
+        run: |
+          cd data/bazel-central-registry
+          git fetch origin
+          git checkout ${{ steps.bcr.outputs.sha }}
+          cd ../..
+          echo "Updated submodule to ${{ steps.bcr.outputs.sha }}"
+
+      - uses: bazel-contrib/setup-bazel@0.16.0
+
+      - name: Clean and initialize BCR
+        run: make bcr_clean bcr_init bcr_update
+
+      - name: Run BCR gazelle
+        run: >-
+          bazelisk
+          --bazelrc=.github/workflows/ci.bazelrc
+          --bazelrc=.bazelrc
+          run
+          //:bcr
+
+      - name: Deploy to production
+        run: >-
+          bazelisk
+          --bazelrc=.github/workflows/ci.bazelrc
+          --bazelrc=.bazelrc
+          run
+          --//app/bcr:release_type=production
+          //app/bcr:deploy
+
+      - name: Log deployment
+        run: |
+          echo "✅ Deployed BCR commit ${{ steps.bcr.outputs.sha }}"

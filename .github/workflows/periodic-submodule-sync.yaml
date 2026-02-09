@@ -1,0 +1,50 @@
+name: Periodic Submodule Sync
+
+on:
+  schedule:
+    - cron: "0 0 * * 0"  # Weekly on Sunday midnight UTC
+  workflow_dispatch:
+
+jobs:
+  sync:
+    runs-on: self-hosted
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: main
+          submodules: true
+          token: ${{ secrets.BCR_AUTOMATION_TOKEN }}
+
+      - name: Check if sync needed
+        id: check
+        run: |
+          cd data/bazel-central-registry
+          git fetch origin main
+          CURRENT=$(git rev-parse HEAD)
+          LATEST=$(git rev-parse origin/main)
+
+          if [ "$CURRENT" != "$LATEST" ]; then
+            echo "needs_sync=true" >> $GITHUB_OUTPUT
+            echo "Current: $CURRENT"
+            echo "Latest: $LATEST"
+          else
+            echo "needs_sync=false" >> $GITHUB_OUTPUT
+            echo "Already at latest: $CURRENT"
+          fi
+
+      - name: Update submodule
+        if: steps.check.outputs.needs_sync == 'true'
+        run: |
+          cd data/bazel-central-registry
+          git checkout origin/main
+          cd ../..
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/bazel-central-registry
+
+          NEW_SHA=$(git -C data/bazel-central-registry rev-parse HEAD)
+          git commit -m "Sync BCR submodule to $NEW_SHA"
+          git push origin main
