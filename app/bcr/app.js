@@ -286,8 +286,8 @@ class RegistryApp extends App {
 	handleRouteDone(e) {
 		const routeEvent = /** @type {!RouteEvent} */ (e);
 		this.activeComponent_ = routeEvent.component || null;
-		const route = /** @type {!Route} */ (e.target);
-		console.log("done:", route.getPath());
+		// DEBUG const route = /** @type {!Route} */ (e.target);
+		// DEBUG console.log("done:", route.getPath());
 	}
 
 	/**
@@ -295,7 +295,7 @@ class RegistryApp extends App {
 	 */
 	handleRouteProgress(e) {
 		const routeEvent = /** @type {!RouteEvent} */ (e);
-		// console.info(`progress: ${routeEvent.route.unmatchedPath()}`, routeEvent);
+		// DEBUG console.info(`progress: ${routeEvent.route.unmatchedPath()}`, routeEvent);
 	}
 
 	/**
@@ -306,7 +306,7 @@ class RegistryApp extends App {
 		this.getRouter().unlistenRoute();
 		this.activeComponent_ = null;
 		console.error("not found:", route.getPath());
-		// this.route("/" + TabName.NOT_FOUND + route.getPath());
+		// DEBUG this.route("/" + TabName.NOT_FOUND + route.getPath());
 	}
 
 	/**
@@ -350,7 +350,7 @@ class RegistryApp extends App {
 				}
 				const searchprovider = dataset.get(node, "searchprovider");
 				if (searchprovider) {
-					this.search_.setCurrentSearchProviderByName(searchprovider);
+					this.search_.focusSearchProviderByName(searchprovider);
 					return true;
 				}
 				return false;
