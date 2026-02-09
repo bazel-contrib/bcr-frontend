@@ -14,13 +14,25 @@ This repository provides a web UI and API for the [Bazel Central Registry](https
 
 CI works as follows:
 
-- [ ] When new commits land in `github.com/bazelbuild/bazel-central-registry`, a
-  repository dispatch triggers the `update-bcr-submodule` job, which creates a
-  new PR that updates the submodule commit and labels the PR with
-  `bcr-auto-update`.
-- [x] A cron job (triggers every 30m) also calls `update-bcr-submodule`.  This
-  will be disabled once repository dispatch is setup.
-- [x] The `deploy-and-merge-bcr-pr` runs gazelle on the submodule, builds and deploys an updated version to cloudflare.  A successful PR of this type is auto-merged.
+- When new commits land in `github.com/bazelbuild/bazel-central-registry`, a
+  repository dispatch triggers `trigger-via-bcr.yml`, which directly deploys
+  to production without creating commits or PRs on main.
+- A weekly cron job (`periodic-submodule-sync.yaml`) syncs the main branch's
+  submodule reference to keep it reasonably current.
+
+### Manual Deployment
+
+To manually deploy a specific BCR commit:
+
+```sh
+gh workflow run trigger-via-bcr.yml -f bcr_commit=<sha>
+```
+
+To deploy the latest BCR commit:
+
+```sh
+gh workflow run trigger-via-bcr.yml
+```
 
 ## Build Pipeline
 
