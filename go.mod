@@ -20,7 +20,7 @@ require (
 	github.com/teacat/noire v1.1.0
 	github.com/zeebo/blake3 v0.2.4
 	go.starlark.net v0.0.0-20250906160240-bf296ed553ea
-	golang.org/x/oauth2 v0.30.0
+	golang.org/x/oauth2 v0.35.0
 	golang.org/x/sync v0.19.0
 	golang.org/x/time v0.14.0
 	google.golang.org/grpc v1.75.1
