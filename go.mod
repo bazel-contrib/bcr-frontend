@@ -16,7 +16,7 @@ require (
 	github.com/rs/zerolog v1.34.0
 	github.com/samthor/sre2 v0.0.0-20150929104051-385a11de6465
 	github.com/schollz/progressbar/v3 v3.19.0
-	github.com/shurcooL/githubv4 v0.0.0-20240727222349-48295856cce7
+	github.com/shurcooL/githubv4 v0.0.0-20260209031235-2402fdf4a9ed
 	github.com/teacat/noire v1.1.0
 	github.com/zeebo/blake3 v0.2.4
 	go.starlark.net v0.0.0-20250906160240-bf296ed553ea
