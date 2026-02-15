@@ -7,7 +7,7 @@ toolchain go1.24.10
 require (
 	github.com/amenzhinsky/go-memexec v0.7.1
 	github.com/bazelbuild/bazel-gazelle v0.47.0
-	github.com/bazelbuild/buildtools v0.0.0-20250930140053-2eb4fccefb52
+	github.com/bazelbuild/buildtools v0.0.0-20260211083412-859bfffeef82
 	github.com/chromedp/chromedp v0.14.2
 	github.com/dominikbraun/graph v0.23.0
 	github.com/google/go-github/v66 v66.0.0
