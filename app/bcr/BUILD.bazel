@@ -10,6 +10,7 @@ load(
     "closure_js_test",
 )
 load("//rules:deploy.bzl", "cloudflare_deploy")
+load("//rules:ghpages.bzl", "ghpages_deploy")
 load("//rules:octicons_closure_template_compile.bzl", "octicons_closure_template_compile")
 load("//rules:release.bzl", "release_archive")
 
@@ -336,4 +337,9 @@ cloudflare_deploy(
     tarball = ":release",
     worker_modules = ["//app/api"],
     worker_script = "worker.mjs",
+)
+
+ghpages_deploy(
+    name = "ghpages",
+    tarball = ":release",
 )
