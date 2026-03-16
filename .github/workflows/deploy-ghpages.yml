@@ -37,7 +37,7 @@ jobs:
       packages: write
     env:
       GITHUB_TOKEN: ${{ secrets.BCR_AUTOMATION_TOKEN }}
-      DEPLOY_REMOTE: https://x-access-token:${{ secrets.GHPAGES_TOKEN }}@github.com/bazel-contrib/bcr-frontend-site.git
+      DEPLOY_REMOTE: https://x-access-token:${{ secrets.BCR_AUTOMATION_TOKEN }}@github.com/bazel-contrib/bcr-frontend-site.git
     steps:
       - uses: actions/checkout@v6
         with:
