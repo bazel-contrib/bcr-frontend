@@ -80,7 +80,7 @@ function decorateRegistryWithSymbols(registry, symbolsRegistry) {
  * Creates a Promise that fetches symbols.pb.gz and decorates the registry.
  * @param {!Registry} registry The base registry to decorate
  * @returns {!Promise<!Registry>} Promise that resolves to decorated registry
- * @suppress {uselessCode} 
+ * @suppress {uselessCode}
  */
 function createRegistryWithSymbolsPromise(registry) {
 	return (async () => {

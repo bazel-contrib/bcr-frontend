@@ -68,7 +68,8 @@ const { highlightAll } = goog.require("bcrfrontend.syntax");
 async function fetchModuleVersionSymbolsFromGithubRepository(moduleVersion) {
 	const name = moduleVersion.getName();
 	const version = moduleVersion.getVersion();
-	const baseUrl = new URLSearchParams(window.location.search).get("modules_base_url") || "";
+	const baseUrl =
+		new URLSearchParams(window.location.search).get("modules_base_url") || "";
 	const url = `${baseUrl}/modules/${name}/${version}/documentationinfo.pb.gz`;
 	try {
 		const response = await fetch(url);
@@ -328,7 +329,7 @@ function getCachedVersionData(registry, module) {
 		}
 
 		versionData.push(
-			/** @type{!VersionData} **/({
+			/** @type{!VersionData} **/ ({
 				version: v.getVersion(),
 				compat: v.getCompatibilityLevel(),
 				commitDate: formatDate(v.getCommit().getDate()),
@@ -446,7 +447,9 @@ class ModuleVersionSelectNav extends SelectNav {
 					if (docs) {
 						return docs;
 					}
-					return fetchModuleVersionSymbolsFromGithubRepository(this.moduleVersion_);
+					return fetchModuleVersionSymbolsFromGithubRepository(
+						this.moduleVersion_,
+					);
 				})
 				.then((/** @type {?ModuleVersionSymbols} */ docs) => {
 					// Use addTab since nav item was already added via addNavTabDeferred
@@ -676,8 +679,8 @@ class ModuleVersionDependenciesComponent extends ContentComponent {
 			this.deps_.length > 0
 				? this.deps_
 				: this.moduleVersion_
-					.getDepsList()
-					.filter((d) => d.getDev() === this.dev_);
+						.getDepsList()
+						.filter((d) => d.getDev() === this.dev_);
 
 		// Get the set of module names in this dependency list
 		const depModuleNames = new Set(deps.map((d) => d.getName()));
@@ -1608,10 +1611,10 @@ class ModuleVersionsFilterSelect extends ContentSelect {
 
 		return names.map(
 			(name) =>
-				/** @type {!Language} */({
-				name,
-				sanitizedName: sanitizeLanguageName(name),
-			}),
+				/** @type {!Language} */ ({
+					name,
+					sanitizedName: sanitizeLanguageName(name),
+				}),
 		);
 	}
 
