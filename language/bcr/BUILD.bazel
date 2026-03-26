@@ -34,6 +34,7 @@ go_library(
         "repository_metadata_cache.go",
         "resource_status_cache.go",
         "single_version_override.go",
+        "siterepo.go",
         "stardoc.go",
     ],
     importpath = "github.com/bazel-contrib/bcr-frontend/language/bcr",

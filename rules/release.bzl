@@ -35,12 +35,16 @@ def _compile_release_action(ctx):
     if len(exclude_from_hash) > 0:
         args.add("--exclude_from_hash", ",".join(exclude_from_hash))
 
+    for f in ctx.files.modules_srcs:
+        args.add("--modules_src", f)
+
+    # Positional args (asset files) must come last, after all flags
     args.add_all(ctx.files.srcs)
     args.add_all(ctx.files.hashed_srcs)
     args.add_all(ctx.files.worker_modules)
 
     # Build inputs list
-    inputs = ctx.files.srcs + ctx.files.hashed_srcs + ctx.files.worker_modules + [
+    inputs = ctx.files.srcs + ctx.files.hashed_srcs + ctx.files.worker_modules + ctx.files.modules_srcs + [
         ctx.file.index_html,
         ctx.file.registry_file,
     ] + (
@@ -73,6 +77,10 @@ release_archive = rule(
     implementation = _release_archive_impl,
     attrs = {
         "hashed_srcs": attr.label_list(allow_files = True),
+        "modules_srcs": attr.label_list(
+            allow_files = True,
+            doc = "Files to include under modules/ in the tarball, preserving subdirectory structure",
+        ),
         "srcs": attr.label_list(allow_files = True),
         "worker_modules": attr.label_list(
             allow_files = [".wasm", ".js", ".mjs"],

@@ -26,7 +26,17 @@ type Config struct {
 	RegistryFile              string
 	ModuleRegistrySymbolsFile string
 	AssetFiles                []string
+	ModulesSrcFiles           stringSliceFlag
 	ExcludeFromHash           map[string]bool // basenames to exclude from hashing
+}
+
+// stringSliceFlag is a custom flag type for repeatable flags
+type stringSliceFlag []string
+
+func (s *stringSliceFlag) String() string { return strings.Join(*s, ",") }
+func (s *stringSliceFlag) Set(value string) error {
+	*s = append(*s, value)
+	return nil
 }
 
 type HashedAsset struct {
@@ -95,7 +105,7 @@ func run(args []string) error {
 	}
 
 	// Create tarball
-	tarball, err := createTarball(indexContent, assets)
+	tarball, err := createTarball(indexContent, assets, cfg.ModulesSrcFiles)
 	if err != nil {
 		return fmt.Errorf("failed to create tarball: %v", err)
 	}
@@ -279,7 +289,7 @@ func updateIndexHtml(indexPath string, assets []HashedAsset) ([]byte, error) {
 	return []byte(htmlStr), nil
 }
 
-func createTarball(indexContent []byte, assets []HashedAsset) ([]byte, error) {
+func createTarball(indexContent []byte, assets []HashedAsset, modulesSrcFiles []string) ([]byte, error) {
 	var buf bytes.Buffer
 	tw := tar.NewWriter(&buf)
 
@@ -293,6 +303,25 @@ func createTarball(indexContent []byte, assets []HashedAsset) ([]byte, error) {
 		if err := addFileToTar(tw, asset.HashedName, asset.Content); err != nil {
 			return nil, fmt.Errorf("failed to add %s: %v", asset.HashedName, err)
 		}
+	}
+
+	// Add modules_src files preserving path relative to "modules/"
+	for _, path := range modulesSrcFiles {
+		const marker = "modules/"
+		idx := strings.LastIndex(path, marker)
+		if idx == -1 {
+			return nil, fmt.Errorf("modules_src file %q does not contain %q in its path", path, marker)
+		}
+		tarName := path[idx:] // e.g. "modules/rules_pkg/1.2.0/documentationinfo.json.gz"
+
+		content, err := os.ReadFile(path)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read modules_src %s: %v", path, err)
+		}
+		if err := addFileToTar(tw, tarName, content); err != nil {
+			return nil, fmt.Errorf("failed to add %s: %v", tarName, err)
+		}
+		log.Printf("Added modules_src: %s", tarName)
 	}
 
 	if err := tw.Close(); err != nil {
@@ -328,6 +357,7 @@ func parseFlags(args []string) (cfg Config, err error) {
 	fs.StringVar(&cfg.IndexHtmlFile, "index_html_file", "", "the index.html file to read")
 	fs.StringVar(&cfg.RegistryFile, "registry_file", "", "the registry protobuf file to process (gzipped and base64 encoded)")
 	fs.StringVar(&cfg.ModuleRegistrySymbolsFile, "module_registry_symbols_file", "", "the documentation registry protobuf file to process (gzipped and base64 encoded)")
+	fs.Var(&cfg.ModulesSrcFiles, "modules_src", "a file to include under modules/ in the tarball (repeatable)")
 	fs.StringVar(&excludeFromHashStr, "exclude_from_hash", "", "comma-separated list of basenames to exclude from hashing (e.g., favicon.png,robots.txt)")
 	fs.Usage = func() {
 		fmt.Fprintf(flag.CommandLine.Output(), "usage: %s @PARAMS_FILE", toolName)
@@ -339,7 +369,7 @@ func parseFlags(args []string) (cfg Config, err error) {
 	}
 
 	cfg.AssetFiles = fs.Args()
-	log.Println("assets:", cfg.AssetFiles)
+	// log.Println("assets:", cfg.AssetFiles)
 	// Parse exclude list into map for fast lookup
 	cfg.ExcludeFromHash = make(map[string]bool)
 	if excludeFromHashStr != "" {

@@ -274,12 +274,20 @@ func (ext *bcrExtension) rankBzlRepositoryVersions(perModuleVersionMvs mvs, bzlR
 }
 
 func (ext *bcrExtension) rankBzlRepositoryVersionsForModule(id moduleID, deps moduleDeps, bzlRepositories rankedModuleVersionMap) {
-	// skip setting bzl_src and deps on non-latest versions
 	moduleVersionRule, exists := ext.moduleVersionRules[id]
 	if !exists {
 		return
 	}
-	if !isLatestVersion(moduleVersionRule) {
+	// When docs-all-versions is off, only process latest versions
+	if !ext.docsAllVersions && !isLatestVersion(moduleVersionRule) {
+		return
+	}
+	// When docs-module-filter is set, skip modules that don't match any prefix
+	if ext.docsModuleFilter != "" && !ext.matchesModuleFilter(id.name()) {
+		return
+	}
+	// Skip versions that already have docs on the site repo
+	if ext.existingDocs[id] {
 		return
 	}
 
@@ -306,6 +314,18 @@ func (ext *bcrExtension) rankBzlRepositoryVersionsForModule(id moduleID, deps mo
 		}
 	}
 
+}
+
+// matchesModuleFilter returns true if the module name matches any of the
+// comma-separated prefixes in the docs-module-filter flag.
+func (ext *bcrExtension) matchesModuleFilter(name moduleName) bool {
+	for _, prefix := range strings.Split(ext.docsModuleFilter, ",") {
+		prefix = strings.TrimSpace(prefix)
+		if prefix != "" && strings.HasPrefix(string(name), prefix) {
+			return true
+		}
+	}
+	return false
 }
 
 func (ext *bcrExtension) finalizeBzlSrcsAndDeps(bzlRepositories rankedModuleVersionMap) {
@@ -736,7 +756,13 @@ func selectVersion(rule *protoRule[*bzpb.ModuleVersion], version moduleVersion, 
 	choose := func(v *rankedVersion) moduleVersion {
 		if isSource {
 			if v.source != nil {
-				log.Panicf("more than one module is claiming to be the source module! %s", version)
+				// In --docs-all-versions mode, multiple module versions may
+				// fall back to the same available version. Only the first
+				// claimant gets bzl_src; others are silently skipped.
+				if debugBzlRepositoryResolution {
+					log.Printf("WARNING: %s already claimed as source by another version, skipping %s", v.version, version)
+				}
+				return ""
 			}
 			v.source = rule
 		} else {

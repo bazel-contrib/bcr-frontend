@@ -23,6 +23,30 @@ on:
         description: "BCR commit SHA to deploy (defaults to latest)"
         required: false
         type: string
+      docs_all_versions:
+        description: "Generate docs for all versions (not just latest)"
+        required: false
+        type: boolean
+        default: false
+      docs_module_filter:
+        description: "Comma-separated module name prefixes (e.g. 'rules_,bazel_')"
+        required: false
+        type: string
+  workflow_call:
+    inputs:
+      bcr_commit:
+        required: false
+        type: string
+      docs_all_versions:
+        required: false
+        type: boolean
+        default: false
+      docs_module_filter:
+        required: false
+        type: string
+    secrets:
+      BCR_AUTOMATION_TOKEN:
+        required: true
 
 concurrency:
   group: ghpages-deploy
@@ -75,6 +99,18 @@ jobs:
       - name: Clean and initialize BCR
         run: make bcr_clean bcr_init bcr_update
 
+      - name: Build gazelle flags
+        id: gazelle
+        run: |
+          EXTRA_FLAGS=""
+          if [ "${{ inputs.docs_all_versions }}" = "true" ]; then
+            EXTRA_FLAGS="--docs-all-versions --docs-site-repo=https://github.com/bazel-contrib/bcr-frontend-site.git"
+          fi
+          if [ -n "${{ inputs.docs_module_filter }}" ]; then
+            EXTRA_FLAGS="$EXTRA_FLAGS --docs-module-filter=${{ inputs.docs_module_filter }}"
+          fi
+          echo "extra_flags=$EXTRA_FLAGS" >> $GITHUB_OUTPUT
+
       - name: Run BCR gazelle
         run: >-
           bazelisk
@@ -82,6 +118,8 @@ jobs:
           --bazelrc=.bazelrc
           run
           //:bcr
+          --
+          ${{ steps.gazelle.outputs.extra_flags }}
 
       - name: Deploy to GitHub Pages
         run: >-

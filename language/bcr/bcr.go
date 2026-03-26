@@ -83,6 +83,10 @@ type bcrExtension struct {
 	bazelReleasesByVersion    map[string]*bzpb.BazelRelease                   // cache of Bazel releases (preloaded)
 	fetchedRepositoryMetadata bool                                            // tracks whether we fetched any new repository metadata this run
 	fetchedBazelReleases      bool                                            // tracks whether we fetched any new bazel releases this run
+	docsAllVersions           bool                                            // generate docs for all module versions, not just latest
+	docsModuleFilter          string                                          // comma-separated module name prefixes to limit doc generation
+	docsSiteRepo              string                                          // URL of site repo to check for existing docs
+	existingDocs              map[moduleID]bool                               // module versions with docs already on site repo
 }
 
 // Name returns the name of the language. This should be a prefix of the kinds
@@ -114,6 +118,12 @@ func (ext *bcrExtension) RegisterFlags(fs *flag.FlagSet, cmd string, c *config.C
 		"gitlab-token", os.Getenv("GITLAB_TOKEN"), "GitLab API token (defaults to GITLAB_TOKEN env var)")
 	fs.Var(&ext.blacklistedUrls,
 		"blacklisted_url", "URL to blacklist (repeatable)")
+	fs.BoolVar(&ext.docsAllVersions,
+		"docs-all-versions", false, "generate documentation for all module versions, not just latest")
+	fs.StringVar(&ext.docsModuleFilter,
+		"docs-module-filter", "", "comma-separated module name prefixes to limit doc generation (e.g. 'rules_,bazel_')")
+	fs.StringVar(&ext.docsSiteRepo,
+		"docs-site-repo", "", "URL of the GitHub Pages site repo to check for existing docs")
 }
 
 func (ext *bcrExtension) CheckFlags(fs *flag.FlagSet, c *config.Config) error {

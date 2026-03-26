@@ -229,9 +229,10 @@ class DocsSelect extends ContentSelect {
 			rest.push("docs");
 			route.done(this);
 			getApplication(this).setLocation(rest);
-		} else {
-			super.selectFail(name, route);
+			return;
 		}
+
+		super.selectFail(name, route);
 	}
 }
 exports.DocsSelect = DocsSelect;
