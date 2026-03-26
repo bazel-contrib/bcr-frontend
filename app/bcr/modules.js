@@ -7,6 +7,9 @@ const ModuleDependency = goog.require(
 const ModuleVersion = goog.require(
 	"proto.build.stack.bazel.registry.v1.ModuleVersion",
 );
+const ModuleVersionSymbols = goog.require(
+	"proto.build.stack.bazel.symbol.v1.ModuleVersionSymbols",
+);
 const Registry = goog.require("proto.build.stack.bazel.registry.v1.Registry");
 const asserts = goog.require("goog.asserts");
 const dom = goog.require("goog.dom");
@@ -14,7 +17,7 @@ const events = goog.require("goog.events");
 const soy = goog.require("goog.soy");
 const style = goog.require("goog.style");
 const { Component, Route } = goog.require("stack.ui");
-const { getApplication } = goog.require("bcrfrontend.common");
+const { getApplication, gzipDecode } = goog.require("bcrfrontend.common");
 const { ContentComponent } = goog.require("bcrfrontend.ContentComponent");
 const { ContentSelect } = goog.require("bcrfrontend.ContentSelect");
 const { ModuleVersionSymbolsSelect, DocumentationReadmeComponent } =
@@ -56,6 +59,29 @@ const {
 } = goog.require("bcrfrontend.registry");
 const { formatDate, formatRelativePast } = goog.require("bcrfrontend.format");
 const { highlightAll } = goog.require("bcrfrontend.syntax");
+
+/**
+ * Fetch documentation for a module version from the site assets.
+ * @param {!ModuleVersion} moduleVersion
+ * @returns {!Promise<?ModuleVersionSymbols>}
+ */
+async function fetchModuleVersionSymbolsFromGithubRepository(moduleVersion) {
+	const name = moduleVersion.getName();
+	const version = moduleVersion.getVersion();
+	const baseUrl =
+		new URLSearchParams(window.location.search).get("modules_base_url") || "";
+	const url = `${baseUrl}/modules/${name}/${version}/documentationinfo.pb.gz`;
+	try {
+		const response = await fetch(url);
+		if (!response.ok) return null;
+		const gzipData = new Uint8Array(await response.arrayBuffer());
+		const decompressed = await gzipDecode(gzipData);
+		return ModuleVersionSymbols.deserializeBinary(decompressed);
+	} catch (/** @type {*} */ e) {
+		console.error(`Failed to fetch docs for ${name}@${version}:`, e);
+		return null;
+	}
+}
 
 /**
  * @enum {string}
@@ -417,7 +443,15 @@ class ModuleVersionSelectNav extends SelectNav {
 			getApplication(this)
 				.getRegistryWithSymbols()
 				.then(() => {
-					const docs = this.moduleVersion_.getSource()?.getDocumentation();
+					let docs = this.moduleVersion_.getSource()?.getDocumentation();
+					if (docs) {
+						return docs;
+					}
+					return fetchModuleVersionSymbolsFromGithubRepository(
+						this.moduleVersion_,
+					);
+				})
+				.then((/** @type {?ModuleVersionSymbols} */ docs) => {
 					// Use addTab since nav item was already added via addNavTabDeferred
 					this.addTab(
 						TabName.DOCS,

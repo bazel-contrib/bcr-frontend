@@ -43,6 +43,17 @@ func (ext *bcrExtension) DoneGeneratingRules() {
 func (ext *bcrExtension) AfterResolvingDeps(ctx context.Context) {
 	log.Println("===[AfterResolvingDeps]======================================")
 
+	// Discover existing docs from site repo (if configured)
+	if ext.docsSiteRepo != "" {
+		existing, err := discoverExistingDocs(ext.docsSiteRepo)
+		if err != nil {
+			log.Printf("WARNING: failed to discover existing docs from site repo: %v", err)
+		} else {
+			ext.existingDocs = existing
+			log.Printf("Found %d existing doc assets on site repo", len(existing))
+		}
+	}
+
 	// Make docs repositories
 	binaryProtoHttpArchives := ext.prepareBinaryprotoRepositories()
 	availableBzlRepositories := ext.prepareBzlRepositories()
@@ -55,9 +66,12 @@ func (ext *bcrExtension) AfterResolvingDeps(ctx context.Context) {
 	}
 
 	// Resolve source commit SHAs for ranked modules (those we're generating
-	// docs for) Only do this after MVS calculation and MODULE.bazel merge to
-	// narrow down the set
-	ext.resolveSourceCommitSHAsForRankedModules(availableBzlRepositories)
+	// docs for). Only do this after MVS calculation and MODULE.bazel merge to
+	// narrow down the set. Skip in docs-all-versions mode since commit SHAs
+	// are display metadata, not needed for doc generation.
+	if !ext.docsAllVersions {
+		ext.resolveSourceCommitSHAsForRankedModules(availableBzlRepositories)
+	}
 
 	// Write the updated caches back to files - best effort, ignoring errors
 	if err := ext.writeResourceStatusCacheFile(); err != nil {

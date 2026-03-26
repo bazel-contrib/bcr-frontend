@@ -291,6 +291,7 @@ closure_js_binary(
         "registry_pb",
         "registrylite_pb",
         "symbols_pb",
+        "doc_results",
     ]
 ]
 
@@ -326,6 +327,7 @@ release_archive(
     ],
     index_html = "index.html",
     module_registry_symbols_file = "symbols_pb",
+    modules_srcs = [":doc_results"],
     registry_file = ":registrylite_pb",
     worker_modules = ["//app/api"],
 )

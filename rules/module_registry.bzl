@@ -131,9 +131,12 @@ def _status_code_exists(code):
     return code >= 200 and code < 300
 
 def _documentation_info_output_result(ctx, mv):
+    # NOTE: the format can be controlled with the suffix (.pb, .json, .textproto, +/- .gz)
+    output = ctx.actions.declare_file("%s/%s/documentationinfo.pb.gz" % (mv.name, mv.version))
+
     return struct(
         mv = mv,
-        output = ctx.actions.declare_file("%s/%s/documentationinfo.json" % (mv.name, mv.version)),
+        output = output,
     )
 
 def _compile_stardoc_for_module_version(ctx, mv, files):
@@ -253,8 +256,9 @@ def _compile_documentation_for_module_version(ctx, mv, all_mv_by_id):
     if len(mv.published_docs) > 0 and _status_code_exists(mv.source.docs_url_status_code):
         return _compile_stardoc_for_module_version(ctx, mv, mv.published_docs)
 
-    # otherwise best effort if this is latest version and there is something to compile
-    if mv.is_latest_version and mv.bzl_src and len(mv.bzl_src.srcs) > 0:
+    # otherwise best effort if there is something to compile (the gazelle
+    # extension controls which versions get bzl_src populated)
+    if mv.bzl_src and len(mv.bzl_src.srcs) > 0:
         return _compile_bzl_for_module_version(ctx, mv, all_mv_by_id)
 
     return None
@@ -407,6 +411,7 @@ def _module_registry_impl(ctx):
             registry_pb = [registry_pb],
             registrylite_pb = [registrylite_pb],
             codesearch_index = [codesearch_index],
+            doc_results = depset([d.output for d in doc_results]),
             docs = depset([r.output for r in doc_results]),
             symbols_pb = depset([symbols_pb]),
             bazel_help = depset([bazel_help]),

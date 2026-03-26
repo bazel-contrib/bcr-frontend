@@ -1,9 +1,13 @@
 package protoutil
 
 import (
+	"bytes"
+	"compress/gzip"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/encoding/prototext"
@@ -39,7 +43,20 @@ func ReadFile(filename string, message protoreflect.ProtoMessage) error {
 	if err != nil {
 		return fmt.Errorf("read %q: %w", filename, err)
 	}
-	unmarshaler, name := unmarshalerForFilename(filename)
+	formatName := filename
+	if inner, ok := strings.CutSuffix(filename, ".gz"); ok {
+		gr, err := gzip.NewReader(bytes.NewReader(data))
+		if err != nil {
+			return fmt.Errorf("gzip open %q: %w", filename, err)
+		}
+		data, err = io.ReadAll(gr)
+		if err != nil {
+			return fmt.Errorf("gzip read %q: %w", filename, err)
+		}
+		gr.Close()
+		formatName = inner
+	}
+	unmarshaler, name := unmarshalerForFilename(formatName)
 	if err := unmarshaler(data, message); err != nil {
 		return fmt.Errorf("unmarshal %q: %w", name, err)
 	}
@@ -47,9 +64,21 @@ func ReadFile(filename string, message protoreflect.ProtoMessage) error {
 }
 
 func WriteFile(filename string, message protoreflect.ProtoMessage) error {
-	data, err := marshalerForFilename(filename)(message)
+	formatName, gz := strings.CutSuffix(filename, ".gz")
+	data, err := marshalerForFilename(formatName)(message)
 	if err != nil {
 		return fmt.Errorf("marshal: %w", err)
+	}
+	if gz {
+		var buf bytes.Buffer
+		gw := gzip.NewWriter(&buf)
+		if _, err := gw.Write(data); err != nil {
+			return fmt.Errorf("gzip write: %w", err)
+		}
+		if err := gw.Close(); err != nil {
+			return fmt.Errorf("gzip close: %w", err)
+		}
+		data = buf.Bytes()
 	}
 	if err := os.WriteFile(filename, data, 0644); err != nil {
 		return fmt.Errorf("write: %w", err)

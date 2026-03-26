@@ -1,0 +1,39 @@
+# Generates documentation for all module versions by dispatching batched
+# deploy-ghpages runs. Each batch processes modules starting with a given
+# set of letter prefixes, discovers which docs already exist on the site
+# repo, and only generates new ones.
+#
+# Batches run sequentially (max-parallel: 1) to avoid git push conflicts
+# on the site repo. The ghpages deploy preserves the modules/ directory
+# across deploys, so each batch adds its docs on top of previous ones.
+
+name: Generate All Module Docs
+
+on:
+  workflow_dispatch:
+    inputs:
+      bcr_commit:
+        description: "BCR commit SHA (defaults to latest)"
+        required: false
+        type: string
+
+jobs:
+  generate-docs:
+    strategy:
+      max-parallel: 1
+      matrix:
+        module_filter:
+          - "a,b,c"
+          - "d,e,f"
+          - "g,h,i,j,k,l"
+          - "m,n,o"
+          - "p,q,r"
+          - "s,t"
+          - "u,v,w,x,y,z"
+    uses: ./.github/workflows/deploy-ghpages.yml
+    with:
+      bcr_commit: ${{ inputs.bcr_commit }}
+      docs_all_versions: true
+      docs_module_filter: ${{ matrix.module_filter }}
+    secrets:
+      BCR_AUTOMATION_TOKEN: ${{ secrets.BCR_AUTOMATION_TOKEN }}

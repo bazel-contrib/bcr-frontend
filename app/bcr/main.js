@@ -9,6 +9,7 @@ const ModuleVersion = goog.require(
 const Registry = goog.require("proto.build.stack.bazel.registry.v1.Registry");
 const RegistryApp = goog.require("bcrfrontend.App");
 const base64 = goog.require("goog.crypt.base64");
+const { gzipDecode } = goog.require("bcrfrontend.common");
 
 /**
  * Main entry point for the browser application.
@@ -79,6 +80,7 @@ function decorateRegistryWithSymbols(registry, symbolsRegistry) {
  * Creates a Promise that fetches symbols.pb.gz and decorates the registry.
  * @param {!Registry} registry The base registry to decorate
  * @returns {!Promise<!Registry>} Promise that resolves to decorated registry
+ * @suppress {uselessCode}
  */
 function createRegistryWithSymbolsPromise(registry) {
 	return (async () => {
@@ -91,48 +93,15 @@ function createRegistryWithSymbolsPromise(registry) {
 			const decompressed = await gzipDecode(gzipData);
 			const symbolsRegistry =
 				ModuleRegistrySymbols.deserializeBinary(decompressed);
-			decorateRegistryWithSymbols(registry, symbolsRegistry);
+			if (false) {
+				decorateRegistryWithSymbols(registry, symbolsRegistry);
+			}
 			return registry;
 		} catch (/** @type {*} */ e) {
 			console.error("Failed to load symbols:", e);
 			return registry; // Graceful degradation
 		}
 	})();
-}
-
-/**
- * Decompress gzip data using DecompressionStream API.
- * @param {!Uint8Array} gzipData The gzipped data
- * @returns {!Promise<!Uint8Array>}
- * @suppress {reportUnknownTypes, missingProperties, checkTypes}
- */
-async function gzipDecode(gzipData) {
-	const decompressor = new DecompressionStream("gzip");
-	const input = new ReadableStream({
-		/**
-		 * @param {!ReadableStreamDefaultController} controller
-		 */
-		start(controller) {
-			controller.enqueue(gzipData);
-			controller.close();
-		},
-	});
-	const output = input.pipeThrough(decompressor);
-	const reader = output.getReader();
-	const chunks = [];
-	while (true) {
-		const { done, value } = await reader.read();
-		if (done) break;
-		chunks.push(value);
-	}
-	const totalLength = chunks.reduce((acc, chunk) => acc + chunk.length, 0);
-	const decompressed = new Uint8Array(totalLength);
-	let offset = 0;
-	for (const chunk of chunks) {
-		decompressed.set(chunk, offset);
-		offset += chunk.length;
-	}
-	return decompressed;
 }
 
 /**

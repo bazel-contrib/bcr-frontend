@@ -294,6 +294,14 @@ func ExecuteRawGraphQL(ctx context.Context, token, query string) (map[string]any
 	}
 
 	if len(result.Errors) > 0 {
+		if result.Data != nil {
+			// Partial success — log errors as warnings and return the data we got.
+			// This handles cases like deleted/renamed repos in a batch query.
+			for _, e := range result.Errors {
+				log.Printf("GraphQL warning: %s", e.Message)
+			}
+			return result.Data, nil
+		}
 		return nil, fmt.Errorf("GraphQL errors: %v", result.Errors)
 	}
 

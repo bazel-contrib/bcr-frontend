@@ -107,3 +107,37 @@ class SearchableSelect extends Select {
 exports.SearchableSelect = SearchableSelect;
 
 exports.DefaultSearchHandlerName = "All";
+
+/**
+ * Decompress gzip data using DecompressionStream API.
+ * @param {!Uint8Array} gzipData
+ * @returns {!Promise<!Uint8Array>}
+ * @suppress {reportUnknownTypes, missingProperties, checkTypes}
+ */
+async function gzipDecode(gzipData) {
+	const decompressor = new DecompressionStream("gzip");
+	const input = new ReadableStream({
+		/** @param {!ReadableStreamDefaultController} controller */
+		start(controller) {
+			controller.enqueue(gzipData);
+			controller.close();
+		},
+	});
+	const output = input.pipeThrough(decompressor);
+	const reader = output.getReader();
+	const chunks = [];
+	while (true) {
+		const { done, value } = await reader.read();
+		if (done) break;
+		chunks.push(value);
+	}
+	const totalLength = chunks.reduce((acc, chunk) => acc + chunk.length, 0);
+	const decompressed = new Uint8Array(totalLength);
+	let offset = 0;
+	for (const chunk of chunks) {
+		decompressed.set(chunk, offset);
+		offset += chunk.length;
+	}
+	return decompressed;
+}
+exports.gzipDecode = gzipDecode;

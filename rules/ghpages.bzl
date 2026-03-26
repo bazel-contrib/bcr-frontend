@@ -10,36 +10,34 @@ if [ -z "${{DEPLOY_REMOTE:-}}" ]; then
   exit 1
 fi
 
+TARBALL=$(cd "$(dirname "{tarball}")" && pwd)/$(basename "{tarball}")
 WORKDIR=$(mktemp -d)
 trap "rm -rf $WORKDIR" EXIT
 
-# Fetch existing content from main (if branch exists)
+# Clone existing repo to reuse git object cache (reduces push transfer size).
+# If the branch doesn't exist yet, fall back to git init.
 if git ls-remote --exit-code "$DEPLOY_REMOTE" main >/dev/null 2>&1; then
-  git clone --depth=1 --branch=main "$DEPLOY_REMOTE" "$WORKDIR/old"
-  # Preserve modules/ directory (accumulated per-version docs)
-  if [ -d "$WORKDIR/old/modules" ]; then
-    mv "$WORKDIR/old/modules" "$WORKDIR/modules"
-  fi
-  # Preserve CNAME file (GitHub Pages custom domain config)
-  if [ -f "$WORKDIR/old/CNAME" ]; then
-    mv "$WORKDIR/old/CNAME" "$WORKDIR/CNAME"
-  fi
-  rm -rf "$WORKDIR/old"
+  git clone --depth=1 --branch=main "$DEPLOY_REMOTE" "$WORKDIR"
+  # Remove all tracked files but keep .git and preserved dirs
+  cd "$WORKDIR"
+  git rm -rf --quiet . >/dev/null 2>&1 || true
+  git checkout HEAD -- modules/ CNAME 2>/dev/null || true
+else
+  cd "$WORKDIR"
+  git init
+  git checkout -b main
+  git remote add origin "$DEPLOY_REMOTE"
 fi
 
-# Extract fresh SPA assets from release.tar
-tar -xf {tarball} -C "$WORKDIR"
+# Extract fresh SPA assets from release.tar (overwrites matching files)
+tar -xf "$TARBALL" -C "$WORKDIR"
 
 # Copy index.html to 404.html for SPA client-side routing
 cp "$WORKDIR/index.html" "$WORKDIR/404.html"
 
-# Create orphan commit and force push
-cd "$WORKDIR"
-git init
-git checkout -b main
+# Commit and force push
 git add .
 git commit -m "Deploy $(date -u +%Y-%m-%dT%H:%M:%SZ)"
-git remote add origin "$DEPLOY_REMOTE"
 git push --force origin main
 """.format(
         tarball = ctx.file.tarball.short_path,
