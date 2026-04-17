@@ -1,0 +1,61 @@
+name: Runner Health Check
+
+on:
+  schedule:
+    - cron: '0 */6 * * *'
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    env:
+      GH_TOKEN: ${{ secrets.BCR_AUTOMATION_TOKEN }}
+      LABEL: runner-offline
+    steps:
+      - name: Check runner status
+        id: runner
+        run: |
+          # Phase 1: intentionally report offline for testing
+          echo "status=offline" >> $GITHUB_OUTPUT
+          echo "⚠️ Intentional failure for issue-creation verification"
+
+      - name: Find existing issue
+        id: issue
+        run: |
+          ISSUE=$(gh issue list --repo ${{ github.repository }} --label "$LABEL" --state open --json number --jq '.[0].number // empty')
+          echo "number=${ISSUE}" >> $GITHUB_OUTPUT
+          echo "Found open issue: ${ISSUE:-none}"
+
+      - name: Create issue (runner offline, no existing issue)
+        if: steps.runner.outputs.status == 'offline' && steps.issue.outputs.number == ''
+        run: |
+          gh issue create --repo ${{ github.repository }} \
+            --title "Self-hosted runner is offline" \
+            --label "$LABEL" \
+            --assignee pcj \
+            --body "$(cat <<'BODY'
+          The self-hosted runner **super-muskrat** appears to be offline.
+
+          Deployments and CI jobs are stalled until the runner is back online.
+
+          **Action needed:** SSH into the runner host and restart the GitHub Actions runner service.
+
+          ---
+          *This issue was created automatically by the [Runner Health Check](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) workflow.*
+          BODY
+          )"
+
+      - name: Comment on issue (runner still offline)
+        if: steps.runner.outputs.status == 'offline' && steps.issue.outputs.number != ''
+        run: |
+          gh issue comment ${{ steps.issue.outputs.number }} --repo ${{ github.repository }} \
+            --body "Runner is still offline as of $(date -u '+%Y-%m-%d %H:%M UTC'). [Workflow run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})"
+
+      - name: Close issue (runner back online)
+        if: steps.runner.outputs.status == 'online' && steps.issue.outputs.number != ''
+        run: |
+          gh issue comment ${{ steps.issue.outputs.number }} --repo ${{ github.repository }} \
+            --body "✅ Runner is back online as of $(date -u '+%Y-%m-%d %H:%M UTC'). Closing."
+          gh issue close ${{ steps.issue.outputs.number }} --repo ${{ github.repository }}
