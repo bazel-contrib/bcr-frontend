@@ -17,9 +17,10 @@ jobs:
       - name: Check runner status
         id: runner
         run: |
-          # Phase 1: intentionally report offline for testing
-          echo "status=offline" >> $GITHUB_OUTPUT
-          echo "⚠️ Intentional failure for issue-creation verification"
+          STATUS=$(gh api repos/${{ github.repository }}/actions/runners \
+            --jq '.runners[] | select(.name=="super-muskrat") | .status')
+          echo "status=${STATUS:-offline}" >> $GITHUB_OUTPUT
+          echo "Runner status: ${STATUS:-not found}"
 
       - name: Find existing issue
         id: issue
