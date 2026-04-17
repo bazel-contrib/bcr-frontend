@@ -19,6 +19,11 @@ CI works as follows:
   to production without creating commits or PRs on main.
 - A weekly cron job (`periodic-submodule-sync.yaml`) syncs the main branch's
   submodule reference to keep it reasonably current.
+- A health check (`check-runner-health.yml`) runs every 6 hours on a
+  GitHub-hosted runner to verify the self-hosted runner is online. If the runner
+  is offline, it creates a GitHub issue with the `runner-offline` label and
+  assigns `pcj`. Subsequent checks add comments to the existing issue. When the
+  runner comes back online, the issue is automatically closed.
 
 ### Manual Deployment
 
