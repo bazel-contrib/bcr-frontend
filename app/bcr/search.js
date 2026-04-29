@@ -81,7 +81,6 @@ class SearchComponent extends EventTarget {
 		 * @private @type {?ListenableKey}
 		 */
 		this.acListenerKey_ = null;
-
 	}
 
 	/**
