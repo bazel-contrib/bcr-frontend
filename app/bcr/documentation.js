@@ -27,6 +27,7 @@ const SymbolType = goog.require("proto.build.stack.bazel.symbol.v1.SymbolType");
 const Trie = goog.require("goog.structs.Trie");
 const arrays = goog.require("goog.array");
 const dom = goog.require("goog.dom");
+const events = goog.require("goog.events");
 const path = goog.require("goog.string.path");
 const soy = goog.require("goog.soy");
 const { getApplication } = goog.require("bcrfrontend.common");
@@ -1824,6 +1825,9 @@ class DocumentationSearchComponent extends ContentComponent {
 
 		/** @private @const @type {!Registry} */
 		this.registry_ = registry;
+
+		/** @private @type {?HTMLInputElement} */
+		this.searchInput_ = null;
 	}
 
 	/**
@@ -1838,6 +1842,36 @@ class DocumentationSearchComponent extends ContentComponent {
 	 */
 	enterDocument() {
 		super.enterDocument();
+
+		this.searchInput_ = /** @type {?HTMLInputElement} */ (
+			this.getElementStrict().querySelector(".js-search-input")
+		);
+
+		if (this.searchInput_) {
+			this.getHandler().listen(
+				this.searchInput_,
+				events.EventType.INPUT,
+				this.handleSearchInput_,
+			);
+		}
+	}
+
+	/**
+	 * Handle input events on the dedicated search box.
+	 * @param {!events.Event} e
+	 * @private
+	 */
+	handleSearchInput_(e) {
+		const value = this.searchInput_.value.trim();
+		if (!value) {
+			const el = this.getContentElement();
+			dom.removeChildren(el);
+			return;
+		}
+		const tokens = value.split(/\s+/);
+		const results = this.searchSymbols(tokens);
+		const el = this.getContentElement();
+		soy.renderElement(el, searchSymbolsResultsList, { tokens, results });
 	}
 
 	/**
@@ -1849,6 +1883,12 @@ class DocumentationSearchComponent extends ContentComponent {
 		const results = this.searchSymbols(tokens);
 		const el = this.getContentElement();
 		soy.renderElement(el, searchSymbolsResultsList, { tokens, results });
+
+		// Pre-fill the search input with the query
+		if (this.searchInput_) {
+			this.searchInput_.value = tokens.join(" ");
+		}
+
 		route.done(this);
 	}
 

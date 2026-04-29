@@ -104,13 +104,8 @@ class BodySelect extends ContentSelect {
 	 */
 	selectFail(name, route) {
 		if (name === TabName.HOME) {
-			// Wait for symbols to be available before loading docs
-			getApplication(this)
-				.getRegistryWithSymbols()
-				.then(() => {
-					this.addTab(name, new HomeSelect(this.registry_, this.dom_));
-					this.select(name, route);
-				});
+			this.addTab(name, new HomeSelect(this.registry_, this.dom_));
+			this.select(name, route);
 			return;
 		}
 		if (name === TabName.DOCS) {

@@ -81,6 +81,7 @@ class SearchComponent extends EventTarget {
 		 * @private @type {?ListenableKey}
 		 */
 		this.acListenerKey_ = null;
+
 	}
 
 	/**
@@ -153,16 +154,21 @@ class SearchComponent extends EventTarget {
 	 * @private
 	 */
 	handleFormSubmit(e) {
-		console.log(`handleFormSubmit`, e);
-
 		e.preventDefault();
 		e.stopPropagation();
+
+		// If the AC dropdown is open with a highlighted row, the user
+		// explicitly selected an item. Let handleAcUpdate navigate instead.
+		const ac = this.getCurrentAutoComplete_();
+		if (ac && ac.hasHighlight()) {
+			return;
+		}
 
 		setTimeout(() => {
 			document.execCommand("selectall", null, false);
 		}, 50);
 
-		// no row was selected.  Navigate to the full search results list
+		// No row was selected. Navigate to the full search results list.
 		const value = this.getValue();
 		const provider = this.currentProviderName_;
 		if (value && provider) {
@@ -192,18 +198,8 @@ class SearchComponent extends EventTarget {
 	handleAcUpdate(e) {
 		if (e.row) {
 			this.submit(e.row);
-		} else {
-			const value = this.getValue();
-			const provider = this.currentProviderName_;
-			if (value && provider) {
-				this.app_.setLocation(["search", provider, value]);
-			}
 		}
-
-		// Only blur and clear if this was a selection (Enter key), not navigation
-		// Navigation events don't trigger dismiss
 		if (e.type === "update" || !e.row) {
-			// This was a final selection, blur and clear
 			this.blurAndClear();
 		}
 	}
@@ -355,6 +351,18 @@ class SearchComponent extends EventTarget {
 		this.inputEl_.disabled = false;
 		this.currentProvider_ = provider;
 		this.currentProviderName_ = provider.name;
+	}
+
+	/**
+	 * Returns the current provider's AutoComplete instance, or null.
+	 * @return {?AutoComplete}
+	 * @private
+	 */
+	getCurrentAutoComplete_() {
+		if (!this.currentProvider_ || !this.currentProvider_.inputHandler) {
+			return null;
+		}
+		return this.currentProvider_.inputHandler.getAutoComplete() || null;
 	}
 
 	/**
