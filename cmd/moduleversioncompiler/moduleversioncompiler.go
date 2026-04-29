@@ -30,6 +30,7 @@ type Config struct {
 	CommitSha1               string
 	CommitDate               string
 	CommitMessage            string
+	CommitGithubUser         string
 	UnresolvedDeps           string
 	UrlStatusCode            int
 	UrlStatusMessage         string
@@ -134,6 +135,7 @@ func run(args []string) error {
 			Date:        cfg.CommitDate,
 			Message:     cfg.CommitMessage,
 			PullRequest: parsePullRequestFromCommitMessage(cfg.CommitMessage),
+			GithubUser:  cfg.CommitGithubUser,
 		}
 	}
 
@@ -164,6 +166,7 @@ func parseFlags(args []string) (cfg Config, err error) {
 	fs.StringVar(&cfg.CommitSha1, "commit_sha1", "", "the git commit SHA-1 hash (optional)")
 	fs.StringVar(&cfg.CommitDate, "commit_date", "", "the git commit date in ISO 8601 format (optional)")
 	fs.StringVar(&cfg.CommitMessage, "commit_message", "", "the git commit message (optional)")
+	fs.StringVar(&cfg.CommitGithubUser, "commit_github_user", "", "the GitHub username of the commit author (optional)")
 	fs.StringVar(&cfg.OutputFile, "output_file", "", "the output file to write")
 	fs.StringVar(&cfg.UnresolvedDeps, "unresolved_deps", "", "comma-separated list of dep names that failed to resolve to a known version")
 	fs.IntVar(&cfg.UrlStatusCode, "url_status_code", 0, "HTTP status code for the source URL (optional)")

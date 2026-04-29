@@ -195,6 +195,7 @@ ModuleCommitInfo = provider(
         "sha1": "str: Git commit SHA-1 hash",
         "date": "str: Commit date in ISO 8601 format",
         "message": "str: Git commit message",
+        "github_user": "str: GitHub username of the commit author (empty if unknown)",
     },
 )
 

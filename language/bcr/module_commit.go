@@ -73,6 +73,9 @@ func makeModuleVersionCommitRule(cfg *config.Config, registryRoot, rel string, c
 	r.SetAttr("sha1", commit.Sha1)
 	r.SetAttr("date", commit.Date)
 	r.SetAttr("message", commit.Message)
+	if commit.GithubUser != "" {
+		r.SetAttr("github_user", commit.GithubUser)
+	}
 
 	// Store the proto representation in private attr
 	r.SetPrivateAttr("commit", commit)
