@@ -82,7 +82,7 @@ import {
   compatibilityTable,
   copyToClipboardButton,
   counterLabel,
-  docsList,
+  docsListBox,
   documentationSourceOcticon,
   maintainerBreadcrumb,
   maintainerModuleVersionTable,
@@ -473,11 +473,9 @@ import {
 
 
 {template docsMapComponent}
-  {@param docsMap: map<string,ModuleVersionSymbols>}
+  {@param moduleVersions: list<ModuleVersion>}
 <div>
-    {call docsList}
-        {param docsMap: $docsMap /}
-    {/call}
+    {docsListBox(moduleVersions: $moduleVersions)}
 </div>
 {/template}
 
