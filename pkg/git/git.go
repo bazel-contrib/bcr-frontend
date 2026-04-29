@@ -4,19 +4,35 @@ import (
 	"context"
 	"fmt"
 	"os/exec"
+	"regexp"
 	"strings"
 
 	bzpb "github.com/bazel-contrib/bcr-frontend/build/stack/bazel/registry/v1"
 )
+
+// noreplyEmailRegex matches GitHub noreply email formats:
+// - username@users.noreply.github.com (older format)
+// - 12345+username@users.noreply.github.com (newer format)
+var noreplyEmailRegex = regexp.MustCompile(`^(?:\d+\+)?([^@]+)@users\.noreply\.github\.com$`)
+
+// parseGithubUserFromEmail extracts a GitHub username from a noreply email address.
+// Returns empty string if the email doesn't match the noreply pattern.
+func parseGithubUserFromEmail(email string) string {
+	matches := noreplyEmailRegex.FindStringSubmatch(email)
+	if len(matches) > 1 {
+		return matches[1]
+	}
+	return ""
+}
 
 // GetFileCreationCommit returns the commit information for when a file was first added (created)
 func GetFileCreationCommit(ctx context.Context, repoPath, filePath string) (*bzpb.ModuleCommit, error) {
 	// Get first commit (creation) for the file
 	// --follow: Follow file renames
 	// --diff-filter=A: Only show commits where file was Added
-	// Format: SHA|Date|Message
+	// Format: SHA|Date|AuthorEmail|Message (email before message since message can contain |)
 	output, err := exec.CommandContext(ctx, "git", "-C", repoPath,
-		"log", "--follow", "--format=%H|%cI|%s", "--diff-filter=A", "--", filePath).Output()
+		"log", "--follow", "--format=%H|%cI|%aE|%s", "--diff-filter=A", "--", filePath).Output()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get git commit info for %s: %w", filePath, err)
 	}
@@ -28,15 +44,16 @@ func GetFileCreationCommit(ctx context.Context, repoPath, filePath string) (*bzp
 
 	// Get the first (oldest) commit - it's the last line
 	firstCommit := lines[len(lines)-1]
-	parts := strings.SplitN(firstCommit, "|", 3)
-	if len(parts) != 3 {
+	parts := strings.SplitN(firstCommit, "|", 4)
+	if len(parts) != 4 {
 		return nil, fmt.Errorf("unexpected git log output format: %s", firstCommit)
 	}
 
 	return &bzpb.ModuleCommit{
-		Sha1:    parts[0],
-		Date:    parts[1],
-		Message: parts[2],
+		Sha1:       parts[0],
+		Date:       parts[1],
+		GithubUser: parseGithubUserFromEmail(parts[2]),
+		Message:    parts[3],
 	}, nil
 }
 
@@ -76,7 +93,7 @@ func GetAllModuleCommits(ctx context.Context, repoPath, pattern string) (map[str
 	// --diff-filter=A: Only commits where files were Added
 	// --name-only: Show only file names
 	output, err := exec.CommandContext(ctx, "git", "-C", repoPath,
-		"log", "--all", "--diff-filter=A", "--name-only", "--format=%H|%cI|%s|FILE_MARKER", "--", pattern).Output()
+		"log", "--all", "--diff-filter=A", "--name-only", "--format=%H|%cI|%aE|%s|FILE_MARKER", "--", pattern).Output()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get git log: %w", err)
 	}
@@ -93,12 +110,13 @@ func GetAllModuleCommits(ctx context.Context, repoPath, pattern string) (map[str
 
 		// Check if this is a commit info line (contains FILE_MARKER)
 		if strings.Contains(line, "FILE_MARKER") {
-			parts := strings.SplitN(strings.Replace(line, "|FILE_MARKER", "", 1), "|", 3)
-			if len(parts) == 3 {
+			parts := strings.SplitN(strings.Replace(line, "|FILE_MARKER", "", 1), "|", 4)
+			if len(parts) == 4 {
 				currentCommit = &bzpb.ModuleCommit{
-					Sha1:    parts[0],
-					Date:    parts[1],
-					Message: parts[2],
+					Sha1:       parts[0],
+					Date:       parts[1],
+					GithubUser: parseGithubUserFromEmail(parts[2]),
+					Message:    parts[3],
 				}
 			}
 		} else if currentCommit != nil {

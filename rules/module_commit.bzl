@@ -8,6 +8,7 @@ def _module_commit_impl(ctx):
             sha1 = ctx.attr.sha1,
             date = ctx.attr.date,
             message = ctx.attr.message,
+            github_user = ctx.attr.github_user,
         ),
     ]
 
@@ -26,6 +27,10 @@ module_commit = rule(
         "message": attr.string(
             doc = "str: Git commit message (required)",
             mandatory = True,
+        ),
+        "github_user": attr.string(
+            doc = "str: GitHub username of the commit author (optional, empty if unknown)",
+            default = "",
         ),
     },
     provides = [ModuleCommitInfo],

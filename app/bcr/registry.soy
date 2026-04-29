@@ -219,6 +219,13 @@ import {
     <div>
       <div class="mb-2">
         {if $moduleVersion.getCommit()}
+          {if $moduleVersion.getCommit().getGithubUser()}
+            <div class="mb-2">
+              <a class="d-inline-block" href="{githubUserUrl(name: $moduleVersion.getCommit().getGithubUser())}" title="@{$moduleVersion.getCommit().getGithubUser()}">
+                <img class="avatar circle" width="48" height="48" src="{githubAvatarUrl(name: $moduleVersion.getCommit().getGithubUser())}" alt="@{$moduleVersion.getCommit().getGithubUser()}">
+              </a>
+            </div>
+          {/if}
           {if $moduleVersion.getCommit().getPullRequest()}
             <a class="Link--muted d-flex flex-items-center mb-2" href="{registryPullRequestUrl(pr: $moduleVersion.getCommit().getPullRequest())}">
               <span class="mr-2">{octiconGitPullRequest16(fill: 'var(--color-done-fg)')}</span>

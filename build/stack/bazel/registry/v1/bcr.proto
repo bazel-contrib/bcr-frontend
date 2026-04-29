@@ -228,6 +228,8 @@ message ModuleCommit {
     string message = 3;
     // Pull request number extracted from commit message
     string pull_request = 4;
+    // GitHub username of the commit author, extracted from noreply email
+    string github_user = 5;
 }
 
 // Override for a module dependency's source or version
