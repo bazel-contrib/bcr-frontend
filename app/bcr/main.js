@@ -80,7 +80,6 @@ function decorateRegistryWithSymbols(registry, symbolsRegistry) {
  * Creates a Promise that fetches symbols.pb.gz and decorates the registry.
  * @param {!Registry} registry The base registry to decorate
  * @returns {!Promise<!Registry>} Promise that resolves to decorated registry
- * @suppress {uselessCode}
  */
 function createRegistryWithSymbolsPromise(registry) {
 	return (async () => {
@@ -93,9 +92,7 @@ function createRegistryWithSymbolsPromise(registry) {
 			const decompressed = await gzipDecode(gzipData);
 			const symbolsRegistry =
 				ModuleRegistrySymbols.deserializeBinary(decompressed);
-			if (false) {
-				decorateRegistryWithSymbols(registry, symbolsRegistry);
-			}
+			decorateRegistryWithSymbols(registry, symbolsRegistry);
 			return registry;
 		} catch (/** @type {*} */ e) {
 			console.error("Failed to load symbols:", e);

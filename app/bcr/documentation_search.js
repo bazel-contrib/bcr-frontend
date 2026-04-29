@@ -149,6 +149,8 @@ class DocumentationSearchHandler extends EventTarget {
 			keyCode: events.KeyCodes.PERIOD,
 			load: goog.bind(this.load, this),
 		};
+		/** @private @type {!SearchProvider} */
+		this.provider_ = provider;
 		return provider;
 	}
 
@@ -160,6 +162,7 @@ class DocumentationSearchHandler extends EventTarget {
 		const registry = await this.registryWithSymbols_;
 		this.indexSymbols_(registry);
 		this.addAllSymbols();
+		this.provider_.desc = `Search ${this.symbols_.size} symbols in documentation`;
 	}
 
 	/**

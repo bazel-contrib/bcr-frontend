@@ -16,6 +16,7 @@ const { homeOverviewComponent, homeSelect } = goog.require(
 	"soy.bcrfrontend.app",
 );
 const { formatRelativePast } = goog.require("bcrfrontend.format");
+const { getApplication } = goog.require("bcrfrontend.common");
 const { Component, Route } = goog.require("stack.ui");
 
 /**
@@ -96,18 +97,6 @@ class HomeOverviewComponent extends Component {
 		const maintainers = createMaintainersMap(this.registry_);
 
 		let totalModuleVersions = 0;
-		const symbolCounts = {
-			rules: 0,
-			functions: 0,
-			providers: 0,
-			aspects: 0,
-			moduleExtensions: 0,
-			repositoryRules: 0,
-			macros: 0,
-			ruleMacros: 0,
-			loads: 0,
-			values: 0,
-		};
 
 		// Collect all module versions with commit dates for sorting
 		/** @type {!Array<!{m: !Module, v: !ModuleVersion}>} */
@@ -116,63 +105,15 @@ class HomeOverviewComponent extends Component {
 		for (const module of modules.values()) {
 			totalModuleVersions += module.getVersionsList().length;
 
-			// Collect versions with commit dates
 			for (const version of module.getVersionsList()) {
 				const commit = version.getCommit();
 				if (commit && commit.getDate()) {
 					allVersions.push({ m: module, v: version });
 				}
-
-				// Count symbols from all versions
-				const source = version.getSource();
-				if (!source) continue;
-
-				const docs = source.getDocumentation();
-				if (!docs) continue;
-
-				for (const file of docs.getFileList()) {
-					if (file.getError()) continue;
-
-					for (const sym of file.getSymbolList()) {
-						const type = sym.getType();
-						switch (type) {
-							case SymbolType.SYMBOL_TYPE_RULE:
-								symbolCounts.rules++;
-								break;
-							case SymbolType.SYMBOL_TYPE_FUNCTION:
-								symbolCounts.functions++;
-								break;
-							case SymbolType.SYMBOL_TYPE_PROVIDER:
-								symbolCounts.providers++;
-								break;
-							case SymbolType.SYMBOL_TYPE_ASPECT:
-								symbolCounts.aspects++;
-								break;
-							case SymbolType.SYMBOL_TYPE_MODULE_EXTENSION:
-								symbolCounts.moduleExtensions++;
-								break;
-							case SymbolType.SYMBOL_TYPE_REPOSITORY_RULE:
-								symbolCounts.repositoryRules++;
-								break;
-							case SymbolType.SYMBOL_TYPE_MACRO:
-								symbolCounts.macros++;
-								break;
-							case SymbolType.SYMBOL_TYPE_RULE_MACRO:
-								symbolCounts.ruleMacros++;
-								break;
-							case SymbolType.SYMBOL_TYPE_LOAD_STMT:
-								symbolCounts.loads++;
-								break;
-							case SymbolType.SYMBOL_TYPE_VALUE:
-								symbolCounts.values++;
-								break;
-						}
-					}
-				}
 			}
 		}
 
-		// Sort by commit date (most recent first) and take top 10
+		// Sort by commit date (most recent first) and take top 15
 		allVersions.sort((a, b) => {
 			return (
 				new Date(b.v.getCommit().getDate()) -
@@ -188,6 +129,7 @@ class HomeOverviewComponent extends Component {
 			};
 		});
 
+		// Render with 0 for symbol stats (populated async in enterDocument)
 		this.setElementInternal(
 			soy.renderAsElement(homeOverviewComponent, {
 				registry: this.registry_,
@@ -195,15 +137,112 @@ class HomeOverviewComponent extends Component {
 				totalModules: modules.size,
 				totalModuleVersions: totalModuleVersions,
 				totalMaintainers: maintainers.size,
-				totalRules: symbolCounts.rules + symbolCounts.ruleMacros,
-				totalFunctions: symbolCounts.functions,
-				totalProviders: symbolCounts.providers,
-				totalAspects: symbolCounts.aspects,
-				totalModuleExtensions: symbolCounts.moduleExtensions,
-				totalRepositoryRules: symbolCounts.repositoryRules,
-				totalMacros: symbolCounts.macros,
+				totalRules: 0,
+				totalFunctions: 0,
+				totalProviders: 0,
+				totalAspects: 0,
+				totalModuleExtensions: 0,
+				totalRepositoryRules: 0,
+				totalMacros: 0,
 				recentlyUpdated,
 			}),
 		);
+	}
+
+	/**
+	 * @override
+	 */
+	enterDocument() {
+		super.enterDocument();
+
+		// Lazy-load symbol stats after symbols.pb.gz is fetched and decoded
+		getApplication(this)
+			.getRegistryWithSymbols()
+			.then(() => this.updateSymbolStats_());
+	}
+
+	/**
+	 * Compute symbol counts from the now-decorated registry and update the DOM.
+	 * @private
+	 */
+	updateSymbolStats_() {
+		const el = this.getElement();
+		if (!el) return;
+
+		const container = el.querySelector(".js-symbol-stats");
+		if (!container) return;
+
+		const counts = {
+			rules: 0,
+			functions: 0,
+			providers: 0,
+			aspects: 0,
+			moduleExtensions: 0,
+			repositoryRules: 0,
+			macros: 0,
+			ruleMacros: 0,
+		};
+
+		for (const module of this.registry_.getModulesList()) {
+			for (const version of module.getVersionsList()) {
+				const source = version.getSource();
+				if (!source) continue;
+
+				const docs = source.getDocumentation();
+				if (!docs) continue;
+
+				for (const file of docs.getFileList()) {
+					if (file.getError()) continue;
+
+					for (const sym of file.getSymbolList()) {
+						switch (sym.getType()) {
+							case SymbolType.SYMBOL_TYPE_RULE:
+								counts.rules++;
+								break;
+							case SymbolType.SYMBOL_TYPE_FUNCTION:
+								counts.functions++;
+								break;
+							case SymbolType.SYMBOL_TYPE_PROVIDER:
+								counts.providers++;
+								break;
+							case SymbolType.SYMBOL_TYPE_ASPECT:
+								counts.aspects++;
+								break;
+							case SymbolType.SYMBOL_TYPE_MODULE_EXTENSION:
+								counts.moduleExtensions++;
+								break;
+							case SymbolType.SYMBOL_TYPE_REPOSITORY_RULE:
+								counts.repositoryRules++;
+								break;
+							case SymbolType.SYMBOL_TYPE_MACRO:
+								counts.macros++;
+								break;
+							case SymbolType.SYMBOL_TYPE_RULE_MACRO:
+								counts.ruleMacros++;
+								break;
+						}
+					}
+				}
+			}
+		}
+
+		// Update stat values in DOM order: Rules, Functions, Providers,
+		// Extensions, Repo Rules, Aspects, Macros
+		const values = [
+			counts.rules + counts.ruleMacros,
+			counts.functions,
+			counts.providers,
+			counts.moduleExtensions,
+			counts.repositoryRules,
+			counts.aspects,
+			counts.macros,
+		];
+		const statEls = container.querySelectorAll(".f2-mktg");
+		for (let i = 0; i < values.length && i < statEls.length; i++) {
+			statEls[i].textContent = String(values[i]);
+		}
+
+		// Show the symbol stats row
+		container.style.display = "";
 	}
 }
