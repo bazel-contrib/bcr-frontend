@@ -107,15 +107,18 @@ import {
 } from 'app/bcr/registry.soy';
 import {
   fileInfoUrl,
+  githubAvatarUrl,
   githubRawUrl,
   githubRepoUrlFromModuleVersion,
   githubSourceUrl,
+  githubUserUrl,
   labelUri,
   loadLabelUrl,
   moduleLabelDocsUri,
   modulesUrl,
   moduleVersionDocsUrl,
   moduleVersionUrl,
+  registryPullRequestUrl,
   renderLabel,
   symbolInfoUrl
 } from 'app/bcr/uri.soy';
@@ -363,7 +366,7 @@ import {
       {sp}
       {octiconChevronLeft16()}
     </div>
-    <div class="js-symbol-stats d-flex flex-row flex-wrap flex-items-center flex-justify-center mt-5" style="gap: 1.5rem; display: none">
+    <div class="js-symbol-stats d-flex flex-row flex-wrap flex-items-center flex-justify-center mt-4" style="gap: 1.5rem; display: none">
       {statDisplay(value: $totalRules, label: 'Rules', color: symbolColor(type: SymbolType.SYMBOL_TYPE_RULE))}
       {statDisplay(value: $totalFunctions, label: 'Functions', color: symbolColor(type: SymbolType.SYMBOL_TYPE_FUNCTION))}
       {statDisplay(value: $totalProviders, label: 'Providers', color: symbolColor(type: SymbolType.SYMBOL_TYPE_PROVIDER))}
@@ -372,36 +375,64 @@ import {
       {statDisplay(value: $totalAspects, label: 'Aspects', color: symbolColor(type: SymbolType.SYMBOL_TYPE_ASPECT))}
       {statDisplay(value: $totalMacros, label: 'Macros', color: symbolColor(type: SymbolType.SYMBOL_TYPE_MACRO))}
     </div>
-    <div class="Box Box--condensed mt-4" style="width: 100%; max-width: 800px">
-      <div class="Box-header">
-        <div class="Box-title">
-          Recently Updated
-        </div>
-      </div>
+    <div class="mt-4 pt-4" style="width: 100%; max-width: 800px; border-top: 1px solid var(--borderColor-default, var(--color-border-default))">
+      <h3 class="f4 text-bold mb-2">Recently Updated</h3>
       {if length($recentlyUpdated) > 0}
-        {for $item in $recentlyUpdated}
-          <div class="Box-row d-flex flex-justify-between flex-items-center">
-            <div class="d-flex flex-items-center" style="min-width: 0; flex: 1">
-              <div style="width: 24px; flex-shrink: 0">
-                {if $item.isNew}
-                  <span title="New Module">{octiconStarFill16(fill: 'var(--color-success-fg)')}</span>
+        <div>
+          {for $item, $idx in $recentlyUpdated}
+            {let $commit: $item.moduleVersion.getCommit() /}
+            {let $hasUser: $commit?.getGithubUser() /}
+            <div class="TimelineItem{if $idx == 0} timeline-first{/if}{if $idx == length($recentlyUpdated) - 1} timeline-last{/if}">
+              {if $hasUser}
+                <a href="{githubUserUrl(name: $commit?.getGithubUser() ?? '')}"
+                   title="{$commit?.getGithubName() ? $commit?.getGithubName() : '@' + $commit?.getGithubUser()}"
+                   class="TimelineItem-badge timeline-avatar-badge">
+                  <img class="avatar circle" width="42" height="42"
+                       src="{githubAvatarUrl(name: $commit?.getGithubUser() ?? '')}"
+                       alt="@{$commit?.getGithubUser()}">
+                </a>
+              {else}
+                <div class="TimelineItem-badge timeline-avatar-badge">
+                  <img class="avatar circle" width="42" height="42"
+                       src="{githubAvatarUrl(name: '')}"
+                       alt="bazelbuild">
+                </div>
+              {/if}
+              <div class="TimelineItem-body">
+                <div class="d-flex flex-items-center">
+                  <div style="flex-shrink: 0">
+                    <a class="Link--primary text-bold" href="/#/modules/{$item.moduleVersion.getName()}/{$item.moduleVersion.getVersion()}">
+                      {$item.moduleVersion.getName()}
+                    </a>
+                    {sp}
+                    <span class="color-fg-muted">{$item.moduleVersion.getVersion()}</span>
+                    {if $item.isNew}
+                      {sp}
+                      <span title="New Module">{octiconStarFill16(fill: 'var(--color-success-fg)')}</span>
+                    {/if}
+                  </div>
+                  <span style="flex: 1; border-bottom: 1px dotted var(--color-border-muted); margin: 0 0.5em;"></span>
+                  <span class="color-fg-muted f6 text-right no-wrap">{$item.commitDate}</span>
+                </div>
+                {if $commit?.getPullRequest()}
+                  <div class="f6 color-fg-muted mt-1">
+                    <a class="Link--muted" href="{registryPullRequestUrl(pr: $commit?.getPullRequest() ?? '')}">
+                      #{$commit?.getPullRequest()}
+                    </a>
+                    {if $hasUser}
+                      {sp}by{sp}
+                      <a class="Link--muted text-bold" href="{githubUserUrl(name: $commit?.getGithubUser() ?? '')}">
+                        {$commit?.getGithubName() ? $commit?.getGithubName() : $commit?.getGithubUser()}
+                      </a>
+                    {/if}
+                  </div>
                 {/if}
               </div>
-              <div class="d-flex flex-column" style="min-width: 0">
-                <a class="Link--primary f5" href="/#/modules/{$item.moduleVersion.getName()}/{$item.moduleVersion.getVersion()}">
-                  <strong>{$item.moduleVersion.getName()}</strong>
-                  {sp}
-                  <span class="color-fg-muted">{$item.moduleVersion.getVersion()}</span>
-                </a>
-              </div>
             </div>
-            <div class="color-fg-muted f6 text-right" style="flex-shrink: 0; margin-left: 1rem">
-              {$item.commitDate}
-            </div>
-          </div>
-        {/for}
+          {/for}
+        </div>
       {else}
-        <div class="Box-row color-fg-muted">
+        <div class="color-fg-muted p-3">
           No recently updated modules found
         </div>
       {/if}

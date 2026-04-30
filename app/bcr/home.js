@@ -15,7 +15,8 @@ const { createMaintainersMap, createModuleMap } = goog.require(
 const { homeOverviewComponent, homeSelect } = goog.require(
 	"soy.bcrfrontend.app",
 );
-const { formatRelativePast } = goog.require("bcrfrontend.format");
+const { formatRelativePast, formatRelativeShort } =
+	goog.require("bcrfrontend.format");
 const { getApplication } = goog.require("bcrfrontend.common");
 const { Component, Route } = goog.require("stack.ui");
 
@@ -124,7 +125,7 @@ class HomeOverviewComponent extends Component {
 		const recentlyUpdated = allVersions.slice(0, 15).map((item) => {
 			return {
 				moduleVersion: item.v,
-				commitDate: formatRelativePast(item.v.getCommit().getDate()),
+				commitDate: formatRelativeShort(item.v.getCommit().getDate()),
 				isNew: item.m.getVersionsList().length === 1,
 			};
 		});

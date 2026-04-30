@@ -267,3 +267,41 @@ code .line::before {
 	text-align: right;
 	color: rgba(115, 138, 148, 0.4);
 }
+
+/* ========================================
+ * Recently Updated Timeline
+ * ======================================== */
+
+.timeline-avatar-badge {
+	background-color: var(
+		--bgColor-default,
+		var(--color-canvas-default)
+	) !important;
+	border: 3px solid var(--bgColor-default, var(--color-canvas-default)) !important;
+	padding: 0;
+	overflow: hidden;
+	border-radius: 50%;
+	width: 48px !important;
+	height: 48px !important;
+	margin-left: -23px !important;
+}
+
+.timeline-avatar-badge img {
+	width: 42px;
+	height: 42px;
+	border-radius: 50%;
+	object-fit: cover;
+}
+
+.timeline-avatar-badge + .TimelineItem-body {
+	margin-top: 0;
+	align-self: center;
+}
+
+.timeline-first:before {
+	top: 50% !important;
+}
+
+.timeline-last:before {
+	bottom: 50% !important;
+}
