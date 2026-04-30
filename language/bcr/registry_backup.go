@@ -5,6 +5,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"strconv"
 	"strings"
 
 	bzpb "github.com/bazel-contrib/bcr-frontend/build/stack/bazel/registry/v1"
@@ -200,4 +201,41 @@ func (ext *bcrExtension) populateFromBackupRegistry(repositories []*bzpb.Reposit
 	}
 
 	return populated
+}
+
+// seedPRAuthorsFromBackupRegistry populates the PR author cache from the backup
+// registry data. This fills in entries from a previous deploy without needing
+// an API call.
+func (ext *bcrExtension) seedPRAuthorsFromBackupRegistry() {
+	if ext.backupRegistry == nil {
+		return
+	}
+
+	seeded := 0
+	for _, module := range ext.backupRegistry.Modules {
+		for _, version := range module.Versions {
+			if version.Commit == nil || version.Commit.PullRequest == "" || version.Commit.GithubUser == "" {
+				continue
+			}
+			prNum, err := strconv.Atoi(version.Commit.PullRequest)
+			if err != nil {
+				continue
+			}
+			// Don't overwrite existing cache entries
+			if _, exists := ext.prAuthorsByPR[prNum]; exists {
+				continue
+			}
+			ext.prAuthorsByPR[prNum] = &bzpb.PRAuthor{
+				PullRequest:     int32(prNum),
+				GithubUser:      version.Commit.GithubUser,
+				GithubName:      version.Commit.GithubName,
+				GithubAvatarUrl: "", // Not available from backup registry
+			}
+			seeded++
+		}
+	}
+
+	if seeded > 0 {
+		log.Printf("Seeded %d PR authors from backup registry", seeded)
+	}
 }

@@ -345,7 +345,12 @@ import {
   {@param recentlyUpdated: list<[moduleVersion: ModuleVersion, commitDate: string, isNew: bool]>}
 <div class="d-flex flex-column flex-items-center flex-justify-center p-4">
     {logo()}
-    <div class="p-2 mt-4 text-light" style="background: var(--color-neutral-subtle); border-width: 0.5rem">
+    <div class="d-flex flex-row flex-wrap flex-items-center flex-justify-center mt-4" style="gap: 2rem">
+      {largeStatDisplay(value: $totalModules, label: 'Modules')}
+      {largeStatDisplay(value: $totalModuleVersions, label: 'Module Versions')}
+      {largeStatDisplay(value: $totalMaintainers, label: 'Maintainers')}
+    </div>
+    <div class="p-2 my-4 text-light" style="background: var(--color-neutral-subtle); border-width: 0.5rem">
       {octiconChevronRight16()}
       {sp}
       As of {$lastUpdated}
@@ -357,11 +362,6 @@ import {
       </a>
       {sp}
       {octiconChevronLeft16()}
-    </div>
-    <div class="d-flex flex-row flex-wrap flex-items-center flex-justify-center mt-3" style="gap: 2rem">
-      {largeStatDisplay(value: $totalModules, label: 'Modules')}
-      {largeStatDisplay(value: $totalModuleVersions, label: 'Module Versions')}
-      {largeStatDisplay(value: $totalMaintainers, label: 'Maintainers')}
     </div>
     <div class="js-symbol-stats d-flex flex-row flex-wrap flex-items-center flex-justify-center mt-5" style="gap: 1.5rem; display: none">
       {statDisplay(value: $totalRules, label: 'Rules', color: symbolColor(type: SymbolType.SYMBOL_TYPE_RULE))}

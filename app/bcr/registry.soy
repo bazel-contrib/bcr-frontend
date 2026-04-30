@@ -219,8 +219,8 @@ import {
       <div class="mb-2">
         {if $moduleVersion.getCommit()}
           {if $moduleVersion.getCommit().getGithubUser()}
-            <div class="mb-2">
-              <a class="d-inline-block" href="{githubUserUrl(name: $moduleVersion.getCommit().getGithubUser())}" title="@{$moduleVersion.getCommit().getGithubUser()}">
+            <div class="m-1 mb-2">
+              <a class="d-inline-block" href="{githubUserUrl(name: $moduleVersion.getCommit().getGithubUser())}" title="{$moduleVersion.getCommit().getGithubName() ? $moduleVersion.getCommit().getGithubName() : '@' + $moduleVersion.getCommit().getGithubUser()}">
                 <img class="avatar circle" width="48" height="48" src="{githubAvatarUrl(name: $moduleVersion.getCommit().getGithubUser())}" alt="@{$moduleVersion.getCommit().getGithubUser()}">
               </a>
             </div>

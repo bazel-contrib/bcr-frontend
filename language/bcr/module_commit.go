@@ -76,6 +76,9 @@ func makeModuleVersionCommitRule(cfg *config.Config, registryRoot, rel string, c
 	if commit.GithubUser != "" {
 		r.SetAttr("github_user", commit.GithubUser)
 	}
+	if commit.GithubName != "" {
+		r.SetAttr("github_name", commit.GithubName)
+	}
 
 	// Store the proto representation in private attr
 	r.SetPrivateAttr("commit", commit)

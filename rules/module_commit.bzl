@@ -9,6 +9,7 @@ def _module_commit_impl(ctx):
             date = ctx.attr.date,
             message = ctx.attr.message,
             github_user = ctx.attr.github_user,
+            github_name = ctx.attr.github_name,
         ),
     ]
 
@@ -30,6 +31,10 @@ module_commit = rule(
         ),
         "github_user": attr.string(
             doc = "str: GitHub username of the commit author (optional, empty if unknown)",
+            default = "",
+        ),
+        "github_name": attr.string(
+            doc = "str: Display name of the PR author (optional, empty if unknown)",
             default = "",
         ),
     },

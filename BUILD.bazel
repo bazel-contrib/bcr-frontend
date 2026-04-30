@@ -66,6 +66,7 @@ gazelle(
         "--resource-status-set-file=$BUILD_WORKING_DIRECTORY/resources.json",
         "--repository-metadata-set-file=$BUILD_WORKING_DIRECTORY/repository-metadata.json",
         "--bazel-release-set-file=$BUILD_WORKING_DIRECTORY/bazel-releases.json",
+        "--pr-author-set-file=$BUILD_WORKING_DIRECTORY/pr-authors.json",
         "--registry-root=data/bazel-central-registry",
         "--registry-url=https://bcr.stack.build",
         "--blacklisted_url=https://netcologne.dl.sourceforge.net/project/perfmon2/libpfm4/libpfm-4.11.0.tar.gz",

@@ -228,8 +228,27 @@ message ModuleCommit {
     string message = 3;
     // Pull request number extracted from commit message
     string pull_request = 4;
-    // GitHub username of the commit author, extracted from noreply email
+    // GitHub username of the commit author (from noreply email or PR author lookup)
     string github_user = 5;
+    // Display name of the PR author (from GitHub profile)
+    string github_name = 6;
+}
+
+// PRAuthor contains cached GitHub PR author information
+message PRAuthor {
+    // Pull request number
+    int32 pull_request = 1;
+    // GitHub username (login) of the PR author
+    string github_user = 2;
+    // Display name of the PR author
+    string github_name = 3;
+    // Avatar URL of the PR author
+    string github_avatar_url = 4;
+}
+
+// PRAuthorSet is a collection of PR author entries for caching
+message PRAuthorSet {
+    repeated PRAuthor authors = 1;
 }
 
 // Override for a module dependency's source or version

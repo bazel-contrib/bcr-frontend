@@ -48,6 +48,7 @@ func NewLanguage() language.Language {
 		moduleVersionRules:       make(map[moduleID]*protoRule[*bzpb.ModuleVersion]),
 		moduleSourceRules:        make(map[moduleID]*protoRule[*bzpb.ModuleSource]),
 		bazelReleasesByVersion:   make(map[string]*bzpb.BazelRelease),
+		prAuthorsByPR:            make(map[int]*bzpb.PRAuthor),
 	}
 }
 
@@ -81,8 +82,11 @@ type bcrExtension struct {
 	resourceStatusByUrl       map[string]*bzpb.ResourceStatus                 // results of reading resourceStatusSetFile, keyed by URL
 	moduleCommits             map[moduleBazelRelPath]*bzpb.ModuleCommit       // cache of all module commits (preloaded)
 	bazelReleasesByVersion    map[string]*bzpb.BazelRelease                   // cache of Bazel releases (preloaded)
+	prAuthorSetFile           string                                          // path to pr-authors.json cache file
+	prAuthorsByPR             map[int]*bzpb.PRAuthor                          // cached PR authors keyed by PR number
 	fetchedRepositoryMetadata bool                                            // tracks whether we fetched any new repository metadata this run
 	fetchedBazelReleases      bool                                            // tracks whether we fetched any new bazel releases this run
+	fetchedPRAuthors          bool                                            // tracks whether we fetched any new PR authors this run
 	docsAllVersions           bool                                            // generate docs for all module versions, not just latest
 	docsModuleFilter          string                                          // comma-separated module name prefixes to limit doc generation
 	docsSiteRepo              string                                          // URL of site repo to check for existing docs
@@ -112,6 +116,8 @@ func (ext *bcrExtension) RegisterFlags(fs *flag.FlagSet, cmd string, c *config.C
 		"repository-metadata-set-file", "", "path to repository-metadata.json file containing cached repository metadata (helpful for development)")
 	fs.StringVar(&ext.bazelReleaseSetFile,
 		"bazel-release-set-file", "", "path to bazel-releases.json file containing cached Bazel release data (helpful for development)")
+	fs.StringVar(&ext.prAuthorSetFile,
+		"pr-author-set-file", "", "path to pr-authors.json file containing cached PR author data (helpful for development)")
 	fs.StringVar(&ext.githubToken,
 		"github-token", os.Getenv("GITHUB_TOKEN"), "GitHub API token (defaults to GITHUB_TOKEN env var)")
 	fs.StringVar(&ext.gitlabToken,
@@ -141,6 +147,7 @@ func (ext *bcrExtension) CheckFlags(fs *flag.FlagSet, c *config.Config) error {
 	ext.readResourceStatusCacheFile()
 	ext.readRepositoryMetadataCacheFile()
 	ext.readBazelReleaseCacheFile()
+	ext.readPRAuthorCacheFile()
 	ext.readModuleCommits(c)
 	ext.loadBackupRegistry()
 

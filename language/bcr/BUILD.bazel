@@ -26,6 +26,7 @@ go_library(
         "module_source.go",
         "module_version.go",
         "mvs.go",
+        "pr_author_cache.go",
         "presubmit.go",
         "proto_rule.go",
         "registry_backup.go",
