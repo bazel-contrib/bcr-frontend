@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"regexp"
 	"strings"
 
 	bzpb "github.com/bazel-contrib/bcr-frontend/build/stack/bazel/registry/v1"
 	sympb "github.com/bazel-contrib/bcr-frontend/build/stack/bazel/symbol/v1"
+	gitpkg "github.com/bazel-contrib/bcr-frontend/pkg/git"
 	"github.com/bazel-contrib/bcr-frontend/pkg/attestationsjson"
 	"github.com/bazel-contrib/bcr-frontend/pkg/modulebazel"
 	"github.com/bazel-contrib/bcr-frontend/pkg/paramsfile"
@@ -31,6 +31,7 @@ type Config struct {
 	CommitDate               string
 	CommitMessage            string
 	CommitGithubUser         string
+	CommitGithubName         string
 	UnresolvedDeps           string
 	UrlStatusCode            int
 	UrlStatusMessage         string
@@ -134,8 +135,9 @@ func run(args []string) error {
 			Sha1:        cfg.CommitSha1,
 			Date:        cfg.CommitDate,
 			Message:     cfg.CommitMessage,
-			PullRequest: parsePullRequestFromCommitMessage(cfg.CommitMessage),
+			PullRequest: gitpkg.ParsePullRequestFromCommitMessage(cfg.CommitMessage),
 			GithubUser:  cfg.CommitGithubUser,
+			GithubName:  cfg.CommitGithubName,
 		}
 	}
 
@@ -167,6 +169,7 @@ func parseFlags(args []string) (cfg Config, err error) {
 	fs.StringVar(&cfg.CommitDate, "commit_date", "", "the git commit date in ISO 8601 format (optional)")
 	fs.StringVar(&cfg.CommitMessage, "commit_message", "", "the git commit message (optional)")
 	fs.StringVar(&cfg.CommitGithubUser, "commit_github_user", "", "the GitHub username of the commit author (optional)")
+	fs.StringVar(&cfg.CommitGithubName, "commit_github_name", "", "the display name of the PR author (optional)")
 	fs.StringVar(&cfg.OutputFile, "output_file", "", "the output file to write")
 	fs.StringVar(&cfg.UnresolvedDeps, "unresolved_deps", "", "comma-separated list of dep names that failed to resolve to a known version")
 	fs.IntVar(&cfg.UrlStatusCode, "url_status_code", 0, "HTTP status code for the source URL (optional)")
@@ -198,14 +201,3 @@ func mustFindDependencyByName(module *bzpb.ModuleVersion, name string) *bzpb.Mod
 	return nil
 }
 
-var pullRequestRegex = regexp.MustCompile(`\(#(\d+)\)`)
-
-// parsePullRequestFromCommitMessage extracts the pull request number from a commit message.
-// Example: "Add basic support for Boost 1.89.0 (#5514)" returns "5514"
-func parsePullRequestFromCommitMessage(message string) string {
-	matches := pullRequestRegex.FindStringSubmatch(message)
-	if len(matches) > 1 {
-		return matches[1]
-	}
-	return ""
-}

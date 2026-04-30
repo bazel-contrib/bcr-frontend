@@ -580,3 +580,92 @@ func isNotFoundError(err error) bool {
 	}
 	return false
 }
+
+// PRAuthorInfo contains the result of fetching a PR author
+type PRAuthorInfo struct {
+	PRNumber  int
+	Login     string
+	Name      string
+	AvatarURL string
+}
+
+// FetchPRAuthorsBatch fetches PR author information for multiple PRs in the BCR repo.
+// Uses GitHub GraphQL API with aliased queries nested under a single repository node.
+// Maximum 500 PRs per batch.
+func FetchPRAuthorsBatch(ctx context.Context, token string, prNumbers []int) (map[int]*PRAuthorInfo, error) {
+	if len(prNumbers) == 0 {
+		return nil, nil
+	}
+	if len(prNumbers) > 500 {
+		return nil, fmt.Errorf("maximum 500 PRs per batch, got %d", len(prNumbers))
+	}
+
+	// Build the GraphQL query
+	var queryBuilder bytes.Buffer
+	queryBuilder.WriteString("query {\n")
+	queryBuilder.WriteString(`  repository(owner: "bazelbuild", name: "bazel-central-registry") {` + "\n")
+
+	for i, prNum := range prNumbers {
+		queryBuilder.WriteString(fmt.Sprintf(`    pr%d: pullRequest(number: %d) {
+      author {
+        login
+        ... on User {
+          name
+          avatarUrl
+        }
+      }
+    }
+`, i, prNum))
+	}
+
+	queryBuilder.WriteString("  }\n}\n")
+
+	// Execute raw GraphQL query
+	response, err := ExecuteRawGraphQL(ctx, token, queryBuilder.String())
+	if err != nil {
+		return nil, fmt.Errorf("failed to execute PR authors GraphQL query: %w", err)
+	}
+
+	// Parse response
+	return parsePRAuthorsResponse(response, prNumbers)
+}
+
+// parsePRAuthorsResponse parses the GraphQL response for PR author queries
+func parsePRAuthorsResponse(data map[string]any, prNumbers []int) (map[int]*PRAuthorInfo, error) {
+	results := make(map[int]*PRAuthorInfo)
+
+	repoData, ok := data["repository"].(map[string]any)
+	if !ok {
+		return nil, fmt.Errorf("no repository data in GraphQL response")
+	}
+
+	for i, prNum := range prNumbers {
+		prKey := fmt.Sprintf("pr%d", i)
+		prData, ok := repoData[prKey].(map[string]any)
+		if !ok {
+			// PR not found (deleted, private, etc.)
+			log.Printf("WARN: PR #%d not found in GraphQL response", prNum)
+			continue
+		}
+
+		info := &PRAuthorInfo{PRNumber: prNum}
+
+		if author, ok := prData["author"].(map[string]any); ok {
+			if login, ok := author["login"].(string); ok {
+				info.Login = login
+			}
+			if name, ok := author["name"].(string); ok {
+				info.Name = name
+			}
+			if avatarUrl, ok := author["avatarUrl"].(string); ok {
+				info.AvatarURL = avatarUrl
+			}
+		}
+
+		if info.Login != "" {
+			results[prNum] = info
+		}
+	}
+
+	return results, nil
+}

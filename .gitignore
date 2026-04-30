@@ -5,6 +5,7 @@
 /*.log
 /resources.json
 /repository-metadata.json
+/pr-authors.json
 
 # Added by cargo
 /target

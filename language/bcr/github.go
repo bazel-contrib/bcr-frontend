@@ -5,6 +5,7 @@ import (
 	"log"
 	"maps"
 	"slices"
+	"strconv"
 	"sync"
 	"time"
 
@@ -482,4 +483,133 @@ func (ext *bcrExtension) resolveSourceCommitSHAsForLatestVersions() {
 
 	totalResolved := backupCommitSHAs + successCount
 	log.Printf("Commit SHA resolution complete for latest versions: %d from backup registry, %d from GitHub API (%d errors), %d total resolved", backupCommitSHAs, successCount, errorCount, totalResolved)
+}
+
+// fetchPRAuthors fetches PR author information for module commits that are missing github_user.
+// Priority: (1) noreply email already set, (2) PR author cache, (3) backup registry, (4) GitHub GraphQL API.
+func (ext *bcrExtension) fetchPRAuthors() {
+	if ext.githubToken == "" {
+		log.Printf("No GitHub token available, skipping PR author fetch")
+		// Still apply any cached data we have
+		ext.applyPRAuthorsToCommits()
+		return
+	}
+
+	// Seed cache from backup registry for any PRs not already cached
+	ext.seedPRAuthorsFromBackupRegistry()
+
+	// Collect unique PR numbers that need author lookup
+	prNumbersNeeded := make(map[int]bool)
+	for _, commit := range ext.moduleCommits {
+		if commit.PullRequest == "" {
+			continue
+		}
+		prNum, err := strconv.Atoi(commit.PullRequest)
+		if err != nil {
+			continue
+		}
+		if _, cached := ext.prAuthorsByPR[prNum]; cached {
+			continue
+		}
+		prNumbersNeeded[prNum] = true
+	}
+
+	if len(prNumbersNeeded) == 0 {
+		log.Printf("No new PR authors to fetch (all cached or resolved from noreply email)")
+		ext.applyPRAuthorsToCommits()
+		return
+	}
+
+	log.Printf("Need to fetch author info for %d unique PRs from GitHub API", len(prNumbersNeeded))
+
+	prNumbers := slices.Sorted(maps.Keys(prNumbersNeeded))
+
+	ctx := context.Background()
+	batchSize := 500
+	totalFetched := 0
+
+	bar := progressbar.NewOptions(len(prNumbers),
+		progressbar.OptionSetDescription("Fetching PR authors"),
+		progressbar.OptionShowCount(),
+		progressbar.OptionSetWidth(40),
+		progressbar.OptionSetTheme(progressbar.Theme{
+			Saucer:        "=",
+			SaucerHead:    ">",
+			SaucerPadding: " ",
+			BarStart:      "[",
+			BarEnd:        "]",
+		}),
+	)
+
+	for i := 0; i < len(prNumbers); i += batchSize {
+		end := min(i+batchSize, len(prNumbers))
+		batch := prNumbers[i:end]
+
+		log.Printf("Fetching PR authors for batch %d-%d of %d PRs...", i+1, end, len(prNumbers))
+
+		// Retry with exponential backoff
+		maxRetries := 3
+		var err error
+		var results map[int]*gh.PRAuthorInfo
+
+		for attempt := 0; attempt < maxRetries; attempt++ {
+			if attempt > 0 {
+				backoff := time.Duration(attempt) * time.Second
+				log.Printf("Retrying PR authors batch %d-%d after %v (attempt %d/%d)...", i+1, end, backoff, attempt+1, maxRetries)
+				time.Sleep(backoff)
+			}
+
+			results, err = gh.FetchPRAuthorsBatch(ctx, ext.githubToken, batch)
+			if err == nil {
+				break
+			}
+			log.Printf("warning: failed to fetch PR authors batch (attempt %d/%d): %v", attempt+1, maxRetries, err)
+		}
+
+		if err != nil {
+			log.Printf("error: failed to fetch PR authors batch after %d attempts: %v", maxRetries, err)
+			bar.Add(len(batch))
+			continue
+		}
+
+		for prNum, info := range results {
+			ext.prAuthorsByPR[prNum] = &bzpb.PRAuthor{
+				PullRequest:     int32(prNum),
+				GithubUser:      info.Login,
+				GithubName:      info.Name,
+				GithubAvatarUrl: info.AvatarURL,
+			}
+			totalFetched++
+		}
+
+		bar.Add(len(batch))
+	}
+
+	if totalFetched > 0 {
+		ext.fetchedPRAuthors = true
+		log.Printf("Successfully fetched %d PR authors from GitHub API", totalFetched)
+	}
+
+	ext.applyPRAuthorsToCommits()
+}
+
+// applyPRAuthorsToCommits enriches the moduleCommits map with PR author data
+// from the prAuthorsByPR cache.
+func (ext *bcrExtension) applyPRAuthorsToCommits() {
+	enriched := 0
+	for _, commit := range ext.moduleCommits {
+		if commit.PullRequest == "" {
+			continue
+		}
+		prNum, err := strconv.Atoi(commit.PullRequest)
+		if err != nil {
+			continue
+		}
+		if author, ok := ext.prAuthorsByPR[prNum]; ok {
+			commit.GithubUser = author.GithubUser
+			commit.GithubName = author.GithubName
+			enriched++
+		}
+	}
+	log.Printf("Enriched %d module commits with PR author data", enriched)
 }

@@ -10,15 +10,13 @@ import (
 	bzpb "github.com/bazel-contrib/bcr-frontend/build/stack/bazel/registry/v1"
 )
 
-// noreplyEmailRegex matches GitHub noreply email formats:
-// - username@users.noreply.github.com (older format)
-// - 12345+username@users.noreply.github.com (newer format)
-var noreplyEmailRegex = regexp.MustCompile(`^(?:\d+\+)?([^@]+)@users\.noreply\.github\.com$`)
+// pullRequestRegex matches pull request references in commit messages like "(#5514)"
+var pullRequestRegex = regexp.MustCompile(`\(#(\d+)\)`)
 
-// parseGithubUserFromEmail extracts a GitHub username from a noreply email address.
-// Returns empty string if the email doesn't match the noreply pattern.
-func parseGithubUserFromEmail(email string) string {
-	matches := noreplyEmailRegex.FindStringSubmatch(email)
+// ParsePullRequestFromCommitMessage extracts the pull request number from a commit message.
+// Example: "Add basic support for Boost 1.89.0 (#5514)" returns "5514"
+func ParsePullRequestFromCommitMessage(message string) string {
+	matches := pullRequestRegex.FindStringSubmatch(message)
 	if len(matches) > 1 {
 		return matches[1]
 	}
@@ -50,10 +48,10 @@ func GetFileCreationCommit(ctx context.Context, repoPath, filePath string) (*bzp
 	}
 
 	return &bzpb.ModuleCommit{
-		Sha1:       parts[0],
-		Date:       parts[1],
-		GithubUser: parseGithubUserFromEmail(parts[2]),
-		Message:    parts[3],
+		Sha1:        parts[0],
+		Date:        parts[1],
+		Message:     parts[3],
+		PullRequest: ParsePullRequestFromCommitMessage(parts[3]),
 	}, nil
 }
 
@@ -113,10 +111,10 @@ func GetAllModuleCommits(ctx context.Context, repoPath, pattern string) (map[str
 			parts := strings.SplitN(strings.Replace(line, "|FILE_MARKER", "", 1), "|", 4)
 			if len(parts) == 4 {
 				currentCommit = &bzpb.ModuleCommit{
-					Sha1:       parts[0],
-					Date:       parts[1],
-					GithubUser: parseGithubUserFromEmail(parts[2]),
-					Message:    parts[3],
+					Sha1:        parts[0],
+					Date:        parts[1],
+					Message:     parts[3],
+					PullRequest: ParsePullRequestFromCommitMessage(parts[3]),
 				}
 			}
 		} else if currentCommit != nil {

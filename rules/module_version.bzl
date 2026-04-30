@@ -74,6 +74,9 @@ def _compile_action(ctx, source, deps, attestations, presubmit, commit):
         if commit.github_user:
             args.add("--commit_github_user")
             args.add(commit.github_user)
+        if commit.github_name:
+            args.add("--commit_github_name")
+            args.add(commit.github_name)
 
     # Run the compiler action
     ctx.actions.run(

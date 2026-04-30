@@ -196,6 +196,7 @@ ModuleCommitInfo = provider(
         "date": "str: Commit date in ISO 8601 format",
         "message": "str: Git commit message",
         "github_user": "str: GitHub username of the commit author (empty if unknown)",
+        "github_name": "str: Display name of the PR author (empty if unknown)",
     },
 )
 
