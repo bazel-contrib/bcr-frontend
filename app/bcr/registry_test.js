@@ -31,12 +31,12 @@ testSuite({
 		assertEquals("29d", calculateAgeSummary(29));
 
 		// Test months boundary (30-364)
-		assertEquals("1.0m", calculateAgeSummary(30));
-		assertEquals("1.5m", calculateAgeSummary(45));
-		assertEquals("2.5m", calculateAgeSummary(75));
-		assertEquals("6.0m", calculateAgeSummary(180));
-		assertEquals("11.0m", calculateAgeSummary(330));
-		assertEquals("12.1m", calculateAgeSummary(364));
+		assertEquals("1.0mo", calculateAgeSummary(30));
+		assertEquals("1.5mo", calculateAgeSummary(45));
+		assertEquals("2.5mo", calculateAgeSummary(75));
+		assertEquals("6.0mo", calculateAgeSummary(180));
+		assertEquals("11.0mo", calculateAgeSummary(330));
+		assertEquals("12.1mo", calculateAgeSummary(364));
 
 		// Test years boundary (365+)
 		assertEquals("1.0y", calculateAgeSummary(365));
@@ -147,7 +147,7 @@ testSuite({
 		// Version 2.0.0: 1 version behind, ~60 days old
 		const v2Info = versionMap.get("2.0.0");
 		assertEquals(1, v2Info.versionsBehind);
-		assertEquals("2.0m", v2Info.ageSummary);
+		assertEquals("2.0mo", v2Info.ageSummary);
 
 		// Version 1.0.0: 2 versions behind, ~400 days old
 		const v1Info = versionMap.get("1.0.0");

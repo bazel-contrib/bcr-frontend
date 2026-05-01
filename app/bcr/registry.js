@@ -251,10 +251,10 @@ function calculateAgeSummary(totalDays) {
 		return `${years}y`;
 	}
 
-	// If months, show as decimal months (e.g., "2.5m")
+	// If months, show as decimal months (e.g., "2.5mo")
 	if (totalDays >= 30) {
 		const months = (totalDays / 30).toFixed(1);
-		return `${months}m`;
+		return `${months}mo`;
 	}
 
 	// Otherwise just show days
