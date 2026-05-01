@@ -877,6 +877,8 @@ class ModuleVersionDependentsComponent extends ContentComponent {
 
 		this.enterListButton();
 		this.enterTableButton();
+
+		this.enterTableContent(this.getTableContentElement());
 	}
 
 	enterListButton() {
@@ -1057,7 +1059,7 @@ class ModuleVersionDependentsComponent extends ContentComponent {
 	renderDependentsMatrix(container, data) {
 		// Wrapper for horizontal scroll with grab cursor
 		const wrapper = dom.createDom("div", {
-			class: "m-1",
+			class: "m-1 dependents-matrix",
 			style: "overflow-x: scroll; cursor: grab;",
 			onmousedown: /** @this {!HTMLElement} */ function () {
 				this.style.cursor = "grabbing";

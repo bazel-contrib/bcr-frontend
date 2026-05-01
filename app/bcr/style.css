@@ -71,6 +71,13 @@ pre code {
 	-webkit-overflow-scrolling: touch;
 }
 
+/* Restore table semantics for the dependents matrix.
+ * The matrix has its own overflow wrapper and needs display: table
+ * for sticky columns and cell-grid layout to work. */
+.Box .Box-body .dependents-matrix table {
+	display: table;
+}
+
 /* width-full on mobile should respect container bounds */
 @media (max-width: 767.98px) {
 	.width-full {
