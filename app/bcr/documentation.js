@@ -157,6 +157,15 @@ let FileSymbol;
 
 /**
  * @typedef {{
+ *   type: SymbolType,
+ *   typeName: string,
+ *   items: !Array<!FileSymbol>
+ * }}
+ */
+let NavSymbolGroup;
+
+/**
+ * @typedef {{
  *   module: !Module,
  *   version: !ModuleVersion,
  *   file: !File,
@@ -423,6 +432,8 @@ class ModuleVersionSymbolsSelect extends ContentSelect {
 			fileSymbols = buildFileSymbolGroups(this.symbols_);
 		}
 
+		const navSymbolGroups = buildNavSymbolGroups(fileSymbols);
+
 		this.setElementInternal(
 			soy.renderAsElement(
 				documentationInfoSelect,
@@ -430,6 +441,7 @@ class ModuleVersionSymbolsSelect extends ContentSelect {
 					module: this.module_,
 					moduleVersion: this.moduleVersion_,
 					fileSymbols,
+					navSymbolGroups,
 					info: this.symbols_ || undefined,
 				},
 				{
@@ -444,7 +456,7 @@ class ModuleVersionSymbolsSelect extends ContentSelect {
 	 * @param {!Route} route
 	 */
 	goHere(route) {
-		this.select(TabName.README, route.add(TabName.README));
+		this.select(TabName.LIST, route.add(TabName.LIST));
 	}
 
 	/**
@@ -2061,6 +2073,57 @@ function buildFileSymbolGroups(docs) {
 	);
 
 	return fileSymbols;
+}
+
+/**
+ * Build nav symbol groups aggregated across all files by type.
+ * Used for the sidebar navigation which shows type -> symbol (no file grouping).
+ * @param {!Array<FileSymbolGroupList>} fileSymbols
+ * @return {!Array<NavSymbolGroup>}
+ */
+function buildNavSymbolGroups(fileSymbols) {
+	/** @type {!Map<SymbolType, NavSymbolGroup>} */
+	const groupsByType = new Map();
+
+	for (const fileSymbolGroup of fileSymbols) {
+		const file = fileSymbolGroup.file;
+		if (file.getError()) {
+			continue;
+		}
+		for (const symbolGroup of fileSymbolGroup.symbolGroups) {
+			if (symbolGroup.type === SymbolType.SYMBOL_TYPE_LOAD_STMT) {
+				continue;
+			}
+			let navGroup = groupsByType.get(symbolGroup.type);
+			if (!navGroup) {
+				navGroup = {
+					type: symbolGroup.type,
+					typeName: symbolGroup.typeName,
+					items: [],
+				};
+				groupsByType.set(symbolGroup.type, navGroup);
+			}
+			for (const sym of symbolGroup.symbols) {
+				navGroup.items.push({ file, sym });
+			}
+		}
+	}
+
+	for (const group of groupsByType.values()) {
+		group.items.sort(bySymbolName);
+	}
+
+	/** @type {!Array<NavSymbolGroup>} */
+	const result = Array.from(groupsByType.values());
+	result.sort(
+		/**
+		 * @param {NavSymbolGroup} a
+		 * @param {NavSymbolGroup} b
+		 * @returns {number}
+		 */
+		(a, b) => a.type - b.type,
+	);
+	return result;
 }
 
 /**

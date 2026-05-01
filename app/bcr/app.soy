@@ -789,6 +789,7 @@ import {
   {@param module: Module}
   {@param moduleVersion: ModuleVersion}
   {@param fileSymbols: list<[file: File, symbolGroups: list<[type: SymbolType, typeName: string, symbols: list<Symbol>]>]>}
+  {@param navSymbolGroups: list<[type: SymbolType, typeName: string, items: list<[file: File, sym: Symbol]>]>}
   {@param? info: ModuleVersionSymbols}
 <div>
   <div class="PageLayout PageLayout--panePos-start PageLayout--hasPaneDivider PageLayout--responsive-stackRegions" style2="--Layout-template-columns: unset">
@@ -797,7 +798,7 @@ import {
         <div class="PageLayout-content PageLayout-pane--sticky {css('content')}"></div>
         <div class="PageLayout-pane pl-2 overflow-x-hidden">
           <nav class="SideNav" style="background-color: transparent; border: none">
-            {documentationAboutSection(module: $module, moduleVersion: $moduleVersion, info: $info, fileSymbols: $fileSymbols)}
+            {documentationAboutSection(module: $module, moduleVersion: $moduleVersion, info: $info, navSymbolGroups: $navSymbolGroups)}
           </nav>
         </div>
       </div>
@@ -1159,6 +1160,49 @@ import {
             {if $showDocstrings}
               <span class="text-small text-light ml-2 flex-shrink-0">{$symbol.getDescription()|truncate:63}</span>
             {/if}
+          </div>
+        </div>
+      {/for}
+    </div>
+  </div>
+{/template}
+
+
+{template navSymbolTreeGroup visibility="private"}
+  {@param type: SymbolType}
+  {@param typeName: string}
+  {@param items: list<[file: File, sym: Symbol]>}
+  {@param isLastGroup: bool}
+  <div class="treeview-item" role="treeitem">
+    <div class="treeview-item-row d-flex flex-items-center" style="padding: 0.25rem 0 0.10rem 0;">
+      <span class="color-fg-muted" style="margin-right: 0.25rem; font-family: monospace; user-select: none; flex-shrink: 0;">
+        {if $isLastGroup}
+          └─
+        {else}
+          ├─
+        {/if}
+      </span>
+      {let $color: symbolColor(type: $type) /}
+      <span class="ml-1 text-small flex-shrink-0" style="opacity: 0.64">
+        <span style="color: var({$color});">{$typeName}</span>
+      </span>
+    </div>
+    <div class="treeview-children ml-1" role="group">
+      {for $item, $index in $items}
+        {let $isLast: $index == length($items) - 1 /}
+        <div class="treeview-item" role="treeitem">
+          <div class="treeview-item-row d-flex flex-items-center" style="margin-left: 1.2rem;">
+            <span class="color-fg-muted" style="margin-right: 0.25rem; font-family: monospace; user-select: none; flex-shrink: 0;">
+              {if $isLast}
+                └─
+              {else}
+                ├─
+              {/if}
+            </span>
+            <span style="flex-shrink: 0;">{octiconDotFill16(fill: 'var(' + $color + ')')}</span>
+            <a class="Link--primary flex-auto" href="{symbolInfoUrl(file: $item.file, sym: $item.sym)}" style="margin-left: 0.25rem;">
+              {$item.sym.getName()}
+            </a>
           </div>
         </div>
       {/for}
@@ -2252,7 +2296,7 @@ import {
   {@param module: Module}
   {@param moduleVersion: ModuleVersion}
   {@param? info: ModuleVersionSymbols}
-  {@param fileSymbols: list<[file: File, symbolGroups: list<[type: SymbolType, typeName: string, symbols: list<Symbol>]>]>}
+  {@param navSymbolGroups: list<[type: SymbolType, typeName: string, items: list<[file: File, sym: Symbol]>]>}
 <div>
   <div class="f4 color-fg-muted">
   {if $info}
@@ -2279,7 +2323,11 @@ import {
   </div>
 
   <div class="mt-3">
-      <a class="Link--muted d-flex flex-items-center mb-2" href="{moduleVersionDocsUrl(name: $moduleVersion.getName(), version: $moduleVersion.getVersion())}">
+      <a class="Link--muted d-flex flex-items-center mb-2" href="{moduleVersionDocsUrl(name: $moduleVersion.getName(), version: $moduleVersion.getVersion())}/list">
+        <span class="mr-2">{octiconListUnordered16()}</span>
+        <span>View File List</span>
+      </a>
+      <a class="Link--muted d-flex flex-items-center mb-2" href="{moduleVersionDocsUrl(name: $moduleVersion.getName(), version: $moduleVersion.getVersion())}/readme">
         <span class="mr-2">{octiconBook16()}</span>
         <span>View README</span>
       </a>
@@ -2295,31 +2343,18 @@ import {
   </div>
 
   {if $info}
-    {if length($fileSymbols) > 0}
+    {if length($navSymbolGroups) > 0}
       <div class="mt-3 pt-3 border-top">
-        {for $fileSymbol in $fileSymbols}
-          {let $file: $fileSymbol.file /}
-          {let $pkg: $file.getLabel()?.getPkg() /}
-          {let $name: $file.getLabel()?.getName() /}
-          {let $hasError: $file.getError() ? true : false /}
-          <div class="mb-3">
-            <div class="d-flex flex-items-start mb-1">
-              <div class="flex-shrink-0 mr-2">
-                {if $hasError}
-                  {octiconSkip16(class: 'color-fg-attention')}
-                {else}
-                  {octiconFile16()}
-                {/if}
-              </div>
-              <div class="flex-auto">
-                <a href="{fileInfoUrl(label: $file.getLabel())}" class="{if $hasError}Link--muted{else}Link--primary{/if}">
-                  <span class="text-semibold">{$pkg ? $pkg + '/' : ''}{$name}</span>
-                </a>
-              </div>
-            </div>
-            {fileSymbolTree(moduleVersion: $moduleVersion, file: $file, symbolGroups: $fileSymbol.symbolGroups, showDocstrings: false)}
-          </div>
-        {/for}
+        <div class="treeview-root treeview-compact" role="tree">
+          {for $group, $groupIndex in $navSymbolGroups}
+            {navSymbolTreeGroup(
+                type: $group.type,
+                typeName: $group.typeName,
+                items: $group.items,
+                isLastGroup: $groupIndex == length($navSymbolGroups) - 1
+            )}
+          {/for}
+        </div>
       </div>
     {/if}
   {/if}
