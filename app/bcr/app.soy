@@ -750,16 +750,16 @@ import {
   <div class="Box-header d-flex flex-items-center flex-justify-between">
     <span class="Box-title">{$title} {counterLabel(count: $deps.length)}</span>
     <div class="BtnGroup">
-      <button class="BtnGroup-item selected btn btn-sm {css('btn-list')}" title="View list of dependents">
+      <button class="BtnGroup-item btn btn-sm {css('btn-list')}" title="View list of dependents">
         {octiconListUnordered16()}
       </button>
-      <button class="BtnGroup-item btn btn-sm {css('btn-table')}" title="View matrix of dependents by version">
+      <button class="BtnGroup-item selected btn btn-sm {css('btn-table')}" title="View matrix of dependents by version">
         {octiconTable16()}
       </button>
     </div>
   </div>
   <div class="Box-body">
-    <div class="{css('list-content')}">
+    <div class="{css('list-content')}" style="display: none;">
       {for $dep in $deps}
         <div class="mx-1 my-2" style="display: flex; align-items: center;">
           <span style="padding-right: 0.5em;">
