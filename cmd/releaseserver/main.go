@@ -7,6 +7,7 @@ import (
 	"io"
 	"log"
 	"mime"
+	"net"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -19,8 +20,9 @@ func main() {
 	log.SetFlags(0)
 
 	var (
-		port = flag.Int("port", 8080, "port to listen on")
-		host = flag.String("host", "localhost", "host to bind to")
+		port     = flag.Int("port", 8080, "port to listen on (0 = pick a free port)")
+		host     = flag.String("host", "localhost", "host to bind to")
+		portFile = flag.String("port_file", "", "if set, write the chosen port to this file once listening")
 	)
 
 	flag.Usage = func() {
@@ -63,10 +65,22 @@ func main() {
 	server := NewSPAServer(files)
 	addr := fmt.Sprintf("%s:%d", *host, *port)
 
-	log.Printf("Starting server on http://%s", addr)
+	listener, err := net.Listen("tcp", addr)
+	if err != nil {
+		log.Fatalf("Failed to listen on %s: %v", addr, err)
+	}
+
+	chosenPort := listener.Addr().(*net.TCPAddr).Port
+	log.Printf("Starting server on http://%s:%d", *host, chosenPort)
 	log.Printf("Press Ctrl+C to stop")
 
-	if err := http.ListenAndServe(addr, server); err != nil {
+	if *portFile != "" {
+		if err := os.WriteFile(*portFile, []byte(fmt.Sprintf("%d\n", chosenPort)), 0644); err != nil {
+			log.Fatalf("Failed to write port file %s: %v", *portFile, err)
+		}
+	}
+
+	if err := http.Serve(listener, server); err != nil {
 		log.Fatalf("Server failed: %v", err)
 	}
 }

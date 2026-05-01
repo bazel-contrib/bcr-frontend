@@ -12,6 +12,7 @@ load(
 load("//rules:deploy.bzl", "cloudflare_deploy")
 load("//rules:ghpages.bzl", "ghpages_deploy")
 load("//rules:octicons_closure_template_compile.bzl", "octicons_closure_template_compile")
+load("//rules:prerender.bzl", "prerender_home")
 load("//rules:release.bzl", "release_archive")
 
 string_flag(
@@ -53,6 +54,13 @@ config_setting(
     name = "is_dummy_release",
     flag_values = {
         ":release_type": "dummy",
+    },
+)
+
+config_setting(
+    name = "is_production_release",
+    flag_values = {
+        ":release_type": "production",
     },
 )
 
@@ -307,25 +315,65 @@ genrule(
     cmd = "cat $(SRCS) > $@",
 )
 
+# Common attributes for both the prerendered and unprerendered release targets.
+RELEASE_SRCS = [
+    "favicon.png",
+    ":registrylite_pb",
+    ":robots_txt",
+    ":sitemap_xml",
+] + select({
+    ":is_debug_release": ["bcr.js.map"],
+    "//conditions:default": [],
+})
+
+RELEASE_HASHED_SRCS = [
+    ":bcr.css",
+    ":bcr.js",
+]
+
+# Vanilla release that always uses the index.html template. Used as the input
+# to :prerender_home (which serves it via releaseserver while headless Chrome
+# captures a snapshot of the rendered home page).
+release_archive(
+    name = "release_unprerendered",
+    srcs = RELEASE_SRCS,
+    hashed_srcs = RELEASE_HASHED_SRCS,
+    index_html = "index.html",
+    module_registry_symbols_file = "symbols_pb",
+    modules_srcs = [":doc_results"],
+    registry_file = ":registrylite_pb",
+    worker_modules = ["//app/api"],
+)
+
+# Snapshot of the home page (/) rendered by hermetic chrome-headless-shell
+# from rules_browsers. The output is a fully-rendered index.html — placeholder
+# substitutions (e.g., {bcr.js} -> bcr.<hash>.js) have already happened in
+# :release_unprerendered, so the snapshot references the same hashed assets
+# that :release will ultimately ship.
+prerender_home(
+    name = "prerender_home",
+    chromium = "@rules_browsers//browsers/chromium:chromium",
+    path = "/",
+    releaseserver = "//cmd/releaseserver",
+    statichtmlcompiler = "//cmd/statichtmlcompiler",
+    tarball = ":release_unprerendered",
+)
+
 # builds the release.tar.
+#
+# In production, the served index.html is the prerendered home page; other
+# routes still SPA-bootstrap from the same file. For debug/dummy builds we
+# use the template index.html unchanged (faster builds, no headless Chrome).
 #
 # ProTip: bazel run //app/bcr:release for development server
 release_archive(
     name = "release",
-    srcs = [
-        "favicon.png",
-        ":registrylite_pb",
-        ":robots_txt",
-        ":sitemap_xml",
-    ] + select({
-        ":is_debug_release": ["bcr.js.map"],
-        "//conditions:default": [],
+    srcs = RELEASE_SRCS,
+    hashed_srcs = RELEASE_HASHED_SRCS,
+    index_html = select({
+        ":is_production_release": ":prerender_home",
+        "//conditions:default": "index.html",
     }),
-    hashed_srcs = [
-        ":bcr.css",
-        ":bcr.js",
-    ],
-    index_html = "index.html",
     module_registry_symbols_file = "symbols_pb",
     modules_srcs = [":doc_results"],
     registry_file = ":registrylite_pb",
