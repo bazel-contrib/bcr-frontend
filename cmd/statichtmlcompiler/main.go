@@ -31,6 +31,7 @@ type Config struct {
 	OutputFiles   stringList
 	Timeout       time.Duration
 	UseChromedp   bool
+	ChromePath    string
 	WaitReady     string
 	WaitVisible   string
 	Concurrency   int
@@ -208,7 +209,7 @@ func fetchWithHTTP(cfg Config, targetURL string) ([]byte, error) {
 }
 
 func buildChromedpOpts(cfg Config) []chromedp.ExecAllocatorOption {
-	return append(chromedp.DefaultExecAllocatorOptions[:],
+	opts := append(chromedp.DefaultExecAllocatorOptions[:],
 		chromedp.Flag("headless", true),
 		chromedp.Flag("disable-gpu", true),
 		chromedp.Flag("no-sandbox", true),
@@ -231,6 +232,10 @@ func buildChromedpOpts(cfg Config) []chromedp.ExecAllocatorOption {
 		chromedp.Flag("mute-audio", true),
 		chromedp.Flag("no-first-run", true),
 	)
+	if cfg.ChromePath != "" {
+		opts = append(opts, chromedp.ExecPath(cfg.ChromePath))
+	}
+	return opts
 }
 
 func fetchWithChromedp(cfg Config, targetURL string) ([]byte, error) {
@@ -292,6 +297,7 @@ func parseFlags(args []string) (cfg Config, err error) {
 	fs.IntVar(&timeoutSec, "timeout", 30, "timeout in seconds (default: 30)")
 	fs.IntVar(&cfg.Concurrency, "concurrency", 4, "number of concurrent workers for batch mode")
 	fs.BoolVar(&cfg.UseChromedp, "chromedp", true, "use chromedp to render JavaScript (requires Chrome/Chromium)")
+	fs.StringVar(&cfg.ChromePath, "chrome_path", "", "path to Chrome/Chromium binary (default: search $PATH)")
 	fs.StringVar(&cfg.WaitReady, "wait_ready", "", "CSS selector to wait for (e.g., 'body', '.content')")
 	fs.StringVar(&cfg.WaitVisible, "wait_visible", "", "CSS selector to wait until visible")
 	fs.BoolVar(&cfg.DisableImages, "disable_images", true, "disable image loading for faster rendering")

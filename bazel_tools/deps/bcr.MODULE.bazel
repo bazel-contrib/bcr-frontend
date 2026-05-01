@@ -9,6 +9,7 @@ bazel_dep(name = "gazelle", version = "0.47.0", dev_dependency = True, repo_name
 bazel_dep(name = "rules_go", version = "0.59.0", dev_dependency = True)
 bazel_dep(name = "rules_java", version = "8.16.1", dev_dependency = True)
 bazel_dep(name = "rules_multitool", version = "1.11.1", dev_dependency = True)
+bazel_dep(name = "rules_browsers", version = "0.4.0", dev_dependency = True)
 bazel_dep(name = "rules_proto", version = "7.1.0", dev_dependency = True)
 bazel_dep(name = "rules_rs", version = "0.0.20", dev_dependency = True)
 bazel_dep(name = "rules_rust_wasm_bindgen", version = "0.68.1")
@@ -16,6 +17,14 @@ bazel_dep(name = "rules_rust", version = "0.68.1", dev_dependency = True)
 bazel_dep(name = "rules_tsickle", version = "1.1.0", dev_dependency = True)
 bazel_dep(name = "stackb_rules_closure", version = "1.0.0", dev_dependency = True)
 bazel_dep(name = "stackb_ui_js", version = "1.0.0", dev_dependency = True)
+
+# -------------------------------------------------------------------
+# Extensions
+# -------------------------------------------------------------------
+
+# Hermetic chrome-headless-shell for build-time prerendering.
+browsers = use_extension("@rules_browsers//browsers:extensions.bzl", "browsers", dev_dependency = True)
+browsers.chrome()
 
 # -------------------------------------------------------------------
 # Overrides
