@@ -36,6 +36,17 @@ def _write_registry_languages_json_action(ctx, mds):
 
     return output
 
+def _write_prerender_urls_action(ctx, deps):
+    """Emit a list of /modules/<name> URLs (one per line) for build-time
+    prerendering. Sorted alphabetically by module name for deterministic output."""
+    output = ctx.actions.declare_file(ctx.label.name + ".prerender_urls.txt")
+
+    names = sorted([d.name for d in deps if d.name])
+    content = "\n".join(["/modules/" + name for name in names]) + "\n"
+    ctx.actions.write(output, content)
+
+    return output
+
 def _is_allowed_bazel_help_release(v):
     return v in [
         "8.4.2",
@@ -398,6 +409,7 @@ def _module_registry_impl(ctx):
     registrylite_pb = _compile_registry_action(ctx, "registrylite.pb", modules)
 
     sitemap_xml = _compile_sitemap_action(ctx, registry_pb)
+    prerender_urls = _write_prerender_urls_action(ctx, deps)
     bazel_help = _compile_bazel_help_registry_action(ctx, bazel_versions)
 
     return [
@@ -407,6 +419,7 @@ def _module_registry_impl(ctx):
             languages_json = [languages_json],
             colors_css = [colors_css],
             sitemap_xml = [sitemap_xml],
+            prerender_urls = [prerender_urls],
             robots_txt = [robots_txt],
             registry_pb = [registry_pb],
             registrylite_pb = [registrylite_pb],

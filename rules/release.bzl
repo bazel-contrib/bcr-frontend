@@ -26,6 +26,9 @@ def _compile_release_action(ctx):
     if ctx.file.module_registry_symbols_file:
         args.add("--module_registry_symbols_file")
         args.add(ctx.file.module_registry_symbols_file)
+    if ctx.file.prerendered_pages_tar:
+        args.add("--prerendered_pages_tar")
+        args.add(ctx.file.prerendered_pages_tar)
 
     # Collect files to exclude from hashing
     exclude_from_hash = [src.basename for src in ctx.files.srcs]
@@ -49,6 +52,8 @@ def _compile_release_action(ctx):
         ctx.file.registry_file,
     ] + (
         [ctx.file.module_registry_symbols_file] if ctx.file.module_registry_symbols_file else []
+    ) + (
+        [ctx.file.prerendered_pages_tar] if ctx.file.prerendered_pages_tar else []
     )
 
     ctx.actions.run(
@@ -89,6 +94,10 @@ release_archive = rule(
         "index_html": attr.label(allow_single_file = True, mandatory = True),
         "registry_file": attr.label(allow_single_file = True, mandatory = True),
         "module_registry_symbols_file": attr.label(allow_single_file = True, mandatory = True),
+        "prerendered_pages_tar": attr.label(
+            allow_single_file = [".tar"],
+            doc = "Optional tar of prerendered HTML pages whose entries are merged into the release tarball verbatim.",
+        ),
         "_releasecompiler": attr.label(
             default = "//cmd/releasecompiler",
             executable = True,

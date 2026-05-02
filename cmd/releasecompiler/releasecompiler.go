@@ -25,6 +25,7 @@ type Config struct {
 	IndexHtmlFile             string
 	RegistryFile              string
 	ModuleRegistrySymbolsFile string
+	PrerenderedPagesTar       string
 	AssetFiles                []string
 	ModulesSrcFiles           stringSliceFlag
 	ExcludeFromHash           map[string]bool // basenames to exclude from hashing
@@ -105,7 +106,7 @@ func run(args []string) error {
 	}
 
 	// Create tarball
-	tarball, err := createTarball(indexContent, assets, cfg.ModulesSrcFiles)
+	tarball, err := createTarball(indexContent, assets, cfg.ModulesSrcFiles, cfg.PrerenderedPagesTar)
 	if err != nil {
 		return fmt.Errorf("failed to create tarball: %v", err)
 	}
@@ -289,7 +290,7 @@ func updateIndexHtml(indexPath string, assets []HashedAsset) ([]byte, error) {
 	return []byte(htmlStr), nil
 }
 
-func createTarball(indexContent []byte, assets []HashedAsset, modulesSrcFiles []string) ([]byte, error) {
+func createTarball(indexContent []byte, assets []HashedAsset, modulesSrcFiles []string, prerenderedPagesTar string) ([]byte, error) {
 	var buf bytes.Buffer
 	tw := tar.NewWriter(&buf)
 
@@ -324,11 +325,64 @@ func createTarball(indexContent []byte, assets []HashedAsset, modulesSrcFiles []
 		log.Printf("Added modules_src: %s", tarName)
 	}
 
+	// Merge entries from a prerendered-pages tarball, if provided. Entries
+	// are added at their existing paths (e.g. modules/rules_buf/index.html)
+	// without rewriting; the prerender ran against the unprerendered tarball
+	// which already had hashed asset names stamped, so references inside
+	// these HTML files match the assets shipped here.
+	if prerenderedPagesTar != "" {
+		count, err := mergePrerenderedPages(tw, prerenderedPagesTar)
+		if err != nil {
+			return nil, fmt.Errorf("failed to merge prerendered_pages_tar: %v", err)
+		}
+		log.Printf("Merged %d prerendered page(s) from %s", count, prerenderedPagesTar)
+	}
+
 	if err := tw.Close(); err != nil {
 		return nil, fmt.Errorf("failed to close tar writer: %v", err)
 	}
 
 	return buf.Bytes(), nil
+}
+
+// mergePrerenderedPages reads the input tar at path and copies each regular
+// file entry into tw at the same name. Returns the number of entries copied.
+// Skips directory entries; preserves leading "./" stripping for consistency
+// with the rest of this tool's tar entries.
+func mergePrerenderedPages(tw *tar.Writer, path string) (int, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return 0, fmt.Errorf("open %s: %v", path, err)
+	}
+	defer f.Close()
+
+	tr := tar.NewReader(f)
+	count := 0
+	for {
+		hdr, err := tr.Next()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return count, fmt.Errorf("read entry: %v", err)
+		}
+		if hdr.Typeflag == tar.TypeDir {
+			continue
+		}
+		content, err := io.ReadAll(tr)
+		if err != nil {
+			return count, fmt.Errorf("read content of %s: %v", hdr.Name, err)
+		}
+		name := strings.TrimPrefix(hdr.Name, "./")
+		if name == "" {
+			continue
+		}
+		if err := addFileToTar(tw, name, content); err != nil {
+			return count, fmt.Errorf("add %s: %v", name, err)
+		}
+		count++
+	}
+	return count, nil
 }
 
 func addFileToTar(tw *tar.Writer, name string, content []byte) error {
@@ -357,6 +411,7 @@ func parseFlags(args []string) (cfg Config, err error) {
 	fs.StringVar(&cfg.IndexHtmlFile, "index_html_file", "", "the index.html file to read")
 	fs.StringVar(&cfg.RegistryFile, "registry_file", "", "the registry protobuf file to process (gzipped and base64 encoded)")
 	fs.StringVar(&cfg.ModuleRegistrySymbolsFile, "module_registry_symbols_file", "", "the documentation registry protobuf file to process (gzipped and base64 encoded)")
+	fs.StringVar(&cfg.PrerenderedPagesTar, "prerendered_pages_tar", "", "optional tar of prerendered HTML files to merge into the output tarball verbatim (entries are added as-is)")
 	fs.Var(&cfg.ModulesSrcFiles, "modules_src", "a file to include under modules/ in the tarball (repeatable)")
 	fs.StringVar(&excludeFromHashStr, "exclude_from_hash", "", "comma-separated list of basenames to exclude from hashing (e.g., favicon.png,robots.txt)")
 	fs.Usage = func() {
