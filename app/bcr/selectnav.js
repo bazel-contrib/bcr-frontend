@@ -22,6 +22,15 @@ class SelectNav extends ContentSelect {
 	 */
 	constructor(opt_domHelper) {
 		super(opt_domHelper);
+
+		/**
+		 * Factories for tabs registered via addNavTabLazy. Looked up by
+		 * route name in selectFail to recreate the component on demand
+		 * after the previous instance was disposed (see
+		 * stack.ui.Select.hideCurrent).
+		 * @private @const @type {!Object<string, function():!Component>}
+		 */
+		this.lazyFactories_ = {};
 	}
 
 	/**
@@ -69,8 +78,15 @@ class SelectNav extends ContentSelect {
 		const rv = super.addTab(name, c);
 
 		const item = this.createMenuItem(name, label, title, count, c.getPathUrl());
-		const fragmentId = this.makeId(c.getId());
+		// Key nav-item DOM ids on the route name (stable) rather than the
+		// component id (changes after dispose+recreate). Replace any stale
+		// item with the same id (e.g. from a prior visit to this route).
+		const fragmentId = this.makeId(name);
 		item.id = fragmentId;
+		const existing = dom.getElement(fragmentId);
+		if (existing) {
+			dom.removeNode(existing);
+		}
 
 		dom.append(this.getNavElement(), item);
 		return rv;
@@ -86,7 +102,46 @@ class SelectNav extends ContentSelect {
 	 */
 	addNavTabDeferred(name, label, title, count, path) {
 		const item = this.createMenuItem(name, label, title, count, path);
+		const fragmentId = this.makeId(name);
+		item.id = fragmentId;
+		const existing = dom.getElement(fragmentId);
+		if (existing) {
+			dom.removeNode(existing);
+		}
 		dom.append(this.getNavElement(), item);
+	}
+
+	/**
+	 * Adds a nav item AND registers a factory to lazily build the
+	 * component on demand. The component is created the first time the
+	 * user navigates to this tab, and re-created on each visit after the
+	 * previous instance was disposed.
+	 *
+	 * @param {string} name
+	 * @param {string} label
+	 * @param {string} title
+	 * @param {number|undefined} count
+	 * @param {string} path
+	 * @param {function():!Component} factory
+	 */
+	addNavTabLazy(name, label, title, count, path, factory) {
+		this.addNavTabDeferred(name, label, title, count, path);
+		this.lazyFactories_[name] = factory;
+	}
+
+	/**
+	 * @override
+	 * @param {string} name
+	 * @param {!Route} route
+	 */
+	selectFail(name, route) {
+		const factory = this.lazyFactories_[name];
+		if (factory) {
+			this.addTab(name, factory());
+			this.select(name, route);
+			return;
+		}
+		super.selectFail(name, route);
 	}
 
 	/**
@@ -120,8 +175,13 @@ class SelectNav extends ContentSelect {
 			return;
 		}
 
-		// Find the menu item element corresponding to the child
-		const fragmentId = this.makeId(target.getId());
+		// Find the menu item element by route name (stable across
+		// dispose+recreate cycles), not by component id (transient).
+		const targetName = target.getName();
+		if (!targetName) {
+			return;
+		}
+		const fragmentId = this.makeId(targetName);
 		const item = dom.getElement(fragmentId);
 		if (!item) {
 			return;

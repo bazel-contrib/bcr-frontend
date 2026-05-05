@@ -264,20 +264,29 @@ func runWorkerSingleContext(cfg Config, workerID, start, end int) error {
 		targetURL := cfg.URLs[i]
 		outputFile := cfg.OutputFiles[i]
 
-		// Full Navigate per URL — keeps the chrome process and tab alive
-		// across iterations (saves chrome boot + tab-creation cost), but
-		// each page reload starts with a fresh DOM and re-runs bcr.main()'s
-		// cleanup. We tried pushState + popstate to skip the 2.7MB
-		// REGISTRY_DATA reparse, but the SPA caches inactive tabs in the
-		// DOM (display:none), so a single chromedp tab with N pushState
-		// navigations captured N-1 hidden modules and ballooned to ~13MB
-		// per page by the end of a worker's batch.
+		// First URL per worker: full Navigate (loads SPA, parses 2.7MB
+		// REGISTRY_DATA once). Subsequent URLs: history.pushState +
+		// popstate triggers the SPA's history listener and routes
+		// without a page reload.
 		var html string
-		tasks := chromedp.Tasks{
-			chromedp.Navigate(targetURL),
-			chromedp.WaitReady("body"),
-			chromedp.Sleep(cfg.SettleDelay),
-			chromedp.OuterHTML("html", &html),
+		var tasks chromedp.Tasks
+		if i == start {
+			tasks = chromedp.Tasks{
+				chromedp.Navigate(targetURL),
+				chromedp.WaitReady("body"),
+				chromedp.Sleep(cfg.SettleDelay),
+				chromedp.OuterHTML("html", &html),
+			}
+		} else {
+			js := fmt.Sprintf(
+				`window.history.pushState({}, '', %q); window.dispatchEvent(new PopStateEvent('popstate', {state: {}}));`,
+				targetURL,
+			)
+			tasks = chromedp.Tasks{
+				chromedp.Evaluate(js, nil),
+				chromedp.Sleep(cfg.SettleDelay),
+				chromedp.OuterHTML("html", &html),
+			}
 		}
 
 		stepStart := time.Now()
