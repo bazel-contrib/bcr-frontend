@@ -39,6 +39,42 @@ To deploy the latest BCR commit:
 gh workflow run trigger-via-bcr.yml
 ```
 
+## Linux Prerequisites for Production Builds
+
+Production builds (`--//app/bcr:release_type=production`) pre-render the home
+page via a hermetic `chrome-headless-shell` provided by
+[rules_browsers](https://github.com/angular/rules_browsers). Bazel downloads
+the browser binary itself, but on Linux the binary is dynamically linked
+against several system shared libraries that aren't installed by default on
+minimal images (self-hosted CI runners, containers, etc.).
+
+Symptom — production build fails with something like:
+
+```
+chrome failed to start: ... libasound.so.2: cannot open shared object file
+```
+
+One-time fix on the host (Debian/Ubuntu):
+
+```sh
+sudo apt-get update
+# libasound2 was renamed to libasound2t64 on Ubuntu 24.04+
+LIBASOUND=$(apt-cache show libasound2t64 >/dev/null 2>&1 && echo libasound2t64 || echo libasound2)
+sudo apt-get install -y \
+  $LIBASOUND \
+  libatk-bridge2.0-0 libatk1.0-0 \
+  libcairo2 libcups2 \
+  libdbus-1-3 libdrm2 \
+  libgbm1 libglib2.0-0 \
+  libnspr4 libnss3 \
+  libpango-1.0-0 \
+  libx11-6 libxcb1 libxcomposite1 libxdamage1 libxext6 libxfixes3 \
+  libxkbcommon0 libxrandr2 libxshmfence1
+```
+
+Debug and dummy builds (the default `release_type=debug`, and
+`release_type=dummy`) skip prerendering and do not require these packages.
+
 ## Build Pipeline
 
 ```mermaid

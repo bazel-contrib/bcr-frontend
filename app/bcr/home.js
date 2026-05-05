@@ -156,10 +156,15 @@ class HomeOverviewComponent extends Component {
 	enterDocument() {
 		super.enterDocument();
 
-		// Lazy-load symbol stats after symbols.pb.gz is fetched and decoded
+		// Lazy-load symbol stats after symbols.pb.gz is fetched and decoded.
+		// The component may be disposed before the promise settles (user
+		// navigated away); guard so we don't write into a detached DOM.
 		getApplication(this)
 			.getRegistryWithSymbols()
-			.then(() => this.updateSymbolStats_());
+			.then(() => {
+				if (this.isDisposed()) return;
+				this.updateSymbolStats_();
+			});
 	}
 
 	/**

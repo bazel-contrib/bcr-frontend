@@ -125,6 +125,17 @@ func (s *SPAServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Directory-style: try <path>/index.html (so /modules/rules_buf
+	// resolves to modules/rules_buf/index.html when present).
+	if path != "" {
+		dirIndex := strings.TrimSuffix(path, "/") + "/index.html"
+		if content, ok := s.files[dirIndex]; ok {
+			log.Printf("  -> %s", dirIndex)
+			s.serveFile(w, r, dirIndex, content)
+			return
+		}
+	}
+
 	// SPA fallback: serve index.html for unknown paths
 	if s.hasIndex {
 		log.Printf("  -> fallback to index.html")

@@ -12,7 +12,7 @@ load(
 load("//rules:deploy.bzl", "cloudflare_deploy")
 load("//rules:ghpages.bzl", "ghpages_deploy")
 load("//rules:octicons_closure_template_compile.bzl", "octicons_closure_template_compile")
-load("//rules:prerender.bzl", "prerender_home")
+load("//rules:prerender.bzl", "prerender_home", "prerender_pages")
 load("//rules:release.bzl", "release_archive")
 
 string_flag(
@@ -36,10 +36,36 @@ string_flag(
     visibility = ["//visibility:public"],
 )
 
+# Whether to prerender every module's "latest version" page into the release
+# tarball. Production deploys default to "on" so search engines and direct
+# loads hit fully-rendered HTML. Override to "off" while iterating on the
+# SPA (main.js, soy templates) — this skips the ~10-15 minute prerender_pages
+# step but still runs the (~30s) home-page prerender. The home page is gated
+# only by release_type=production.
+string_flag(
+    name = "prerender_modules",
+    build_setting_default = "on",
+    values = [
+        "off",
+        "on",
+    ],
+    visibility = ["//visibility:public"],
+)
+
 config_setting(
     name = "is_docs_release",
     flag_values = {
         ":docs_release": "on",
+    },
+)
+
+# Active when both production release AND module prerender are on.
+# Used to gate the prerendered_pages_tar input on :release.
+config_setting(
+    name = "should_prerender_modules",
+    flag_values = {
+        ":release_type": "production",
+        ":prerender_modules": "on",
     },
 )
 
@@ -295,6 +321,7 @@ closure_js_binary(
     for output_group in [
         "colors_css",
         "sitemap_xml",
+        "prerender_urls",
         "robots_txt",
         "registry_pb",
         "registrylite_pb",
@@ -352,11 +379,27 @@ release_archive(
 # that :release will ultimately ship.
 prerender_home(
     name = "prerender_home",
-    chromium = "@rules_browsers//browsers/chromium:chromium",
-    path = "/",
-    releaseserver = "//cmd/releaseserver",
-    statichtmlcompiler = "//cmd/statichtmlcompiler",
+    # tag manual so wildcard PR builds (which use release_type=dummy with no
+    # registry data) don't try to prerender. Transitive deps from :release
+    # still trigger the build when release_type=production.
+    tags = ["manual"],
     tarball = ":release_unprerendered",
+)
+
+# Prerender every module's "latest version" page, e.g. /modules/rules_buf.
+# Output is a tar containing entries at modules/<name>/index.html that the
+# main :release target merges in verbatim. Concurrency × single-context tabs
+# is much faster than one-tab-per-URL because the SPA stays loaded and only
+# pushState/popstate fires per module.
+prerender_pages(
+    name = "prerender_pages",
+    # tag manual so wildcard PR builds (release_type=dummy, empty
+    # //data/dummy:modules) don't try to render zero URLs. Transitive deps
+    # from :release still trigger the build when release_type=production
+    # AND prerender_modules=on (see :should_prerender_modules).
+    tags = ["manual"],
+    tarball = ":release_unprerendered",
+    url_list = ":prerender_urls",
 )
 
 # builds the release.tar.
@@ -376,6 +419,10 @@ release_archive(
     }),
     module_registry_symbols_file = "symbols_pb",
     modules_srcs = [":doc_results"],
+    prerendered_pages_tar = select({
+        ":should_prerender_modules": ":prerender_pages",
+        "//conditions:default": None,
+    }),
     registry_file = ":registrylite_pb",
     worker_modules = ["//app/api"],
 )

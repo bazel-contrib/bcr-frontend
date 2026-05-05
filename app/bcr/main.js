@@ -25,6 +25,20 @@ async function main(registryDataBase64) {
 	// Create lazy-loading promise for registry with symbols
 	const registryWithSymbols = createRegistryWithSymbolsPromise(registry);
 
+	// Strip any prerendered DOM before mounting the SPA. The prerender
+	// build step writes a snapshot of the rendered DOM into <body> so first
+	// paint is fast; once bcr.js loads, app.render(document.body) appends
+	// its own .a-main element rather than replacing the prerendered one,
+	// so we'd end up with two copies side-by-side. Remove non-bootstrap
+	// children (preserve <script>/<link>/<style> so we don't break our own
+	// module bootstrap or any injected styles).
+	const stale = document.body.querySelectorAll(
+		":scope > :not(script):not(link):not(style)",
+	);
+	for (let i = 0; i < stale.length; i++) {
+		stale[i].remove();
+	}
+
 	const app = new RegistryApp(registry, registryWithSymbols);
 	app.render(document.body);
 	app.start();

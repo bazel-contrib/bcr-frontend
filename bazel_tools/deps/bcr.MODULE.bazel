@@ -56,17 +56,26 @@ archive_override(
     urls = ["https://github.com/stackb/rules_closure/archive/8c7ea42b02671b60182ce298a1f386bee9960136.tar.gz"],
 )
 
-# Commit: a306339df9da4f83594970b0406751798d9818c9
-# Date: 2025-11-20 01:32:03 +0000 UTC
-# URL: https://github.com/stackb/ui.js/commit/a306339df9da4f83594970b0406751798d9818c9
+# Branch: master
+# Commit: 356314aeee28136ad0097e06ba4d082c1a4fa30a
+# Date: 2026-05-05 21:18:42 +0000 UTC
+# URL: https://github.com/stackb/ui.js/commit/356314aeee28136ad0097e06ba4d082c1a4fa30a
 #
-# Refactor tests location (#11)
-# Size: 68907 (69 kB)
+# Dispose tabs on Select transition (#12)
+#
+# Select.hideCurrent now removes the outgoing tab from the DOM and
+# disposes its component (firing exitDocument and disposeInternal),
+# instead of just calling .hide() and leaving an inactive but live
+# component in the document. This fixes unbounded DOM growth in
+# long-running SPA sessions where users browse hundreds of routes
+# and every previously-visited tab stays cached in the parent's
+# content element with display:none.
+# Size: 69268 (69 kB)
 archive_override(
     module_name = "stackb_ui_js",
-    sha256 = "82b2f5e96acb760291df86bfa991c863cb2f54ce1380f7bc6e5c901458517193",
-    strip_prefix = "ui.js-a306339df9da4f83594970b0406751798d9818c9",
-    urls = ["https://github.com/stackb/ui.js/archive/a306339df9da4f83594970b0406751798d9818c9.tar.gz"],
+    sha256 = "1a4705a481e4ed424bdc27da9433abcbaa255196a7a4b2452d81dea753b06ad6",
+    strip_prefix = "ui.js-356314aeee28136ad0097e06ba4d082c1a4fa30a",
+    urls = ["https://github.com/stackb/ui.js/archive/356314aeee28136ad0097e06ba4d082c1a4fa30a.tar.gz"],
 )
 
 # Commit: 263ee701cba6b75e1f8eddad5adcdf74718318b1

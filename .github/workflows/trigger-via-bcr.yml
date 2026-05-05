@@ -76,6 +76,7 @@ jobs:
           --bazelrc=.bazelrc
           run
           --//app/bcr:release_type=production
+          --//app/bcr:prerender_modules=on
           //app/bcr:deploy
 
       - name: Log deployment

@@ -400,20 +400,23 @@ class ModuleVersionSelectNav extends SelectNav {
 	enterDocument() {
 		super.enterDocument();
 
-		this.addNavTab(
+		this.addNavTabLazy(
 			TabName.OVERVIEW,
 			"Overview",
 			"Module Version Overview",
 			undefined,
-			new ModuleVersionComponent(
-				this.registry_,
-				this.module_,
-				this.moduleVersion_,
-				this.versionData_,
-			),
+			`${this.getPathUrl()}/${TabName.OVERVIEW}`,
+			() =>
+				new ModuleVersionComponent(
+					this.registry_,
+					this.module_,
+					this.moduleVersion_,
+					this.versionData_,
+				),
 		);
 
 		// Add docs nav tab link - component will be added lazily in selectFail
+		// (the DOCS branch waits for the symbols proto to load first).
 		this.addNavTabDeferred(
 			TabName.DOCS,
 			"Documentation",
@@ -423,12 +426,18 @@ class ModuleVersionSelectNav extends SelectNav {
 		);
 
 		const presubmit = this.moduleVersion_.getPresubmit();
-		this.addNavTab(
+		this.addNavTabLazy(
 			TabName.TESTING,
 			"Testing",
 			"Test Configuration",
 			undefined,
-			new PresubmitSelect(this.module_, this.moduleVersion_, presubmit || null),
+			`${this.getPathUrl()}/${TabName.TESTING}`,
+			() =>
+				new PresubmitSelect(
+					this.module_,
+					this.moduleVersion_,
+					presubmit || null,
+				),
 		);
 	}
 
@@ -439,10 +448,13 @@ class ModuleVersionSelectNav extends SelectNav {
 	 */
 	selectFail(name, route) {
 		if (name === TabName.DOCS) {
-			// Lazy load documentation tab - wait for symbols to be available
+			// Lazy load documentation tab - wait for symbols to be available.
+			// The user can navigate away before either fetch settles; guard
+			// each .then so we don't write to a disposed component.
 			getApplication(this)
 				.getRegistryWithSymbols()
 				.then(() => {
+					if (this.isDisposed()) return null;
 					let docs = this.moduleVersion_.getSource()?.getDocumentation();
 					if (docs) {
 						return docs;
@@ -452,6 +464,7 @@ class ModuleVersionSelectNav extends SelectNav {
 					);
 				})
 				.then((/** @type {?ModuleVersionSymbols} */ docs) => {
+					if (this.isDisposed()) return;
 					// Use addTab since nav item was already added via addNavTabDeferred
 					this.addTab(
 						TabName.DOCS,
@@ -1262,89 +1275,100 @@ class ModulesMapSelectNav extends SelectNav {
 	}
 
 	enterAllTab() {
-		this.addNavTab(
+		this.addNavTabLazy(
 			ModulesListTabName.ALL,
 			"All",
 			"All Modules",
 			this.all_.length,
-			new ModuleVersionsFilterSelect(this.modules_, this.all_, this.dom_),
+			`${this.getPathUrl()}/${ModulesListTabName.ALL}`,
+			() => new ModuleVersionsFilterSelect(this.modules_, this.all_, this.dom_),
 		);
 	}
 
 	enterTodayTab() {
 		const today = this.getNewToday();
-		this.addNavTab(
+		this.addNavTabLazy(
 			ModulesListTabName.TODAY,
 			"New Today",
 			"Modules having a single version added within the last 24 hours",
 			today.length,
-			new ModuleVersionsFilterSelect(this.modules_, today, this.dom_),
+			`${this.getPathUrl()}/${ModulesListTabName.TODAY}`,
+			() => new ModuleVersionsFilterSelect(this.modules_, today, this.dom_),
 		);
 	}
 
 	enterNewTab() {
 		const newlyAdded = this.getNew();
-		this.addNavTab(
+		this.addNavTabLazy(
 			ModulesListTabName.NEW,
 			"New",
 			"Modules having a single version added within the last 30 days",
 			newlyAdded.length,
-			new ModuleVersionsFilterSelect(this.modules_, newlyAdded, this.dom_),
+			`${this.getPathUrl()}/${ModulesListTabName.NEW}`,
+			() =>
+				new ModuleVersionsFilterSelect(this.modules_, newlyAdded, this.dom_),
 		);
 	}
 
 	enterRecentTab() {
 		const recent = this.getRecent();
-		this.addNavTab(
+		this.addNavTabLazy(
 			ModulesListTabName.RECENT,
 			"Recent",
 			"Modules having at least two versions updated within the last 30 days",
 			recent.length,
-			new ModuleVersionsFilterSelect(this.modules_, recent, this.dom_),
+			`${this.getPathUrl()}/${ModulesListTabName.RECENT}`,
+			() => new ModuleVersionsFilterSelect(this.modules_, recent, this.dom_),
 		);
 	}
 
 	enterVerifiedTab() {
 		const verified = this.all_.filter((m) => m.getAttestations());
-		this.addNavTab(
+		this.addNavTabLazy(
 			ModulesListTabName.VERIFIED,
 			"Verified",
 			"Modules that contain source attestations for the most recent version",
 			verified.length,
-			new ModuleVersionsFilterSelect(this.modules_, verified, this.dom_),
+			`${this.getPathUrl()}/${ModulesListTabName.VERIFIED}`,
+			() => new ModuleVersionsFilterSelect(this.modules_, verified, this.dom_),
 		);
 	}
 
 	enterDeprecatedTab() {
 		const deprecated = this.getDeprecated();
-		this.addNavTab(
+		this.addNavTabLazy(
 			ModulesListTabName.DEPRECATED,
 			"Deprecated",
 			"Modules tagged as deprecated",
 			deprecated.length,
-			new ModuleVersionsFilterSelect(this.modules_, deprecated, this.dom_),
+			`${this.getPathUrl()}/${ModulesListTabName.DEPRECATED}`,
+			() =>
+				new ModuleVersionsFilterSelect(this.modules_, deprecated, this.dom_),
 		);
 	}
 
 	enterYankedTab() {
 		const yanked = this.getYankedVersions();
-		this.addNavTab(
+		this.addNavTabLazy(
 			ModulesListTabName.YANKED,
 			"Yanked",
 			"Module Versions tagged as yanked",
 			yanked.length,
-			new ModuleVersionsFilterSelect(this.modules_, yanked, this.dom_),
+			`${this.getPathUrl()}/${ModulesListTabName.YANKED}`,
+			() => new ModuleVersionsFilterSelect(this.modules_, yanked, this.dom_),
 		);
 	}
 
 	enterInconsistentTab() {
 		const inconsistent = this.getInconsistentVersions();
-		this.addNavTab(
+		this.addNavTabLazy(
 			ModulesListTabName.INCONSISTENT,
 			"Inconsistent",
 			"Modules Versions that reference non-existent modules or module versions",
 			inconsistent.length,
-			new ModuleVersionsFilterSelect(this.modules_, inconsistent, this.dom_),
+			`${this.getPathUrl()}/${ModulesListTabName.INCONSISTENT}`,
+			() =>
+				new ModuleVersionsFilterSelect(this.modules_, inconsistent, this.dom_),
 		);
 	}
 
@@ -1355,9 +1379,14 @@ class ModulesMapSelectNav extends SelectNav {
 		const incomplete = this.all_.filter(
 			(m) => !m.getRepositoryMetadata()?.getLanguagesMap()?.getLength(),
 		);
-		this.addTab(
+		this.addNavTabLazy(
 			ModulesListTabName.INCOMPLETE,
-			new ModuleVersionsFilterSelect(this.modules_, incomplete, this.dom_),
+			"Incomplete",
+			"Modules with incomplete metadata (internal)",
+			incomplete.length,
+			`${this.getPathUrl()}/${ModulesListTabName.INCOMPLETE}`,
+			() =>
+				new ModuleVersionsFilterSelect(this.modules_, incomplete, this.dom_),
 		);
 	}
 

@@ -35,6 +35,8 @@ type Config struct {
 	WaitReady     string
 	WaitVisible   string
 	Concurrency   int
+	SingleContext bool
+	SettleDelay   time.Duration
 	// Performance options
 	DisableImages bool
 	DisableCSS    bool
@@ -70,7 +72,13 @@ func run(args []string) error {
 		return processSingleURL(cfg, cfg.URLs[0], cfg.OutputFiles[0])
 	}
 
-	// Batch mode
+	// Batch with shared chromedp tab(s) — each worker keeps one tab and
+	// navigates SPA-style via pushState+popstate. Much faster for SPA routes.
+	if cfg.SingleContext && cfg.UseChromedp {
+		return processBatchSingleContext(cfg)
+	}
+
+	// Batch mode (one chromedp tab per URL)
 	return processBatch(cfg)
 }
 
@@ -179,6 +187,123 @@ func processBatch(cfg Config) error {
 	}
 
 	log.Printf("Successfully processed all %d URLs", len(cfg.URLs))
+	return nil
+}
+
+// processBatchSingleContext renders all URLs across N workers, each holding
+// one chromedp tab. The first URL in each worker is a full Navigate (the SPA
+// loads and parses REGISTRY_DATA once); subsequent URLs are dispatched as
+// SPA navigations via history.pushState + popstate, avoiding page reloads.
+//
+// Requires: cfg.UseChromedp = true, len(cfg.URLs) >= 1.
+func processBatchSingleContext(cfg Config) error {
+	workers := cfg.Concurrency
+	if workers < 1 {
+		workers = 1
+	}
+	if workers > len(cfg.URLs) {
+		workers = len(cfg.URLs)
+	}
+	chunkSize := (len(cfg.URLs) + workers - 1) / workers
+
+	log.Printf("Single-context batch: %d URLs, %d workers, ~%d URLs/worker", len(cfg.URLs), workers, chunkSize)
+
+	var wg sync.WaitGroup
+	errChan := make(chan error, len(cfg.URLs))
+	startedAt := time.Now()
+
+	for w := 0; w < workers; w++ {
+		startIdx := w * chunkSize
+		endIdx := startIdx + chunkSize
+		if endIdx > len(cfg.URLs) {
+			endIdx = len(cfg.URLs)
+		}
+		if startIdx >= endIdx {
+			break
+		}
+
+		wg.Add(1)
+		go func(workerID, start, end int) {
+			defer wg.Done()
+			if err := runWorkerSingleContext(cfg, workerID, start, end); err != nil {
+				errChan <- err
+			}
+		}(w, startIdx, endIdx)
+	}
+
+	wg.Wait()
+	close(errChan)
+
+	var errors []error
+	for err := range errChan {
+		errors = append(errors, err)
+	}
+	if len(errors) > 0 {
+		return fmt.Errorf("encountered %d errors: %v", len(errors), errors[0])
+	}
+
+	log.Printf("Single-context batch: rendered %d URLs in %v", len(cfg.URLs), time.Since(startedAt))
+	return nil
+}
+
+func runWorkerSingleContext(cfg Config, workerID, start, end int) error {
+	opts := buildChromedpOpts(cfg)
+	allocCtx, allocCancel := chromedp.NewExecAllocator(context.Background(), opts...)
+	defer allocCancel()
+
+	// One chromedp tab for the whole worker. Running multiple chromedp.Run
+	// calls against the same context is the supported pattern; wrapping each
+	// Run in context.WithTimeout(chromeCtx, ...) is NOT — chromedp associates
+	// session state with the deepest chromedp.Context in the chain, and
+	// canceling the timeout context propagates "context canceled" back into
+	// chromedp's Target loop on subsequent calls.
+	chromeCtx, chromeCancel := chromedp.NewContext(allocCtx)
+	defer chromeCancel()
+
+	for i := start; i < end; i++ {
+		targetURL := cfg.URLs[i]
+		outputFile := cfg.OutputFiles[i]
+
+		// First URL per worker: full Navigate (loads SPA, parses 2.7MB
+		// REGISTRY_DATA once). Subsequent URLs: history.pushState +
+		// popstate triggers the SPA's history listener and routes
+		// without a page reload.
+		var html string
+		var tasks chromedp.Tasks
+		if i == start {
+			tasks = chromedp.Tasks{
+				chromedp.Navigate(targetURL),
+				chromedp.WaitReady("body"),
+				chromedp.Sleep(cfg.SettleDelay),
+				chromedp.OuterHTML("html", &html),
+			}
+		} else {
+			js := fmt.Sprintf(
+				`window.history.pushState({}, '', %q); window.dispatchEvent(new PopStateEvent('popstate', {state: {}}));`,
+				targetURL,
+			)
+			tasks = chromedp.Tasks{
+				chromedp.Evaluate(js, nil),
+				chromedp.Sleep(cfg.SettleDelay),
+				chromedp.OuterHTML("html", &html),
+			}
+		}
+
+		stepStart := time.Now()
+		if err := chromedp.Run(chromeCtx, tasks); err != nil {
+			return fmt.Errorf("worker %d: failed on %s: %w", workerID, targetURL, err)
+		}
+
+		if err := os.MkdirAll(filepath.Dir(outputFile), 0755); err != nil {
+			return fmt.Errorf("worker %d: failed to create dir for %s: %w", workerID, outputFile, err)
+		}
+		if err := os.WriteFile(outputFile, []byte(html), 0644); err != nil {
+			return fmt.Errorf("worker %d: failed to write %s: %w", workerID, outputFile, err)
+		}
+
+		log.Printf("[w%d %d/%d] %s -> %s (%d bytes, %v)", workerID, i-start+1, end-start, targetURL, outputFile, len(html), time.Since(stepStart))
+	}
+
 	return nil
 }
 
@@ -298,6 +423,9 @@ func parseFlags(args []string) (cfg Config, err error) {
 	fs.IntVar(&cfg.Concurrency, "concurrency", 4, "number of concurrent workers for batch mode")
 	fs.BoolVar(&cfg.UseChromedp, "chromedp", true, "use chromedp to render JavaScript (requires Chrome/Chromium)")
 	fs.StringVar(&cfg.ChromePath, "chrome_path", "", "path to Chrome/Chromium binary (default: search $PATH)")
+	fs.BoolVar(&cfg.SingleContext, "single_context", false, "use one chromedp tab per worker; navigate via history.pushState (SPA only)")
+	var settleMs int
+	fs.IntVar(&settleMs, "settle_ms", 300, "milliseconds to wait after each navigation/route change before capturing HTML")
 	fs.StringVar(&cfg.WaitReady, "wait_ready", "", "CSS selector to wait for (e.g., 'body', '.content')")
 	fs.StringVar(&cfg.WaitVisible, "wait_visible", "", "CSS selector to wait until visible")
 	fs.BoolVar(&cfg.DisableImages, "disable_images", true, "disable image loading for faster rendering")
@@ -319,5 +447,6 @@ func parseFlags(args []string) (cfg Config, err error) {
 	}
 
 	cfg.Timeout = time.Duration(timeoutSec) * time.Second
+	cfg.SettleDelay = time.Duration(settleMs) * time.Millisecond
 	return
 }

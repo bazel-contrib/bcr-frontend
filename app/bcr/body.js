@@ -62,19 +62,6 @@ class BodySelect extends ContentSelect {
 	}
 
 	/**
-	 * @override
-	 */
-	enterDocument() {
-		super.enterDocument();
-
-		this.addTab(
-			TabName.MODULES,
-			new ModulesMapSelect(this.registry_, this.dom_),
-		);
-		this.addTab(TabName.SETTINGS, new SettingsSelect(this.dom_));
-	}
-
-	/**
 	 * Modifies behavior to use touch rather than progress to
 	 * not advance the path pointer.
 	 * @override
@@ -108,11 +95,17 @@ class BodySelect extends ContentSelect {
 			this.select(name, route);
 			return;
 		}
+		if (name === TabName.MODULES) {
+			this.addTab(name, new ModulesMapSelect(this.registry_, this.dom_));
+			this.select(name, route);
+			return;
+		}
 		if (name === TabName.DOCS) {
 			// Wait for symbols to be available before loading docs
 			getApplication(this)
 				.getRegistryWithSymbols()
 				.then(() => {
+					if (this.isDisposed()) return;
 					this.addTab(name, new DocsSelect(this.registry_, this.dom_));
 					this.select(name, route);
 				});
@@ -125,6 +118,11 @@ class BodySelect extends ContentSelect {
 		}
 		if (name === TabName.MAINTAINERS) {
 			this.addTab(name, new MaintainersSelect(this.registry_, this.dom_));
+			this.select(name, route);
+			return;
+		}
+		if (name === TabName.SETTINGS) {
+			this.addTab(name, new SettingsSelect(this.dom_));
 			this.select(name, route);
 			return;
 		}
@@ -158,19 +156,21 @@ class SearchSelectNav extends SelectNav {
 	 */
 	enterDocument() {
 		super.enterDocument();
-		this.addNavTab(
+		// Add nav menu items only; components are created lazily in
+		// selectFail so they survive dispose+recreate cycles.
+		this.addNavTabDeferred(
 			TabName.MODULES,
 			"Modules",
 			"Module Search",
 			undefined,
-			new ModuleSearchComponent(this.registry_, this.dom_),
+			"search/" + TabName.MODULES,
 		);
-		this.addNavTab(
+		this.addNavTabDeferred(
 			TabName.SYMBOLS,
 			"Symbols",
 			"Symbol Search",
 			undefined,
-			new DocumentationSearchComponent(this.registry_, this.dom_),
+			"search/" + TabName.SYMBOLS,
 		);
 	}
 
@@ -188,5 +188,27 @@ class SearchSelectNav extends SelectNav {
 	 */
 	goHere(route) {
 		this.select(TabName.MODULES, route.add(TabName.MODULES));
+	}
+
+	/**
+	 * @override
+	 * @param {string} name
+	 * @param {!Route} route
+	 */
+	selectFail(name, route) {
+		if (name === TabName.MODULES) {
+			this.addTab(name, new ModuleSearchComponent(this.registry_, this.dom_));
+			this.select(name, route);
+			return;
+		}
+		if (name === TabName.SYMBOLS) {
+			this.addTab(
+				name,
+				new DocumentationSearchComponent(this.registry_, this.dom_),
+			);
+			this.select(name, route);
+			return;
+		}
+		super.selectFail(name, route);
 	}
 }
