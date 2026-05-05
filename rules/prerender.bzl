@@ -7,10 +7,34 @@ e.g. `/modules/rules_buf`) and emits a tar containing entries at
 final release archive verbatim.
 
 Both rules boot `releaseserver` on a free port and drive
-chrome-headless-shell via `statichtmlcompiler`.
+chrome-headless-shell via `statichtmlcompiler`. The browser binary, server,
+and compiler tool defaults are baked in as private attrs; callers usually
+just need to supply `tarball` and (for prerender_pages) `url_list`.
 """
 
 load("@rules_browsers//browsers:named_files_info.bzl", "NamedFilesInfo")
+
+_DEFAULT_CHROMIUM = "@rules_browsers//browsers/chromium:chromium"
+_DEFAULT_RELEASESERVER = "//cmd/releaseserver"
+_DEFAULT_STATICHTMLCOMPILER = "//cmd/statichtmlcompiler"
+
+_TOOL_ATTRS = {
+    "_chromium": attr.label(
+        default = _DEFAULT_CHROMIUM,
+        providers = [NamedFilesInfo, DefaultInfo],
+        cfg = "exec",
+    ),
+    "_releaseserver": attr.label(
+        default = _DEFAULT_RELEASESERVER,
+        executable = True,
+        cfg = "exec",
+    ),
+    "_statichtmlcompiler": attr.label(
+        default = _DEFAULT_STATICHTMLCOMPILER,
+        executable = True,
+        cfg = "exec",
+    ),
+}
 
 _PRERENDER_CMD = """\
 set -e
@@ -48,12 +72,12 @@ PORT=$(cat "$PORT_FILE")
 def _prerender_home_impl(ctx):
     output = ctx.actions.declare_file(ctx.label.name + ".html")
 
-    chrome_bin = ctx.attr.chromium[NamedFilesInfo].value["CHROME-HEADLESS-SHELL"]
-    chromium_runfiles = ctx.attr.chromium[DefaultInfo].default_runfiles.files
+    chrome_bin = ctx.attr._chromium[NamedFilesInfo].value["CHROME-HEADLESS-SHELL"]
+    chromium_runfiles = ctx.attr._chromium[DefaultInfo].default_runfiles.files
 
     cmd = _PRERENDER_CMD.format(
-        server = ctx.executable.releaseserver.path,
-        compiler = ctx.executable.statichtmlcompiler.path,
+        server = ctx.executable._releaseserver.path,
+        compiler = ctx.executable._statichtmlcompiler.path,
         chrome = chrome_bin.path,
         tarball = ctx.file.tarball.path,
         output = output.path,
@@ -67,8 +91,8 @@ def _prerender_home_impl(ctx):
             transitive = [chromium_runfiles],
         ),
         tools = [
-            ctx.attr.releaseserver[DefaultInfo].files_to_run,
-            ctx.attr.statichtmlcompiler[DefaultInfo].files_to_run,
+            ctx.attr._releaseserver[DefaultInfo].files_to_run,
+            ctx.attr._statichtmlcompiler[DefaultInfo].files_to_run,
         ],
         command = cmd,
         mnemonic = "PrerenderHome",
@@ -79,33 +103,17 @@ def _prerender_home_impl(ctx):
 
 prerender_home = rule(
     implementation = _prerender_home_impl,
-    attrs = {
+    attrs = dict({
         "tarball": attr.label(
             allow_single_file = [".tar"],
             mandatory = True,
             doc = "Release tarball to serve while prerendering.",
         ),
-        "chromium": attr.label(
-            mandatory = True,
-            providers = [NamedFilesInfo, DefaultInfo],
-            cfg = "exec",
-            doc = "rules_browsers browser_group for chromium.",
-        ),
         "path": attr.string(
             default = "/",
             doc = "URL path to prerender (default: '/').",
         ),
-        "releaseserver": attr.label(
-            executable = True,
-            cfg = "exec",
-            mandatory = True,
-        ),
-        "statichtmlcompiler": attr.label(
-            executable = True,
-            cfg = "exec",
-            mandatory = True,
-        ),
-    },
+    }, **_TOOL_ATTRS),
 )
 
 _PRERENDER_PAGES_CMD = """\
@@ -169,12 +177,12 @@ tar -cf {output} -C "$WORKDIR" .
 def _prerender_pages_impl(ctx):
     output = ctx.actions.declare_file(ctx.label.name + ".tar")
 
-    chrome_bin = ctx.attr.chromium[NamedFilesInfo].value["CHROME-HEADLESS-SHELL"]
-    chromium_runfiles = ctx.attr.chromium[DefaultInfo].default_runfiles.files
+    chrome_bin = ctx.attr._chromium[NamedFilesInfo].value["CHROME-HEADLESS-SHELL"]
+    chromium_runfiles = ctx.attr._chromium[DefaultInfo].default_runfiles.files
 
     cmd = _PRERENDER_PAGES_CMD.format(
-        server = ctx.executable.releaseserver.path,
-        compiler = ctx.executable.statichtmlcompiler.path,
+        server = ctx.executable._releaseserver.path,
+        compiler = ctx.executable._statichtmlcompiler.path,
         chrome = chrome_bin.path,
         tarball = ctx.file.tarball.path,
         url_list = ctx.file.url_list.path,
@@ -191,8 +199,8 @@ def _prerender_pages_impl(ctx):
             transitive = [chromium_runfiles],
         ),
         tools = [
-            ctx.attr.releaseserver[DefaultInfo].files_to_run,
-            ctx.attr.statichtmlcompiler[DefaultInfo].files_to_run,
+            ctx.attr._releaseserver[DefaultInfo].files_to_run,
+            ctx.attr._statichtmlcompiler[DefaultInfo].files_to_run,
         ],
         command = cmd,
         mnemonic = "PrerenderPages",
@@ -203,7 +211,7 @@ def _prerender_pages_impl(ctx):
 
 prerender_pages = rule(
     implementation = _prerender_pages_impl,
-    attrs = {
+    attrs = dict({
         "tarball": attr.label(
             allow_single_file = [".tar"],
             mandatory = True,
@@ -213,12 +221,6 @@ prerender_pages = rule(
             allow_single_file = [".txt"],
             mandatory = True,
             doc = "Text file with one URL pathname per line (e.g. /modules/rules_buf).",
-        ),
-        "chromium": attr.label(
-            mandatory = True,
-            providers = [NamedFilesInfo, DefaultInfo],
-            cfg = "exec",
-            doc = "rules_browsers browser_group for chromium.",
         ),
         "concurrency": attr.int(
             default = 4,
@@ -232,15 +234,5 @@ prerender_pages = rule(
             default = 300,
             doc = "Milliseconds to wait after each navigation before capturing HTML.",
         ),
-        "releaseserver": attr.label(
-            executable = True,
-            cfg = "exec",
-            mandatory = True,
-        ),
-        "statichtmlcompiler": attr.label(
-            executable = True,
-            cfg = "exec",
-            mandatory = True,
-        ),
-    },
+    }, **_TOOL_ATTRS),
 )

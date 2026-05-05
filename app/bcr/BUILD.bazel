@@ -379,10 +379,6 @@ release_archive(
 # that :release will ultimately ship.
 prerender_home(
     name = "prerender_home",
-    chromium = "@rules_browsers//browsers/chromium:chromium",
-    path = "/",
-    releaseserver = "//cmd/releaseserver",
-    statichtmlcompiler = "//cmd/statichtmlcompiler",
     tarball = ":release_unprerendered",
 )
 
@@ -393,13 +389,7 @@ prerender_home(
 # pushState/popstate fires per module.
 prerender_pages(
     name = "prerender_pages",
-    chromium = "@rules_browsers//browsers/chromium:chromium",
-    concurrency = 4,
-    releaseserver = "//cmd/releaseserver",
-    settle_ms = 300,
-    statichtmlcompiler = "//cmd/statichtmlcompiler",
     tarball = ":release_unprerendered",
-    timeout_seconds = 30,
     url_list = ":prerender_urls",
 )
 
