@@ -96,10 +96,7 @@ class BodySelect extends ContentSelect {
 			return;
 		}
 		if (name === TabName.MODULES) {
-			this.addTab(
-				name,
-				new ModulesMapSelect(this.registry_, this.dom_),
-			);
+			this.addTab(name, new ModulesMapSelect(this.registry_, this.dom_));
 			this.select(name, route);
 			return;
 		}
@@ -200,10 +197,7 @@ class SearchSelectNav extends SelectNav {
 	 */
 	selectFail(name, route) {
 		if (name === TabName.MODULES) {
-			this.addTab(
-				name,
-				new ModuleSearchComponent(this.registry_, this.dom_),
-			);
+			this.addTab(name, new ModuleSearchComponent(this.registry_, this.dom_));
 			this.select(name, route);
 			return;
 		}

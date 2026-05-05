@@ -1281,8 +1281,7 @@ class ModulesMapSelectNav extends SelectNav {
 			"All Modules",
 			this.all_.length,
 			`${this.getPathUrl()}/${ModulesListTabName.ALL}`,
-			() =>
-				new ModuleVersionsFilterSelect(this.modules_, this.all_, this.dom_),
+			() => new ModuleVersionsFilterSelect(this.modules_, this.all_, this.dom_),
 		);
 	}
 
@@ -1331,8 +1330,7 @@ class ModulesMapSelectNav extends SelectNav {
 			"Modules that contain source attestations for the most recent version",
 			verified.length,
 			`${this.getPathUrl()}/${ModulesListTabName.VERIFIED}`,
-			() =>
-				new ModuleVersionsFilterSelect(this.modules_, verified, this.dom_),
+			() => new ModuleVersionsFilterSelect(this.modules_, verified, this.dom_),
 		);
 	}
 
@@ -1345,11 +1343,7 @@ class ModulesMapSelectNav extends SelectNav {
 			deprecated.length,
 			`${this.getPathUrl()}/${ModulesListTabName.DEPRECATED}`,
 			() =>
-				new ModuleVersionsFilterSelect(
-					this.modules_,
-					deprecated,
-					this.dom_,
-				),
+				new ModuleVersionsFilterSelect(this.modules_, deprecated, this.dom_),
 		);
 	}
 
@@ -1374,11 +1368,7 @@ class ModulesMapSelectNav extends SelectNav {
 			inconsistent.length,
 			`${this.getPathUrl()}/${ModulesListTabName.INCONSISTENT}`,
 			() =>
-				new ModuleVersionsFilterSelect(
-					this.modules_,
-					inconsistent,
-					this.dom_,
-				),
+				new ModuleVersionsFilterSelect(this.modules_, inconsistent, this.dom_),
 		);
 	}
 
@@ -1396,11 +1386,7 @@ class ModulesMapSelectNav extends SelectNav {
 			incomplete.length,
 			`${this.getPathUrl()}/${ModulesListTabName.INCOMPLETE}`,
 			() =>
-				new ModuleVersionsFilterSelect(
-					this.modules_,
-					incomplete,
-					this.dom_,
-				),
+				new ModuleVersionsFilterSelect(this.modules_, incomplete, this.dom_),
 		);
 	}
 
