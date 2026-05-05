@@ -146,7 +146,13 @@ BASE_URL="http://localhost:$PORT"
 # Build --url / --output_file flag pairs from the URL list. Each line is a
 # pathname like /modules/rules_buf; we render BASE_URL+path into
 # WORKDIR/<path>/index.html.
+echo "prerender_pages: url_list path: {url_list}" >&2
+echo "prerender_pages: url_list size: $(wc -c < {url_list} 2>/dev/null || echo MISSING) bytes, $(wc -l < {url_list} 2>/dev/null || echo MISSING) lines" >&2
+echo "prerender_pages: first 3 entries:" >&2
+head -3 {url_list} >&2 || true
+
 URL_ARGS=""
+URL_COUNT=0
 while IFS= read -r path || [ -n "$path" ]; do
   [ -z "$path" ] && continue
   case "$path" in
@@ -156,7 +162,14 @@ while IFS= read -r path || [ -n "$path" ]; do
   out="$WORKDIR$path/index.html"
   mkdir -p "$(dirname "$out")"
   URL_ARGS="$URL_ARGS --url=$BASE_URL$path --output_file=$out"
+  URL_COUNT=$((URL_COUNT + 1))
 done < {url_list}
+
+echo "prerender_pages: built args for $URL_COUNT URLs" >&2
+if [ "$URL_COUNT" -eq 0 ]; then
+  echo "prerender_pages: no URLs to render — url_list was empty or unreadable" >&2
+  exit 1
+fi
 
 {compiler} \\
   --chromedp=true \\
