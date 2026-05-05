@@ -379,6 +379,10 @@ release_archive(
 # that :release will ultimately ship.
 prerender_home(
     name = "prerender_home",
+    # tag manual so wildcard PR builds (which use release_type=dummy with no
+    # registry data) don't try to prerender. Transitive deps from :release
+    # still trigger the build when release_type=production.
+    tags = ["manual"],
     tarball = ":release_unprerendered",
 )
 
@@ -389,6 +393,11 @@ prerender_home(
 # pushState/popstate fires per module.
 prerender_pages(
     name = "prerender_pages",
+    # tag manual so wildcard PR builds (release_type=dummy, empty
+    # //data/dummy:modules) don't try to render zero URLs. Transitive deps
+    # from :release still trigger the build when release_type=production
+    # AND prerender_modules=on (see :should_prerender_modules).
+    tags = ["manual"],
     tarball = ":release_unprerendered",
     url_list = ":prerender_urls",
 )
