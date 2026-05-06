@@ -68,7 +68,7 @@ gazelle(
         "--bazel-release-set-file=$BUILD_WORKING_DIRECTORY/bazel-releases.json",
         "--pr-author-set-file=$BUILD_WORKING_DIRECTORY/pr-authors.json",
         "--registry-root=data/bazel-central-registry",
-        "--registry-url=https://bcr.stack.build",
+        "--registry-url=https://registry-preview.bazel.build",
         "--blacklisted_url=https://netcologne.dl.sourceforge.net/project/perfmon2/libpfm4/libpfm-4.11.0.tar.gz",
         "--blacklisted_url=https://netcologne.dl.sourceforge.net/project/tinyxml/tinyxml/2.6.2/tinyxml_2_6_2.tar.gz",
         "--blacklisted_url=https://github.com/mathematic-inc/rules_mjml/releases/download/v0.1.0/rules_mjml-v0.1.0.tar.gz",
