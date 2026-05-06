@@ -23,6 +23,7 @@ import {
     octiconNorthStar16,
     octiconPackage16,
     octiconPaintbrush16,
+    octiconPencil16,
     octiconPerson16,
     octiconSkip16,
     octiconSkip24,
@@ -334,49 +335,72 @@ import {
 
 {template homeOverviewComponent}
   {@param registry: Registry}
-  {@param lastUpdated: string}
   {@param totalModules: int}
   {@param totalModuleVersions: int}
   {@param totalMaintainers: int}
-  {@param totalRules: int}
-  {@param totalFunctions: int}
-  {@param totalProviders: int}
-  {@param totalAspects: int}
-  {@param totalModuleExtensions: int}
-  {@param totalRepositoryRules: int}
-  {@param totalMacros: int}
   {@param recentlyUpdated: list<[moduleVersion: ModuleVersion, commitDate: string, isNew: bool]>}
-<div class="d-flex flex-column flex-items-center flex-justify-center p-4">
-    {logo()}
-    <div class="d-flex flex-row flex-wrap flex-items-center flex-justify-center mt-4" style="gap: 2rem">
-      {largeStatDisplay(value: $totalModules, label: 'Modules')}
-      {largeStatDisplay(value: $totalModuleVersions, label: 'Module Versions')}
-      {largeStatDisplay(value: $totalMaintainers, label: 'Maintainers')}
+<div class="PageLayout PageLayout--panePos-start PageLayout--hasPaneDivider PageLayout--responsive-stackRegions mt-3">
+  <div class="PageLayout-columns">
+
+    <div class="PageLayout-pane">
+      <div class="p-2">
+        {sectionHeader(title: 'Bazel Central Registry')}
+        <p class="f4 mb-3 color-fg-muted">
+          The Bazel Central Registry (BCR) is the official registry for Bazel modules.
+          It serves as a centralized repository where module authors can publish their
+          Bazel modules, making them easily discoverable and usable by the Bazel
+          community. The registry enables dependency management through Bzlmod,
+          Bazel's modern external dependency system.
+        </p>
+
+        {sectionDivider()}
+
+        <div class="d-flex flex-justify-between mb-2">
+          <span class="color-fg-muted">Modules</span>
+          <span class="text-bold">{$totalModules}</span>
+        </div>
+        <div class="d-flex flex-justify-between mb-2">
+          <span class="color-fg-muted">Module Versions</span>
+          <span class="text-bold">{$totalModuleVersions}</span>
+        </div>
+        <div class="d-flex flex-justify-between mb-2">
+          <span class="color-fg-muted">Maintainers</span>
+          <span class="text-bold">{$totalMaintainers}</span>
+        </div>
+
+        {sectionDivider()}
+
+        <div>
+          <a class="Link--muted d-flex flex-items-center mb-2"
+             href="https://github.com/bazelbuild/bazel-central-registry"
+             target="_blank" rel="noopener noreferrer">
+            <span class="mr-2">{octiconMarkGithub16()}</span>
+            <span>Bazel Central Registry on GitHub</span>
+          </a>
+          <a class="Link--muted d-flex flex-items-center mb-2"
+             href="https://bazel.build/external/module"
+             target="_blank" rel="noopener noreferrer">
+            <span class="mr-2">{octiconBook16()}</span>
+            <span>Bazel Module Documentation</span>
+          </a>
+          <a class="Link--muted d-flex flex-items-center mb-2"
+             href="https://github.com/bazelbuild/bazel-central-registry/blob/main/docs/README.md"
+             target="_blank" rel="noopener noreferrer">
+            <span class="mr-2">{octiconPencil16()}</span>
+            <span>Contributing to the BCR</span>
+          </a>
+          <a class="Link--muted d-flex flex-items-center mb-2"
+             href="{$registry.getRepositoryUrl()}/commit/{$registry.getCommitSha()}"
+             target="_blank" rel="noopener noreferrer">
+            <span class="mr-2">{octiconGitCommit16()}</span>
+            <span>Commit {$registry.getCommitSha().substring(0, 8)}</span>
+          </a>
+        </div>
+      </div>
     </div>
-    <div class="p-2 my-4 text-light" style="background: var(--color-neutral-subtle); border-width: 0.5rem">
-      {octiconChevronRight16()}
-      {sp}
-      As of {$lastUpdated}
-      {sp}
-      {octiconGitCommit16()}
-      {sp}
-      <a class="Box-row-link" style="color: var(--color-done-fg)" href="{$registry.getRepositoryUrl()}/commit/{$registry.getCommitSha()}">
-        {$registry.getCommitSha().substring(0, 8)}
-      </a>
-      {sp}
-      {octiconChevronLeft16()}
-    </div>
-    <div class="js-symbol-stats d-flex flex-row flex-wrap flex-items-center flex-justify-center mt-4" style="gap: 1.5rem; display: none">
-      {statDisplay(value: $totalRules, label: 'Rules', color: symbolColor(type: SymbolType.SYMBOL_TYPE_RULE))}
-      {statDisplay(value: $totalFunctions, label: 'Functions', color: symbolColor(type: SymbolType.SYMBOL_TYPE_FUNCTION))}
-      {statDisplay(value: $totalProviders, label: 'Providers', color: symbolColor(type: SymbolType.SYMBOL_TYPE_PROVIDER))}
-      {statDisplay(value: $totalModuleExtensions, label: 'Extensions', color: symbolColor(type: SymbolType.SYMBOL_TYPE_MODULE_EXTENSION))}
-      {statDisplay(value: $totalRepositoryRules, label: 'Repo Rules', color: symbolColor(type: SymbolType.SYMBOL_TYPE_REPOSITORY_RULE))}
-      {statDisplay(value: $totalAspects, label: 'Aspects', color: symbolColor(type: SymbolType.SYMBOL_TYPE_ASPECT))}
-      {statDisplay(value: $totalMacros, label: 'Macros', color: symbolColor(type: SymbolType.SYMBOL_TYPE_MACRO))}
-    </div>
-    <div class="mt-4 pt-4" style="width: 100%; max-width: 800px; border-top: 1px solid var(--borderColor-default, var(--color-border-default))">
-      <h3 class="f4 text-bold mb-2">Recently Updated</h3>
+
+    <div class="PageLayout-content">
+      {sectionHeader(title: 'Recently Updated')}
       {if length($recentlyUpdated) > 0}
         <div>
           {for $item, $idx in $recentlyUpdated}
@@ -437,37 +461,8 @@ import {
         </div>
       {/if}
     </div>
-    <div class="Box Box--condensed mt-4" style="width: 100%; max-width: 800px">
-      <div class="Box-header">
-        <div class="Box-title">About</div>
-      </div>
-      <div class="Box-body {css('marked')} markdown-body">
-        <h1>Bazel Central Registry</h1>
-        <p>
-          The Bazel Central Registry (BCR) is the official registry for Bazel modules. It serves as a centralized repository
-          where module authors can publish their Bazel modules, making them easily discoverable and usable by the Bazel community.
-          The registry enables dependency management through Bzlmod, Bazel's modern external dependency system.
-        </p>
-        <h2>Links</h2>
-        <ol>
-          <li>
-            <a href="https://github.com/bazelbuild/bazel-central-registry" target="_blank" rel="noopener noreferrer">
-              Bazel Central Registry on GitHub
-            </a>
-          </li>
-          <li>
-            <a href="https://bazel.build/external/module" target="_blank" rel="noopener noreferrer">
-              Bazel Module Documentation
-            </a>
-          </li>
-          <li>
-            <a href="https://github.com/bazelbuild/bazel-central-registry/blob/main/docs/README.md" target="_blank" rel="noopener noreferrer">
-              Contributing to the BCR
-            </a>
-          </li>
-        </ol>
-      </div>
-    </div>
+
+  </div>
 </div>
 {/template}
 
