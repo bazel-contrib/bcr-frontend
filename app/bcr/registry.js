@@ -13,6 +13,7 @@ const ModuleMetadata = goog.require(
 const ModuleVersion = goog.require(
 	"proto.build.stack.bazel.registry.v1.ModuleVersion",
 );
+const Presubmit = goog.require("proto.build.stack.bazel.registry.v1.Presubmit");
 const Registry = goog.require("proto.build.stack.bazel.registry.v1.Registry");
 const strings = goog.require("goog.string");
 
@@ -114,6 +115,85 @@ function createDocumentationMap(registry) {
 	return result;
 }
 exports.createDocumentationMap = createDocumentationMap;
+
+// Cache the presubmit-facet sets per registry commit so we only walk all
+// modules once per session.
+/** @type {?{platforms: !Array<string>, bazelVersions: !Array<string>}} */
+let cachedPresubmitFacets = null;
+/** @type {?string} */
+let cachedPresubmitFacetsCommit = null;
+
+/**
+ * Walks every module version's Presubmit (top-level matrix, BCR test-module
+ * matrix, and per-task overrides) and returns the union of all platforms and
+ * Bazel versions seen across the registry. Used by the Testing tab to display
+ * the universe of possible values, with values absent from the current
+ * module's matrix grayed out.
+ *
+ * @param {!Registry} registry
+ * @returns {!{platforms: !Array<string>, bazelVersions: !Array<string>}}
+ */
+function computeAllPresubmitFacets(registry) {
+	const commit = registry.getCommitSha();
+	if (cachedPresubmitFacetsCommit === commit && cachedPresubmitFacets) {
+		return cachedPresubmitFacets;
+	}
+
+	/** @type {!Set<string>} */
+	const platforms = new Set();
+	/** @type {!Set<string>} */
+	const bazelVersions = new Set();
+
+	// Skip Bazel CI's templated placeholders like "${{ all_platforms }}",
+	// "${{ bazel }}", etc. They're substitution variables, not concrete values.
+	/** @type {function(string): boolean} */
+	const isConcrete = (s) => !!s && !s.includes("${{");
+
+	/**
+	 * @param {?Presubmit.PresubmitMatrix|undefined} matrix
+	 */
+	const collectFromMatrix = (matrix) => {
+		if (!matrix) return;
+		for (const p of matrix.getPlatformList()) {
+			if (isConcrete(p)) platforms.add(p);
+		}
+		for (const v of matrix.getBazelList()) {
+			if (isConcrete(v)) bazelVersions.add(v);
+		}
+	};
+
+	for (const module of registry.getModulesList()) {
+		for (const version of module.getVersionsList()) {
+			const presubmit = version.getPresubmit();
+			if (!presubmit) continue;
+			collectFromMatrix(presubmit.getMatrix());
+			const bcr = presubmit.getBcrTestModule();
+			if (bcr) collectFromMatrix(bcr.getMatrix());
+			// Per-task overrides
+			const tasksMap = bcr ? bcr.getTasksMap() : presubmit.getTasksMap();
+			if (tasksMap) {
+				for (const taskName of tasksMap.keys()) {
+					const task = tasksMap.get(taskName);
+					if (!task) continue;
+					const p = task.getPlatform();
+					if (isConcrete(p)) platforms.add(p);
+					const v = task.getBazel();
+					if (isConcrete(v)) bazelVersions.add(v);
+				}
+			}
+		}
+	}
+
+	cachedPresubmitFacets = {
+		platforms: Array.from(platforms).sort(),
+		// Sort newest-first (descending) so e.g. ["9.x", "8.x"] is the natural
+		// reading order for Bazel major versions.
+		bazelVersions: Array.from(bazelVersions).sort().reverse(),
+	};
+	cachedPresubmitFacetsCommit = commit;
+	return cachedPresubmitFacets;
+}
+exports.computeAllPresubmitFacets = computeAllPresubmitFacets;
 
 /**
  * Counts the total documented symbols across every version of every module
