@@ -175,6 +175,7 @@ def _status_code_exists(code):
 def _documentation_info_output_result(ctx, mv):
     # NOTE: the format can be controlled with the suffix (.pb, .json, .textproto, +/- .gz)
     output = ctx.actions.declare_file("%s/%s/documentationinfo.pb.gz" % (mv.name, mv.version))
+    # output = ctx.actions.declare_file("%s/%s/documentationinfo.json" % (mv.name, mv.version))
 
     return struct(
         mv = mv,

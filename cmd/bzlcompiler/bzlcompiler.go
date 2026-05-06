@@ -154,7 +154,7 @@ func runBatch(cfg *config) error {
 		return fmt.Errorf("%v (%v)", err, time.Since(now))
 	}
 
-	bzlFilesByPath, err := prepareBzlFiles(cfg, cfg.BzlFiles)
+	bzlFilesByPath, err := prepareBzlFiles(cfg)
 	if err != nil {
 		return fail(err)
 	}

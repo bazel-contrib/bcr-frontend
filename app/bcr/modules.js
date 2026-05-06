@@ -102,8 +102,7 @@ const TabName = {
  */
 const ModulesListTabName = {
 	ALL: "all",
-	DEPRECATED: "deprecated",
-	YANKED: "yanked",
+	SEARCH: "search",
 };
 
 class ModulesMapSelect extends ContentSelect {
@@ -1276,8 +1275,7 @@ class ModulesMapSelectNav extends SelectNav {
 		super.enterDocument();
 
 		this.enterAllTab();
-		this.enterDeprecatedTab();
-		this.enterYankedTab();
+		this.enterSearchTab();
 
 		getApplication(this)
 			.getRegistryWithSymbols()
@@ -1285,6 +1283,17 @@ class ModulesMapSelectNav extends SelectNav {
 				if (this.isDisposed()) return;
 				refreshBcrSidePaneSymbols(this.getElement(), this.registry_);
 			});
+	}
+
+	enterSearchTab() {
+		this.addNavTabLazy(
+			ModulesListTabName.SEARCH,
+			"Search",
+			"Search modules",
+			undefined,
+			`${this.getPathUrl()}/${ModulesListTabName.SEARCH}`,
+			() => new ModuleSearchComponent(this.registry_, this.dom_),
+		);
 	}
 
 	enterAllTab() {
@@ -1298,74 +1307,12 @@ class ModulesMapSelectNav extends SelectNav {
 		);
 	}
 
-	enterDeprecatedTab() {
-		const deprecated = this.getDeprecated();
-		this.addNavTabLazy(
-			ModulesListTabName.DEPRECATED,
-			"Deprecated Versions",
-			"Modules tagged as deprecated",
-			deprecated.length,
-			`${this.getPathUrl()}/${ModulesListTabName.DEPRECATED}`,
-			() =>
-				new ModuleVersionsFilterSelect(this.modules_, deprecated, this.dom_),
-		);
-	}
-
-	enterYankedTab() {
-		const yanked = this.getYankedVersions();
-		this.addNavTabLazy(
-			ModulesListTabName.YANKED,
-			"Yanked Versions",
-			"Module Versions tagged as yanked",
-			yanked.length,
-			`${this.getPathUrl()}/${ModulesListTabName.YANKED}`,
-			() => new ModuleVersionsFilterSelect(this.modules_, yanked, this.dom_),
-		);
-	}
-
 	/**
 	 * @override
 	 * @returns {string}
 	 */
 	getDefaultTabName() {
 		return ModulesListTabName.ALL;
-	}
-
-	/**
-	 * @returns {!Array<!ModuleVersion>}
-	 */
-	getDeprecated() {
-		const result = [];
-		for (const mv of this.all_) {
-			const module = this.modules_.get(mv.getName());
-			if (module.getMetadata().getDeprecated()) {
-				result.push(mv);
-			}
-		}
-		return result;
-	}
-
-	/**
-	 * @returns {!Array<!ModuleVersion>}
-	 */
-	getYankedVersions() {
-		const result = [];
-		for (const module of this.registry_.getModulesList()) {
-			const metadata = module.getMetadata();
-			if (metadata.getYankedVersionsMap()) {
-				const yankedVersions = metadata.getYankedVersionsMap();
-				for (const version of yankedVersions.keys()) {
-					// const message = yankedVersions.get(version);
-					const moduleVersion = module
-						.getVersionsList()
-						.find((mv) => mv.getVersion() === version);
-					if (moduleVersion) {
-						result.push(moduleVersion);
-					}
-				}
-			}
-		}
-		return result;
 	}
 }
 
@@ -1534,6 +1481,14 @@ class ModuleSearchComponent extends ContentComponent {
 	 */
 	createDom() {
 		this.setElementInternal(soy.renderAsElement(moduleSearchComponent));
+	}
+
+	/**
+	 * @override
+	 * @return {Element}
+	 */
+	getContentElement() {
+		return this.getCssElement(goog.getCssName("search-results"));
 	}
 
 	/**
