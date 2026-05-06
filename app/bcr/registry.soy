@@ -118,9 +118,7 @@ import {
 {template maintainerModuleVersionTable}
   {@param moduleVersions: list<ModuleVersion>}
   <div class="">
-    <div class="f3 mb-2">
-      <span class="">Modules {counterLabel(count: length($moduleVersions))}</span>
-    </div>
+    {sectionHeader(title: 'Maintainer Of', count: length($moduleVersions))}
     <div>
       {for $moduleVersion in $moduleVersions}
         {moduleVersionButton(moduleVersion: $moduleVersion)}
@@ -608,7 +606,7 @@ import {
   {@param maintainer: Maintainer}
   <div style="max-width: 296px;">
     <div class="d-flex mb-3">
-      <img class="avatar rounded-3" width="192" height="192" src="{githubAvatarUrl(name: $maintainer.getGithub())}" alt="@{$maintainer.getGithub()}">
+      <img class="avatar rounded-3" width="290" height="290" src="{githubAvatarUrl(name: $maintainer.getGithub())}" alt="@{$maintainer.getGithub()}">
     </div>
     <h2 class="f3 text-bold mb-3">
       {$maintainer.getName() || '@' + $maintainer.getGithub()}
