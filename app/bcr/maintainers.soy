@@ -9,10 +9,13 @@ import {
   maintainerBreadcrumb,
   maintainerModuleVersionTable,
   maintainerProfile,
-  maintainersList
+  maintainersList,
+  sectionDivider,
+  sectionHeader
 } from 'app/bcr/registry.soy';
 import {
-  bcrSidePane
+  bcrSidePane,
+  homeRecentTimeline
 } from 'app/bcr/app.soy';
 
 {template maintainersSelect}
@@ -62,6 +65,7 @@ import {
 {template maintainerComponent}
   {@param maintainer: Maintainer}
   {@param moduleVersions: list<ModuleVersion>}
+  {@param activity: list<[moduleVersion: ModuleVersion, commitDate: string, isNew: bool]>}
   <div>
     <div class="PageLayout PageLayout--panePos-start PageLayout--hasPaneDivider PageLayout--responsive-stackRegions PageLayout--responsive-panePos-start mt-3">
       <div class="PageLayout-wrapper">
@@ -69,6 +73,13 @@ import {
           <div class="PageLayout-content">
             {call maintainerModuleVersionTable}
               {param moduleVersions: $moduleVersions /}
+            {/call}
+
+            {sectionDivider()}
+
+            {sectionHeader(title: 'Module Commit Activity')}
+            {call homeRecentTimeline}
+              {param recentlyUpdated: $activity /}
             {/call}
           </div>
 

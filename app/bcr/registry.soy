@@ -118,9 +118,7 @@ import {
 {template maintainerModuleVersionTable}
   {@param moduleVersions: list<ModuleVersion>}
   <div class="">
-    <div class="f3 mb-2">
-      <span class="">Modules {counterLabel(count: length($moduleVersions))}</span>
-    </div>
+    {sectionHeader(title: 'Maintainer Of', count: length($moduleVersions))}
     <div>
       {for $moduleVersion in $moduleVersions}
         {moduleVersionButton(moduleVersion: $moduleVersion)}

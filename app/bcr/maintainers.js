@@ -3,6 +3,10 @@ goog.module("bcrfrontend.maintainers");
 const Maintainer = goog.require(
 	"proto.build.stack.bazel.registry.v1.Maintainer",
 );
+const Module = goog.require("proto.build.stack.bazel.registry.v1.Module");
+const ModuleVersion = goog.require(
+	"proto.build.stack.bazel.registry.v1.ModuleVersion",
+);
 const Registry = goog.require("proto.build.stack.bazel.registry.v1.Registry");
 const arrays = goog.require("goog.array");
 const dom = goog.require("goog.dom");
@@ -10,6 +14,7 @@ const soy = goog.require("goog.soy");
 const { ContentSelect } = goog.require("bcrfrontend.ContentSelect");
 const { SelectNav } = goog.require("bcrfrontend.SelectNav");
 const { getApplication } = goog.require("bcrfrontend.common");
+const { formatRelativeShort } = goog.require("bcrfrontend.format");
 const {
 	computeTotalSymbols,
 	createMaintainersMap,
@@ -250,7 +255,47 @@ class MaintainerComponent extends Component {
 					this.registry_,
 					this.maintainer_,
 				),
+				activity: computeMaintainerActivity(this.registry_, this.maintainer_),
 			}),
 		);
 	}
+}
+
+/**
+ * Returns every module version whose commit was authored by the maintainer's
+ * GitHub user, formatted for the homeRecentTimeline template. Sorted newest
+ * first; no top-N limit.
+ *
+ * @param {!Registry} registry
+ * @param {!Maintainer} maintainer
+ * @returns {!Array<!{moduleVersion: !ModuleVersion, commitDate: string, isNew: boolean}>}
+ */
+function computeMaintainerActivity(registry, maintainer) {
+	const githubUser = maintainer.getGithub();
+	if (!githubUser) return [];
+
+	/** @type {!Array<!{m: !Module, v: !ModuleVersion}>} */
+	const items = [];
+	for (const module of registry.getModulesList()) {
+		for (const version of module.getVersionsList()) {
+			const commit = version.getCommit();
+			if (!commit || !commit.getDate()) continue;
+			if (commit.getGithubUser() !== githubUser) continue;
+			items.push({ m: module, v: version });
+		}
+	}
+
+	items.sort((a, b) => {
+		return (
+			new Date(b.v.getCommit().getDate()) - new Date(a.v.getCommit().getDate())
+		);
+	});
+
+	return items.map((item) => {
+		return {
+			moduleVersion: item.v,
+			commitDate: formatRelativeShort(item.v.getCommit().getDate()),
+			isNew: item.m.getVersionsList().length === 1,
+		};
+	});
 }
