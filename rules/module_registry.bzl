@@ -37,13 +37,44 @@ def _write_registry_languages_json_action(ctx, mds):
     return output
 
 def _write_prerender_urls_action(ctx, deps):
-    """Emit a list of /modules/<name> URLs (one per line) for build-time
-    prerendering. Sorted alphabetically by module name for deterministic output."""
+    """Emit a per-module prerender directive list (`<url> <paths>` per line).
+
+    Each line tells the prerender pipeline to render `<url>` once and write
+    the captured HTML to every comma-separated path in `<paths>`. For
+    modules with a known latest version we render the versioned URL once
+    and write to BOTH the versioned and unversioned output paths so
+    `/modules/<name>/<latest>` and `/modules/<name>` serve the same
+    prerendered HTML without rendering twice. Modules without an
+    `is_latest_version=True` ModuleVersionInfo fall back to the unversioned
+    URL with a single output path. Sorted alphabetically by module name.
+    """
     output = ctx.actions.declare_file(ctx.label.name + ".prerender_urls.txt")
 
-    names = sorted([d.name for d in deps if d.name])
-    content = "\n".join(["/modules/" + name for name in names]) + "\n"
-    ctx.actions.write(output, content)
+    sorted_deps = sorted(
+        [d for d in deps if d.name],
+        key = lambda d: d.name,
+    )
+
+    lines = []
+    for d in sorted_deps:
+        latest = None
+        for mv in d.deps:
+            if mv.is_latest_version:
+                latest = mv.version
+                break
+        if latest:
+            url = "/modules/{}/{}".format(d.name, latest)
+            paths = "modules/{}/{}/index.html,modules/{}/index.html".format(
+                d.name,
+                latest,
+                d.name,
+            )
+            lines.append(url + " " + paths)
+        else:
+            url = "/modules/" + d.name
+            lines.append(url + " modules/" + d.name + "/index.html")
+
+    ctx.actions.write(output, "\n".join(lines) + "\n")
 
     return output
 
