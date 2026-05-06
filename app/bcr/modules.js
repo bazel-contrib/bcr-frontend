@@ -431,6 +431,7 @@ class ModuleVersionSelectNav extends SelectNav {
 			`${this.getPathUrl()}/${TabName.TESTING}`,
 			() =>
 				new PresubmitSelect(
+					this.registry_,
 					this.module_,
 					this.moduleVersion_,
 					presubmit || null,
