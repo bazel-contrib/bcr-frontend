@@ -55,17 +55,20 @@ pre code {
 	overflow: hidden;
 }
 
-.Box .Box-body {
+.Box .Box-body,
+.Box .Box-row {
 	overflow-x: auto;
 	-webkit-overflow-scrolling: touch;
 }
 
-.Box .Box-body pre {
+.Box .Box-body pre,
+.Box .Box-row pre {
 	margin: 0;
 }
 
 /* Ensure tables in boxes don't overflow */
-.Box .Box-body table {
+.Box .Box-body table,
+.Box .Box-row table {
 	display: block;
 	overflow-x: auto;
 	-webkit-overflow-scrolling: touch;
@@ -76,6 +79,29 @@ pre code {
  * for sticky columns and cell-grid layout to work. */
 .Box .Box-body .dependents-matrix table {
 	display: table;
+}
+
+/* Markdown content (READMEs, descriptions): never push parent wider.
+ * Wrap long words/URLs and clamp images so a markdown blob can't trigger
+ * page-level horizontal scrolling on narrow viewports. */
+.markdown-body {
+	max-width: 100%;
+	min-width: 0;
+	overflow-wrap: break-word;
+	word-wrap: break-word;
+}
+
+.markdown-body img {
+	max-width: 100%;
+	height: auto;
+}
+
+/* PageLayout grid items default to min-width: auto, which lets a wide
+ * child (a long pre, table, image, or unbroken URL) blow out the column.
+ * Force them shrinkable so overflow-x rules above can take effect. */
+.PageLayout .PageLayout-content,
+.PageLayout .PageLayout-pane {
+	min-width: 0;
 }
 
 /* width-full on mobile should respect container bounds */
