@@ -88,7 +88,11 @@ func run(args []string) error {
 					mv.Source.Documentation = d
 				}
 			} else {
-				log.Panicf("module version not found!", mv)
+				// The doc registry may carry entries for module versions that
+				// are no longer in the main registry (e.g. yanked, or the doc
+				// snapshot is newer than the registry snapshot). Skip them
+				// rather than failing the build.
+				log.Printf("warning: skipping documentation for unknown module version %s", id)
 			}
 		}
 	}
