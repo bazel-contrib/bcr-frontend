@@ -63,11 +63,10 @@ func main() {
 
 	// Create and start server
 	server := NewSPAServer(files)
-	addr := fmt.Sprintf("%s:%d", *host, *port)
 
-	listener, err := net.Listen("tcp", addr)
+	listener, err := listenSafePort(*host, *port)
 	if err != nil {
-		log.Fatalf("Failed to listen on %s: %v", addr, err)
+		log.Fatalf("Failed to listen on %s:%d: %v", *host, *port, err)
 	}
 
 	chosenPort := listener.Addr().(*net.TCPAddr).Port
@@ -232,4 +231,48 @@ func loadTarball(path string) (map[string][]byte, error) {
 	}
 
 	return files, nil
+}
+
+// chromeUnsafePorts mirrors Chrome's restricted-port list (net/base/port_util.cc).
+// Chrome refuses to navigate to URLs on these ports with ERR_UNSAFE_PORT, which
+// breaks chromedp-driven prerendering when the kernel happens to hand the
+// server one of them via port=0. listenSafePort retries past them.
+var chromeUnsafePorts = map[int]bool{
+	1: true, 7: true, 9: true, 11: true, 13: true, 15: true, 17: true,
+	19: true, 20: true, 21: true, 22: true, 23: true, 25: true, 37: true,
+	42: true, 43: true, 53: true, 69: true, 77: true, 79: true, 87: true,
+	95: true, 101: true, 102: true, 103: true, 104: true, 109: true,
+	110: true, 111: true, 113: true, 115: true, 117: true, 119: true,
+	123: true, 135: true, 137: true, 139: true, 143: true, 161: true,
+	179: true, 389: true, 427: true, 465: true, 512: true, 513: true,
+	514: true, 515: true, 526: true, 530: true, 531: true, 532: true,
+	540: true, 548: true, 554: true, 556: true, 563: true, 587: true,
+	601: true, 636: true, 989: true, 990: true, 993: true, 995: true,
+	1719: true, 1720: true, 1723: true, 2049: true, 3659: true, 4045: true,
+	4190: true, 5060: true, 5061: true, 6000: true, 6566: true, 6665: true,
+	6666: true, 6667: true, 6668: true, 6669: true, 6679: true, 6697: true,
+	10080: true,
+}
+
+// listenSafePort binds a TCP listener at host:port. When port == 0 and the
+// kernel assigns a port Chrome considers unsafe, the listener is closed and
+// we retry up to a small bound. Explicit ports are returned as-is.
+func listenSafePort(host string, port int) (net.Listener, error) {
+	if port != 0 {
+		return net.Listen("tcp", fmt.Sprintf("%s:%d", host, port))
+	}
+	const maxAttempts = 32
+	for i := 0; i < maxAttempts; i++ {
+		l, err := net.Listen("tcp", fmt.Sprintf("%s:0", host))
+		if err != nil {
+			return nil, err
+		}
+		assigned := l.Addr().(*net.TCPAddr).Port
+		if !chromeUnsafePorts[assigned] {
+			return l, nil
+		}
+		log.Printf("Skipping Chrome-unsafe port %d, retrying", assigned)
+		l.Close()
+	}
+	return nil, fmt.Errorf("could not get a Chrome-safe ephemeral port after %d attempts", maxAttempts)
 }

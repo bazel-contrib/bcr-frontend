@@ -17,6 +17,12 @@
 	max-width: 120px;
 }
 
+.app-logo svg {
+	display: block;
+	width: 100%;
+	height: auto;
+}
+
 /* Dossier-inspired autocomplete */
 
 .dossier-ac {
