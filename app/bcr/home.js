@@ -19,6 +19,7 @@ const {
 const { homeOverviewSelectNav, homeRecentTimeline, homeSelect } = goog.require(
 	"soy.bcrfrontend.app",
 );
+const { commitSha: uiCommitSha } = goog.require("bcrfrontend.uiVersion");
 const { formatRelativeShort } = goog.require("bcrfrontend.format");
 const { Component, Route } = goog.require("stack.ui");
 
@@ -119,6 +120,7 @@ class HomeOverviewSelectNav extends SelectNav {
 				totalModuleVersions: totalModuleVersions,
 				totalMaintainers: maintainers.size,
 				totalSymbols: computeTotalSymbols(this.registry_),
+				uiCommitSha: uiCommitSha,
 			}),
 		);
 	}

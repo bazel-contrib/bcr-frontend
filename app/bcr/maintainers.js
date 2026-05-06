@@ -15,6 +15,7 @@ const { ContentSelect } = goog.require("bcrfrontend.ContentSelect");
 const { SelectNav } = goog.require("bcrfrontend.SelectNav");
 const { getApplication } = goog.require("bcrfrontend.common");
 const { formatRelativeShort } = goog.require("bcrfrontend.format");
+const { commitSha: uiCommitSha } = goog.require("bcrfrontend.uiVersion");
 const {
 	computeTotalSymbols,
 	createMaintainersMap,
@@ -145,6 +146,7 @@ class MaintainersMapSelectNav extends SelectNav {
 				totalModuleVersions: totalModuleVersions,
 				totalMaintainers: this.maintainers_.size,
 				totalSymbols: computeTotalSymbols(this.registry_),
+				uiCommitSha: uiCommitSha,
 			}),
 		);
 	}

@@ -1,0 +1,14 @@
+load("@rules_go//go:def.bzl", "go_binary", "go_library")
+
+go_library(
+    name = "uiversion_lib",
+    srcs = ["main.go"],
+    importpath = "github.com/bazel-contrib/bcr-frontend/cmd/uiversion",
+    visibility = ["//visibility:private"],
+)
+
+go_binary(
+    name = "uiversion",
+    embed = [":uiversion_lib"],
+    visibility = ["//visibility:public"],
+)
