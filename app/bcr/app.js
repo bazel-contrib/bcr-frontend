@@ -18,6 +18,9 @@ const { MVS } = goog.require("bcrfrontend.mvs");
 const { ModuleSearchHandler } = goog.require("bcrfrontend.module_search");
 const { SearchComponent } = goog.require("bcrfrontend.search");
 const { copyToClipboard } = goog.require("bcrfrontend.clipboard");
+const { createMaintainersMap, createModuleMap } = goog.require(
+	"bcrfrontend.registry",
+);
 const { registryApp, toastSuccess } = goog.require("soy.bcrfrontend.app");
 
 /**
@@ -242,6 +245,16 @@ class RegistryApp extends App {
 					this.setLocation(["settings"]);
 				}
 				break;
+			case events.KeyCodes.OPEN_SQUARE_BRACKET:
+				if (this.getKbd().isEnabled()) {
+					this.gotoSibling(-1, e);
+				}
+				break;
+			case events.KeyCodes.CLOSE_SQUARE_BRACKET:
+				if (this.getKbd().isEnabled()) {
+					this.gotoSibling(+1, e);
+				}
+				break;
 			case events.KeyCodes.TILDE:
 				// Shift+` produces ~ on US keyboards; require shift so a bare
 				// backtick doesn't navigate.
@@ -367,10 +380,70 @@ class RegistryApp extends App {
 					this.search_.focusSearchProviderByName(searchprovider);
 					return true;
 				}
+				const action = dataset.get(node, "action");
+				if (action === "next-sibling") {
+					this.gotoSibling(+1);
+					return true;
+				}
+				if (action === "prev-sibling") {
+					this.gotoSibling(-1);
+					return true;
+				}
 				return false;
 			},
 			true,
 		);
+	}
+
+	/**
+	 * Cycle to the next/previous sibling within the current section. Works
+	 * on /maintainers/<handle> (cycles maintainers) and /modules/<name>/...
+	 * (cycles modules). No-op elsewhere.
+	 *
+	 * @param {number} direction +1 for next, -1 for previous
+	 * @param {!events.BrowserEvent=} opt_e
+	 */
+	gotoSibling(direction, opt_e) {
+		// Always swallow the keystroke so it doesn't leak into a focused
+		// input or trigger the default action of the clicked anchor.
+		if (opt_e) opt_e.preventDefault();
+
+		// The app uses path-based routing; hash links like `/#/maintainers/foo`
+		// also work, so check both.
+		const raw = window.location.pathname + window.location.hash;
+		const segments = raw
+			.replace(/^[#/]+/, "")
+			.split(/[\/#]+/)
+			.filter(Boolean);
+		if (segments.length < 2) return;
+
+		/** @type {!Array<string>} */
+		let names = [];
+		if (segments[0] === "maintainers") {
+			createMaintainersMap(this.registry_).forEach((_, key) => {
+				names.push(key);
+			});
+		} else if (segments[0] === "modules") {
+			createModuleMap(this.registry_).forEach((_, key) => {
+				names.push(key);
+			});
+		} else {
+			return;
+		}
+
+		names.sort((a, b) => {
+			const la = a.toLowerCase();
+			const lb = b.toLowerCase();
+			return la < lb ? -1 : la > lb ? 1 : 0;
+		});
+		if (names.length === 0) return;
+
+		const current = decodeURIComponent(segments[1]);
+		const idx = names.indexOf(current);
+		if (idx === -1) return;
+
+		const next = (idx + direction + names.length) % names.length;
+		this.setLocation([segments[0], names[next]]);
 	}
 
 	/**

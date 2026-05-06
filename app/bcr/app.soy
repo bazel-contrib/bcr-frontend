@@ -157,11 +157,9 @@ import {
     <a href="/#/home">{logo()}</a>
   </div>
   <div class="Header-item Header-item--full">
-    <div class="width-full" style="position: relative">
-      <form class="FormControl col-12" style="margin-block-end: 0">
-        <input class="form-control col-12 input-hide-webkit-autofill border width-full" type="text" placeholder="Search..." style="background-color: var(--button-default-bgColor-rest, var(--color-btn-bg));"/>
-      </form>
-    </div>
+    <form class="FormControl col-12 width-full" style="margin-block-end: 0">
+      <input class="form-control input-hide-webkit-autofill border" type="text" placeholder="Search..." style="background-color: var(--button-default-bgColor-rest, var(--color-btn-bg));"/>
+    </form>
   </div>
 </div>
 {/template}
@@ -179,8 +177,7 @@ import {
 {template bodySelect}
   {@param registry: Registry}
   {@param lastUpdated: string}
-<div class="container-xl" style="position: relative">
-  <a href="/#/settings" class="btn-octicon color-fg-muted" title="Settings" style="position: absolute; right: 12px; top: 12px; z-index: 100;">{octiconGear16()}</a>
+<div class="container-xl">
   <div class="PageLayout px-3">
     {header()}
     <div class="{css('content')} PageLayout-content"></div>
@@ -307,9 +304,12 @@ import {
   {@param totalMaintainers: int}
   {@param totalSymbols: int}
 <div class="px-2">
-  {sectionHeader(title: 'Bazel Central Registry')}
+  <h2 class="h2 d-flex flex-items-center mb-2">
+    <span>Bazel Central Registry</span>
+  </h2>
+
   <p class="f4 mb-4 color-fg-muted">
-    The official registry for Bazel modules. Publish here to make modules
+    The official registry for Bazel modules. Publish to the BCR to make modules
     discoverable and consumable via Bzlmod, Bazel's external dependency system.
   </p>
 
@@ -394,6 +394,18 @@ import {
       <span class="dotted-leader"></span>
       {kbd(key: ',')}
     </a>
+    <a class="Link--primary d-flex flex-items-center mb-2"
+      href="javascript:void(0)" data-action="next-sibling">
+      <span class="color-fg-muted">Next Module / Maintainer</span>
+      <span class="dotted-leader"></span>
+      {kbd(key: ']')}
+    </a>
+    <a class="Link--primary d-flex flex-items-center mb-2"
+      href="javascript:void(0)" data-action="prev-sibling">
+      <span class="color-fg-muted">Previous Module / Maintainer</span>
+      <span class="dotted-leader"></span>
+      // {kbd(key: '[')}
+    </a>
   </div>
 
 </div>
@@ -406,7 +418,7 @@ import {
   {@param totalModuleVersions: int}
   {@param totalMaintainers: int}
   {@param totalSymbols: int}
-<div class="PageLayout PageLayout--panePos-start PageLayout--hasPaneDivider PageLayout--responsive-stackRegions mt-3">
+<div class="PageLayout PageLayout--panePos-start PageLayout--hasPaneDivider PageLayout--responsive-stackRegions PageLayout--responsive-panePos-start mt-3">
   <div class="PageLayout-columns">
 
     <div class="PageLayout-pane">
@@ -572,7 +584,7 @@ import {
   {@param totalModuleVersions: int}
   {@param totalMaintainers: int}
   {@param totalSymbols: int}
-<div class="PageLayout PageLayout--panePos-start PageLayout--hasPaneDivider PageLayout--responsive-stackRegions mt-3">
+<div class="PageLayout PageLayout--panePos-start PageLayout--hasPaneDivider PageLayout--responsive-stackRegions PageLayout--responsive-panePos-start mt-3">
   <div class="PageLayout-columns">
 
     <div class="PageLayout-pane">
@@ -2268,7 +2280,7 @@ import {
   {@param totalModuleVersions: int}
   {@param totalMaintainers: int}
   {@param totalSymbols: int}
-<div class="PageLayout PageLayout--panePos-start PageLayout--hasPaneDivider PageLayout--responsive-stackRegions mt-3">
+<div class="PageLayout PageLayout--panePos-start PageLayout--hasPaneDivider PageLayout--responsive-stackRegions PageLayout--responsive-panePos-start mt-3">
   <div class="PageLayout-columns">
 
     <div class="PageLayout-pane">

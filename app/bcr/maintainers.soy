@@ -30,7 +30,7 @@ import {
   {@param totalModuleVersions: int}
   {@param totalMaintainers: int}
   {@param totalSymbols: int}
-<div class="PageLayout PageLayout--panePos-start PageLayout--hasPaneDivider PageLayout--responsive-stackRegions mt-3">
+<div class="PageLayout PageLayout--panePos-start PageLayout--hasPaneDivider PageLayout--responsive-stackRegions PageLayout--responsive-panePos-start mt-3">
   <div class="PageLayout-columns">
 
     <div class="PageLayout-pane">
@@ -78,9 +78,11 @@ import {
             {sectionDivider()}
 
             {sectionHeader(title: 'Module Commit Activity')}
-            {call homeRecentTimeline}
-              {param recentlyUpdated: $activity /}
-            {/call}
+            <div class="ml-2">
+              {call homeRecentTimeline}
+                {param recentlyUpdated: $activity /}
+              {/call}
+            </div>
           </div>
 
           <div class="PageLayout-pane">
