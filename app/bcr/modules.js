@@ -48,6 +48,8 @@ const { computeLanguageData, sanitizeLanguageName, unsanitizeLanguageName } =
 const {
 	calculateAgeSinceLatestVersion,
 	calculateAgeSummary,
+	computeTotalSymbols,
+	createMaintainersMap,
 	createModuleMap,
 	createModuleVersionMap,
 	getLatestModuleVersion,
@@ -56,6 +58,7 @@ const {
 	getModuleDirectDeps,
 	getVersionDistances,
 	getYankedMap,
+	refreshBcrSidePaneSymbols,
 } = goog.require("bcrfrontend.registry");
 const { formatDate, formatRelativePast } = goog.require("bcrfrontend.format");
 const { highlightAll } = goog.require("bcrfrontend.syntax");
@@ -99,12 +102,6 @@ const TabName = {
 const ModulesListTabName = {
 	ALL: "all",
 	DEPRECATED: "deprecated",
-	NEW: "new",
-	TODAY: "today",
-	RECENT: "recent",
-	VERIFIED: "verified",
-	INCONSISTENT: "inconsistent",
-	INCOMPLETE: "incomplete",
 	YANKED: "yanked",
 };
 
@@ -1246,7 +1243,20 @@ class ModulesMapSelectNav extends SelectNav {
 	 * @override
 	 */
 	createDom() {
-		this.setElementInternal(soy.renderAsElement(modulesMapSelectNav));
+		const maintainers = createMaintainersMap(this.registry_);
+		let totalModuleVersions = 0;
+		for (const module of this.modules_.values()) {
+			totalModuleVersions += module.getVersionsList().length;
+		}
+		this.setElementInternal(
+			soy.renderAsElement(modulesMapSelectNav, {
+				registry: this.registry_,
+				totalModules: this.modules_.size,
+				totalModuleVersions: totalModuleVersions,
+				totalMaintainers: maintainers.size,
+				totalSymbols: computeTotalSymbols(this.registry_),
+			}),
+		);
 	}
 
 	/**
@@ -1264,20 +1274,21 @@ class ModulesMapSelectNav extends SelectNav {
 		super.enterDocument();
 
 		this.enterAllTab();
-		this.enterTodayTab();
-		this.enterNewTab();
-		this.enterRecentTab();
-		this.enterVerifiedTab();
 		this.enterDeprecatedTab();
 		this.enterYankedTab();
-		this.enterInconsistentTab();
-		this.enterIncompleteTab();
+
+		getApplication(this)
+			.getRegistryWithSymbols()
+			.then(() => {
+				if (this.isDisposed()) return;
+				refreshBcrSidePaneSymbols(this.getElement(), this.registry_);
+			});
 	}
 
 	enterAllTab() {
 		this.addNavTabLazy(
 			ModulesListTabName.ALL,
-			"All",
+			"Modules",
 			"All Modules",
 			this.all_.length,
 			`${this.getPathUrl()}/${ModulesListTabName.ALL}`,
@@ -1285,60 +1296,11 @@ class ModulesMapSelectNav extends SelectNav {
 		);
 	}
 
-	enterTodayTab() {
-		const today = this.getNewToday();
-		this.addNavTabLazy(
-			ModulesListTabName.TODAY,
-			"New Today",
-			"Modules having a single version added within the last 24 hours",
-			today.length,
-			`${this.getPathUrl()}/${ModulesListTabName.TODAY}`,
-			() => new ModuleVersionsFilterSelect(this.modules_, today, this.dom_),
-		);
-	}
-
-	enterNewTab() {
-		const newlyAdded = this.getNew();
-		this.addNavTabLazy(
-			ModulesListTabName.NEW,
-			"New",
-			"Modules having a single version added within the last 30 days",
-			newlyAdded.length,
-			`${this.getPathUrl()}/${ModulesListTabName.NEW}`,
-			() =>
-				new ModuleVersionsFilterSelect(this.modules_, newlyAdded, this.dom_),
-		);
-	}
-
-	enterRecentTab() {
-		const recent = this.getRecent();
-		this.addNavTabLazy(
-			ModulesListTabName.RECENT,
-			"Recent",
-			"Modules having at least two versions updated within the last 30 days",
-			recent.length,
-			`${this.getPathUrl()}/${ModulesListTabName.RECENT}`,
-			() => new ModuleVersionsFilterSelect(this.modules_, recent, this.dom_),
-		);
-	}
-
-	enterVerifiedTab() {
-		const verified = this.all_.filter((m) => m.getAttestations());
-		this.addNavTabLazy(
-			ModulesListTabName.VERIFIED,
-			"Verified",
-			"Modules that contain source attestations for the most recent version",
-			verified.length,
-			`${this.getPathUrl()}/${ModulesListTabName.VERIFIED}`,
-			() => new ModuleVersionsFilterSelect(this.modules_, verified, this.dom_),
-		);
-	}
-
 	enterDeprecatedTab() {
 		const deprecated = this.getDeprecated();
 		this.addNavTabLazy(
 			ModulesListTabName.DEPRECATED,
-			"Deprecated",
+			"Deprecated Versions",
 			"Modules tagged as deprecated",
 			deprecated.length,
 			`${this.getPathUrl()}/${ModulesListTabName.DEPRECATED}`,
@@ -1351,42 +1313,11 @@ class ModulesMapSelectNav extends SelectNav {
 		const yanked = this.getYankedVersions();
 		this.addNavTabLazy(
 			ModulesListTabName.YANKED,
-			"Yanked",
+			"Yanked Versions",
 			"Module Versions tagged as yanked",
 			yanked.length,
 			`${this.getPathUrl()}/${ModulesListTabName.YANKED}`,
 			() => new ModuleVersionsFilterSelect(this.modules_, yanked, this.dom_),
-		);
-	}
-
-	enterInconsistentTab() {
-		const inconsistent = this.getInconsistentVersions();
-		this.addNavTabLazy(
-			ModulesListTabName.INCONSISTENT,
-			"Inconsistent",
-			"Modules Versions that reference non-existent modules or module versions",
-			inconsistent.length,
-			`${this.getPathUrl()}/${ModulesListTabName.INCONSISTENT}`,
-			() =>
-				new ModuleVersionsFilterSelect(this.modules_, inconsistent, this.dom_),
-		);
-	}
-
-	/**
-	 * Incomplete tab is internal easter egg.
-	 */
-	enterIncompleteTab() {
-		const incomplete = this.all_.filter(
-			(m) => !m.getRepositoryMetadata()?.getLanguagesMap()?.getLength(),
-		);
-		this.addNavTabLazy(
-			ModulesListTabName.INCOMPLETE,
-			"Incomplete",
-			"Modules with incomplete metadata (internal)",
-			incomplete.length,
-			`${this.getPathUrl()}/${ModulesListTabName.INCOMPLETE}`,
-			() =>
-				new ModuleVersionsFilterSelect(this.modules_, incomplete, this.dom_),
 		);
 	}
 
@@ -1396,76 +1327,6 @@ class ModulesMapSelectNav extends SelectNav {
 	 */
 	getDefaultTabName() {
 		return ModulesListTabName.ALL;
-	}
-
-	/**
-	 * @returns {!Array<!ModuleVersion>}
-	 */
-	getNewToday() {
-		const oneDayAgo = new Date(Date.now() - 1 * 24 * 60 * 60 * 1000);
-
-		const result = [];
-		for (const mv of this.all_) {
-			const module = this.modules_.get(mv.getName());
-			const versions = module.getVersionsList();
-			if (versions.length > 1) {
-				continue;
-			}
-			const then = new Date(versions[0].getCommit().getDate());
-			if (then < oneDayAgo) {
-				continue;
-			}
-			result.push(mv);
-		}
-
-		return result;
-	}
-
-	/**
-	 * @returns {!Array<!ModuleVersion>}
-	 */
-	getNew() {
-		const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-
-		const result = [];
-		for (const mv of this.all_) {
-			const module = this.modules_.get(mv.getName());
-			const versions = module.getVersionsList();
-			if (versions.length > 1) {
-				continue;
-			}
-			const then = new Date(versions[0].getCommit().getDate());
-			if (then < thirtyDaysAgo) {
-				continue;
-			}
-			result.push(mv);
-		}
-
-		return result;
-	}
-
-	/**
-	 * @returns {!Array<!ModuleVersion>}
-	 */
-	getRecent() {
-		const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-
-		const result = [];
-		for (const mv of this.all_) {
-			const module = this.modules_.get(mv.getName());
-			const versions = module.getVersionsList();
-			if (versions.length === 1) {
-				// use for newly added
-				continue;
-			}
-			const then = new Date(versions[0].getCommit().getDate());
-			if (then < thirtyDaysAgo) {
-				continue;
-			}
-			result.push(mv);
-		}
-
-		return result;
 	}
 
 	/**
@@ -1498,24 +1359,6 @@ class ModulesMapSelectNav extends SelectNav {
 						.find((mv) => mv.getVersion() === version);
 					if (moduleVersion) {
 						result.push(moduleVersion);
-					}
-				}
-			}
-		}
-		return result;
-	}
-
-	/**
-	 * @returns {!Array<!ModuleVersion>}
-	 */
-	getInconsistentVersions() {
-		const result = [];
-		for (const module of this.registry_.getModulesList()) {
-			for (const version of module.getVersionsList()) {
-				for (const dep of version.getDepsList()) {
-					if (dep.getUnresolved()) {
-						result.push(version);
-						break;
 					}
 				}
 			}

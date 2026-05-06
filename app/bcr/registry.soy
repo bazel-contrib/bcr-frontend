@@ -288,7 +288,7 @@ import {
                   <sup class="color-fg-attention">{sp}+{$data.ageSummary}</sup>
                 {/if}
               </span>
-              <span style="flex: 1; border-bottom: 1px dotted var(--color-border-muted); margin: 0 0.5em;"></span>
+              <span class="dotted-leader"></span>
               {if $depCount > 0}
                 <span class="text-small color-fg-muted" style="padding: 0 0.5em;">{$percentage}%<sup>{sp}{$depCount}</sup></span>
               {/if}
@@ -348,7 +348,7 @@ import {
 
 {template moduleVersionsListComponent}
   {@param moduleVersions: list<ModuleVersion>}
-  <div class="mt-3">
+  <div>
     {if length($moduleVersions) > 0}
       {moduleVersionListBox(moduleVersions: $moduleVersions)}
     {else}
@@ -399,12 +399,12 @@ import {
   {@param? class: string}
   {@param? style: string}
   {@param? count: int}
-  <h2 class="h3 d-flex flex-items-center mb-2 {if $class}{$class}{/if}" {if $style}style="{$style}"{/if}>
+  <h3 class="h3 d-flex flex-items-center mb-2 {if $class}{$class}{/if}" {if $style}style="{$style}"{/if}>
     <span>{$title}</span>
     {if $count != null}
       <span class="ml-1" style="margin-top: -4px">{counterLabel(count: $count)}</span>
     {/if}
-  </h2>
+  </h3>
 {/template}
 
 {template sectionDivider}
@@ -521,7 +521,7 @@ import {
       </a>
     </span>
     {if $latest}
-      <span style="flex: 1; border-bottom: 1px dotted var(--color-border-muted); margin: 0 0.5em;"></span>
+      <span class="dotted-leader"></span>
       <span style="padding-left: 0.5em;">
         {if $dep.getVersion() == $latest.getVersion()}
           {octiconCheck16(class: 'Label--success')}
@@ -565,9 +565,9 @@ import {
 
 {template maintainerCard}
   {@param maintainer: Maintainer}
-  <div class="d-flex flex-column flex-items-center text-center anim-hover-grow" style="width: 96px">
+  <div class="d-flex flex-column flex-items-center text-center anim-hover-grow" style="width: 90px">
     <div class="mb-2">
-      {maintainerAvatar(maintainer: $maintainer, size: 80)}
+      {maintainerAvatar(maintainer: $maintainer, size: 78)}
     </div>
     <div class="f6 lh-condensed">
       <a class="Link--primary no-underline" href="{maintainerUrl(maintainer: $maintainer)}">
