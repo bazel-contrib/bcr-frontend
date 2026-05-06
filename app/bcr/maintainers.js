@@ -9,9 +9,14 @@ const dom = goog.require("goog.dom");
 const soy = goog.require("goog.soy");
 const { ContentSelect } = goog.require("bcrfrontend.ContentSelect");
 const { SelectNav } = goog.require("bcrfrontend.SelectNav");
-const { createMaintainersMap, maintainerModuleVersions } = goog.require(
-	"bcrfrontend.registry",
-);
+const { getApplication } = goog.require("bcrfrontend.common");
+const {
+	computeTotalSymbols,
+	createMaintainersMap,
+	createModuleMap,
+	maintainerModuleVersions,
+	refreshBcrSidePaneSymbols,
+} = goog.require("bcrfrontend.registry");
 const {
 	maintainersSelect,
 	maintainersMapSelectNav,
@@ -123,7 +128,20 @@ class MaintainersMapSelectNav extends SelectNav {
 	 * @override
 	 */
 	createDom() {
-		this.setElementInternal(soy.renderAsElement(maintainersMapSelectNav));
+		const modules = createModuleMap(this.registry_);
+		let totalModuleVersions = 0;
+		for (const module of modules.values()) {
+			totalModuleVersions += module.getVersionsList().length;
+		}
+		this.setElementInternal(
+			soy.renderAsElement(maintainersMapSelectNav, {
+				registry: this.registry_,
+				totalModules: modules.size,
+				totalModuleVersions: totalModuleVersions,
+				totalMaintainers: this.maintainers_.size,
+				totalSymbols: computeTotalSymbols(this.registry_),
+			}),
+		);
 	}
 
 	/**
@@ -144,6 +162,13 @@ class MaintainersMapSelectNav extends SelectNav {
 		super.enterDocument();
 
 		this.enterAllTab();
+
+		getApplication(this)
+			.getRegistryWithSymbols()
+			.then(() => {
+				if (this.isDisposed()) return;
+				refreshBcrSidePaneSymbols(this.getElement(), this.registry_);
+			});
 	}
 
 	enterAllTab() {

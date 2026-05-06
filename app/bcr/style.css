@@ -312,3 +312,13 @@ code .line::before {
 .timeline-last:before {
 	bottom: 50% !important;
 }
+
+/* ========================================
+ * Dotted Leader (label .... value rows)
+ * ======================================== */
+
+.dotted-leader {
+	flex: 1;
+	border-bottom: 1px dotted var(--color-border-muted);
+	margin: 0 0.5em;
+}

@@ -116,6 +116,46 @@ function createDocumentationMap(registry) {
 exports.createDocumentationMap = createDocumentationMap;
 
 /**
+ * Counts the total documented symbols across every version of every module
+ * in the registry. Returns 0 until the symbols proto has been loaded and
+ * decoded into the registry (see Application.getRegistryWithSymbols).
+ *
+ * @param {!Registry} registry
+ * @returns {number}
+ */
+function computeTotalSymbols(registry) {
+	let total = 0;
+	for (const module of registry.getModulesList()) {
+		for (const version of module.getVersionsList()) {
+			const docs = version.getSource()?.getDocumentation();
+			if (!docs) continue;
+			for (const file of docs.getFileList()) {
+				if (file.getError()) continue;
+				total += file.getSymbolList().length;
+			}
+		}
+	}
+	return total;
+}
+exports.computeTotalSymbols = computeTotalSymbols;
+
+/**
+ * Updates the count span inside a rendered bcrSidePane with the latest
+ * documented-symbols total. Used by views that lazy-load the symbols proto
+ * after first paint.
+ *
+ * @param {?Element} root
+ * @param {!Registry} registry
+ */
+function refreshBcrSidePaneSymbols(root, registry) {
+	if (!root) return;
+	const span = root.querySelector(".js-symbols-count");
+	if (!span) return;
+	span.textContent = String(computeTotalSymbols(registry));
+}
+exports.refreshBcrSidePaneSymbols = refreshBcrSidePaneSymbols;
+
+/**
  * @param {!Module} module
  * @returns {!ModuleVersion}
  */

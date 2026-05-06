@@ -116,7 +116,7 @@ prerender_home = rule(
     }, **_TOOL_ATTRS),
 )
 
-_PRERENDER_PAGES_CMD = """\
+_PRERENDER_SHARD_CMD = """\
 set -e
 
 PORT_FILE=$(mktemp -t bcr_prerender_pages.XXXXXX)
@@ -143,83 +143,128 @@ fi
 PORT=$(cat "$PORT_FILE")
 BASE_URL="http://localhost:$PORT"
 
-# Build --url / --output_file flag pairs from the URL list. Each line is a
-# pathname like /modules/rules_buf; we render BASE_URL+path into
-# WORKDIR/<path>/index.html.
+# Take 1/N of the URL list — every line whose 0-based index modulo
+# {shard_total} equals {shard_index}. This evenly distributes work
+# across shards without a separate split step.
+SHARD_LIST=$(mktemp -t bcr_prerender_shard.XXXXXX)
+awk -v idx={shard_index} -v n={shard_total} '(NR-1) % n == idx' "{url_list}" > "$SHARD_LIST"
+
+# Build --url / --output_file flag pairs from the (sharded) URL list.
+# Each line is `<url> <comma-separated-output-paths>`. We forward the
+# comma list verbatim to statichtmlcompiler's --output_file flag, which
+# writes the captured HTML to every path — that's how
+# /modules/<name>/<latest> and /modules/<name> end up with the same
+# prerendered file from a single render.
 URL_ARGS=""
 URL_COUNT=0
-while IFS= read -r path || [ -n "$path" ]; do
-  [ -z "$path" ] && continue
-  case "$path" in
+while IFS=' ' read -r url paths || [ -n "$url" ]; do
+  [ -z "$url" ] && continue
+  case "$url" in
     /*) ;;
-    *) path="/$path" ;;
+    *) url="/$url" ;;
   esac
-  out="$WORKDIR$path/index.html"
-  mkdir -p "$(dirname "$out")"
-  URL_ARGS="$URL_ARGS --url=$BASE_URL$path --output_file=$out"
+  abs_paths=""
+  for path in ${{paths//,/ }}; do
+    abs="$WORKDIR/$path"
+    mkdir -p "$(dirname "$abs")"
+    if [ -z "$abs_paths" ]; then
+      abs_paths="$abs"
+    else
+      abs_paths="$abs_paths,$abs"
+    fi
+  done
+  URL_ARGS="$URL_ARGS --url=$BASE_URL$url --output_file=$abs_paths"
   URL_COUNT=$((URL_COUNT + 1))
-done < {url_list}
+done < "$SHARD_LIST"
 
-# Bail loudly if the URL list was empty rather than passing zero --url flags
-# to statichtmlcompiler (which produces a confusing "at least one --url is
-# required" error). An empty list typically means we're being built against
-# an unpopulated module registry — e.g. //data/dummy:modules in a wildcard
-# CI sweep that bypassed the production-gating select.
+# Empty shard is fine (e.g., URL list shorter than shard_total) — emit
+# an empty tar so the merge step still works.
 if [ "$URL_COUNT" -eq 0 ]; then
-  echo "prerender_pages: url list at {url_list} contains no entries" >&2
-  exit 1
+  tar -cf {output} -C "$WORKDIR" .
+  exit 0
 fi
 
 {compiler} \\
   --chromedp=true \\
   --chrome_path={chrome} \\
   --single_context \\
-  --concurrency={concurrency} \\
+  --concurrency=1 \\
   --timeout={timeout} \\
   --settle_ms={settle_ms} \\
   $URL_ARGS
 
-# Pack everything under WORKDIR (which has the same layout we want in the
-# final release tarball: <pathname>/index.html). tar's -C flag ensures the
-# entries are stored relative to WORKDIR, so a path like /modules/rules_buf
-# becomes ./modules/rules_buf/index.html in the archive.
+tar -cf {output} -C "$WORKDIR" .
+"""
+
+_MERGE_SHARDS_CMD = """\
+set -e
+WORKDIR=$(mktemp -d -t bcr_prerender_merge.XXXXXX)
+trap "rm -rf $WORKDIR" EXIT
+{extract_lines}
 tar -cf {output} -C "$WORKDIR" .
 """
 
 def _prerender_pages_impl(ctx):
-    output = ctx.actions.declare_file(ctx.label.name + ".tar")
-
     chrome_bin = ctx.attr._chromium[NamedFilesInfo].value["CHROME-HEADLESS-SHELL"]
     chromium_runfiles = ctx.attr._chromium[DefaultInfo].default_runfiles.files
 
-    cmd = _PRERENDER_PAGES_CMD.format(
-        server = ctx.executable._releaseserver.path,
-        compiler = ctx.executable._statichtmlcompiler.path,
-        chrome = chrome_bin.path,
-        tarball = ctx.file.tarball.path,
-        url_list = ctx.file.url_list.path,
-        output = output.path,
-        concurrency = ctx.attr.concurrency,
-        timeout = ctx.attr.timeout_seconds,
-        settle_ms = ctx.attr.settle_ms,
-    )
+    n = ctx.attr.shards
+    if n < 1:
+        fail("shards must be >= 1, got %d" % n)
 
+    shard_outputs = []
+    for i in range(n):
+        shard_out = ctx.actions.declare_file(
+            "{}.shard{}.tar".format(ctx.label.name, i),
+        )
+        cmd = _PRERENDER_SHARD_CMD.format(
+            server = ctx.executable._releaseserver.path,
+            compiler = ctx.executable._statichtmlcompiler.path,
+            chrome = chrome_bin.path,
+            tarball = ctx.file.tarball.path,
+            url_list = ctx.file.url_list.path,
+            output = shard_out.path,
+            shard_index = i,
+            shard_total = n,
+            timeout = ctx.attr.timeout_seconds,
+            settle_ms = ctx.attr.settle_ms,
+        )
+        ctx.actions.run_shell(
+            outputs = [shard_out],
+            inputs = depset(
+                direct = [ctx.file.tarball, ctx.file.url_list],
+                transitive = [chromium_runfiles],
+            ),
+            tools = [
+                ctx.attr._releaseserver[DefaultInfo].files_to_run,
+                ctx.attr._statichtmlcompiler[DefaultInfo].files_to_run,
+            ],
+            command = cmd,
+            mnemonic = "PrerenderPagesShard",
+            progress_message = "Prerendering pages shard {} of {}".format(i + 1, n),
+        )
+        shard_outputs.append(shard_out)
+
+    # Merge every shard's tar entries into one final tarball. Bazel runs
+    # this only after all shards complete, so the merge action's
+    # progress_message is the last thing the user sees in the UI.
+    final_output = ctx.actions.declare_file(ctx.label.name + ".tar")
+    extract_lines = "\n".join([
+        'tar -xf "{}" -C "$WORKDIR"'.format(s.path)
+        for s in shard_outputs
+    ])
     ctx.actions.run_shell(
-        outputs = [output],
-        inputs = depset(
-            direct = [ctx.file.tarball, ctx.file.url_list],
-            transitive = [chromium_runfiles],
+        outputs = [final_output],
+        inputs = shard_outputs,
+        command = _MERGE_SHARDS_CMD.format(
+            extract_lines = extract_lines,
+            output = final_output.path,
         ),
-        tools = [
-            ctx.attr._releaseserver[DefaultInfo].files_to_run,
-            ctx.attr._statichtmlcompiler[DefaultInfo].files_to_run,
-        ],
-        command = cmd,
-        mnemonic = "PrerenderPages",
-        progress_message = "Prerendering module pages with chrome-headless-shell",
+        mnemonic = "MergePrerenderShards",
+        progress_message = "Merging {} prerender shards".format(n),
     )
 
-    return [DefaultInfo(files = depset([output]))]
+    return [DefaultInfo(files = depset([final_output]))]
 
 prerender_pages = rule(
     implementation = _prerender_pages_impl,
@@ -234,9 +279,12 @@ prerender_pages = rule(
             mandatory = True,
             doc = "Text file with one URL pathname per line (e.g. /modules/rules_buf).",
         ),
-        "concurrency": attr.int(
-            default = 4,
-            doc = "Number of parallel workers (each holds its own chrome tab).",
+        "shards": attr.int(
+            default = 8,
+            doc = "Number of parallel shard actions to split rendering across. " +
+                  "Each shard is its own Bazel action (so completions show in " +
+                  "Bazel's progress UI) and renders 1/N of the URL list. " +
+                  "Bazel parallelizes shards up to --jobs.",
         ),
         "timeout_seconds": attr.int(
             default = 30,

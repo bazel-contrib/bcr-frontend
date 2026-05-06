@@ -5,19 +5,21 @@ const ModuleVersion = goog.require(
 	"proto.build.stack.bazel.registry.v1.ModuleVersion",
 );
 const Registry = goog.require("proto.build.stack.bazel.registry.v1.Registry");
-const SymbolType = goog.require("proto.build.stack.bazel.symbol.v1.SymbolType");
 const dom = goog.require("goog.dom");
 const soy = goog.require("goog.soy");
 const { ContentSelect } = goog.require("bcrfrontend.ContentSelect");
-const { createMaintainersMap, createModuleMap } = goog.require(
-	"bcrfrontend.registry",
-);
-const { homeOverviewComponent, homeSelect } = goog.require(
+const { SelectNav } = goog.require("bcrfrontend.SelectNav");
+const { getApplication } = goog.require("bcrfrontend.common");
+const {
+	computeTotalSymbols,
+	createMaintainersMap,
+	createModuleMap,
+	refreshBcrSidePaneSymbols,
+} = goog.require("bcrfrontend.registry");
+const { homeOverviewSelectNav, homeRecentTimeline, homeSelect } = goog.require(
 	"soy.bcrfrontend.app",
 );
-const { formatRelativePast, formatRelativeShort } =
-	goog.require("bcrfrontend.format");
-const { getApplication } = goog.require("bcrfrontend.common");
+const { formatRelativeShort } = goog.require("bcrfrontend.format");
 const { Component, Route } = goog.require("stack.ui");
 
 /**
@@ -25,6 +27,14 @@ const { Component, Route } = goog.require("stack.ui");
  */
 const TabName = {
 	OVERVIEW: "overview",
+};
+
+/**
+ * @enum {string}
+ */
+const RecentTabName = {
+	UPDATED: "updated",
+	ADDED: "added",
 };
 
 class HomeSelect extends ContentSelect {
@@ -67,7 +77,7 @@ class HomeSelect extends ContentSelect {
 		if (name === TabName.OVERVIEW) {
 			this.addTab(
 				TabName.OVERVIEW,
-				new HomeOverviewComponent(this.registry_, this.dom_),
+				new HomeOverviewSelectNav(this.registry_, this.dom_),
 			);
 			this.select(name, route);
 			return;
@@ -78,7 +88,7 @@ class HomeSelect extends ContentSelect {
 }
 exports.HomeSelect = HomeSelect;
 
-class HomeOverviewComponent extends Component {
+class HomeOverviewSelectNav extends SelectNav {
 	/**
 	 * @param {!Registry} registry
 	 * @param {?dom.DomHelper=} opt_domHelper
@@ -98,56 +108,27 @@ class HomeOverviewComponent extends Component {
 		const maintainers = createMaintainersMap(this.registry_);
 
 		let totalModuleVersions = 0;
-
-		// Collect all module versions with commit dates for sorting
-		/** @type {!Array<!{m: !Module, v: !ModuleVersion}>} */
-		const allVersions = [];
-
 		for (const module of modules.values()) {
 			totalModuleVersions += module.getVersionsList().length;
-
-			for (const version of module.getVersionsList()) {
-				const commit = version.getCommit();
-				if (commit && commit.getDate()) {
-					allVersions.push({ m: module, v: version });
-				}
-			}
 		}
 
-		// Sort by commit date (most recent first) and take top 15
-		allVersions.sort((a, b) => {
-			return (
-				new Date(b.v.getCommit().getDate()) -
-				new Date(a.v.getCommit().getDate())
-			);
-		});
-		/** @type {!Array<!{moduleVersion: !ModuleVersion, commitDate: string}>} */
-		const recentlyUpdated = allVersions.slice(0, 15).map((item) => {
-			return {
-				moduleVersion: item.v,
-				commitDate: formatRelativeShort(item.v.getCommit().getDate()),
-				isNew: item.m.getVersionsList().length === 1,
-			};
-		});
-
-		// Render with 0 for symbol stats (populated async in enterDocument)
 		this.setElementInternal(
-			soy.renderAsElement(homeOverviewComponent, {
+			soy.renderAsElement(homeOverviewSelectNav, {
 				registry: this.registry_,
-				lastUpdated: formatRelativePast(this.registry_.getCommitDate()),
 				totalModules: modules.size,
 				totalModuleVersions: totalModuleVersions,
 				totalMaintainers: maintainers.size,
-				totalRules: 0,
-				totalFunctions: 0,
-				totalProviders: 0,
-				totalAspects: 0,
-				totalModuleExtensions: 0,
-				totalRepositoryRules: 0,
-				totalMacros: 0,
-				recentlyUpdated,
+				totalSymbols: computeTotalSymbols(this.registry_),
 			}),
 		);
+	}
+
+	/**
+	 * @override
+	 * @returns {string}
+	 */
+	getDefaultTabName() {
+		return RecentTabName.UPDATED;
 	}
 
 	/**
@@ -156,99 +137,146 @@ class HomeOverviewComponent extends Component {
 	enterDocument() {
 		super.enterDocument();
 
-		// Lazy-load symbol stats after symbols.pb.gz is fetched and decoded.
-		// The component may be disposed before the promise settles (user
-		// navigated away); guard so we don't write into a detached DOM.
+		this.addNavTabLazy(
+			RecentTabName.UPDATED,
+			"Recently Updated",
+			"Recently Updated",
+			undefined,
+			`${this.getPathUrl()}/${RecentTabName.UPDATED}`,
+			() => new HomeRecentlyUpdatedComponent(this.registry_, this.dom_),
+		);
+
+		this.addNavTabLazy(
+			RecentTabName.ADDED,
+			"Recently Added",
+			"Recently Added",
+			undefined,
+			`${this.getPathUrl()}/${RecentTabName.ADDED}`,
+			() => new HomeRecentlyAddedComponent(this.registry_, this.dom_),
+		);
+
 		getApplication(this)
 			.getRegistryWithSymbols()
 			.then(() => {
 				if (this.isDisposed()) return;
-				this.updateSymbolStats_();
+				refreshBcrSidePaneSymbols(this.getElement(), this.registry_);
 			});
+	}
+}
+
+class HomeRecentlyUpdatedComponent extends Component {
+	/**
+	 * @param {!Registry} registry
+	 * @param {?dom.DomHelper=} opt_domHelper
+	 */
+	constructor(registry, opt_domHelper) {
+		super(opt_domHelper);
+
+		/** @private @const @type {!Registry} */
+		this.registry_ = registry;
 	}
 
 	/**
-	 * Compute symbol counts from the now-decorated registry and update the DOM.
-	 * @private
+	 * @override
 	 */
-	updateSymbolStats_() {
-		const el = this.getElement();
-		if (!el) return;
+	createDom() {
+		this.setElementInternal(
+			soy.renderAsElement(homeRecentTimeline, {
+				recentlyUpdated: computeRecentlyUpdated(this.registry_),
+			}),
+		);
+	}
+}
 
-		const container = el.querySelector(".js-symbol-stats");
-		if (!container) return;
+class HomeRecentlyAddedComponent extends Component {
+	/**
+	 * @param {!Registry} registry
+	 * @param {?dom.DomHelper=} opt_domHelper
+	 */
+	constructor(registry, opt_domHelper) {
+		super(opt_domHelper);
 
-		const counts = {
-			rules: 0,
-			functions: 0,
-			providers: 0,
-			aspects: 0,
-			moduleExtensions: 0,
-			repositoryRules: 0,
-			macros: 0,
-			ruleMacros: 0,
-		};
+		/** @private @const @type {!Registry} */
+		this.registry_ = registry;
+	}
 
-		for (const module of this.registry_.getModulesList()) {
-			for (const version of module.getVersionsList()) {
-				const source = version.getSource();
-				if (!source) continue;
+	/**
+	 * @override
+	 */
+	createDom() {
+		this.setElementInternal(
+			soy.renderAsElement(homeRecentTimeline, {
+				recentlyUpdated: computeRecentlyAdded(this.registry_),
+			}),
+		);
+	}
+}
 
-				const docs = source.getDocumentation();
-				if (!docs) continue;
+/**
+ * Top 15 module versions by commit date (most recent first).
+ * @param {!Registry} registry
+ * @returns {!Array<!{moduleVersion: !ModuleVersion, commitDate: string, isNew: boolean}>}
+ */
+function computeRecentlyUpdated(registry) {
+	const modules = createModuleMap(registry);
 
-				for (const file of docs.getFileList()) {
-					if (file.getError()) continue;
-
-					for (const sym of file.getSymbolList()) {
-						switch (sym.getType()) {
-							case SymbolType.SYMBOL_TYPE_RULE:
-								counts.rules++;
-								break;
-							case SymbolType.SYMBOL_TYPE_FUNCTION:
-								counts.functions++;
-								break;
-							case SymbolType.SYMBOL_TYPE_PROVIDER:
-								counts.providers++;
-								break;
-							case SymbolType.SYMBOL_TYPE_ASPECT:
-								counts.aspects++;
-								break;
-							case SymbolType.SYMBOL_TYPE_MODULE_EXTENSION:
-								counts.moduleExtensions++;
-								break;
-							case SymbolType.SYMBOL_TYPE_REPOSITORY_RULE:
-								counts.repositoryRules++;
-								break;
-							case SymbolType.SYMBOL_TYPE_MACRO:
-								counts.macros++;
-								break;
-							case SymbolType.SYMBOL_TYPE_RULE_MACRO:
-								counts.ruleMacros++;
-								break;
-						}
-					}
-				}
+	/** @type {!Array<!{m: !Module, v: !ModuleVersion}>} */
+	const allVersions = [];
+	for (const module of modules.values()) {
+		for (const version of module.getVersionsList()) {
+			const commit = version.getCommit();
+			if (commit && commit.getDate()) {
+				allVersions.push({ m: module, v: version });
 			}
 		}
-
-		// Update stat values in DOM order: Rules, Functions, Providers,
-		// Extensions, Repo Rules, Aspects, Macros
-		const values = [
-			counts.rules + counts.ruleMacros,
-			counts.functions,
-			counts.providers,
-			counts.moduleExtensions,
-			counts.repositoryRules,
-			counts.aspects,
-			counts.macros,
-		];
-		const statEls = container.querySelectorAll(".f2-mktg");
-		for (let i = 0; i < values.length && i < statEls.length; i++) {
-			statEls[i].textContent = String(values[i]);
-		}
-
-		// Show the symbol stats row
-		container.style.display = "";
 	}
+
+	allVersions.sort((a, b) => {
+		return (
+			new Date(b.v.getCommit().getDate()) - new Date(a.v.getCommit().getDate())
+		);
+	});
+
+	return allVersions.slice(0, 15).map((item) => {
+		return {
+			moduleVersion: item.v,
+			commitDate: formatRelativeShort(item.v.getCommit().getDate()),
+			isNew: item.m.getVersionsList().length === 1,
+		};
+	});
+}
+
+/**
+ * Top 15 modules by their first version's commit date (most recent first).
+ * Versions are stored newest-first, so the first version is the last entry.
+ * @param {!Registry} registry
+ * @returns {!Array<!{moduleVersion: !ModuleVersion, commitDate: string, isNew: boolean}>}
+ */
+function computeRecentlyAdded(registry) {
+	const modules = createModuleMap(registry);
+
+	/** @type {!Array<!{m: !Module, v: !ModuleVersion}>} */
+	const firsts = [];
+	for (const module of modules.values()) {
+		const versions = module.getVersionsList();
+		if (versions.length === 0) continue;
+		const first = versions[versions.length - 1];
+		const commit = first.getCommit();
+		if (!commit || !commit.getDate()) continue;
+		firsts.push({ m: module, v: first });
+	}
+
+	firsts.sort((a, b) => {
+		return (
+			new Date(b.v.getCommit().getDate()) - new Date(a.v.getCommit().getDate())
+		);
+	});
+
+	return firsts.slice(0, 15).map((item) => {
+		return {
+			moduleVersion: item.v,
+			commitDate: formatRelativeShort(item.v.getCommit().getDate()),
+			isNew: true,
+		};
+	});
 }

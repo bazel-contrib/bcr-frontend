@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -82,6 +83,27 @@ func run(args []string) error {
 	return processBatch(cfg)
 }
 
+// writeRenderedHTML writes content to every path in outputSpec, where
+// outputSpec is a comma-separated list (e.g. "a/index.html,b/index.html").
+// Used so a single chromedp render can fan out to both the canonical and
+// alias paths (e.g. /modules/foo/2.6.1 and /modules/foo) without
+// re-rendering. Single-path values still work: "foo.html" -> ["foo.html"].
+func writeRenderedHTML(outputSpec string, content []byte) error {
+	for _, raw := range strings.Split(outputSpec, ",") {
+		path := strings.TrimSpace(raw)
+		if path == "" {
+			continue
+		}
+		if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+			return fmt.Errorf("create dir for %s: %w", path, err)
+		}
+		if err := os.WriteFile(path, content, 0644); err != nil {
+			return fmt.Errorf("write %s: %w", path, err)
+		}
+	}
+	return nil
+}
+
 func processSingleURL(cfg Config, url, outputFile string) error {
 	var content []byte
 	var err error
@@ -100,8 +122,8 @@ func processSingleURL(cfg Config, url, outputFile string) error {
 		}
 	}
 
-	// Write to output file
-	if err := os.WriteFile(outputFile, content, 0644); err != nil {
+	// Write to output file(s) — outputFile may be a comma-separated list.
+	if err := writeRenderedHTML(outputFile, content); err != nil {
 		return fmt.Errorf("failed to write output file: %w", err)
 	}
 
@@ -156,14 +178,9 @@ func processBatch(cfg Config) error {
 				return
 			}
 
-			// Ensure output directory exists
-			dir := filepath.Dir(outputFile)
-			if err := os.MkdirAll(dir, 0755); err != nil {
-				errChan <- fmt.Errorf("failed to create directory %s: %w", dir, err)
-				return
-			}
-
-			if err := os.WriteFile(outputFile, content, 0644); err != nil {
+			// outputFile may be a comma-separated list; writeRenderedHTML
+			// fans out a single render to all paths (and mkdirs each).
+			if err := writeRenderedHTML(outputFile, content); err != nil {
 				errChan <- fmt.Errorf("failed to write %s: %w", outputFile, err)
 				return
 			}
@@ -294,10 +311,9 @@ func runWorkerSingleContext(cfg Config, workerID, start, end int) error {
 			return fmt.Errorf("worker %d: failed on %s: %w", workerID, targetURL, err)
 		}
 
-		if err := os.MkdirAll(filepath.Dir(outputFile), 0755); err != nil {
-			return fmt.Errorf("worker %d: failed to create dir for %s: %w", workerID, outputFile, err)
-		}
-		if err := os.WriteFile(outputFile, []byte(html), 0644); err != nil {
+		// outputFile may be a comma-separated list of paths; fan out the
+		// single rendered HTML to each (and mkdir each).
+		if err := writeRenderedHTML(outputFile, []byte(html)); err != nil {
 			return fmt.Errorf("worker %d: failed to write %s: %w", workerID, outputFile, err)
 		}
 
@@ -418,7 +434,7 @@ func parseFlags(args []string) (cfg Config, err error) {
 
 	fs := flag.NewFlagSet("statichtmlcompiler", flag.ExitOnError)
 	fs.Var(&cfg.URLs, "url", "URL to fetch (repeatable)")
-	fs.Var(&cfg.OutputFiles, "output_file", "output file to write (repeatable, must match --url count)")
+	fs.Var(&cfg.OutputFiles, "output_file", "output file to write (repeatable, must match --url count; may be a comma-separated list of paths to fan out a single render to multiple files)")
 	fs.IntVar(&timeoutSec, "timeout", 30, "timeout in seconds (default: 30)")
 	fs.IntVar(&cfg.Concurrency, "concurrency", 4, "number of concurrent workers for batch mode")
 	fs.BoolVar(&cfg.UseChromedp, "chromedp", true, "use chromedp to render JavaScript (requires Chrome/Chromium)")

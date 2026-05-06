@@ -236,6 +236,20 @@ class RegistryApp extends App {
 					);
 				}
 				break;
+			case events.KeyCodes.COMMA:
+				if (this.getKbd().isEnabled()) {
+					e.preventDefault();
+					this.setLocation(["settings"]);
+				}
+				break;
+			case events.KeyCodes.TILDE:
+				// Shift+` produces ~ on US keyboards; require shift so a bare
+				// backtick doesn't navigate.
+				if (this.getKbd().isEnabled() && e.shiftKey) {
+					e.preventDefault();
+					this.setLocation(["home"]);
+				}
+				break;
 		}
 
 		if (this.activeComponent_) {

@@ -2,7 +2,8 @@
 
 import {
   Maintainer,
-  ModuleVersion
+  ModuleVersion,
+  Registry
 } from 'build/stack/bazel/registry/v1/bcr.proto';
 import {
   maintainerBreadcrumb,
@@ -10,6 +11,9 @@ import {
   maintainerProfile,
   maintainersList
 } from 'app/bcr/registry.soy';
+import {
+  bcrSidePane
+} from 'app/bcr/app.soy';
 
 {template maintainersSelect}
   <div>
@@ -18,14 +22,34 @@ import {
 {/template}
 
 {template maintainersMapSelectNav}
-  <div>
-    <nav class="UnderlineNav">
-      <div class="UnderlineNav-body {css('nav')}">
-        <div class="f4">Maintainers:</div>
-      </div>
-    </nav>
-    <div class="{css('content')}"></div>
+  {@param registry: Registry}
+  {@param totalModules: int}
+  {@param totalModuleVersions: int}
+  {@param totalMaintainers: int}
+  {@param totalSymbols: int}
+<div class="PageLayout PageLayout--panePos-start PageLayout--hasPaneDivider PageLayout--responsive-stackRegions mt-3">
+  <div class="PageLayout-columns">
+
+    <div class="PageLayout-pane">
+      {call bcrSidePane}
+        {param registry: $registry /}
+        {param totalModules: $totalModules /}
+        {param totalModuleVersions: $totalModuleVersions /}
+        {param totalMaintainers: $totalMaintainers /}
+        {param totalSymbols: $totalSymbols /}
+      {/call}
+    </div>
+
+    <div class="PageLayout-content">
+      <nav class="UnderlineNav">
+        <div class="UnderlineNav-body {css('nav')}">
+        </div>
+      </nav>
+      <div class="{css('content')} mt-3"></div>
+    </div>
+
   </div>
+</div>
 {/template}
 
 {template maintainersMapComponent}
