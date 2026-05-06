@@ -1,4 +1,7 @@
 build --workspace_status_command=./tools/workspace_status.sh
+# Run the workspace status command on every build so STABLE_GIT_COMMIT is
+# threaded into stamped artifacts (e.g. //app/bcr:ui_version_src).
+build --stamp
 
 # IMPORTANT:
 # export JAVA_HOME=/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home

@@ -14,6 +14,7 @@ load("//rules:ghpages.bzl", "ghpages_deploy")
 load("//rules:octicons_closure_template_compile.bzl", "octicons_closure_template_compile")
 load("//rules:prerender.bzl", "prerender_home", "prerender_pages")
 load("//rules:release.bzl", "release_archive")
+load("//rules:ui_version.bzl", "ui_version_js")
 
 string_flag(
     name = "release_type",
@@ -223,6 +224,16 @@ closure_js_test(
     ],
 )
 
+ui_version_js(
+    name = "ui_version_src",
+    template = "ui_version.js.tpl",
+)
+
+closure_js_library(
+    name = "ui_version",
+    srcs = [":ui_version_src"],
+)
+
 closure_js_library(
     name = "app",
     srcs = [
@@ -257,6 +268,7 @@ closure_js_library(
         ":registry",
         ":soy",
         ":starlark",
+        ":ui_version",
         "//build/stack/bazel/registry/v1:bzpb_js",
         "//build/stack/bazel/symbol/v1:sympb_js",
         "//build/stack/starlark/v1beta1:v1beta1_js",

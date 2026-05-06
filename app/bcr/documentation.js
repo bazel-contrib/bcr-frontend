@@ -75,6 +75,7 @@ const {
 	getLatestModuleVersion,
 } = goog.require("bcrfrontend.registry");
 const { highlightAll } = goog.require("bcrfrontend.syntax");
+const { commitSha: uiCommitSha } = goog.require("bcrfrontend.uiVersion");
 const {
 	generateAspectExample,
 	generateFunctionExample,
@@ -284,6 +285,7 @@ class DocsMapSelectNav extends SelectNav {
 				totalModuleVersions: totalModuleVersions,
 				totalMaintainers: maintainers.size,
 				totalSymbols: computeTotalSymbols(this.registry_),
+				uiCommitSha: uiCommitSha,
 			}),
 		);
 	}

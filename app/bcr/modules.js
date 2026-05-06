@@ -62,6 +62,7 @@ const {
 } = goog.require("bcrfrontend.registry");
 const { formatDate, formatRelativePast } = goog.require("bcrfrontend.format");
 const { highlightAll } = goog.require("bcrfrontend.syntax");
+const { commitSha: uiCommitSha } = goog.require("bcrfrontend.uiVersion");
 
 /**
  * Fetch documentation for a module version from the site assets.
@@ -1255,6 +1256,7 @@ class ModulesMapSelectNav extends SelectNav {
 				totalModuleVersions: totalModuleVersions,
 				totalMaintainers: maintainers.size,
 				totalSymbols: computeTotalSymbols(this.registry_),
+				uiCommitSha: uiCommitSha,
 			}),
 		);
 	}

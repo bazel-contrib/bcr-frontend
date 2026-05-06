@@ -303,6 +303,7 @@ import {
   {@param totalModuleVersions: int}
   {@param totalMaintainers: int}
   {@param totalSymbols: int}
+  {@param uiCommitSha: string}
 <div class="px-2">
   <h2 class="h2 d-flex flex-items-center mb-2">
     <span>Bazel Central Registry</span>
@@ -361,7 +362,20 @@ import {
        href="{$registry.getRepositoryUrl()}/commit/{$registry.getCommitSha()}"
        target="_blank" rel="noopener noreferrer">
       <span class="mr-2">{octiconGitCommit16()}</span>
-      <span>Commit {$registry.getCommitSha().substring(0, 8)}</span>
+      <span>BCR Version {$registry.getCommitSha().substring(0, 8)}</span>
+    </a>
+    <a class="Link--muted d-flex flex-items-center mb-2"
+       href="https://github.com/bazel-contrib/bcr-frontend/commit/{$uiCommitSha}"
+       target="_blank" rel="noopener noreferrer">
+      <span class="mr-2">{octiconGitCommit16()}</span>
+      <span>      
+        Frontend Version {$uiCommitSha.substring(0, 8)}</span>
+    </a>
+    <a class="Link--muted d-flex flex-items-center mb-2"
+       href="https://github.com/bazel-contrib/bcr-frontend-site"
+       target="_blank" rel="noopener noreferrer">
+      <span class="mr-2">{octiconMarkGithub16()}</span>
+      <span>Deploy Site</span>
     </a>
   </div>
 
@@ -418,6 +432,7 @@ import {
   {@param totalModuleVersions: int}
   {@param totalMaintainers: int}
   {@param totalSymbols: int}
+  {@param uiCommitSha: string}
 <div class="PageLayout PageLayout--panePos-start PageLayout--hasPaneDivider PageLayout--responsive-stackRegions PageLayout--responsive-panePos-start mt-3">
   <div class="PageLayout-columns">
 
@@ -428,6 +443,7 @@ import {
         {param totalModuleVersions: $totalModuleVersions /}
         {param totalMaintainers: $totalMaintainers /}
         {param totalSymbols: $totalSymbols /}
+        {param uiCommitSha: $uiCommitSha /}
       {/call}
     </div>
 
@@ -584,6 +600,7 @@ import {
   {@param totalModuleVersions: int}
   {@param totalMaintainers: int}
   {@param totalSymbols: int}
+  {@param uiCommitSha: string}
 <div class="PageLayout PageLayout--panePos-start PageLayout--hasPaneDivider PageLayout--responsive-stackRegions PageLayout--responsive-panePos-start mt-3">
   <div class="PageLayout-columns">
 
@@ -594,6 +611,7 @@ import {
         {param totalModuleVersions: $totalModuleVersions /}
         {param totalMaintainers: $totalMaintainers /}
         {param totalSymbols: $totalSymbols /}
+        {param uiCommitSha: $uiCommitSha /}
       {/call}
     </div>
 
@@ -2280,6 +2298,7 @@ import {
   {@param totalModuleVersions: int}
   {@param totalMaintainers: int}
   {@param totalSymbols: int}
+  {@param uiCommitSha: string}
 <div class="PageLayout PageLayout--panePos-start PageLayout--hasPaneDivider PageLayout--responsive-stackRegions PageLayout--responsive-panePos-start mt-3">
   <div class="PageLayout-columns">
 
@@ -2290,6 +2309,7 @@ import {
         {param totalModuleVersions: $totalModuleVersions /}
         {param totalMaintainers: $totalMaintainers /}
         {param totalSymbols: $totalSymbols /}
+        {param uiCommitSha: $uiCommitSha /}
       {/call}
     </div>
 
