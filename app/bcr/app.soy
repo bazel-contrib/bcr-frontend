@@ -210,10 +210,10 @@ import {
 
 {template moduleSearchComponent}
 <div>
-  <div class="p-3">
+  <div>
     <input type="text" class="js-search-input form-control width-full" placeholder="Search modules..." autocomplete="off">
   </div>
-  <div class="{css('content')}">
+  <div class="{css('search-results')}">
   </div>
 </div>
 {/template}
@@ -243,10 +243,10 @@ import {
 
 {template documentationSearchComponent}
 <div>
-  <div class="p-3">
+  <div>
     <input type="text" class="js-search-input form-control width-full" placeholder="Search symbols..." autocomplete="off">
   </div>
-  <div class="{css('content')}">
+  <div class="{css('search-results')}">
   </div>
 </div>
 {/template}
@@ -341,10 +341,10 @@ import {
 
   <div class="mt-2">
     <a class="Link--muted d-flex flex-items-center mb-2"
-       href="https://github.com/bazelbuild/bazel-central-registry"
+       href="https://github.com/bazelbuild/bazel-central-registry/blob/main/docs/README.md"
        target="_blank" rel="noopener noreferrer">
-      <span class="mr-2">{octiconMarkGithub16()}</span>
-      <span>Bazel Central Registry on GitHub</span>
+      <span class="mr-2">{octiconPencil16()}</span>
+      <span>Contributing to the BCR</span>
     </a>
     <a class="Link--muted d-flex flex-items-center mb-2"
        href="https://bazel.build/external/module"
@@ -353,10 +353,10 @@ import {
       <span>Bazel Module Documentation</span>
     </a>
     <a class="Link--muted d-flex flex-items-center mb-2"
-       href="https://github.com/bazelbuild/bazel-central-registry/blob/main/docs/README.md"
+       href="https://github.com/bazelbuild/bazel-central-registry"
        target="_blank" rel="noopener noreferrer">
-      <span class="mr-2">{octiconPencil16()}</span>
-      <span>Contributing to the BCR</span>
+      <span class="mr-2">{octiconMarkGithub16()}</span>
+      <span>Bazel Central Registry on GitHub</span>
     </a>
     <a class="Link--muted d-flex flex-items-center mb-2"
        href="{$registry.getRepositoryUrl()}/commit/{$registry.getCommitSha()}"
@@ -365,17 +365,17 @@ import {
       <span>BCR Version {$registry.getCommitSha().substring(0, 8)}</span>
     </a>
     <a class="Link--muted d-flex flex-items-center mb-2"
-       href="https://github.com/bazel-contrib/bcr-frontend/commit/{$uiCommitSha}"
-       target="_blank" rel="noopener noreferrer">
-      <span class="mr-2">{octiconGitCommit16()}</span>
-      <span>      
-        Frontend Version {$uiCommitSha.substring(0, 8)}</span>
-    </a>
-    <a class="Link--muted d-flex flex-items-center mb-2"
        href="https://github.com/bazel-contrib/bcr-frontend-site"
        target="_blank" rel="noopener noreferrer">
       <span class="mr-2">{octiconMarkGithub16()}</span>
-      <span>Deploy Site</span>
+      <span>BCR Frontend on GitHub</span>
+    </a>
+    <a class="Link--muted d-flex flex-items-center mb-2"
+       href="https://github.com/bazel-contrib/bcr-frontend/commit/{$uiCommitSha}"
+       target="_blank" rel="noopener noreferrer">
+      <span class="mr-2">{octiconGitCommit16()}</span>
+      <span>
+        BCR Frontend Version {$uiCommitSha.substring(0, 8)}</span>
     </a>
   </div>
 
@@ -867,6 +867,7 @@ import {
   {@param fileSymbols: list<[file: File, symbolGroups: list<[type: SymbolType, typeName: string, symbols: list<Symbol>]>]>}
   {@param navSymbolGroups: list<[type: SymbolType, typeName: string, items: list<[file: File, sym: Symbol]>]>}
   {@param? info: ModuleVersionSymbols}
+  {@param? extractionStats: [success: int, total: int, pct: number, pctText: string]}
 <div>
   <div class="PageLayout PageLayout--panePos-start PageLayout--hasPaneDivider PageLayout--responsive-stackRegions" style2="--Layout-template-columns: unset">
     <div class="PageLayout-wrapper">
@@ -874,7 +875,7 @@ import {
         <div class="PageLayout-content PageLayout-pane--sticky {css('content')}"></div>
         <div class="PageLayout-pane pl-2 overflow-x-hidden">
           <nav class="SideNav" style="background-color: transparent; border: none">
-            {documentationAboutSection(module: $module, moduleVersion: $moduleVersion, info: $info, navSymbolGroups: $navSymbolGroups)}
+            {documentationAboutSection(module: $module, moduleVersion: $moduleVersion, info: $info, navSymbolGroups: $navSymbolGroups, extractionStats: $extractionStats)}
           </nav>
         </div>
       </div>
@@ -910,7 +911,7 @@ import {
   ]>}
 <div class="Box Box--condensed">
   <div class="Box-header">
-    <div class="Box-title">Files {counterLabel(count: length($fileSymbols))}</div>
+    <div class="Box-title">Module Files {counterLabel(count: length($fileSymbols))}</div>
   </div>
   <div>
     {for $item in $fileSymbols}
@@ -923,7 +924,7 @@ import {
         <div class="d-flex flex-items-start">
           <div class="flex-shrink-0 mr-2">
             {if $hasError}
-              {octiconSkip16(class: 'color-fg-attention')}
+              {octiconFile16(class: 'color-fg-attention')}
             {else}
               {octiconFile16()}
             {/if}
@@ -935,7 +936,11 @@ import {
           </div>
           <span class="text-small text-light ml-2">{$file.getDescription()|truncate:63}</span>
         </div>
-        {fileSymbolTree(moduleVersion: $moduleVersion, file: $file, symbolGroups: $symbolGroups, showDocstrings: true)}
+        {if $hasError}
+          <pre class="mt-2 ml-4 p-2 border rounded-2 text-small color-fg-attention" style="overflow-x: auto; white-space: pre-wrap;"><code>{$file.getError()}</code></pre>
+        {else}
+          {fileSymbolTree(moduleVersion: $moduleVersion, file: $file, symbolGroups: $symbolGroups, showDocstrings: true)}
+        {/if}
       </div>
     {/for}
   </div>
@@ -2391,15 +2396,22 @@ import {
   {@param moduleVersion: ModuleVersion}
   {@param? info: ModuleVersionSymbols}
   {@param navSymbolGroups: list<[type: SymbolType, typeName: string, items: list<[file: File, sym: Symbol]>]>}
+  {@param? extractionStats: [success: int, total: int, pct: number, pctText: string]}
 <div>
   <div class="f4 color-fg-muted">
   {if $info}
     <span class="mr-1">{documentationSourceOcticon(source: $info.getSource())}</span>
 
     {if $info.getSource() == SymbolSource.PUBLISHED}
-      Official published documentation for <strong>{$info.getModuleName()}</strong> version <strong>{$info.getVersion()}</strong>.
+      Official published documentation.
     {elseif $info.getSource() == SymbolSource.BEST_EFFORT}
       Auto-generated documentation using best-effort extraction method.
+      {if $extractionStats && $extractionStats.total > 0}
+        <div class="text-small mt-2">
+          Extracted <strong>{$extractionStats.success}</strong> of <strong>{$extractionStats.total}</strong> files
+          {sp}(<span class="{if $extractionStats.pct >= 95.0}color-fg-success{elseif $extractionStats.pct >= 75.0}color-fg-attention{else}color-fg-danger{/if}">{$extractionStats.pctText}%</span>)
+        </div>
+      {/if}
     {else}
       Documentation for <strong>{$info.getModuleName()}</strong> version <strong>{$info.getVersion()}</strong>.
     {/if}
@@ -2419,7 +2431,7 @@ import {
   <div class="mt-3">
       <a class="Link--muted d-flex flex-items-center mb-2" href="{moduleVersionDocsUrl(name: $moduleVersion.getName(), version: $moduleVersion.getVersion())}/list">
         <span class="mr-2">{octiconListUnordered16()}</span>
-        <span>View File List</span>
+        <span>View Module File List</span>
       </a>
       <a class="Link--muted d-flex flex-items-center mb-2" href="{moduleVersionDocsUrl(name: $moduleVersion.getName(), version: $moduleVersion.getVersion())}/readme">
         <span class="mr-2">{octiconBook16()}</span>

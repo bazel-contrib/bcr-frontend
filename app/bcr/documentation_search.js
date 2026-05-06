@@ -189,7 +189,6 @@ class DocumentationSearchHandler extends EventTarget {
 			this.inputHandler_,
 		));
 		ac.setMaxMatches(15);
-		ac.setAutoHilite(false);
 
 		this.inputHandler_.attachAutoComplete(ac);
 	}

@@ -13,7 +13,7 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-func prepareBzlFiles(cfg *config, bzlFiles []*bzlFile) (map[string]*bzlFile, error) {
+func prepareBzlFiles(cfg *config) (map[string]*bzlFile, error) {
 	bzlFileByPath := make(map[string]*bzlFile)
 
 	for _, file := range cfg.BzlFiles {

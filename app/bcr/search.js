@@ -89,24 +89,6 @@ class SearchComponent extends EventTarget {
 	 */
 	handleInputBlur(e) {
 		this.dispatchEvent(events.EventType.BLUR);
-
-		if (!this.currentProvider_) {
-			return;
-		}
-
-		const inputHandler = this.currentProvider_.inputHandler;
-		if (!inputHandler) {
-			return;
-		}
-
-		const ac = inputHandler.getAutoComplete();
-		if (!ac) {
-			return;
-		}
-
-		if (this.acListenerKey_) {
-			ac.unlistenByKey(asserts.assertObject(this.acListenerKey_));
-		}
 	}
 
 	/**
@@ -120,32 +102,6 @@ class SearchComponent extends EventTarget {
 		}, 50);
 
 		this.dispatchEvent(events.EventType.FOCUS);
-
-		if (!this.currentProvider_) {
-			return;
-		}
-
-		try {
-			const inputHandler = this.currentProvider_.inputHandler;
-			if (!inputHandler) {
-				return;
-			}
-
-			const ac = inputHandler.getAutoComplete();
-			if (!ac) {
-				return;
-			}
-
-			// Listen to UPDATE events for both navigation and selection
-			this.acListenerKey_ = ac.listen(
-				AutoComplete.EventType.UPDATE,
-				this.handleAcUpdate,
-				false,
-				this,
-			);
-		} catch (e) {
-			throw e;
-		}
 	}
 
 	/**
@@ -156,23 +112,18 @@ class SearchComponent extends EventTarget {
 		e.preventDefault();
 		e.stopPropagation();
 
-		// If the AC dropdown is open with a highlighted row, the user
-		// explicitly selected an item. Let handleAcUpdate navigate instead.
+		// If the AC dropdown has a highlighted row, commit it. selectHilited
+		// asks the InputHandler to selectRow(highlightedRow), which fires
+		// AC's UPDATE event with the row data; our handleAcUpdate then runs
+		// submit(row) → provider.onsubmit → setLocation.
 		const ac = this.getCurrentAutoComplete_();
 		if (ac && ac.hasHighlight()) {
+			ac.selectHilited();
 			return;
 		}
-
-		setTimeout(() => {
-			document.execCommand("selectall", null, false);
-		}, 50);
-
-		// No row was selected. Navigate to the full search results list.
-		const value = this.getValue();
-		const provider = this.currentProviderName_;
-		if (value && provider) {
-			this.app_.setLocation(["search", provider, value]);
-		}
+		// No highlight: pressing Enter is a no-op. For full-text filtering
+		// the user should use the page-level search input on /modules or
+		// /docs.
 	}
 
 	/**
@@ -270,6 +221,11 @@ class SearchComponent extends EventTarget {
 
 		const inputHandler = this.currentProvider_.inputHandler;
 		if (inputHandler) {
+			const ac = inputHandler.getAutoComplete();
+			if (ac && this.acListenerKey_) {
+				ac.unlistenByKey(asserts.assertObject(this.acListenerKey_));
+				this.acListenerKey_ = null;
+			}
 			inputHandler.detachInputs(this.inputEl_);
 		}
 
@@ -317,6 +273,22 @@ class SearchComponent extends EventTarget {
 		}
 
 		inputHandler.attachInputs(this.inputEl_);
+
+		// Listen to UPDATE events directly on the AC so navigation works
+		// regardless of input-focus timing. Closure InputHandler's keydown
+		// handler calls ac.selectHilited() on Enter, which dispatches UPDATE
+		// with the selected row data; we route that to provider.onsubmit
+		// in handleAcUpdate.
+		if (this.acListenerKey_) {
+			ac.unlistenByKey(asserts.assertObject(this.acListenerKey_));
+			this.acListenerKey_ = null;
+		}
+		this.acListenerKey_ = ac.listen(
+			AutoComplete.EventType.UPDATE,
+			this.handleAcUpdate,
+			false,
+			this,
+		);
 
 		this.enableInput(provider);
 
