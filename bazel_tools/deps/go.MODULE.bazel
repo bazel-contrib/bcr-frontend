@@ -18,6 +18,7 @@ use_repo(
     "com_github_chromedp_chromedp",
     "com_github_dominikbraun_graph",
     "com_github_google_go_github_v66",
+    "com_github_google_go_github_v80",
     "com_github_junkblocker_codesearch",
     "com_github_rs_zerolog",
     "com_github_samthor_sre2",

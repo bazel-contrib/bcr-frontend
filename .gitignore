@@ -13,3 +13,6 @@
 # This file is modified during a gazelle bcr run.  It has base content, but
 # generally we don't care about the diff.
 data/generated.MODULE.bazel
+
+# Bazel writes this on every build; not a source file.
+/MODULE.bazel.lock
