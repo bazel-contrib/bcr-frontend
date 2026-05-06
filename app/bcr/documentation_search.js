@@ -119,7 +119,15 @@ class DocumentationSearchHandler extends EventTarget {
 						}
 
 						const symName = sym.getName();
-						const key = `${symName} (${moduleVersion}:${filePath})`;
+						// Key by (module, file, symbol) — version is dropped so the
+						// same symbol across published versions collapses to one AC
+						// entry. Versions are iterated newest-first (per modulecompiler
+						// sorting), so the first-seen wins and the link points to the
+						// latest version that exposes the symbol.
+						const key = `${symName} (${moduleName}:${filePath})`;
+						if (this.symbols_.has(key)) {
+							continue;
+						}
 
 						this.symbols_.set(key, { file, sym, moduleVersion });
 						this.links_.set(
