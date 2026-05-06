@@ -11,9 +11,12 @@ include("//bazel_tools/deps:bcr.MODULE.bazel")
 
 # domain-specific dependencies
 include("//bazel_tools/deps:tools.MODULE.bazel")
+
 include("//bazel_tools/deps:go.MODULE.bazel")
+
 include("//bazel_tools/deps:rust.MODULE.bazel")
 
 # dependencies used for stardoc generation
 include("//data:bazel_tools.MODULE.bazel")
+
 include("//data:generated.MODULE.bazel")
