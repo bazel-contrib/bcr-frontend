@@ -873,7 +873,7 @@ import {
         <div class="PageLayout-content PageLayout-pane--sticky {css('content')}"></div>
         <div class="PageLayout-pane pl-2 overflow-x-hidden">
           <nav class="SideNav" style="background-color: transparent; border: none">
-            {documentationAboutSection(module: $module, moduleVersion: $moduleVersion, info: $info, navSymbolGroups: $navSymbolGroups, extractionStats: $extractionStats)}
+            {documentationAboutSection(moduleVersion: $moduleVersion, info: $info, navSymbolGroups: $navSymbolGroups, extractionStats: $extractionStats)}
           </nav>
         </div>
       </div>
@@ -2342,6 +2342,20 @@ import {
 {/template}
 
 
+{template documentationBlankslate}
+  {@param? detail: string}
+<div class="Box Box--condensed">
+  <div class="Box-row">
+    <div class="blankslate">
+      <div class="blankslate-icon mb-3 color-fg-muted">{octiconBook24()}</div>
+      <div class="blankslate-heading">No documentation available</div>
+      {if $detail}<p>{$detail}</p>{/if}
+    </div>
+  </div>
+</div>
+{/template}
+
+
 {template moduleSearchRow kind="html<div>"}
   {@param module: Module}
   {@param? lang: string}
@@ -2390,41 +2404,30 @@ import {
 
 
 {template documentationAboutSection}
-  {@param module: Module}
   {@param moduleVersion: ModuleVersion}
   {@param? info: ModuleVersionSymbols}
   {@param navSymbolGroups: list<[type: SymbolType, typeName: string, items: list<[file: File, sym: Symbol]>]>}
   {@param? extractionStats: [success: int, total: int, pct: number, pctText: string]}
 <div>
-  <div class="f4 color-fg-muted">
   {if $info}
-    <span class="mr-1">{documentationSourceOcticon(source: $info.getSource())}</span>
+    <div class="f4 color-fg-muted">
+      <span class="mr-1">{documentationSourceOcticon(source: $info.getSource())}</span>
 
-    {if $info.getSource() == SymbolSource.PUBLISHED}
-      Official published documentation.
-    {elseif $info.getSource() == SymbolSource.BEST_EFFORT}
-      Auto-generated documentation using best-effort extraction method.
-      {if $extractionStats && $extractionStats.total > 0}
-        <div class="text-small mt-2">
-          Extracted <strong>{$extractionStats.success}</strong> of <strong>{$extractionStats.total}</strong> files
-          {sp}(<span class="{if $extractionStats.pct >= 95.0}color-fg-success{elseif $extractionStats.pct >= 75.0}color-fg-attention{else}color-fg-danger{/if}">{$extractionStats.pctText}%</span>)
-        </div>
+      {if $info.getSource() == SymbolSource.PUBLISHED}
+        Official published documentation.
+      {elseif $info.getSource() == SymbolSource.BEST_EFFORT}
+        Auto-generated documentation using best-effort extraction method.
+        {if $extractionStats && $extractionStats.total > 0}
+          <div class="text-small mt-2">
+            Extracted <strong>{$extractionStats.success}</strong> of <strong>{$extractionStats.total}</strong> files
+            {sp}(<span class="{if $extractionStats.pct >= 95.0}color-fg-success{elseif $extractionStats.pct >= 75.0}color-fg-attention{else}color-fg-danger{/if}">{$extractionStats.pctText}%</span>)
+          </div>
+        {/if}
+      {else}
+        Documentation for <strong>{$info.getModuleName()}</strong> version <strong>{$info.getVersion()}</strong>.
       {/if}
-    {else}
-      Documentation for <strong>{$info.getModuleName()}</strong> version <strong>{$info.getVersion()}</strong>.
-    {/if}
-  {else}
-    {if $moduleVersion.getIsLatestVersion()}
-      Documentation not available. Only repositories with <code>.bzl</code> files have auto-generated documentation.
-    {else}
-      Auto-generated documentation is only available for the latest version. Modules may optionally publish documentation for older versions by including a <code>.docs.tar.gz</code> archive in their release.
-      <p class="mt-3">
-        {let $latestVersion: $module.getVersionsList()[0].getVersion() /}
-        <a class="btn btn-sm btn-primary" href="{moduleVersionDocsUrl(name: $moduleVersion.getName(), version: $latestVersion)}">View Latest</a>
-      </p>
-    {/if}
+    </div>
   {/if}
-  </div>
 
   <div class="mt-3">
       <a class="Link--muted d-flex flex-items-center mb-2" href="{moduleVersionDocsUrl(name: $moduleVersion.getName(), version: $moduleVersion.getVersion())}/list">

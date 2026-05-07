@@ -14,8 +14,9 @@ import (
 const toolName = "moduleregistrysymbolscompiler"
 
 type config struct {
-	outputFile string
-	inputFiles moduleVersionSymbolsFileSlice
+	outputFile      string
+	inputFiles      moduleVersionSymbolsFileSlice
+	emptyModuleVers moduleVersionIDSlice
 }
 
 func main() {
@@ -46,6 +47,14 @@ func run(args []string) error {
 		result.ModuleVersion = append(result.ModuleVersion, &symbols)
 	}
 
+	for _, id := range cfg.emptyModuleVers {
+		result.ModuleVersion = append(result.ModuleVersion, &sympb.ModuleVersionSymbols{
+			ModuleName: id.moduleName,
+			Version:    id.moduleVersion,
+			Source:     sympb.SymbolSource_BEST_EFFORT,
+		})
+	}
+
 	if err := protoutil.WriteFile(cfg.outputFile, result); err != nil {
 		return fmt.Errorf("failed to write output file: %v", err)
 	}
@@ -57,6 +66,7 @@ func parseFlags(args []string) (cfg config, err error) {
 	fs := flag.NewFlagSet(toolName, flag.ExitOnError)
 	fs.StringVar(&cfg.outputFile, "output_file", "", "the output file to write")
 	fs.Var(&cfg.inputFiles, "input_file", "a generated documentationinfo.pb file, with associated moduleID")
+	fs.Var(&cfg.emptyModuleVers, "empty", "a module version ID (NAME@VERSION) to record as a stub empty BEST_EFFORT entry; repeatable")
 
 	if err = fs.Parse(args); err != nil {
 		return
@@ -103,5 +113,30 @@ func (s *moduleVersionSymbolsFileSlice) Set(value string) error {
 		path:          chunks[1],
 	})
 
+	return nil
+}
+
+type moduleVersionID struct {
+	moduleName    string
+	moduleVersion string
+}
+
+// moduleVersionIDSlice is a custom flag type for repeatable --empty flags.
+type moduleVersionIDSlice []moduleVersionID
+
+func (s *moduleVersionIDSlice) String() string {
+	var parts []string
+	for _, id := range *s {
+		parts = append(parts, fmt.Sprintf("%s@%s", id.moduleName, id.moduleVersion))
+	}
+	return strings.Join(parts, ",")
+}
+
+func (s *moduleVersionIDSlice) Set(value string) error {
+	parts := strings.SplitN(value, "@", 2)
+	if len(parts) != 2 {
+		return fmt.Errorf("invalid empty format %q, expected NAME@VERSION", value)
+	}
+	*s = append(*s, moduleVersionID{moduleName: parts[0], moduleVersion: parts[1]})
 	return nil
 }

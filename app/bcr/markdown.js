@@ -100,15 +100,6 @@ async function formatMarkdown(el) {
 		dom.insertChildAt(pre, button, 0);
 	}
 
-	// Find and log non-http links for linkification
-	const links = el.querySelectorAll("a[href]");
-	for (const link of links) {
-		const href = link.getAttribute("href");
-		if (href && !href.startsWith("http://") && !href.startsWith("https://")) {
-			console.log("Non-http link:", href, "text:", link.textContent);
-		}
-	}
-
 	dom.dataset.set(el, "formatted", "markdown");
 }
 
