@@ -6,6 +6,7 @@ const soy = goog.require("goog.soy");
 const { formatRelativePast } = goog.require("bcrfrontend.format");
 const { Route } = goog.requireType("stack.ui");
 const { getApplication } = goog.require("bcrfrontend.common");
+const { BazelSelect } = goog.require("bcrfrontend.bazel");
 const { ContentSelect } = goog.require("bcrfrontend.ContentSelect");
 const { DocsSelect } = goog.require("bcrfrontend.documentation");
 const { HomeSelect } = goog.require("bcrfrontend.home");
@@ -24,6 +25,7 @@ const { bodySelect, searchSelectNav } = goog.require("soy.bcrfrontend.app");
  * @enum {string}
  */
 const TabName = {
+	BAZEL: "bazel",
 	DOCS: "docs",
 	HOME: "home",
 	MAINTAINERS: "maintainers",
@@ -97,6 +99,11 @@ class BodySelect extends ContentSelect {
 		}
 		if (name === TabName.MODULES) {
 			this.addTab(name, new ModulesMapSelect(this.registry_, this.dom_));
+			this.select(name, route);
+			return;
+		}
+		if (name === TabName.BAZEL) {
+			this.addTab(name, new BazelSelect(this.registry_, this.dom_));
 			this.select(name, route);
 			return;
 		}

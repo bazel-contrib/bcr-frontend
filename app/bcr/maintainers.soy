@@ -30,6 +30,7 @@ import {
   {@param totalModuleVersions: int}
   {@param totalMaintainers: int}
   {@param totalSymbols: int}
+  {@param totalBazelVersions: int}
   {@param uiCommitSha: string}
 <div class="PageLayout PageLayout--panePos-start PageLayout--hasPaneDivider PageLayout--responsive-stackRegions PageLayout--responsive-panePos-start mt-3">
   <div class="PageLayout-columns">
@@ -41,6 +42,7 @@ import {
         {param totalModuleVersions: $totalModuleVersions /}
         {param totalMaintainers: $totalMaintainers /}
         {param totalSymbols: $totalSymbols /}
+        {param totalBazelVersions: $totalBazelVersions /}
         {param uiCommitSha: $uiCommitSha /}
       {/call}
     </div>
@@ -67,7 +69,7 @@ import {
 {template maintainerComponent}
   {@param maintainer: Maintainer}
   {@param moduleVersions: list<ModuleVersion>}
-  {@param activity: list<[moduleVersion: ModuleVersion, commitDate: string, isNew: bool]>}
+  {@param activity: list<[moduleVersion: ModuleVersion, commitDate: string, isNew: bool, linkUrl: string, pullRequestUrl: string, displayName: string]>}
   <div>
     <div class="PageLayout PageLayout--panePos-start PageLayout--hasPaneDivider PageLayout--responsive-stackRegions PageLayout--responsive-panePos-start mt-3">
       <div class="PageLayout-wrapper">

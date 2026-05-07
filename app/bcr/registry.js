@@ -266,6 +266,20 @@ function computeTotalSymbols(registry) {
 exports.computeTotalSymbols = computeTotalSymbols;
 
 /**
+ * @param {!Registry} registry
+ * @returns {number}
+ */
+function computeTotalBazelVersions(registry) {
+	for (const module of registry.getModulesList()) {
+		if (module.getName() === "bazel_tools") {
+			return module.getVersionsList().length;
+		}
+	}
+	return 0;
+}
+exports.computeTotalBazelVersions = computeTotalBazelVersions;
+
+/**
  * Updates the count span inside a rendered bcrSidePane with the latest
  * documented-symbols total. Used by views that lazy-load the symbols proto
  * after first paint.

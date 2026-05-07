@@ -238,6 +238,7 @@ closure_js_library(
     name = "app",
     srcs = [
         "app.js",
+        "bazel.js",
         "body.js",
         "clipboard.js",
         "contentcomponent.js",

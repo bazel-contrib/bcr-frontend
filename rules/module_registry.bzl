@@ -304,8 +304,7 @@ def _compile_documentation_for_module_version(ctx, mv, all_mv_by_id):
     if len(mv.published_docs) > 0 and _status_code_exists(mv.source.docs_url_status_code):
         return _compile_stardoc_for_module_version(ctx, mv, mv.published_docs)
 
-    # otherwise best effort if there is something to compile (the gazelle
-    # extension controls which versions get bzl_src populated)
+    # otherwise best effort if there is something to compile
     if mv.bzl_src and len(mv.bzl_src.srcs) > 0:
         return _compile_bzl_for_module_version(ctx, mv, all_mv_by_id)
 
