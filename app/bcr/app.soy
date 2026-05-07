@@ -361,7 +361,7 @@ import {
        href="{$registry.getRepositoryUrl()}/commit/{$registry.getCommitSha()}"
        target="_blank" rel="noopener noreferrer">
       <span class="mr-2">{octiconGitCommit16()}</span>
-      <span>BCR Version {$registry.getCommitSha().substring(0, 8)}</span>
+      <span>BCR Version <span class="branch-name">{$registry.getCommitSha().substring(0, 8)}</span></span>
     </a>
     <a class="Link--muted d-flex flex-items-center mb-2"
        href="https://github.com/bazel-contrib/bcr-frontend-site"
@@ -374,7 +374,7 @@ import {
        target="_blank" rel="noopener noreferrer">
       <span class="mr-2">{octiconGitCommit16()}</span>
       <span>
-        BCR Frontend Version {$uiCommitSha.substring(0, 8)}</span>
+        BCR Frontend Version <span class="branch-name">{$uiCommitSha.substring(0, 8)}</span></span>
     </a>
   </div>
 
@@ -631,16 +631,15 @@ import {
 {template moduleVersionsFilterSelect}
   {@param languages: list<[name: string, sanitizedName: string]>}
   {@inject pathUrl: string}
-<div class="PageLayout PageLayout--panePos-start PageLayout--responsive-stackRegions PageLayout--responsive-panePos-start" style="--Layout-pane-width: 10rem">
+<div class="PageLayout PageLayout--panePos-end PageLayout--responsive-stackRegions PageLayout--responsive-panePos-end PageLayout--columnGap-none">
   <div class="PageLayout-columns">
     {if length($languages) > 0}
-    <div class="PageLayout-pane">
-      <nav class="SideNav" style="background-color: transparent; border: none">
+    <div class="PageLayout-pane" style="border-right: none">
+      <nav class="SideNav ml-3" style="background-color: transparent; border: none">
         {for $language in $languages}
-          <a href="/#/{$pathUrl}/{$language.sanitizedName}" class="SideNav-item d-flex flex-items-center p-1 m-1 rounded" style="border: none; box-shadow: none">
+          <a href="/#/{$pathUrl}/{$language.sanitizedName}" class="SideNav-item d-flex flex-items-center p-1 rounded" style="border: none; box-shadow: none">
             <div class="mr-2" style="width: 6px; min-height: 20px; align-self: stretch; background-color: var(--lang-{$language.sanitizedName}-bg)"></div>
             {$language.name}
-            {octiconChevronRight16(fill: 'var(--color-fg-subtle)')}
           </a>
         {/for}
       </nav>

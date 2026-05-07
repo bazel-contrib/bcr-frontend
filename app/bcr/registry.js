@@ -196,26 +196,72 @@ function computeAllPresubmitFacets(registry) {
 exports.computeAllPresubmitFacets = computeAllPresubmitFacets;
 
 /**
- * Counts the total documented symbols across every version of every module
- * in the registry. Returns 0 until the symbols proto has been loaded and
- * decoded into the registry (see Application.getRegistryWithSymbols).
+ * Returns true if the file's path is "public" (not in a private/internal/
+ * tests/examples/etc. directory). Mirrors the filter used by the symbol
+ * search and the docs file list so all three counts agree.
+ *
+ * @param {?{getLabel: function(): ?{getPkg: function(): string, getName: function(): string}}} file
+ * @returns {boolean}
+ */
+function isPublicSymbolFile(file) {
+	const label = file?.getLabel?.();
+	if (!label) return true;
+	const pkg = label.getPkg?.() || "";
+	const name = label.getName?.() || "";
+	const path = pkg ? `${pkg}/${name}` : name;
+	return !(
+		path.includes("private/") ||
+		path.includes("internal/") ||
+		path.includes("thirdparty/") ||
+		path.includes("third_party/") ||
+		path.includes("examples/") ||
+		path.includes("example/") ||
+		path.includes("tests/") ||
+		path.includes("vendor/") ||
+		path.includes("test/")
+	);
+}
+
+// SymbolType.SYMBOL_TYPE_VALUE = 9, SYMBOL_TYPE_LOAD_STMT = 10. Hardcoded
+// here to avoid a registry.js → symbol-proto dependency just for two ints.
+const SYMBOL_TYPE_VALUE = 9;
+const SYMBOL_TYPE_LOAD_STMT = 10;
+
+/**
+ * Counts the unique documented symbols visible to the global symbol search:
+ * one entry per (moduleName, filePath, symName) triple, restricted to public
+ * files, excluding LOAD/VALUE pseudo-symbols. Returns 0 until the symbols
+ * proto has been loaded and decoded (see Application.getRegistryWithSymbols).
  *
  * @param {!Registry} registry
  * @returns {number}
  */
 function computeTotalSymbols(registry) {
-	let total = 0;
+	/** @type {!Set<string>} */
+	const seen = new Set();
 	for (const module of registry.getModulesList()) {
+		const moduleName = module.getName();
 		for (const version of module.getVersionsList()) {
 			const docs = version.getSource()?.getDocumentation();
 			if (!docs) continue;
 			for (const file of docs.getFileList()) {
 				if (file.getError()) continue;
-				total += file.getSymbolList().length;
+				if (!isPublicSymbolFile(file)) continue;
+				const label = file.getLabel();
+				const pkg = label?.getPkg() || "";
+				const name = label?.getName() || "";
+				const filePath = pkg ? `${pkg}/${name}` : name;
+				for (const sym of file.getSymbolList()) {
+					const t = sym.getType();
+					if (t === SYMBOL_TYPE_VALUE || t === SYMBOL_TYPE_LOAD_STMT) {
+						continue;
+					}
+					seen.add(`${sym.getName()} (${moduleName}:${filePath})`);
+				}
 			}
 		}
 	}
-	return total;
+	return seen.size;
 }
 exports.computeTotalSymbols = computeTotalSymbols;
 
