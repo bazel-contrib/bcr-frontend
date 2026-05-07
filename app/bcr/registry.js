@@ -296,6 +296,21 @@ function refreshBcrSidePaneSymbols(root, registry) {
 exports.refreshBcrSidePaneSymbols = refreshBcrSidePaneSymbols;
 
 /**
+ * Updates the bazel-flags count span inside a rendered bcrSidePane once the
+ * lazy-loaded BazelFlagDb is available.
+ *
+ * @param {?Element} root
+ * @param {number} count
+ */
+function refreshBcrSidePaneBazelFlags(root, count) {
+	if (!root) return;
+	const span = root.querySelector(".js-bazel-flags-count");
+	if (!span) return;
+	span.textContent = String(count);
+}
+exports.refreshBcrSidePaneBazelFlags = refreshBcrSidePaneBazelFlags;
+
+/**
  * @param {!Module} module
  * @returns {!ModuleVersion}
  */

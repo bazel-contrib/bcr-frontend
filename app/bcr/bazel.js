@@ -26,6 +26,9 @@ const {
 	homeRecentTimeline,
 } = goog.require("soy.bcrfrontend.app");
 const { commitSha: uiCommitSha } = goog.require("bcrfrontend.uiVersion");
+const { BazelFlagsByCommandComponent, BazelFlagsSelect } = goog.require(
+	"bcrfrontend.bazelFlags",
+);
 
 const BAZEL_TOOLS = "bazel_tools";
 
@@ -34,6 +37,8 @@ const BAZEL_TOOLS = "bazel_tools";
  */
 const TabName = {
 	VERSIONS: "versions",
+	FLAGS: "flags",
+	COMMAND: "command",
 };
 
 /**
@@ -83,6 +88,24 @@ class BazelSelect extends ContentSelect {
 			return;
 		}
 
+		if (name === TabName.FLAGS) {
+			this.addTab(
+				TabName.FLAGS,
+				new BazelFlagsSelect(this.registry_, this.dom_),
+			);
+			this.select(name, route);
+			return;
+		}
+
+		if (name === TabName.COMMAND) {
+			this.addTab(
+				TabName.COMMAND,
+				new BazelCommandSelect(this.registry_, this.dom_),
+			);
+			this.select(name, route);
+			return;
+		}
+
 		const bazelTools = findBazelToolsModule(this.registry_);
 		if (bazelTools) {
 			const moduleVersion = bazelTools
@@ -106,6 +129,43 @@ class BazelSelect extends ContentSelect {
 	}
 }
 exports.BazelSelect = BazelSelect;
+
+/**
+ * Sub-Select at /bazel/command/. Consumes the next path segment as the command
+ * name and instantiates BazelFlagsByCommandComponent for it.
+ */
+class BazelCommandSelect extends ContentSelect {
+	/**
+	 * @param {!Registry} registry
+	 * @param {?dom.DomHelper=} opt_domHelper
+	 */
+	constructor(registry, opt_domHelper) {
+		super(opt_domHelper);
+
+		/** @private @const @type {!Registry} */
+		this.registry_ = registry;
+	}
+
+	/**
+	 * @override
+	 */
+	createDom() {
+		this.setElementInternal(soy.renderAsElement(bazelSelect));
+	}
+
+	/**
+	 * @override
+	 * @param {string} name
+	 * @param {!Route} route
+	 */
+	selectFail(name, route) {
+		this.addTab(
+			name,
+			new BazelFlagsByCommandComponent(this.registry_, name, this.dom_),
+		);
+		this.select(name, route);
+	}
+}
 
 /**
  * Tabbed overview at /bazel/versions. The single registered tab today is the

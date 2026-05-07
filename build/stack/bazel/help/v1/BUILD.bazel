@@ -1,6 +1,8 @@
+load("@build_stack_rules_proto//rules:proto_compile.bzl", "proto_compile")
 load("@build_stack_rules_proto//rules:proto_compiled_sources.bzl", "proto_compiled_sources")
 load("@rules_go//go:def.bzl", "go_library")
 load("@rules_proto//proto:defs.bzl", "proto_library")
+load("@stackb_rules_closure//closure/protobuf:defs.bzl", "closure_jspb_library")
 
 proto_library(
     name = "bhpb_proto",
@@ -26,4 +28,18 @@ go_library(
         "@org_golang_google_protobuf//reflect/protoreflect:go_default_library",
         "@org_golang_google_protobuf//runtime/protoimpl:go_default_library",
     ],
+)
+
+proto_compile(
+    name = "bhpb_js_proto",
+    outputs = ["bhpb.js"],
+    plugins = ["@stackb_rules_closure//closure/protobuf:protoc-gen-js"],
+    proto = "bhpb_proto",
+)
+
+closure_jspb_library(
+    name = "bhpb_js",
+    srcs = [":bhpb_js_proto"],
+    internal_descriptors = [":bhpb_proto"],
+    visibility = ["//visibility:public"],
 )

@@ -26,6 +26,9 @@ def _compile_release_action(ctx):
     if ctx.file.module_registry_symbols_file:
         args.add("--module_registry_symbols_file")
         args.add(ctx.file.module_registry_symbols_file)
+    if ctx.file.bazel_flag_db_file:
+        args.add("--bazel_flag_db_file")
+        args.add(ctx.file.bazel_flag_db_file)
     if ctx.file.prerendered_pages_tar:
         args.add("--prerendered_pages_tar")
         args.add(ctx.file.prerendered_pages_tar)
@@ -52,6 +55,8 @@ def _compile_release_action(ctx):
         ctx.file.registry_file,
     ] + (
         [ctx.file.module_registry_symbols_file] if ctx.file.module_registry_symbols_file else []
+    ) + (
+        [ctx.file.bazel_flag_db_file] if ctx.file.bazel_flag_db_file else []
     ) + (
         [ctx.file.prerendered_pages_tar] if ctx.file.prerendered_pages_tar else []
     )
@@ -94,6 +99,10 @@ release_archive = rule(
         "index_html": attr.label(allow_single_file = True, mandatory = True),
         "registry_file": attr.label(allow_single_file = True, mandatory = True),
         "module_registry_symbols_file": attr.label(allow_single_file = True, mandatory = True),
+        "bazel_flag_db_file": attr.label(
+            allow_single_file = True,
+            doc = "Optional BazelFlagDb proto. Gzipped into the tarball as bazelflagdb.pb.gz; the frontend lazy-loads it on first navigation to /bazel/flags.",
+        ),
         "prerendered_pages_tar": attr.label(
             allow_single_file = [".tar"],
             doc = "Optional tar of prerendered HTML pages whose entries are merged into the release tarball verbatim.",

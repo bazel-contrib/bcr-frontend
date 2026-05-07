@@ -394,6 +394,182 @@ func (x *BazelHelpRegistry) GetVersion() []*BazelHelpVersion {
 	return nil
 }
 
+type BazelFlag struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	Short         string                 `protobuf:"bytes,2,opt,name=short,proto3" json:"short,omitempty"`
+	Type          string                 `protobuf:"bytes,3,opt,name=type,proto3" json:"type,omitempty"`
+	Default       string                 `protobuf:"bytes,4,opt,name=default,proto3" json:"default,omitempty"`
+	Toggle        bool                   `protobuf:"varint,5,opt,name=toggle,proto3" json:"toggle,omitempty"`
+	Description   []string               `protobuf:"bytes,6,rep,name=description,proto3" json:"description,omitempty"`
+	Tag           []string               `protobuf:"bytes,7,rep,name=tag,proto3" json:"tag,omitempty"`
+	VersionIndex  []int32                `protobuf:"varint,8,rep,packed,name=version_index,json=versionIndex,proto3" json:"version_index,omitempty"`
+	CommandIndex  []int32                `protobuf:"varint,9,rep,packed,name=command_index,json=commandIndex,proto3" json:"command_index,omitempty"`
+	Category      string                 `protobuf:"bytes,10,opt,name=category,proto3" json:"category,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *BazelFlag) Reset() {
+	*x = BazelFlag{}
+	mi := &file_build_stack_bazel_help_v1_help_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BazelFlag) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BazelFlag) ProtoMessage() {}
+
+func (x *BazelFlag) ProtoReflect() protoreflect.Message {
+	mi := &file_build_stack_bazel_help_v1_help_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BazelFlag.ProtoReflect.Descriptor instead.
+func (*BazelFlag) Descriptor() ([]byte, []int) {
+	return file_build_stack_bazel_help_v1_help_proto_rawDescGZIP(), []int{5}
+}
+
+func (x *BazelFlag) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *BazelFlag) GetShort() string {
+	if x != nil {
+		return x.Short
+	}
+	return ""
+}
+
+func (x *BazelFlag) GetType() string {
+	if x != nil {
+		return x.Type
+	}
+	return ""
+}
+
+func (x *BazelFlag) GetDefault() string {
+	if x != nil {
+		return x.Default
+	}
+	return ""
+}
+
+func (x *BazelFlag) GetToggle() bool {
+	if x != nil {
+		return x.Toggle
+	}
+	return false
+}
+
+func (x *BazelFlag) GetDescription() []string {
+	if x != nil {
+		return x.Description
+	}
+	return nil
+}
+
+func (x *BazelFlag) GetTag() []string {
+	if x != nil {
+		return x.Tag
+	}
+	return nil
+}
+
+func (x *BazelFlag) GetVersionIndex() []int32 {
+	if x != nil {
+		return x.VersionIndex
+	}
+	return nil
+}
+
+func (x *BazelFlag) GetCommandIndex() []int32 {
+	if x != nil {
+		return x.CommandIndex
+	}
+	return nil
+}
+
+func (x *BazelFlag) GetCategory() string {
+	if x != nil {
+		return x.Category
+	}
+	return ""
+}
+
+type BazelFlagDb struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	BazelVersions []string               `protobuf:"bytes,1,rep,name=bazel_versions,json=bazelVersions,proto3" json:"bazel_versions,omitempty"`
+	Flag          []*BazelFlag           `protobuf:"bytes,2,rep,name=flag,proto3" json:"flag,omitempty"`
+	Commands      []string               `protobuf:"bytes,3,rep,name=commands,proto3" json:"commands,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *BazelFlagDb) Reset() {
+	*x = BazelFlagDb{}
+	mi := &file_build_stack_bazel_help_v1_help_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BazelFlagDb) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BazelFlagDb) ProtoMessage() {}
+
+func (x *BazelFlagDb) ProtoReflect() protoreflect.Message {
+	mi := &file_build_stack_bazel_help_v1_help_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BazelFlagDb.ProtoReflect.Descriptor instead.
+func (*BazelFlagDb) Descriptor() ([]byte, []int) {
+	return file_build_stack_bazel_help_v1_help_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *BazelFlagDb) GetBazelVersions() []string {
+	if x != nil {
+		return x.BazelVersions
+	}
+	return nil
+}
+
+func (x *BazelFlagDb) GetFlag() []*BazelFlag {
+	if x != nil {
+		return x.Flag
+	}
+	return nil
+}
+
+func (x *BazelFlagDb) GetCommands() []string {
+	if x != nil {
+		return x.Commands
+	}
+	return nil
+}
+
 var File_build_stack_bazel_help_v1_help_proto protoreflect.FileDescriptor
 
 const file_build_stack_bazel_help_v1_help_proto_rawDesc = "" +
@@ -424,7 +600,23 @@ const file_build_stack_bazel_help_v1_help_proto_rawDesc = "" +
 	"\aversion\x18\x01 \x01(\tR\aversion\x12E\n" +
 	"\acommand\x18\x02 \x03(\v2+.build.stack.bazel.help.v1.BazelHelpCommandR\acommand\"Z\n" +
 	"\x11BazelHelpRegistry\x12E\n" +
-	"\aversion\x18\x01 \x03(\v2+.build.stack.bazel.help.v1.BazelHelpVersionR\aversion*7\n" +
+	"\aversion\x18\x01 \x03(\v2+.build.stack.bazel.help.v1.BazelHelpVersionR\aversion\"\x95\x02\n" +
+	"\tBazelFlag\x12\x12\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\x12\x14\n" +
+	"\x05short\x18\x02 \x01(\tR\x05short\x12\x12\n" +
+	"\x04type\x18\x03 \x01(\tR\x04type\x12\x18\n" +
+	"\adefault\x18\x04 \x01(\tR\adefault\x12\x16\n" +
+	"\x06toggle\x18\x05 \x01(\bR\x06toggle\x12 \n" +
+	"\vdescription\x18\x06 \x03(\tR\vdescription\x12\x10\n" +
+	"\x03tag\x18\a \x03(\tR\x03tag\x12#\n" +
+	"\rversion_index\x18\b \x03(\x05R\fversionIndex\x12#\n" +
+	"\rcommand_index\x18\t \x03(\x05R\fcommandIndex\x12\x1a\n" +
+	"\bcategory\x18\n" +
+	" \x01(\tR\bcategory\"\x8a\x01\n" +
+	"\vBazelFlagDb\x12%\n" +
+	"\x0ebazel_versions\x18\x01 \x03(\tR\rbazelVersions\x128\n" +
+	"\x04flag\x18\x02 \x03(\v2$.build.stack.bazel.help.v1.BazelFlagR\x04flag\x12\x1a\n" +
+	"\bcommands\x18\x03 \x03(\tR\bcommands*7\n" +
 	"\x12BazelHelpParseMode\x12\t\n" +
 	"\x05USAGE\x10\x00\x12\f\n" +
 	"\bCATEGORY\x10\x01\x12\b\n" +
@@ -443,7 +635,7 @@ func file_build_stack_bazel_help_v1_help_proto_rawDescGZIP() []byte {
 }
 
 var file_build_stack_bazel_help_v1_help_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_build_stack_bazel_help_v1_help_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
+var file_build_stack_bazel_help_v1_help_proto_msgTypes = make([]protoimpl.MessageInfo, 7)
 var file_build_stack_bazel_help_v1_help_proto_goTypes = []any{
 	(BazelHelpParseMode)(0),   // 0: build.stack.bazel.help.v1.BazelHelpParseMode
 	(*BazelOption)(nil),       // 1: build.stack.bazel.help.v1.BazelOption
@@ -451,17 +643,20 @@ var file_build_stack_bazel_help_v1_help_proto_goTypes = []any{
 	(*BazelHelpCommand)(nil),  // 3: build.stack.bazel.help.v1.BazelHelpCommand
 	(*BazelHelpVersion)(nil),  // 4: build.stack.bazel.help.v1.BazelHelpVersion
 	(*BazelHelpRegistry)(nil), // 5: build.stack.bazel.help.v1.BazelHelpRegistry
+	(*BazelFlag)(nil),         // 6: build.stack.bazel.help.v1.BazelFlag
+	(*BazelFlagDb)(nil),       // 7: build.stack.bazel.help.v1.BazelFlagDb
 }
 var file_build_stack_bazel_help_v1_help_proto_depIdxs = []int32{
 	1, // 0: build.stack.bazel.help.v1.BazelHelpCategory.option:type_name -> build.stack.bazel.help.v1.BazelOption
 	2, // 1: build.stack.bazel.help.v1.BazelHelpCommand.category:type_name -> build.stack.bazel.help.v1.BazelHelpCategory
 	3, // 2: build.stack.bazel.help.v1.BazelHelpVersion.command:type_name -> build.stack.bazel.help.v1.BazelHelpCommand
 	4, // 3: build.stack.bazel.help.v1.BazelHelpRegistry.version:type_name -> build.stack.bazel.help.v1.BazelHelpVersion
-	4, // [4:4] is the sub-list for method output_type
-	4, // [4:4] is the sub-list for method input_type
-	4, // [4:4] is the sub-list for extension type_name
-	4, // [4:4] is the sub-list for extension extendee
-	0, // [0:4] is the sub-list for field type_name
+	6, // 4: build.stack.bazel.help.v1.BazelFlagDb.flag:type_name -> build.stack.bazel.help.v1.BazelFlag
+	5, // [5:5] is the sub-list for method output_type
+	5, // [5:5] is the sub-list for method input_type
+	5, // [5:5] is the sub-list for extension type_name
+	5, // [5:5] is the sub-list for extension extendee
+	0, // [0:5] is the sub-list for field type_name
 }
 
 func init() { file_build_stack_bazel_help_v1_help_proto_init() }
@@ -475,7 +670,7 @@ func file_build_stack_bazel_help_v1_help_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_build_stack_bazel_help_v1_help_proto_rawDesc), len(file_build_stack_bazel_help_v1_help_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   5,
+			NumMessages:   7,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
