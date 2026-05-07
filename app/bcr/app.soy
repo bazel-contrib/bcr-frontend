@@ -361,7 +361,7 @@ import {
        href="{$registry.getRepositoryUrl()}/commit/{$registry.getCommitSha()}"
        target="_blank" rel="noopener noreferrer">
       <span class="mr-2">{octiconGitCommit16()}</span>
-      <span>BCR Version {$registry.getCommitSha().substring(0, 8)}</span>
+      <span>BCR Version <span class="branch-name">{$registry.getCommitSha().substring(0, 8)}</span></span>
     </a>
     <a class="Link--muted d-flex flex-items-center mb-2"
        href="https://github.com/bazel-contrib/bcr-frontend-site"
@@ -374,7 +374,7 @@ import {
        target="_blank" rel="noopener noreferrer">
       <span class="mr-2">{octiconGitCommit16()}</span>
       <span>
-        BCR Frontend Version {$uiCommitSha.substring(0, 8)}</span>
+        BCR Frontend Version <span class="branch-name">{$uiCommitSha.substring(0, 8)}</span></span>
     </a>
   </div>
 
@@ -631,16 +631,15 @@ import {
 {template moduleVersionsFilterSelect}
   {@param languages: list<[name: string, sanitizedName: string]>}
   {@inject pathUrl: string}
-<div class="PageLayout PageLayout--panePos-start PageLayout--responsive-stackRegions PageLayout--responsive-panePos-start" style="--Layout-pane-width: 10rem">
+<div class="PageLayout PageLayout--panePos-end PageLayout--responsive-stackRegions PageLayout--responsive-panePos-end PageLayout--columnGap-none">
   <div class="PageLayout-columns">
     {if length($languages) > 0}
-    <div class="PageLayout-pane">
-      <nav class="SideNav" style="background-color: transparent; border: none">
+    <div class="PageLayout-pane" style="border-right: none">
+      <nav class="SideNav ml-3" style="background-color: transparent; border: none">
         {for $language in $languages}
-          <a href="/#/{$pathUrl}/{$language.sanitizedName}" class="SideNav-item d-flex flex-items-center p-1 m-1 rounded" style="border: none; box-shadow: none">
+          <a href="/#/{$pathUrl}/{$language.sanitizedName}" class="SideNav-item d-flex flex-items-center p-1 rounded" style="border: none; box-shadow: none">
             <div class="mr-2" style="width: 6px; min-height: 20px; align-self: stretch; background-color: var(--lang-{$language.sanitizedName}-bg)"></div>
             {$language.name}
-            {octiconChevronRight16(fill: 'var(--color-fg-subtle)')}
           </a>
         {/for}
       </nav>
@@ -874,7 +873,7 @@ import {
         <div class="PageLayout-content PageLayout-pane--sticky {css('content')}"></div>
         <div class="PageLayout-pane pl-2 overflow-x-hidden">
           <nav class="SideNav" style="background-color: transparent; border: none">
-            {documentationAboutSection(module: $module, moduleVersion: $moduleVersion, info: $info, navSymbolGroups: $navSymbolGroups, extractionStats: $extractionStats)}
+            {documentationAboutSection(moduleVersion: $moduleVersion, info: $info, navSymbolGroups: $navSymbolGroups, extractionStats: $extractionStats)}
           </nav>
         </div>
       </div>
@@ -2343,6 +2342,20 @@ import {
 {/template}
 
 
+{template documentationBlankslate}
+  {@param? detail: string}
+<div class="Box Box--condensed">
+  <div class="Box-row">
+    <div class="blankslate">
+      <div class="blankslate-icon mb-3 color-fg-muted">{octiconBook24()}</div>
+      <div class="blankslate-heading">No documentation available</div>
+      {if $detail}<p>{$detail}</p>{/if}
+    </div>
+  </div>
+</div>
+{/template}
+
+
 {template moduleSearchRow kind="html<div>"}
   {@param module: Module}
   {@param? lang: string}
@@ -2391,41 +2404,30 @@ import {
 
 
 {template documentationAboutSection}
-  {@param module: Module}
   {@param moduleVersion: ModuleVersion}
   {@param? info: ModuleVersionSymbols}
   {@param navSymbolGroups: list<[type: SymbolType, typeName: string, items: list<[file: File, sym: Symbol]>]>}
   {@param? extractionStats: [success: int, total: int, pct: number, pctText: string]}
 <div>
-  <div class="f4 color-fg-muted">
   {if $info}
-    <span class="mr-1">{documentationSourceOcticon(source: $info.getSource())}</span>
+    <div class="f4 color-fg-muted">
+      <span class="mr-1">{documentationSourceOcticon(source: $info.getSource())}</span>
 
-    {if $info.getSource() == SymbolSource.PUBLISHED}
-      Official published documentation.
-    {elseif $info.getSource() == SymbolSource.BEST_EFFORT}
-      Auto-generated documentation using best-effort extraction method.
-      {if $extractionStats && $extractionStats.total > 0}
-        <div class="text-small mt-2">
-          Extracted <strong>{$extractionStats.success}</strong> of <strong>{$extractionStats.total}</strong> files
-          {sp}(<span class="{if $extractionStats.pct >= 95.0}color-fg-success{elseif $extractionStats.pct >= 75.0}color-fg-attention{else}color-fg-danger{/if}">{$extractionStats.pctText}%</span>)
-        </div>
+      {if $info.getSource() == SymbolSource.PUBLISHED}
+        Official published documentation.
+      {elseif $info.getSource() == SymbolSource.BEST_EFFORT}
+        Auto-generated documentation using best-effort extraction method.
+        {if $extractionStats && $extractionStats.total > 0}
+          <div class="text-small mt-2">
+            Extracted <strong>{$extractionStats.success}</strong> of <strong>{$extractionStats.total}</strong> files
+            {sp}(<span class="{if $extractionStats.pct >= 95.0}color-fg-success{elseif $extractionStats.pct >= 75.0}color-fg-attention{else}color-fg-danger{/if}">{$extractionStats.pctText}%</span>)
+          </div>
+        {/if}
+      {else}
+        Documentation for <strong>{$info.getModuleName()}</strong> version <strong>{$info.getVersion()}</strong>.
       {/if}
-    {else}
-      Documentation for <strong>{$info.getModuleName()}</strong> version <strong>{$info.getVersion()}</strong>.
-    {/if}
-  {else}
-    {if $moduleVersion.getIsLatestVersion()}
-      Documentation not available. Only repositories with <code>.bzl</code> files have auto-generated documentation.
-    {else}
-      Auto-generated documentation is only available for the latest version. Modules may optionally publish documentation for older versions by including a <code>.docs.tar.gz</code> archive in their release.
-      <p class="mt-3">
-        {let $latestVersion: $module.getVersionsList()[0].getVersion() /}
-        <a class="btn btn-sm btn-primary" href="{moduleVersionDocsUrl(name: $moduleVersion.getName(), version: $latestVersion)}">View Latest</a>
-      </p>
-    {/if}
+    </div>
   {/if}
-  </div>
 
   <div class="mt-3">
       <a class="Link--muted d-flex flex-items-center mb-2" href="{moduleVersionDocsUrl(name: $moduleVersion.getName(), version: $moduleVersion.getVersion())}/list">

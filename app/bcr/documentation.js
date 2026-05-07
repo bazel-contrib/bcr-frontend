@@ -47,6 +47,7 @@ const {
 	docsMapComponent,
 	docsMapSelectNav,
 	docsSelect,
+	documentationBlankslate,
 	documentationInfoListComponent,
 	documentationInfoSelect,
 	documentationReadmeComponent,
@@ -460,17 +461,25 @@ class ModuleVersionSymbolsSelect extends ContentSelect {
 	 * @override
 	 */
 	createDom() {
-		/** @type {!Array<FileSymbolGroupList>} */
-		let fileSymbols = [];
+		if (!this.symbols_) {
+			this.setElementInternal(soy.renderAsElement(documentationBlankslate, {}));
+			return;
+		}
 
-		if (this.symbols_) {
-			fileSymbols = buildFileSymbolGroups(this.symbols_);
+		const fileSymbols = buildFileSymbolGroups(this.symbols_);
+		if (fileSymbols.length === 0) {
+			const detail =
+				this.symbols_.getSource() === SymbolSource.BEST_EFFORT
+					? "Module contains no .bzl module files"
+					: "No symbols present";
+			this.setElementInternal(
+				soy.renderAsElement(documentationBlankslate, { detail }),
+			);
+			return;
 		}
 
 		const navSymbolGroups = buildNavSymbolGroups(fileSymbols);
-		const extractionStats = this.symbols_
-			? computeExtractionStats(this.symbols_)
-			: undefined;
+		const extractionStats = computeExtractionStats(this.symbols_);
 
 		this.setElementInternal(
 			soy.renderAsElement(
@@ -480,7 +489,7 @@ class ModuleVersionSymbolsSelect extends ContentSelect {
 					moduleVersion: this.moduleVersion_,
 					fileSymbols,
 					navSymbolGroups,
-					info: this.symbols_ || undefined,
+					info: this.symbols_,
 					extractionStats,
 				},
 				{
@@ -491,10 +500,24 @@ class ModuleVersionSymbolsSelect extends ContentSelect {
 	}
 
 	/**
+	 * @return {boolean} true when there are file symbols to render — i.e. the
+	 * non-blankslate code path in {@link createDom}.
+	 * @private
+	 */
+	hasFileSymbols_() {
+		return !!this.symbols_ && this.symbols_.getFileList().length > 0;
+	}
+
+	/**
 	 * @override
 	 * @param {!Route} route
 	 */
 	goHere(route) {
+		if (!this.hasFileSymbols_()) {
+			// Blankslate is the whole content; no sub-tab to route into.
+			route.done(this);
+			return;
+		}
 		this.select(TabName.LIST, route.add(TabName.LIST));
 	}
 
@@ -517,7 +540,7 @@ class ModuleVersionSymbolsSelect extends ContentSelect {
 			return;
 		}
 
-		if (this.symbols_) {
+		if (this.symbols_ && this.symbols_.getFileList().length > 0) {
 			if (name === TabName.LIST) {
 				this.addTab(
 					name,

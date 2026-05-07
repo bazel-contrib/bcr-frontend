@@ -10,6 +10,9 @@ const ModuleVersion = goog.require(
 const ModuleVersionSymbols = goog.require(
 	"proto.build.stack.bazel.symbol.v1.ModuleVersionSymbols",
 );
+const SymbolSource = goog.require(
+	"proto.build.stack.bazel.symbol.v1.SymbolSource",
+);
 const Registry = goog.require("proto.build.stack.bazel.registry.v1.Registry");
 const asserts = goog.require("goog.asserts");
 const dom = goog.require("goog.dom");
@@ -453,8 +456,19 @@ class ModuleVersionSelectNav extends SelectNav {
 				.getRegistryWithSymbols()
 				.then(() => {
 					if (this.isDisposed()) return null;
-					let docs = this.moduleVersion_.getSource()?.getDocumentation();
-					if (docs) {
+					const docs = this.moduleVersion_.getSource()?.getDocumentation();
+					// In-bundle docs with files: render directly.
+					if (docs && docs.getFileList().length > 0) {
+						return docs;
+					}
+					// Empty BEST_EFFORT marker means registry compile-time knew
+					// there are no .bzl files to extract — skip the fetch (it
+					// would 404) and let the blankslate render.
+					if (
+						docs &&
+						docs.getSource() === SymbolSource.BEST_EFFORT &&
+						docs.getFileList().length === 0
+					) {
 						return docs;
 					}
 					return fetchModuleVersionSymbolsFromGithubRepository(

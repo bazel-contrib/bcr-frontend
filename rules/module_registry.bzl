@@ -133,13 +133,18 @@ def _compile_codesearch_index_action(ctx, deps):
 
 def _compile_module_registry_symbols(ctx, doc_results):
     output = ctx.actions.declare_file("symbols.pb")
-    inputs = [result.output for result in doc_results]
+    inputs = [result.output for result in doc_results if result.output != None]
 
     args = ctx.actions.args()
     args.add("--output_file")
     args.add(output)
     for result in doc_results:
-        args.add("--input_file=%s=%s" % (result.mv.id, result.output.path))
+        if result.output != None:
+            args.add("--input_file=%s=%s" % (result.mv.id, result.output.path))
+        else:
+            # Stub entry: signals "no .bzl files to extract" so the frontend
+            # can render a blankslate without attempting a 404 fetch.
+            args.add("--empty=%s" % result.mv.id)
 
     ctx.actions.run(
         executable = ctx.executable._moduleregistrysymbolscompiler,
@@ -304,7 +309,11 @@ def _compile_documentation_for_module_version(ctx, mv, all_mv_by_id):
     if mv.bzl_src and len(mv.bzl_src.srcs) > 0:
         return _compile_bzl_for_module_version(ctx, mv, all_mv_by_id)
 
-    return None
+    # Module version has no .bzl files to extract. Return a stub so the
+    # registry-wide aggregation records an empty BEST_EFFORT entry — the
+    # frontend uses this to render "Module contains no .bzl module files"
+    # instead of attempting a guaranteed-404 per-version fetch.
+    return struct(mv = mv, output = None)
 
 def _compile_documentation_for_module(ctx, module, all_mv_by_id):
     results = []
@@ -456,11 +465,11 @@ def _module_registry_impl(ctx):
             registry_pb = [registry_pb],
             registrylite_pb = [registrylite_pb],
             codesearch_index = [codesearch_index],
-            doc_results = depset([d.output for d in doc_results]),
-            docs = depset([r.output for r in doc_results]),
+            doc_results = depset([d.output for d in doc_results if d.output != None]),
+            docs = depset([r.output for r in doc_results if r.output != None]),
             symbols_pb = depset([symbols_pb]),
             bazel_help = depset([bazel_help]),
-            **{d.mv.id.replace("@", "-"): depset([d.output]) for d in doc_results}
+            **{d.mv.id.replace("@", "-"): depset([d.output]) for d in doc_results if d.output != None}
         ),
         ModuleRegistryInfo(
             deps = depset(deps),

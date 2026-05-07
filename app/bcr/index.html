@@ -11,6 +11,21 @@
 		<title>Bazel Central Registry</title>
 		<meta content="text/html; charset=utf-8" http-equiv="Content-Type">
 		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<script>
+		// Apply persisted color-mode / display-mode to <html> before any
+		// stylesheets paint, so themes set on the Settings page are honored
+		// on the first render of every page.
+		(function () {
+			try {
+				var ls = window.localStorage;
+				if (!ls) return;
+				var cm = ls.getItem("color-mode");
+				if (cm) document.documentElement.setAttribute("data-color-mode", cm);
+				var dm = ls.getItem("display-mode");
+				if (dm) document.documentElement.setAttribute("data-display-mode", dm);
+			} catch (e) {}
+		})();
+		</script>
 		<link rel="icon" href="/favicon.png">
 		<link href="/{bcr.css}" type="text/css" rel="stylesheet">
 		<link
