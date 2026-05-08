@@ -101,6 +101,11 @@ import {
   https://github.com/bazelbuild/bazel-central-registry/pull/{$pr}
 {/template}
 
+{template bazelPullRequestUrl kind="uri"}
+  {@param pr: string}
+  https://github.com/bazelbuild/bazel/pull/{$pr}
+{/template}
+
 {template bcrModuleVersionPatchFileUrl kind="uri"}
   {@inject repositoryUrl: string}
   {@inject repositoryCommit: string}

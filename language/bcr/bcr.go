@@ -473,7 +473,7 @@ func (ext *bcrExtension) GenerateRules(args language.GenerateArgs) language.Gene
 		ext.moduleVersionRules[id] = newProtoRule(moduleVersionRule, module)
 
 		// Generate bazel_version rule for Bazel pseudo-modules
-		if module.Name == "bazel" {
+		if module.Name == "bazel_tools" {
 			bazelVersionRule := makeBazelVersionRule(version)
 			rules = append(rules, bazelVersionRule)
 		}

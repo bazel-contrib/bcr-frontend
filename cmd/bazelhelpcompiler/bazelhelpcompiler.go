@@ -8,6 +8,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 
@@ -107,7 +108,16 @@ func parseHelpFileForCommand(filename string) (*bhpb.BazelHelpCommand, error) {
 		return nil, fmt.Errorf("failed to read file: %w", err)
 	}
 
-	return parseHelp(bytes.NewReader(content)), nil
+	cmd := parseHelp(bytes.NewReader(content))
+	// The bazel_version rule names each per-command output file as
+	// "<label>.<commandname>" (e.g. "bazel-7.4.0.build"). The suffix after
+	// the LAST dot is the command name. The parser doesn't see the file
+	// name, so we set Command here.
+	base := filepath.Base(filename)
+	if i := strings.LastIndex(base, "."); i >= 0 {
+		cmd.Command = base[i+1:]
+	}
+	return cmd, nil
 }
 
 func parseHelp(in io.Reader) *bhpb.BazelHelpCommand {
@@ -148,8 +158,17 @@ func parseHelp(in io.Reader) *bhpb.BazelHelpCommand {
 				// New flag in same category
 				currentFlag = newFlag(line, category)
 			} else if currentFlag != nil {
-				// Continuation of current flag description
-				currentFlag.Description = append(currentFlag.Description, line)
+				// Continuation of current flag description. Strip the
+				// fixed leading indent that bazel's help formatter applies
+				// so downstream markdown rendering doesn't see the lines as
+				// an indented code block. Whitespace-only "blank" lines
+				// (which bazel emits between paragraphs of a single flag's
+				// description) collapse to an empty string, which markdown
+				// then treats as a proper paragraph break.
+				currentFlag.Description = append(
+					currentFlag.Description,
+					strings.TrimLeft(line, " \t"),
+				)
 			}
 		}
 

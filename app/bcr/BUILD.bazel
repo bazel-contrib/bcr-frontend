@@ -129,6 +129,7 @@ closure_js_template_library(
         "uri.soy",
     ],
     deps = [
+        "//build/stack/bazel/help/v1:bhpb_js",
         "//build/stack/bazel/registry/v1:bzpb_js",
         "//build/stack/bazel/symbol/v1:sympb_js",
         "//build/stack/starlark/v1beta1:v1beta1_js",
@@ -238,6 +239,8 @@ closure_js_library(
     name = "app",
     srcs = [
         "app.js",
+        "bazel.js",
+        "bazel_flags.js",
         "body.js",
         "clipboard.js",
         "contentcomponent.js",
@@ -269,6 +272,7 @@ closure_js_library(
         ":soy",
         ":starlark",
         ":ui_version",
+        "//build/stack/bazel/help/v1:bhpb_js",
         "//build/stack/bazel/registry/v1:bzpb_js",
         "//build/stack/bazel/symbol/v1:sympb_js",
         "//build/stack/starlark/v1beta1:v1beta1_js",
@@ -339,6 +343,7 @@ closure_js_binary(
         "registrylite_pb",
         "symbols_pb",
         "doc_results",
+        "bazel_flag_db",
     ]
 ]
 
@@ -376,6 +381,7 @@ RELEASE_HASHED_SRCS = [
 release_archive(
     name = "release_unprerendered",
     srcs = RELEASE_SRCS,
+    bazel_flag_db_file = ":bazel_flag_db",
     hashed_srcs = RELEASE_HASHED_SRCS,
     index_html = "index.html",
     module_registry_symbols_file = "symbols_pb",
@@ -424,6 +430,7 @@ prerender_pages(
 release_archive(
     name = "release",
     srcs = RELEASE_SRCS,
+    bazel_flag_db_file = ":bazel_flag_db",
     hashed_srcs = RELEASE_HASHED_SRCS,
     index_html = select({
         ":is_production_release": ":prerender_home",

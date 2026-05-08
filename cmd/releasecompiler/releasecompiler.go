@@ -25,6 +25,7 @@ type Config struct {
 	IndexHtmlFile             string
 	RegistryFile              string
 	ModuleRegistrySymbolsFile string
+	BazelFlagDbFile           string
 	PrerenderedPagesTar       string
 	AssetFiles                []string
 	ModulesSrcFiles           stringSliceFlag
@@ -97,6 +98,15 @@ func run(args []string) error {
 	for _, asset := range symbolsAssets {
 		assets = append(assets, asset)
 		log.Printf("Processed symbols file: %s -> %s", asset.OriginalName, asset.HashedName)
+	}
+
+	flagDbAssets, err := processBazelFlagDbFile(cfg.BazelFlagDbFile)
+	if err != nil {
+		return fmt.Errorf("failed to process bazel flag db file: %v", err)
+	}
+	for _, asset := range flagDbAssets {
+		assets = append(assets, asset)
+		log.Printf("Processed bazel flag db file: %s -> %s", asset.OriginalName, asset.HashedName)
 	}
 
 	// Read and update index.html
@@ -200,6 +210,39 @@ func processModuleRegistrySymbolsFile(documentationRegistryPath string) ([]Hashe
 			OriginalName: gzOriginalName,
 			HashedName:   gzOriginalName, // No hashing - keep original name
 			Content:      gzipContent,
+		},
+	}, nil
+}
+
+// processBazelFlagDbFile gzips the BazelFlagDb proto and emits it as
+// bazelflagdb.pb.gz at the tarball root. The frontend fetches it lazily on
+// first navigation to /bazel/flags. An empty path is treated as "skip" so the
+// flag is optional during partial builds.
+func processBazelFlagDbFile(flagDbPath string) ([]HashedAsset, error) {
+	if flagDbPath == "" {
+		return nil, nil
+	}
+	content, err := os.ReadFile(flagDbPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read flag db file: %v", err)
+	}
+
+	var gzipBuf bytes.Buffer
+	gzipWriter := gzip.NewWriter(&gzipBuf)
+	if _, err := gzipWriter.Write(content); err != nil {
+		return nil, fmt.Errorf("failed to gzip content: %v", err)
+	}
+	if err := gzipWriter.Close(); err != nil {
+		return nil, fmt.Errorf("failed to close gzip writer: %v", err)
+	}
+
+	gzOriginalName := "bazelflagdb.pb.gz"
+	return []HashedAsset{
+		{
+			OriginalPath: flagDbPath,
+			OriginalName: gzOriginalName,
+			HashedName:   gzOriginalName, // No hashing - frontend fetches by stable name.
+			Content:      gzipBuf.Bytes(),
 		},
 	}, nil
 }
@@ -411,6 +454,7 @@ func parseFlags(args []string) (cfg Config, err error) {
 	fs.StringVar(&cfg.IndexHtmlFile, "index_html_file", "", "the index.html file to read")
 	fs.StringVar(&cfg.RegistryFile, "registry_file", "", "the registry protobuf file to process (gzipped and base64 encoded)")
 	fs.StringVar(&cfg.ModuleRegistrySymbolsFile, "module_registry_symbols_file", "", "the documentation registry protobuf file to process (gzipped and base64 encoded)")
+	fs.StringVar(&cfg.BazelFlagDbFile, "bazel_flag_db_file", "", "the bazel flag database protobuf file (gzipped into the tarball as bazelflagdb.pb.gz)")
 	fs.StringVar(&cfg.PrerenderedPagesTar, "prerendered_pages_tar", "", "optional tar of prerendered HTML files to merge into the output tarball verbatim (entries are added as-is)")
 	fs.Var(&cfg.ModulesSrcFiles, "modules_src", "a file to include under modules/ in the tarball (repeatable)")
 	fs.StringVar(&excludeFromHashStr, "exclude_from_hash", "", "comma-separated list of basenames to exclude from hashing (e.g., favicon.png,robots.txt)")

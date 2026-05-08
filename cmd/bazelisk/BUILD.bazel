@@ -1,0 +1,18 @@
+load("@rules_go//go:def.bzl", "go_binary", "go_library")
+
+go_library(
+    name = "bazelisk_lib",
+    srcs = ["bazelisk.go"],
+    importpath = "github.com/bazel-contrib/bcr-frontend/cmd/bazelisk",
+    visibility = ["//visibility:private"],
+    deps = [
+        "@com_github_bazelbuild_bazelisk//core:go_default_library",
+        "@com_github_bazelbuild_bazelisk//repositories:go_default_library",
+    ],
+)
+
+go_binary(
+    name = "bazelisk",
+    embed = [":bazelisk_lib"],
+    visibility = ["//visibility:public"],
+)

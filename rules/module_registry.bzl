@@ -78,13 +78,20 @@ def _write_prerender_urls_action(ctx, deps):
 
     return output
 
+# Minimum bazel version we extract help text for. Older versions had a
+# different help format and aren't worth supporting in the flag DB.
+_MIN_HELP_BAZEL_VERSION = (6, 0, 0)
+
 def _is_allowed_bazel_help_release(v):
-    return v in [
-        "8.4.2",
-        "7.7.1",
-        "6.5.0",
-        "5.4.1",
-    ]
+    """True iff v is a final stable release (no rc/pre) at or above _MIN_HELP_BAZEL_VERSION."""
+    parts = v.split(".")
+    if len(parts) != 3:
+        return False
+    for p in parts:
+        if not p.isdigit():
+            return False
+    parsed = (int(parts[0]), int(parts[1]), int(parts[2]))
+    return parsed >= _MIN_HELP_BAZEL_VERSION
 
 def _compile_bazel_help_registry_action(ctx, bazel_versions):
     output = ctx.actions.declare_file("bazelhelpregistry.pb")
@@ -101,6 +108,22 @@ def _compile_bazel_help_registry_action(ctx, bazel_versions):
         inputs = files,
         outputs = [output],
         mnemonic = "CompileBazelHelpRegistry",
+    )
+
+    return output
+
+def _compile_bazel_flag_db_action(ctx, bazelhelpregistry_pb):
+    output = ctx.actions.declare_file("bazelflagdb.pb")
+    args = ctx.actions.args()
+    args.add("--output_file", output)
+    args.add(bazelhelpregistry_pb)
+
+    ctx.actions.run(
+        executable = ctx.executable._bazelflagdbcompiler,
+        arguments = [args],
+        inputs = [bazelhelpregistry_pb],
+        outputs = [output],
+        mnemonic = "CompileBazelFlagDb",
     )
 
     return output
@@ -133,13 +156,18 @@ def _compile_codesearch_index_action(ctx, deps):
 
 def _compile_module_registry_symbols(ctx, doc_results):
     output = ctx.actions.declare_file("symbols.pb")
-    inputs = [result.output for result in doc_results]
+    inputs = [result.output for result in doc_results if result.output != None]
 
     args = ctx.actions.args()
     args.add("--output_file")
     args.add(output)
     for result in doc_results:
-        args.add("--input_file=%s=%s" % (result.mv.id, result.output.path))
+        if result.output != None:
+            args.add("--input_file=%s=%s" % (result.mv.id, result.output.path))
+        else:
+            # Stub entry: signals "no .bzl files to extract" so the frontend
+            # can render a blankslate without attempting a 404 fetch.
+            args.add("--empty=%s" % result.mv.id)
 
     ctx.actions.run(
         executable = ctx.executable._moduleregistrysymbolscompiler,
@@ -299,12 +327,15 @@ def _compile_documentation_for_module_version(ctx, mv, all_mv_by_id):
     if len(mv.published_docs) > 0 and _status_code_exists(mv.source.docs_url_status_code):
         return _compile_stardoc_for_module_version(ctx, mv, mv.published_docs)
 
-    # otherwise best effort if there is something to compile (the gazelle
-    # extension controls which versions get bzl_src populated)
+    # otherwise best effort if there is something to compile
     if mv.bzl_src and len(mv.bzl_src.srcs) > 0:
         return _compile_bzl_for_module_version(ctx, mv, all_mv_by_id)
 
-    return None
+    # Module version has no .bzl files to extract. Return a stub so the
+    # registry-wide aggregation records an empty BEST_EFFORT entry — the
+    # frontend uses this to render "Module contains no .bzl module files"
+    # instead of attempting a guaranteed-404 per-version fetch.
+    return struct(mv = mv, output = None)
 
 def _compile_documentation_for_module(ctx, module, all_mv_by_id):
     results = []
@@ -443,6 +474,7 @@ def _module_registry_impl(ctx):
     sitemap_xml = _compile_sitemap_action(ctx, registry_pb)
     prerender_urls = _write_prerender_urls_action(ctx, deps)
     bazel_help = _compile_bazel_help_registry_action(ctx, bazel_versions)
+    bazel_flag_db = _compile_bazel_flag_db_action(ctx, bazel_help)
 
     return [
         DefaultInfo(files = depset([registry_pb])),
@@ -456,11 +488,12 @@ def _module_registry_impl(ctx):
             registry_pb = [registry_pb],
             registrylite_pb = [registrylite_pb],
             codesearch_index = [codesearch_index],
-            doc_results = depset([d.output for d in doc_results]),
-            docs = depset([r.output for r in doc_results]),
+            doc_results = depset([d.output for d in doc_results if d.output != None]),
+            docs = depset([r.output for r in doc_results if r.output != None]),
             symbols_pb = depset([symbols_pb]),
             bazel_help = depset([bazel_help]),
-            **{d.mv.id.replace("@", "-"): depset([d.output]) for d in doc_results}
+            bazel_flag_db = depset([bazel_flag_db]),
+            **{d.mv.id.replace("@", "-"): depset([d.output]) for d in doc_results if d.output != None}
         ),
         ModuleRegistryInfo(
             deps = depset(deps),
@@ -529,6 +562,11 @@ module_registry = rule(
         ),
         "_bazelhelpregistrycompiler": attr.label(
             default = "//cmd/bazelhelpregistrycompiler",
+            executable = True,
+            cfg = "exec",
+        ),
+        "_bazelflagdbcompiler": attr.label(
+            default = "//cmd/bazelflagdbcompiler",
             executable = True,
             cfg = "exec",
         ),
