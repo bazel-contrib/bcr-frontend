@@ -68,3 +68,42 @@ message BazelHelpVersion {
 message BazelHelpRegistry {
     repeated BazelHelpVersion version = 1;
 }
+
+// BazelFlag is a single command-line option aggregated across the bazel
+// versions and subcommands where it appears. Produced by
+// cmd/bazelflagdbcompiler from a BazelHelpRegistry.
+message BazelFlag {
+  // Canonical flag name (no leading "--").
+  string name = 1;
+  // Short single-character flag if any (e.g. "c" for --compilation_mode).
+  string short = 2;
+  // Type as reported by the latest version that exposes the flag.
+  string type = 3;
+  // Default value as reported by the latest version that exposes the flag.
+  string default = 4;
+  // True if --[no]<name> is the documented form.
+  bool toggle = 5;
+  // Description lines from the latest version that exposes the flag.
+  repeated string description = 6;
+  // Union of tags across all versions where the flag appears.
+  repeated string tag = 7;
+  // Indices into BazelFlagDb.bazel_versions where this flag is present.
+  repeated int32 version_index = 8;
+  // Indices into BazelFlagDb.commands of the bazel subcommands that accept
+  // this flag (e.g. the entry for "build", "test", "query").
+  repeated int32 command_index = 9;
+  // Help category title from the latest version.
+  string category = 10;
+}
+
+// BazelFlagDb is the per-flag inventory across multiple bazel versions.
+message BazelFlagDb {
+  // Shared bazel-version table that BazelFlag.version_index references.
+  // Sorted ascending by semver.
+  repeated string bazel_versions = 1;
+  // All flags observed across every version, sorted alphabetically by name.
+  repeated BazelFlag flag = 2;
+  // Shared command-name table that BazelFlag.command_index references.
+  // Sorted alphabetically.
+  repeated string commands = 3;
+}

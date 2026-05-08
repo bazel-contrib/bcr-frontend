@@ -75,6 +75,10 @@ import {
   RepositoryType
 } from 'build/stack/bazel/registry/v1/bcr.proto';
 import {
+  BazelFlag,
+  BazelFlagDb
+} from 'build/stack/bazel/help/v1/help.proto';
+import {
   attestationsTable,
   compatibilityTable,
   copyToClipboardButton,
@@ -96,6 +100,7 @@ import {
   moduleVersionHeader,
   moduleVersionListBox,
   moduleVersionModuleBazel,
+  moduleVersionPseudoModuleNotice,
   moduleVersions,
   moduleVersionTable,
   sanitizeLangName,
@@ -109,6 +114,7 @@ import {
   githubRepoUrlFromModuleVersion,
   githubSourceUrl,
   githubUserUrl,
+  bazelPullRequestUrl,
   labelUri,
   loadLabelUrl,
   moduleLabelDocsUri,
@@ -303,6 +309,7 @@ import {
   {@param totalModuleVersions: int}
   {@param totalMaintainers: int}
   {@param totalSymbols: int}
+  {@param totalBazelVersions: int}
   {@param uiCommitSha: string}
 <div class="px-2">
   <h2 class="h2 d-flex flex-items-center mb-2">
@@ -333,12 +340,24 @@ import {
     <span class="dotted-leader"></span>
     <span class="text-bold js-symbols-count">{$totalSymbols}</span>
   </a>
+  <a class="Link--primary d-flex flex-items-center mb-2" href="/#/bazel/versions">
+    <span class="color-fg-muted">Bazel Versions</span>
+    <span class="dotted-leader"></span>
+    <span class="text-bold">{$totalBazelVersions}</span>
+  </a>
+  <a class="Link--primary d-flex flex-items-center mb-2" href="/#/bazel/flags">
+    <span class="color-fg-muted">Bazel Flags</span>
+    <span class="dotted-leader"></span>
+    <span class="text-bold js-bazel-flags-count">914</span>
+  </a>
 
-  {sectionDivider()}
-
-  {sectionHeader(title: 'Links')}
-
-  <div class="mt-2">
+  <div class="mt-4">
+    <a class="Link--muted d-flex flex-items-center mb-2"
+       href="https://github.com/bazelbuild/bazel"
+       target="_blank" rel="noopener noreferrer">
+      <span class="mr-2">{octiconMarkGithub16()}</span>
+      <span>Bazel on GitHub</span>
+    </a>
     <a class="Link--muted d-flex flex-items-center mb-2"
        href="https://github.com/bazelbuild/bazel-central-registry/blob/main/docs/README.md"
        target="_blank" rel="noopener noreferrer">
@@ -431,6 +450,7 @@ import {
   {@param totalModuleVersions: int}
   {@param totalMaintainers: int}
   {@param totalSymbols: int}
+  {@param totalBazelVersions: int}
   {@param uiCommitSha: string}
 <div class="PageLayout PageLayout--panePos-start PageLayout--hasPaneDivider PageLayout--responsive-stackRegions PageLayout--responsive-panePos-start mt-3">
   <div class="PageLayout-columns">
@@ -442,6 +462,7 @@ import {
         {param totalModuleVersions: $totalModuleVersions /}
         {param totalMaintainers: $totalMaintainers /}
         {param totalSymbols: $totalSymbols /}
+        {param totalBazelVersions: $totalBazelVersions /}
         {param uiCommitSha: $uiCommitSha /}
       {/call}
     </div>
@@ -460,7 +481,7 @@ import {
 
 
 {template homeRecentTimeline}
-  {@param recentlyUpdated: list<[moduleVersion: ModuleVersion, commitDate: string, isNew: bool]>}
+  {@param recentlyUpdated: list<[moduleVersion: ModuleVersion, commitDate: string, isNew: bool, linkUrl: string, pullRequestUrl: string, displayName: string]>}
 <div>
   {if length($recentlyUpdated) > 0}
     <div>
@@ -486,8 +507,8 @@ import {
           <div class="TimelineItem-body">
             <div class="d-flex flex-items-center">
               <div style="flex-shrink: 0">
-                <a class="Link--primary text-bold" href="/#/modules/{$item.moduleVersion.getName()}/{$item.moduleVersion.getVersion()}">
-                  {$item.moduleVersion.getName()}
+                <a class="Link--primary text-bold" href="{$item.linkUrl}">
+                  {$item.displayName}
                 </a>
                 {sp}
                 <span class="color-fg-muted">{$item.moduleVersion.getVersion()}</span>
@@ -501,7 +522,7 @@ import {
             </div>
             {if $commit?.getPullRequest()}
               <div class="f6 color-fg-muted mt-1">
-                <a class="Link--muted" href="{registryPullRequestUrl(pr: $commit?.getPullRequest() ?? '')}">
+                <a class="Link--muted" href="{$item.pullRequestUrl}">
                   #{$commit?.getPullRequest()}
                 </a>
                 {if $hasUser}
@@ -521,6 +542,420 @@ import {
       No recently updated modules found
     </div>
   {/if}
+</div>
+{/template}
+
+
+{template bazelSelect}
+<div>
+  <div class="{css('content')}">
+  </div>
+</div>
+{/template}
+
+
+{template bazelOverviewSelectNav}
+  {@param registry: Registry}
+  {@param totalModules: int}
+  {@param totalModuleVersions: int}
+  {@param totalMaintainers: int}
+  {@param totalSymbols: int}
+  {@param totalBazelVersions: int}
+  {@param uiCommitSha: string}
+<div class="PageLayout PageLayout--panePos-start PageLayout--hasPaneDivider PageLayout--responsive-stackRegions PageLayout--responsive-panePos-start mt-3">
+  <div class="PageLayout-columns">
+
+    <div class="PageLayout-pane">
+      {call bcrSidePane}
+        {param registry: $registry /}
+        {param totalModules: $totalModules /}
+        {param totalModuleVersions: $totalModuleVersions /}
+        {param totalMaintainers: $totalMaintainers /}
+        {param totalSymbols: $totalSymbols /}
+        {param totalBazelVersions: $totalBazelVersions /}
+        {param uiCommitSha: $uiCommitSha /}
+      {/call}
+    </div>
+
+    <div class="PageLayout-content">
+      <h2 class="h2 d-flex flex-items-center mb-2">
+        <span>Bazel Core</span>
+      </h2>
+      <p class="f4 mb-3 color-fg-muted">
+        Releases of the Bazel build tool itself.
+      </p>
+      <nav class="UnderlineNav">
+        <div class="UnderlineNav-body {css('nav')}">
+        </div>
+      </nav>
+      <div class="{css('content')} mt-3 px-3"></div>
+    </div>
+
+  </div>
+</div>
+{/template}
+
+
+{template bazelVersionDetail}
+  {@param registry: Registry}
+  {@param moduleVersion: ModuleVersion}
+  {@param totalModules: int}
+  {@param totalModuleVersions: int}
+  {@param totalMaintainers: int}
+  {@param totalSymbols: int}
+  {@param totalBazelVersions: int}
+  {@param uiCommitSha: string}
+  {let $commit: $moduleVersion.getCommit() /}
+  {let $hasUser: $commit?.getGithubUser() /}
+<div class="PageLayout PageLayout--panePos-start PageLayout--hasPaneDivider PageLayout--responsive-stackRegions PageLayout--responsive-panePos-start mt-3">
+  <div class="PageLayout-columns">
+
+    <div class="PageLayout-pane">
+      {call bcrSidePane}
+        {param registry: $registry /}
+        {param totalModules: $totalModules /}
+        {param totalModuleVersions: $totalModuleVersions /}
+        {param totalMaintainers: $totalMaintainers /}
+        {param totalSymbols: $totalSymbols /}
+        {param totalBazelVersions: $totalBazelVersions /}
+        {param uiCommitSha: $uiCommitSha /}
+      {/call}
+    </div>
+
+    <div class="PageLayout-content px-3">
+      <div class="mb-2">
+        <a class="Link--muted f6" href="/#/bazel/versions">
+          {octiconChevronLeft16()}{sp}Back to all versions
+        </a>
+      </div>
+
+      <h2 class="h2 d-flex flex-items-center mb-2">
+        <span>Bazel{sp}<span class="color-fg-muted">{$moduleVersion.getVersion()}</span></span>
+      </h2>
+
+      <div class="Box mb-3">
+        <div class="Box-row d-flex flex-items-center">
+          {if $hasUser}
+            <a href="{githubUserUrl(name: $commit?.getGithubUser() ?? '')}"
+               class="d-flex flex-items-center mr-3"
+               title="{$commit?.getGithubName() ? $commit?.getGithubName() : '@' + $commit?.getGithubUser()}">
+              <img class="avatar circle" width="32" height="32"
+                   src="{githubAvatarUrl(name: $commit?.getGithubUser() ?? '')}"
+                   alt="@{$commit?.getGithubUser()}">
+            </a>
+          {/if}
+          <div>
+            <div>
+              {if $commit?.getDate()}
+                <span class="color-fg-muted">Committed{sp}</span>
+                <span class="text-bold">{$commit?.getDate() ?? ''}</span>
+              {else}
+                <span class="color-fg-muted">No commit metadata available</span>
+              {/if}
+            </div>
+            {if $commit?.getPullRequest() || $hasUser}
+              <div class="f6 color-fg-muted mt-1">
+                {if $commit?.getPullRequest()}
+                  <a class="Link--muted" href="{bazelPullRequestUrl(pr: $commit?.getPullRequest() ?? '')}">
+                    #{$commit?.getPullRequest()}
+                  </a>
+                {/if}
+                {if $hasUser}
+                  {if $commit?.getPullRequest()}{sp}by{sp}{/if}
+                  <a class="Link--muted text-bold" href="{githubUserUrl(name: $commit?.getGithubUser() ?? '')}">
+                    {$commit?.getGithubName() ? $commit?.getGithubName() : $commit?.getGithubUser()}
+                  </a>
+                {/if}
+              </div>
+            {/if}
+          </div>
+        </div>
+        {if $commit?.getSha1()}
+          <div class="Box-row d-flex flex-items-center">
+            <span class="mr-2">{octiconGitCommit16()}</span>
+            <span class="color-fg-muted mr-2">Commit</span>
+            <span class="branch-name">{$commit?.getSha1()?.substring(0, 8) ?? ''}</span>
+          </div>
+        {/if}
+      </div>
+
+      {sectionHeader(title: 'Resources')}
+      <div class="mt-2 mb-3">
+        <a class="Link--muted d-flex flex-items-center mb-2"
+           href="https://github.com/bazelbuild/bazel/releases/tag/{$moduleVersion.getVersion()}"
+           target="_blank" rel="noopener noreferrer">
+          <span class="mr-2">{octiconMarkGithub16()}</span>
+          <span>Bazel {$moduleVersion.getVersion()} release on GitHub</span>
+        </a>
+        <a class="Link--muted d-flex flex-items-center mb-2"
+           href="/#/modules/bazel_tools/{$moduleVersion.getVersion()}">
+          <span class="mr-2">{octiconBook16()}</span>
+          <span>Module record (bazel_tools@{$moduleVersion.getVersion()})</span>
+        </a>
+      </div>
+    </div>
+
+  </div>
+</div>
+{/template}
+
+
+{template bazelFlagsSelect}
+<div>
+  <div class="{css('content')}">
+  </div>
+</div>
+{/template}
+
+
+{template bazelFlagsListSelectNav}
+  {@param registry: Registry}
+  {@param totalModules: int}
+  {@param totalModuleVersions: int}
+  {@param totalMaintainers: int}
+  {@param totalSymbols: int}
+  {@param totalBazelVersions: int}
+  {@param uiCommitSha: string}
+<div class="PageLayout PageLayout--panePos-start PageLayout--hasPaneDivider PageLayout--responsive-stackRegions PageLayout--responsive-panePos-start mt-3">
+  <div class="PageLayout-columns">
+
+    <div class="PageLayout-pane">
+      {call bcrSidePane}
+        {param registry: $registry /}
+        {param totalModules: $totalModules /}
+        {param totalModuleVersions: $totalModuleVersions /}
+        {param totalMaintainers: $totalMaintainers /}
+        {param totalSymbols: $totalSymbols /}
+        {param totalBazelVersions: $totalBazelVersions /}
+        {param uiCommitSha: $uiCommitSha /}
+      {/call}
+    </div>
+
+    <div class="PageLayout-content">
+      <h2 class="h2 d-flex flex-items-center mb-2">
+        <span>Bazel Flags</span>
+      </h2>
+      <p class="f4 mb-3 color-fg-muted">
+        Every command-line flag observed across the supported Bazel releases,
+        with the subcommands it applies to and the versions where it appears.
+      </p>
+      <nav class="UnderlineNav">
+        <div class="UnderlineNav-body {css('nav')}">
+        </div>
+      </nav>
+      <div class="{css('content')} mt-3"></div>
+    </div>
+
+  </div>
+</div>
+{/template}
+
+
+{template bazelFlagsListComponent}
+<div>
+  <div>
+    <input type="text" class="js-flag-search-input form-control width-full"
+           placeholder="Search flags..." autocomplete="off">
+  </div>
+  <div class="js-flag-search-results mt-3">
+  </div>
+</div>
+{/template}
+
+
+{template bazelFlagsResultsList}
+  {@param items: list<[flag: BazelFlag, description: string, current: bool]>}
+<div>
+  {if length($items) > 0}
+    <div class="Box Box--condensed">
+      {for $item in $items}
+        <a href="/#/bazel/flags/{$item.flag.getName()}"
+           class="Box-row d-flex flex-items-center{if !$item.current} color-fg-muted{/if}"
+           {if !$item.current}style="text-decoration: none; opacity: 0.55;" title="Removed in the latest supported Bazel version"
+           {else}style="text-decoration: none;"
+           {/if}>
+          <span class="text-mono text-bold mr-2">--{$item.flag.getName()}</span>
+          {if $item.flag.getShort()}
+            <span class="color-fg-muted text-small mr-2 text-mono">-{$item.flag.getShort()}</span>
+          {/if}
+          {if $item.description}
+            <span class="color-fg-muted text-small ml-auto" style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 50ch;">
+              {$item.description|truncate:120}
+            </span>
+          {/if}
+        </a>
+      {/for}
+    </div>
+  {else}
+    <div class="blankslate p-3">
+      <p>No flags match your search.</p>
+    </div>
+  {/if}
+</div>
+{/template}
+
+
+{template bazelFlagGroup}
+  {@param title: string}
+  {@param emptyMessage: string}
+  {@param items: list<[flag: BazelFlag, description: string, current: bool]>}
+  {@param registry: Registry}
+  {@param totalModules: int}
+  {@param totalModuleVersions: int}
+  {@param totalMaintainers: int}
+  {@param totalSymbols: int}
+  {@param totalBazelVersions: int}
+  {@param uiCommitSha: string}
+<div class="PageLayout PageLayout--panePos-start PageLayout--hasPaneDivider PageLayout--responsive-stackRegions PageLayout--responsive-panePos-start mt-3">
+  <div class="PageLayout-columns">
+
+    <div class="PageLayout-pane">
+      {call bcrSidePane}
+        {param registry: $registry /}
+        {param totalModules: $totalModules /}
+        {param totalModuleVersions: $totalModuleVersions /}
+        {param totalMaintainers: $totalMaintainers /}
+        {param totalSymbols: $totalSymbols /}
+        {param totalBazelVersions: $totalBazelVersions /}
+        {param uiCommitSha: $uiCommitSha /}
+      {/call}
+    </div>
+
+    <div class="PageLayout-content px-3">
+      <div class="mb-2">
+        <a class="Link--muted f6" href="/#/bazel/flags/list">
+          {octiconChevronLeft16()}{sp}Back to all flags
+        </a>
+      </div>
+      <h2 class="h2 mb-3">{$title}</h2>
+      {if length($items) > 0}
+        {call bazelFlagsResultsList}
+          {param items: $items /}
+        {/call}
+      {else}
+        <div class="blankslate p-3">
+          <p>{$emptyMessage}</p>
+        </div>
+      {/if}
+    </div>
+
+  </div>
+</div>
+{/template}
+
+
+{template bazelFlagDetail}
+  {@param registry: Registry}
+  {@param flag: BazelFlag}
+  {@param versions: list<[name: string, active: bool]>}
+  {@param commands: list<[name: string, active: bool]>}
+  {@param totalModules: int}
+  {@param totalModuleVersions: int}
+  {@param totalMaintainers: int}
+  {@param totalSymbols: int}
+  {@param totalBazelVersions: int}
+  {@param uiCommitSha: string}
+<div class="PageLayout PageLayout--panePos-end PageLayout--hasPaneDivider PageLayout--responsive-stackRegions mt-3">
+<div class="PageLayout-columns">
+  <div class="PageLayout-content px-3">
+    <div class="mb-2">
+      <a class="Link--muted f6" href="/#/bazel/flags/list">
+        {octiconChevronLeft16()}{sp}Back to all flags
+      </a>
+    </div>
+
+    <h2 class="h2 d-flex flex-items-center mb-2">
+      <span class="text-mono">--{$flag.getName()}</span>
+      {if $flag.getShort()}
+        <span class="color-fg-muted text-mono ml-3 f4">-{$flag.getShort()}</span>
+      {/if}
+      {copyToClipboardButton(content: '--' + $flag.getName())}
+    </h2>
+
+    <div class="d-flex flex-wrap mb-3">
+      {if $flag.getType()}
+        <label class="Label Label--secondary mr-2 mb-1">{$flag.getType()}</label>
+      {/if}
+      {if $flag.getDefault()}
+        <label class="Label Label--secondary mr-2 mb-1">default: {$flag.getDefault()}</label>
+      {/if}
+      {if $flag.getToggle()}
+        <label class="Label Label--accent mr-2 mb-1">--[no]<span class="text-mono">{$flag.getName()}</span></label>
+      {/if}
+      {if $flag.getCategory()}
+        <label class="Label Label--secondary mr-2 mb-1">{$flag.getCategory()}</label>
+      {/if}
+    </div>
+
+    {if length($flag.getDescriptionList()) > 0}
+      <div class="markdown-body color-fg-default mb-4 {css('marked')}">
+        {for $line in $flag.getDescriptionList()}
+          {$line}{\n}
+        {/for}
+      </div>
+    {/if}
+
+  </div>
+
+  <div class="PageLayout-pane">
+    <div>
+      <div>
+        {sectionHeader(title: 'Available in')}
+        {if length($versions) > 0}
+          <div class="mt-2 d-flex flex-wrap" style="gap: 6px">
+            {for $v in $versions}
+              {if $v.active}
+                <a class="Label Label--success" href="/#/bazel/{$v.name}" style="text-decoration: none;">
+                  {$v.name}
+                </a>
+              {else}
+                <span class="Label Label--secondary color-fg-subtle" style="opacity: 0.4">
+                  {$v.name}
+                </span>
+              {/if}
+            {/for}
+          </div>
+        {else}
+          <div class="color-fg-muted">No bazel versions recorded for this flag.</div>
+        {/if}
+      </div>
+
+      {sectionDivider()}
+
+      <div>
+        {sectionHeader(title: 'Applies to')}
+        {if length($commands) > 0}
+          <div class="mt-2 d-flex flex-wrap" style="gap: 6px">
+            {for $cmd in $commands}
+              <a class="Label {if $cmd.active}Label--accent{else}Label--secondary color-fg-subtle{/if}"
+                 href="/#/bazel/command/{$cmd.name}"
+                 style="text-decoration: none;{if !$cmd.active} opacity: 0.4;{/if}">
+                {$cmd.name}
+              </a>
+            {/for}
+          </div>
+        {else}
+          <div class="color-fg-muted">No subcommands recorded.</div>
+        {/if}
+      </div>
+
+      {if length($flag.getTagList()) > 0}
+        {sectionDivider()}
+
+        <div>
+          {sectionHeader(title: 'Tags')}
+          <div class="mt-2 d-flex flex-wrap" style="gap: 6px">
+            {for $tag in $flag.getTagList()}
+              <a class="Label Label--secondary" href="/#/bazel/flags/tag/{$tag}" style="text-decoration: none;">
+                {$tag}
+              </a>
+            {/for}
+          </div>
+        </div>
+      {/if}
+    </div>
+  </div>
+</div>
 </div>
 {/template}
 
@@ -599,6 +1034,7 @@ import {
   {@param totalModuleVersions: int}
   {@param totalMaintainers: int}
   {@param totalSymbols: int}
+  {@param totalBazelVersions: int}
   {@param uiCommitSha: string}
 <div class="PageLayout PageLayout--panePos-start PageLayout--hasPaneDivider PageLayout--responsive-stackRegions PageLayout--responsive-panePos-start mt-3">
   <div class="PageLayout-columns">
@@ -610,6 +1046,7 @@ import {
         {param totalModuleVersions: $totalModuleVersions /}
         {param totalMaintainers: $totalMaintainers /}
         {param totalSymbols: $totalSymbols /}
+        {param totalBazelVersions: $totalBazelVersions /}
         {param uiCommitSha: $uiCommitSha /}
       {/call}
     </div>
@@ -687,9 +1124,15 @@ import {
 <div class="PageLayout PageLayout--panePos-end PageLayout--hasPaneDivider PageLayout--responsive-stackRegions">
 <div class="PageLayout-columns">
   <div class="PageLayout-content">
-    {call moduleVersionModuleBazel}
-      {param moduleVersion: $moduleVersion /}
-    {/call}
+    {if $moduleVersion.getName() == 'bazel_tools'}
+      {call moduleVersionPseudoModuleNotice}
+        {param moduleVersion: $moduleVersion /}
+      {/call}
+    {else}
+      {call moduleVersionModuleBazel}
+        {param moduleVersion: $moduleVersion /}
+      {/call}
+    {/if}
 
     <div class="{css('deps')}"></div>
 
@@ -2301,6 +2744,7 @@ import {
   {@param totalModuleVersions: int}
   {@param totalMaintainers: int}
   {@param totalSymbols: int}
+  {@param totalBazelVersions: int}
   {@param uiCommitSha: string}
 <div class="PageLayout PageLayout--panePos-start PageLayout--hasPaneDivider PageLayout--responsive-stackRegions PageLayout--responsive-panePos-start mt-3">
   <div class="PageLayout-columns">
@@ -2312,6 +2756,7 @@ import {
         {param totalModuleVersions: $totalModuleVersions /}
         {param totalMaintainers: $totalMaintainers /}
         {param totalSymbols: $totalSymbols /}
+        {param totalBazelVersions: $totalBazelVersions /}
         {param uiCommitSha: $uiCommitSha /}
       {/call}
     </div>

@@ -51,6 +51,7 @@ const { computeLanguageData, sanitizeLanguageName, unsanitizeLanguageName } =
 const {
 	calculateAgeSinceLatestVersion,
 	calculateAgeSummary,
+	computeTotalBazelVersions,
 	computeTotalSymbols,
 	createMaintainersMap,
 	createModuleMap,
@@ -1270,6 +1271,7 @@ class ModulesMapSelectNav extends SelectNav {
 				totalModuleVersions: totalModuleVersions,
 				totalMaintainers: maintainers.size,
 				totalSymbols: computeTotalSymbols(this.registry_),
+				totalBazelVersions: computeTotalBazelVersions(this.registry_),
 				uiCommitSha: uiCommitSha,
 			}),
 		);

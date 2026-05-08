@@ -29,25 +29,29 @@ def _make_command_output_struct(ctx, command_name):
         output = ctx.actions.declare_file("%s.%s" % (ctx.label.name, command_name)),
     )
 
-def _make_extract_command(version, command):
-    return """
-HOME=/Users/pcj USE_BAZEL_VERSION={version} /opt/homebrew/bin/bazelisk help build --long > {output}
-    """.format(
-        version = version,
-        command = command.name,
-        output = command.output.path,
-    )
-
 def _bazel_command_help_action(ctx):
-    # Declare output file for compiled proto
     commands = [_make_command_output_struct(ctx, name) for name in ctx.attr.commands]
 
-    ctx.actions.run_shell(
-        command = "\n".join([_make_extract_command(ctx.attr.version, command) for command in commands]),
+    # Run all commands for this version in a single bazelisk invocation. The
+    # wrapper loops sequentially, reusing the same bazel server, so we get one
+    # bazel startup per version instead of N. Parallel actions across versions
+    # (each with its own output_base) still run concurrently.
+    args = ["--allow-unknown-command", "--multi-help"]
+    args.extend(["%s=%s" % (c.name, c.output.path) for c in commands])
+
+    ctx.actions.run(
+        executable = ctx.executable._bazelisk,
+        arguments = args,
+        env = {"USE_BAZEL_VERSION": ctx.attr.version},
         inputs = [],
-        outputs = [command.output for command in commands],
+        outputs = [c.output for c in commands],
         mnemonic = "ExtractBazelHelp",
-        progress_message = "Extracting bazel flags for version %{label}",
+        progress_message = "Extracting bazel help for version %s" % ctx.attr.version,
+        execution_requirements = {
+            "requires-network": "1",
+            "no-sandbox": "1",
+        },
+        use_default_shell_env = True,
     )
 
     return commands
@@ -103,11 +107,16 @@ bazel_version = rule(
                 "test",
                 "vendor",
                 "version",
-                # "startup_options",
+                "startup_options",
             ],
         ),
         "_bazelhelpcompiler": attr.label(
             default = "//cmd/bazelhelpcompiler",
+            executable = True,
+            cfg = "exec",
+        ),
+        "_bazelisk": attr.label(
+            default = "//cmd/bazelisk",
             executable = True,
             cfg = "exec",
         ),

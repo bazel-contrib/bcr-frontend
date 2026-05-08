@@ -17,6 +17,7 @@ const { getApplication } = goog.require("bcrfrontend.common");
 const { formatRelativeShort } = goog.require("bcrfrontend.format");
 const { commitSha: uiCommitSha } = goog.require("bcrfrontend.uiVersion");
 const {
+	computeTotalBazelVersions,
 	computeTotalSymbols,
 	createMaintainersMap,
 	createModuleMap,
@@ -146,6 +147,7 @@ class MaintainersMapSelectNav extends SelectNav {
 				totalModuleVersions: totalModuleVersions,
 				totalMaintainers: this.maintainers_.size,
 				totalSymbols: computeTotalSymbols(this.registry_),
+				totalBazelVersions: computeTotalBazelVersions(this.registry_),
 				uiCommitSha: uiCommitSha,
 			}),
 		);
@@ -270,7 +272,7 @@ class MaintainerComponent extends Component {
  *
  * @param {!Registry} registry
  * @param {!Maintainer} maintainer
- * @returns {!Array<!{moduleVersion: !ModuleVersion, commitDate: string, isNew: boolean}>}
+ * @returns {!Array<!{moduleVersion: !ModuleVersion, commitDate: string, isNew: boolean, linkUrl: string, pullRequestUrl: string, displayName: string}>}
  */
 function computeMaintainerActivity(registry, maintainer) {
 	const githubUser = maintainer.getGithub();
@@ -294,10 +296,16 @@ function computeMaintainerActivity(registry, maintainer) {
 	});
 
 	return items.map((item) => {
+		const pr = item.v.getCommit().getPullRequest();
 		return {
 			moduleVersion: item.v,
 			commitDate: formatRelativeShort(item.v.getCommit().getDate()),
 			isNew: item.m.getVersionsList().length === 1,
+			linkUrl: `/#/modules/${item.v.getName()}/${item.v.getVersion()}`,
+			pullRequestUrl: pr
+				? `https://github.com/bazelbuild/bazel-central-registry/pull/${pr}`
+				: "",
+			displayName: item.v.getName(),
 		};
 	});
 }

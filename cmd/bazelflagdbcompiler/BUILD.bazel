@@ -1,0 +1,18 @@
+load("@rules_go//go:def.bzl", "go_binary", "go_library")
+
+go_library(
+    name = "bazelflagdbcompiler_lib",
+    srcs = ["bazelflagdbcompiler.go"],
+    importpath = "github.com/bazel-contrib/bcr-frontend/cmd/bazelflagdbcompiler",
+    visibility = ["//visibility:private"],
+    deps = [
+        "//build/stack/bazel/help/v1:help",
+        "//pkg/protoutil",
+    ],
+)
+
+go_binary(
+    name = "bazelflagdbcompiler",
+    embed = [":bazelflagdbcompiler_lib"],
+    visibility = ["//visibility:public"],
+)

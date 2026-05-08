@@ -11,6 +11,7 @@ const { ContentSelect } = goog.require("bcrfrontend.ContentSelect");
 const { SelectNav } = goog.require("bcrfrontend.SelectNav");
 const { getApplication } = goog.require("bcrfrontend.common");
 const {
+	computeTotalBazelVersions,
 	computeTotalSymbols,
 	createMaintainersMap,
 	createModuleMap,
@@ -120,6 +121,7 @@ class HomeOverviewSelectNav extends SelectNav {
 				totalModuleVersions: totalModuleVersions,
 				totalMaintainers: maintainers.size,
 				totalSymbols: computeTotalSymbols(this.registry_),
+				totalBazelVersions: computeTotalBazelVersions(this.registry_),
 				uiCommitSha: uiCommitSha,
 			}),
 		);
@@ -217,7 +219,7 @@ class HomeRecentlyAddedComponent extends Component {
 /**
  * Top 15 module versions by commit date (most recent first).
  * @param {!Registry} registry
- * @returns {!Array<!{moduleVersion: !ModuleVersion, commitDate: string, isNew: boolean}>}
+ * @returns {!Array<!{moduleVersion: !ModuleVersion, commitDate: string, isNew: boolean, linkUrl: string, pullRequestUrl: string, displayName: string}>}
  */
 function computeRecentlyUpdated(registry) {
 	const modules = createModuleMap(registry);
@@ -240,10 +242,16 @@ function computeRecentlyUpdated(registry) {
 	});
 
 	return allVersions.slice(0, 15).map((item) => {
+		const pr = item.v.getCommit().getPullRequest();
 		return {
 			moduleVersion: item.v,
 			commitDate: formatRelativeShort(item.v.getCommit().getDate()),
 			isNew: item.m.getVersionsList().length === 1,
+			linkUrl: `/#/modules/${item.v.getName()}/${item.v.getVersion()}`,
+			pullRequestUrl: pr
+				? `https://github.com/bazelbuild/bazel-central-registry/pull/${pr}`
+				: "",
+			displayName: item.v.getName(),
 		};
 	});
 }
@@ -252,7 +260,7 @@ function computeRecentlyUpdated(registry) {
  * Top 15 modules by their first version's commit date (most recent first).
  * Versions are stored newest-first, so the first version is the last entry.
  * @param {!Registry} registry
- * @returns {!Array<!{moduleVersion: !ModuleVersion, commitDate: string, isNew: boolean}>}
+ * @returns {!Array<!{moduleVersion: !ModuleVersion, commitDate: string, isNew: boolean, linkUrl: string, pullRequestUrl: string, displayName: string}>}
  */
 function computeRecentlyAdded(registry) {
 	const modules = createModuleMap(registry);
@@ -275,10 +283,16 @@ function computeRecentlyAdded(registry) {
 	});
 
 	return firsts.slice(0, 15).map((item) => {
+		const pr = item.v.getCommit().getPullRequest();
 		return {
 			moduleVersion: item.v,
 			commitDate: formatRelativeShort(item.v.getCommit().getDate()),
 			isNew: true,
+			linkUrl: `/#/modules/${item.v.getName()}/${item.v.getVersion()}`,
+			pullRequestUrl: pr
+				? `https://github.com/bazelbuild/bazel-central-registry/pull/${pr}`
+				: "",
+			displayName: item.v.getName(),
 		};
 	});
 }

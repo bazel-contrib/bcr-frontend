@@ -69,6 +69,7 @@ const {
 	valueInfoComponent,
 } = goog.require("soy.bcrfrontend.app");
 const {
+	computeTotalBazelVersions,
 	computeTotalSymbols,
 	createDocumentationMap,
 	createMaintainersMap,
@@ -287,6 +288,7 @@ class DocsMapSelectNav extends SelectNav {
 				totalModuleVersions: totalModuleVersions,
 				totalMaintainers: maintainers.size,
 				totalSymbols: computeTotalSymbols(this.registry_),
+				totalBazelVersions: computeTotalBazelVersions(this.registry_),
 				uiCommitSha: uiCommitSha,
 			}),
 		);

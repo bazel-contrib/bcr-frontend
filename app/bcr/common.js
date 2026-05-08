@@ -49,6 +49,13 @@ class Application {
 	 * @returns {!Promise<*>}
 	 */
 	getRegistryWithSymbols() {}
+
+	/**
+	 * Returns a promise that resolves to the lazily-fetched BazelFlagDb.
+	 * Memoized; the underlying network fetch happens at most once.
+	 * @returns {!Promise<*>}
+	 */
+	getBazelFlagDb() {}
 }
 exports.Application = Application;
 

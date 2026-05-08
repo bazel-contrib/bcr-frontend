@@ -32,9 +32,10 @@ class RegistryApp extends App {
 	/**
 	 * @param {!Registry} registry
 	 * @param {!Promise<!Registry>} registryWithSymbols
+	 * @param {function():!Promise<*>} bazelFlagDbLoader memoized lazy loader.
 	 * @param {?dom.DomHelper=} opt_domHelper
 	 */
-	constructor(registry, registryWithSymbols, opt_domHelper) {
+	constructor(registry, registryWithSymbols, bazelFlagDbLoader, opt_domHelper) {
 		super(opt_domHelper);
 
 		/** @private @const */
@@ -42,6 +43,9 @@ class RegistryApp extends App {
 
 		/** @private @const */
 		this.registryWithSymbols_ = registryWithSymbols;
+
+		/** @private @const @type {function():!Promise<*>} */
+		this.bazelFlagDbLoader_ = bazelFlagDbLoader;
 
 		/** @private @type {!Map<string,string>} */
 		this.options_ = new Map();
@@ -98,6 +102,15 @@ class RegistryApp extends App {
 	 */
 	getRegistryWithSymbols() {
 		return this.registryWithSymbols_;
+	}
+
+	/**
+	 * Returns a memoized promise for the lazy-loaded bazel flag database.
+	 * @override
+	 * @returns {!Promise<*>}
+	 */
+	getBazelFlagDb() {
+		return this.bazelFlagDbLoader_();
 	}
 
 	/** @override */

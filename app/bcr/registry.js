@@ -266,6 +266,20 @@ function computeTotalSymbols(registry) {
 exports.computeTotalSymbols = computeTotalSymbols;
 
 /**
+ * @param {!Registry} registry
+ * @returns {number}
+ */
+function computeTotalBazelVersions(registry) {
+	for (const module of registry.getModulesList()) {
+		if (module.getName() === "bazel_tools") {
+			return module.getVersionsList().length;
+		}
+	}
+	return 0;
+}
+exports.computeTotalBazelVersions = computeTotalBazelVersions;
+
+/**
  * Updates the count span inside a rendered bcrSidePane with the latest
  * documented-symbols total. Used by views that lazy-load the symbols proto
  * after first paint.
@@ -280,6 +294,21 @@ function refreshBcrSidePaneSymbols(root, registry) {
 	span.textContent = String(computeTotalSymbols(registry));
 }
 exports.refreshBcrSidePaneSymbols = refreshBcrSidePaneSymbols;
+
+/**
+ * Updates the bazel-flags count span inside a rendered bcrSidePane once the
+ * lazy-loaded BazelFlagDb is available.
+ *
+ * @param {?Element} root
+ * @param {number} count
+ */
+function refreshBcrSidePaneBazelFlags(root, count) {
+	if (!root) return;
+	const span = root.querySelector(".js-bazel-flags-count");
+	if (!span) return;
+	span.textContent = String(count);
+}
+exports.refreshBcrSidePaneBazelFlags = refreshBcrSidePaneBazelFlags;
 
 /**
  * @param {!Module} module

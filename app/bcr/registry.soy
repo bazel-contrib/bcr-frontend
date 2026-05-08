@@ -115,6 +115,18 @@ import {
   </div>
 {/template}
 
+{template moduleVersionPseudoModuleNotice}
+  {@param moduleVersion: ModuleVersion}
+  <div class="flash flash-warn mb-3">
+    <strong>@{$moduleVersion.getName()} is a built-in Bazel repository, not a publishable module.</strong>
+    {sp}It's available to every Bazel build automatically, so you should never
+    declare a <span class="text-mono">bazel_dep</span> for it in
+    {sp}<span class="text-mono">MODULE.bazel</span>. It's listed in the registry only
+    so that <span class="text-mono">load("@{$moduleVersion.getName()}//...")</span>
+    references in other modules' documentation can resolve.
+  </div>
+{/template}
+
 {template maintainerModuleVersionTable}
   {@param moduleVersions: list<ModuleVersion>}
   <div class="">
