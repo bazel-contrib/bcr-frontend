@@ -38,10 +38,9 @@ func run(args []string) error {
 	if cfg.OutputFile == "" {
 		return fmt.Errorf("--output_file is required")
 	}
-	if len(cfg.InputFiles) == 0 {
-		return fmt.Errorf("at least one input file is required")
-	}
 
+	// Zero inputs is valid: dummy/test build configs include no bazel_versions
+	// and still need an empty bazelhelpregistry.pb for downstream tooling.
 	var registry bhpb.BazelHelpRegistry
 
 	for _, filename := range cfg.InputFiles {
