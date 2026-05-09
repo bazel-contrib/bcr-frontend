@@ -405,10 +405,23 @@ prerender_home(
     tarball = ":release_unprerendered",
 )
 
-# Prerender every module's "latest version" page, e.g. /modules/rules_buf.
-# Output is a tar containing entries at modules/<name>/index.html that the
-# main :release target merges in verbatim. Concurrency × single-context tabs
-# is much faster than one-tab-per-URL because the SPA stays loaded and only
+# prerender_urls (from module_registry) covers every module's latest-version
+# page. Append /home so the dedicated home route also gets a static snapshot
+# alongside / (which is rendered separately via :prerender_home and ships as
+# the SPA's index.html). Each line is `<url> <comma-separated-output-paths>`,
+# matching prerender_pages's input format.
+genrule(
+    name = "prerender_urls_with_home",
+    srcs = [":prerender_urls"],
+    outs = ["prerender_urls_with_home.txt"],
+    cmd = "cat $(location :prerender_urls) > $@ && printf '/home home/index.html\\n' >> $@",
+)
+
+# Prerender every module's "latest version" page, e.g. /modules/rules_buf,
+# plus the standalone /home route. Output is a tar containing entries at
+# modules/<name>/index.html (and home/index.html) that the main :release
+# target merges in verbatim. Concurrency × single-context tabs is much
+# faster than one-tab-per-URL because the SPA stays loaded and only
 # pushState/popstate fires per module.
 prerender_pages(
     name = "prerender_pages",
@@ -418,7 +431,7 @@ prerender_pages(
     # AND prerender_modules=on (see :should_prerender_modules).
     tags = ["manual"],
     tarball = ":release_unprerendered",
-    url_list = ":prerender_urls",
+    url_list = ":prerender_urls_with_home",
 )
 
 # builds the release.tar.
