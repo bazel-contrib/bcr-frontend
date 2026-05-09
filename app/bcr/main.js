@@ -78,7 +78,9 @@ function createBazelFlagDbLoader() {
 		cached = (async () => {
 			const url = metaUrl("bcr:bazelflagdb-url");
 			if (!url) {
-				throw new Error("bazelflagdb URL not set in <meta name=bcr:bazelflagdb-url>");
+				throw new Error(
+					"bazelflagdb URL not set in <meta name=bcr:bazelflagdb-url>",
+				);
 			}
 			const response = await fetch(url);
 			if (!response.ok) {

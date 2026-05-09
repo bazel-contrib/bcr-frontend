@@ -33,7 +33,8 @@
 		(function () {
 			var meta = document.querySelector('meta[name="bcr:prerendered-path"]');
 			if (!meta) return;
-			var snapshot = (meta.getAttribute("content") || "").replace(/\/+$/, "") || "/";
+			var snapshot =
+				(meta.getAttribute("content") || "").replace(/\/+$/, "") || "/";
 			var current = window.location.pathname.replace(/\/+$/, "") || "/";
 			if (current !== snapshot) {
 				document.documentElement.classList.add("bcr-booting");
