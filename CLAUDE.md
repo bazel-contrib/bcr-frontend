@@ -25,7 +25,7 @@ This project uses Closure Templates (Soy) v3. A few common pitfalls:
   {if $safeName.startsWith('bot/')}…{/if}
   ```
 
-- **Quote attribute keys in `dom.createDom()`** when calling from JS. The Closure Compiler renames unquoted `class:` / `style:` keys at ADVANCED, silently dropping them from the DOM. Always write `{ "class": "..." }`, not `{ class: "..." }`.
+- **Quote attribute keys in `dom.createDom()`** when calling from JS. The Closure Compiler renames unquoted `class:` / `style:` keys at ADVANCED, silently dropping them from the DOM. Always write `{ "class": "..." }`, not `{ class: "..." }`. The biome formatter is configured with `javascript.formatter.quoteProperties: "preserve"` so it won't rewrite the quoted form back; if a future config tweak strips quotes, expect ADVANCED-build CSS classes to vanish at runtime with no error.
 
 - **`isLast`, `isFirst`, `index` are not soy builtins.** Use `{for $item, $idx in $list}…{/for}` and compare `$idx` to `length($list) - 1` if you need first/last detection.
 

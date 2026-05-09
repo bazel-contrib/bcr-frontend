@@ -1083,24 +1083,27 @@ class ModuleVersionDependentsComponent extends ContentComponent {
 	 * @param {{modules: !Array<string>, versions: !Array<string>, matrix: !Map<string, string>}} data
 	 */
 	renderDependentsMatrix(container, data) {
-		// Wrapper for horizontal scroll with grab cursor
+		// Wrapper for horizontal scroll with grab cursor.
+		// NOTE: every attribute key here is quoted on purpose. Closure
+		// Compiler ADVANCED renames unquoted property keys, which silently
+		// strips `class`/`style` attributes from the rendered DOM.
 		const wrapper = dom.createDom("div", {
-			class: "m-1 dependents-matrix",
-			style: "overflow-x: scroll; cursor: grab;",
-			onmousedown: /** @this {!HTMLElement} */ function () {
+			"class": "m-1 dependents-matrix",
+			"style": "overflow-x: scroll; cursor: grab;",
+			"onmousedown": /** @this {!HTMLElement} */ function () {
 				this.style.cursor = "grabbing";
 			},
-			onmouseup: /** @this {!HTMLElement} */ function () {
+			"onmouseup": /** @this {!HTMLElement} */ function () {
 				this.style.cursor = "grab";
 			},
-			onmouseleave: /** @this {!HTMLElement} */ function () {
+			"onmouseleave": /** @this {!HTMLElement} */ function () {
 				this.style.cursor = "grab";
 			},
 		});
 
 		const table = dom.createDom("table", {
-			class: "width-full p-0",
-			style: "border-collapse: collapse;",
+			"class": "width-full p-0",
+			"style": "border-collapse: collapse;",
 		});
 
 		// Header row
@@ -1108,8 +1111,8 @@ class ModuleVersionDependentsComponent extends ContentComponent {
 		const headerRow = dom.createDom("tr");
 
 		const moduleHeader = dom.createDom("th", {
-			class: "text-left p-1 pr-2 position-sticky",
-			style: "z-index: 2;",
+			"class": "text-left p-1 pr-2 position-sticky color-bg-default",
+			"style": "z-index: 2; left: 0;",
 		});
 		dom.appendChild(headerRow, moduleHeader);
 
@@ -1117,8 +1120,8 @@ class ModuleVersionDependentsComponent extends ContentComponent {
 			const headerContent = dom.createDom(
 				"div",
 				{
-					style:
-						"writing-mode: vertical-rl; transform: rotate(180deg); white-space: nowrap; min-height: 100px; display: flex; align-items: left; justify-content: left;",
+					"style":
+						"writing-mode: vertical-rl; transform: rotate(180deg); white-space: nowrap; min-height: 100px; display: flex; align-items: flex-end; justify-content: flex-start;",
 				},
 				version,
 			);
@@ -1126,7 +1129,7 @@ class ModuleVersionDependentsComponent extends ContentComponent {
 			const th = dom.createDom(
 				"th",
 				{
-					class: "text-left text-small p-1 pl-2",
+					"class": "text-left text-small p-1 pl-2",
 				},
 				headerContent,
 			);
@@ -1156,19 +1159,23 @@ class ModuleVersionDependentsComponent extends ContentComponent {
 				: "";
 
 			// Create link to module version with version displayed
-			const moduleNameText = dom.createDom("span", {}, moduleName);
+			const moduleNameText = dom.createDom(
+				"span",
+				{ "class": "text-bold" },
+				moduleName,
+			);
 			const versionText = dom.createDom(
 				"span",
 				{
-					class: "mr-1 text-light text-small",
+					"class": "mr-2 color-fg-muted text-small",
 				},
 				latestVersion,
 			);
 			const moduleLink = dom.createDom(
 				"a",
 				{
-					href: `/#/modules/${moduleName}/${latestVersion}`,
-					class: "Box-row-link",
+					"href": `/#/modules/${moduleName}/${latestVersion}`,
+					"class": "Box-row-link no-wrap",
 				},
 				[versionText, moduleNameText],
 			);
@@ -1176,8 +1183,8 @@ class ModuleVersionDependentsComponent extends ContentComponent {
 			const moduleCell = dom.createDom(
 				"td",
 				{
-					class: "p-1 pr-2 position-sticky text-right",
-					style: "left: 0;",
+					"class": "p-1 pr-2 position-sticky text-right color-bg-default",
+					"style": "left: 0; white-space: nowrap;",
 				},
 				moduleLink,
 			);
@@ -1192,8 +1199,8 @@ class ModuleVersionDependentsComponent extends ContentComponent {
 				const cell = dom.createDom(
 					"td",
 					{
-						class: cellClasses,
-						style: "max-width: 2em; width: 2em;",
+						"class": cellClasses,
+						"style": "max-width: 2em; width: 2em;",
 					},
 					isAtFront ? "•" : "",
 				);
