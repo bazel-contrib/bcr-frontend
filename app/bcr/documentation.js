@@ -34,7 +34,7 @@ const { getApplication } = goog.require("bcrfrontend.common");
 const { Component, Route } = goog.require("stack.ui");
 const { ContentComponent } = goog.require("bcrfrontend.ContentComponent");
 const { ContentSelect } = goog.require("bcrfrontend.ContentSelect");
-const { GitHubSourceFileComponent } = goog.require(
+const { GitHubSourceFileComponent, parseGitHubRepoUrl } = goog.require(
 	"bcrfrontend.githubsourcefile",
 );
 const { MarkdownComponent, formatMarkdownAll } = goog.require(
@@ -1878,15 +1878,63 @@ class BzlFileSourceComponent extends GitHubSourceFileComponent {
 		const name = label?.getName();
 		const filePath = pkg ? `${pkg}/${name}` : name || "";
 
-		// Call parent constructor with the reusable component logic
 		super(
 			module,
 			moduleVersion,
 			filePath,
 			bzlFileSourceComponent,
-			{ file }, // Pass file as additional template data
+			{ file },
 			opt_domHelper,
 		);
+
+		// Files listed in source.json's overlay map don't live in the upstream
+		// repo — they're served from bazel-central-registry under
+		// modules/<name>/<version>/overlay/. Detect the overlay case here so
+		// fetchSource_/updateDom_ can route to the BCR archive on GitHub.
+		const overlayMap = moduleVersion.getSource()?.getOverlayMap();
+		/** @private @const @type {boolean} */
+		this.isOverlayFile_ = !!overlayMap && overlayMap.has(filePath);
+	}
+
+	/**
+	 * Compute raw + blob URLs against the bazel-central-registry archive at
+	 * its pinned submodule SHA. Returns null if the registry's repository URL
+	 * isn't a recognized github.com pattern.
+	 * @return {?{rawUrl: string, blobUrl: string}}
+	 * @private
+	 */
+	overlayUrls_() {
+		const registry = /** @type {!Registry} */ (
+			getApplication(this).getRegistry()
+		);
+		const repoUrl = registry.getRepositoryUrl();
+		const sha = registry.getCommitSha();
+		if (!repoUrl || !sha) return null;
+		const parsed = parseGitHubRepoUrl(repoUrl);
+		if (!parsed) return null;
+		const path = `modules/${this.moduleVersion_.getName()}/${this.moduleVersion_.getVersion()}/overlay/${this.filePath_}`;
+		return {
+			rawUrl: `https://raw.githubusercontent.com/${parsed.owner}/${parsed.repo}/${sha}/${path}`,
+			blobUrl: `https://github.com/${parsed.owner}/${parsed.repo}/blob/${sha}/${path}`,
+		};
+	}
+
+	/** @override */
+	fetchSource_() {
+		if (!this.isOverlayFile_) {
+			super.fetchSource_();
+			return;
+		}
+		const overlay = this.overlayUrls_();
+		if (!overlay) {
+			super.fetchSource_();
+			return;
+		}
+		this.templateData_ = {
+			...(this.templateData_ || {}),
+			overlaySourceUrl: overlay.blobUrl,
+		};
+		this.fetchAndRender_(overlay.rawUrl);
 	}
 }
 

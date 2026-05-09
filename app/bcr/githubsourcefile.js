@@ -36,19 +36,19 @@ class GitHubSourceFileComponent extends Component {
 	) {
 		super(opt_domHelper);
 
-		/** @private @const @type {!Module} */
+		/** @protected @const @type {!Module} */
 		this.module_ = module;
 
-		/** @private @const @type {!ModuleVersion} */
+		/** @protected @const @type {!ModuleVersion} */
 		this.moduleVersion_ = moduleVersion;
 
-		/** @private @const @type {string} */
+		/** @protected @const @type {string} */
 		this.filePath_ = filePath;
 
 		/** @private @const @type {!Function} */
 		this.templateFn_ = templateFn;
 
-		/** @private @const @type {?Object} */
+		/** @protected @type {?Object} */
 		this.templateData_ = opt_templateData || null;
 
 		/** @private @type {boolean} */
@@ -89,8 +89,9 @@ class GitHubSourceFileComponent extends Component {
 	}
 
 	/**
-	 * Fetch source file from GitHub for the specific commit
-	 * @private
+	 * Fetch source file from GitHub for the specific commit. Subclasses may
+	 * override to substitute a different fetch URL (e.g. a BCR overlay file).
+	 * @protected
 	 */
 	fetchSource_() {
 		const metadata = this.moduleVersion_.getRepositoryMetadata();
@@ -119,11 +120,21 @@ class GitHubSourceFileComponent extends Component {
 		const repo = metadata.getName();
 		const sourceUrl = `https://raw.githubusercontent.com/${org}/${repo}/${commitSha}/${this.filePath_}`;
 
-		// Create an AbortController for timeout
+		this.fetchAndRender_(sourceUrl);
+	}
+
+	/**
+	 * Fetch the file at `url` (with a 10s timeout) and update the source view.
+	 * Subclasses use this when the upstream-repo path doesn't apply (e.g.
+	 * overlay files served from the BCR archive on GitHub).
+	 * @param {string} url
+	 * @protected
+	 */
+	fetchAndRender_(url) {
 		const controller = new AbortController();
 		const timeoutId = setTimeout(() => controller.abort(), 10000);
 
-		fetch(sourceUrl, { signal: controller.signal })
+		fetch(url, { signal: controller.signal })
 			.then((response) => {
 				clearTimeout(timeoutId);
 				if (!response.ok) {
@@ -133,7 +144,6 @@ class GitHubSourceFileComponent extends Component {
 			})
 			.then(
 				/**
-				 * Success callback
 				 * @param {string} content
 				 */
 				(content) => {
@@ -181,4 +191,19 @@ class GitHubSourceFileComponent extends Component {
 	}
 }
 
-exports = { GitHubSourceFileComponent };
+/**
+ * Extracts {owner, repo} from a github.com URL of the forms
+ * `https://github.com/<owner>/<repo>(.git)?` or `git@github.com:<owner>/<repo>.git`.
+ * Returns null if the URL doesn't match GitHub's pattern.
+ * @param {string} url
+ * @return {?{owner: string, repo: string}}
+ */
+function parseGitHubRepoUrl(url) {
+	const m = url.match(
+		/^(?:https:\/\/github\.com\/|git@github\.com:)([^\/]+)\/([^\/]+?)(?:\.git)?\/?$/,
+	);
+	if (!m) return null;
+	return { owner: m[1], repo: m[2] };
+}
+
+exports = { GitHubSourceFileComponent, parseGitHubRepoUrl };

@@ -35,7 +35,7 @@ func moduleRegistryKinds() map[string]rule.KindInfo {
 	}
 }
 
-func makeModuleRegistryRule(name string, subdirs []string, registryURL string, cycleRules []*rule.Rule, cfg *config.Config) *rule.Rule {
+func (ext *bcrExtension) makeModuleRegistryRule(name string, subdirs []string, registryURL string, cycleRules []*rule.Rule, cfg *config.Config) *rule.Rule {
 	r := rule.NewRule(moduleRegistryKind, name)
 	if len(cycleRules) > 0 {
 		cycles := make([]string, len(cycleRules))
@@ -48,11 +48,7 @@ func makeModuleRegistryRule(name string, subdirs []string, registryURL string, c
 	r.SetPrivateAttr("subdirs", subdirs)
 	r.SetAttr("visibility", []string{"//visibility:public"})
 
-	// Fetch registry metadata from git submodule
-	ctx := context.Background()
-	submodulePath := filepath.Join(cfg.RepoRoot, "data", "bazel-central-registry")
-	registry, err := getBazelCentralRegistryMetadata(ctx, submodulePath)
-	if err != nil {
+	if registry, err := ext.loadBcrSubmoduleMetadata(cfg); err != nil {
 		log.Printf("warning: failed to fetch registry metadata: %v", err)
 	} else {
 		r.SetAttr("registry_url", registryURL)
@@ -62,6 +58,28 @@ func makeModuleRegistryRule(name string, subdirs []string, registryURL string, c
 	}
 
 	return r
+}
+
+// loadBcrSubmoduleMetadata reads commit SHA + remote URL from the
+// data/bazel-central-registry git submodule, caching the result on the
+// extension. Multiple call sites (the module_registry rule and overlay-bzl
+// repository generation) need the SHA, but `git` should only run once.
+func (ext *bcrExtension) loadBcrSubmoduleMetadata(cfg *config.Config) (*bzpb.Registry, error) {
+	if ext.bcrCommitSHA != "" {
+		return &bzpb.Registry{
+			RepositoryUrl: ext.bcrRepositoryURL,
+			CommitSha:     ext.bcrCommitSHA,
+		}, nil
+	}
+	ctx := context.Background()
+	submodulePath := filepath.Join(cfg.RepoRoot, "data", "bazel-central-registry")
+	registry, err := getBazelCentralRegistryMetadata(ctx, submodulePath)
+	if err != nil {
+		return nil, err
+	}
+	ext.bcrCommitSHA = registry.CommitSha
+	ext.bcrRepositoryURL = registry.RepositoryUrl
+	return registry, nil
 }
 
 // resolveModuleRegistryRule resolves the deps and bazel_versions attributes for

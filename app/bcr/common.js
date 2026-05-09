@@ -45,6 +45,15 @@ class Application {
 	notifyError(_msg) {}
 
 	/**
+	 * Returns the registry proto loaded at startup, before symbols are decorated.
+	 * Synchronous: components rendering during the initial route can read
+	 * registry-wide metadata (e.g. the BCR submodule URL/commit) without
+	 * awaiting the symbols-load promise.
+	 * @returns {*}
+	 */
+	getRegistry() {}
+
+	/**
 	 * Returns a promise that resolves when symbols are loaded and decorated.
 	 * @returns {!Promise<*>}
 	 */

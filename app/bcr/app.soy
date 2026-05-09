@@ -2861,6 +2861,7 @@ import {
   {@param loading: bool}
   {@param? error: string}
   {@param? content: string}
+  {@param? overlaySourceUrl: string}
 <div style="min-width: 0">
   {if $loading}
     <div class="Box Box--condensed">
@@ -2882,12 +2883,19 @@ import {
         </div>
         {let $fileLabel: $file.getLabel() /}
         {if $fileLabel}
-          {let $githubUrl: githubSourceUrl(moduleVersion: $moduleVersion, label: $fileLabel) /}
-          {if $githubUrl}
-            <a href="{$githubUrl}" target="_blank" rel="noopener noreferrer" class="Link--muted d-flex flex-items-center flex-shrink-0" title="View on GitHub">
+          {if $overlaySourceUrl}
+            <a href="{$overlaySourceUrl}" target="_blank" rel="noopener noreferrer" class="Link--muted d-flex flex-items-center flex-shrink-0" title="View on GitHub">
               {octiconMarkGithub16()}
               <span class="ml-1 hide-sm">{$fileLabel.getPkg() ? $fileLabel.getPkg() + '/' : ''}{$fileLabel.getName()}</span>
             </a>
+          {else}
+            {let $githubUrl: githubSourceUrl(moduleVersion: $moduleVersion, label: $fileLabel) /}
+            {if $githubUrl}
+              <a href="{$githubUrl}" target="_blank" rel="noopener noreferrer" class="Link--muted d-flex flex-items-center flex-shrink-0" title="View on GitHub">
+                {octiconMarkGithub16()}
+                <span class="ml-1 hide-sm">{$fileLabel.getPkg() ? $fileLabel.getPkg() + '/' : ''}{$fileLabel.getName()}</span>
+              </a>
+            {/if}
           {/if}
         {/if}
       </div>

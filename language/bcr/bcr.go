@@ -49,6 +49,7 @@ func NewLanguage() language.Language {
 		moduleSourceRules:        make(map[moduleID]*protoRule[*bzpb.ModuleSource]),
 		bazelReleasesByVersion:   make(map[string]*bzpb.BazelRelease),
 		prAuthorsByPR:            make(map[int]*bzpb.PRAuthor),
+		overlayBzlByID:           make(map[moduleID]bool),
 	}
 }
 
@@ -91,6 +92,9 @@ type bcrExtension struct {
 	docsModuleFilter          string                                          // comma-separated module name prefixes to limit doc generation
 	docsSiteRepo              string                                          // URL of site repo to check for existing docs
 	existingDocs              map[moduleID]bool                               // module versions with docs already on site repo
+	overlayBzlByID            map[moduleID]bool                               // module versions whose BCR overlay contains at least one .bzl file
+	bcrCommitSHA              string                                          // committed SHA of the bazel-central-registry submodule
+	bcrRepositoryURL          string                                          // remote URL of the bazel-central-registry submodule
 }
 
 // Name returns the name of the language. This should be a prefix of the kinds
@@ -309,6 +313,8 @@ func (ext *bcrExtension) GenerateRules(args language.GenerateArgs) language.Gene
 
 	// log.Println("visiting:", args.Rel, args.RegularFiles)
 
+	ext.scanForOverlayBzlFiles(args)
+
 	var rules []*rule.Rule
 
 	// Generate repository metadata in the registry root package
@@ -327,7 +333,7 @@ func (ext *bcrExtension) GenerateRules(args language.GenerateArgs) language.Gene
 				rules = append(rules, cycleRules...)
 			}
 		}
-		rules = append(rules, makeModuleRegistryRule(path.Base(args.Rel), args.Subdirs, ext.registryURL, cycleRules, args.Config))
+		rules = append(rules, ext.makeModuleRegistryRule(path.Base(args.Rel), args.Subdirs, ext.registryURL, cycleRules, args.Config))
 	}
 
 	// create module_metadata rule in the module root
@@ -492,4 +498,29 @@ func (ext *bcrExtension) GenerateRules(args language.GenerateArgs) language.Gene
 
 func inOverlayDir(rel string) bool {
 	return strings.Contains(rel, "/overlay")
+}
+
+// scanForOverlayBzlFiles records, for each module-version whose BCR overlay
+// directory (or any of its descendants) contains a .bzl file, that the module
+// version has overlay starlark. Used later as a fallback signal to generate
+// documentation when the upstream source repo doesn't advertise Starlark.
+func (ext *bcrExtension) scanForOverlayBzlFiles(args language.GenerateArgs) {
+	if ext.modulesRoot == "" || !strings.HasPrefix(args.Rel, ext.modulesRoot+"/") {
+		return
+	}
+	rest, ok := strings.CutPrefix(args.Rel, ext.modulesRoot+"/")
+	if !ok {
+		return
+	}
+	parts := strings.Split(rest, "/")
+	// Expect <name>/<version>/overlay[/...]
+	if len(parts) < 3 || parts[2] != "overlay" {
+		return
+	}
+	for _, f := range args.RegularFiles {
+		if strings.HasSuffix(f, ".bzl") {
+			ext.overlayBzlByID[newModuleID(parts[0], parts[1])] = true
+			return
+		}
+	}
 }

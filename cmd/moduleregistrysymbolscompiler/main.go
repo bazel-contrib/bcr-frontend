@@ -47,13 +47,13 @@ func run(args []string) error {
 		result.ModuleVersion = append(result.ModuleVersion, &symbols)
 	}
 
-	for _, id := range cfg.emptyModuleVers {
-		result.ModuleVersion = append(result.ModuleVersion, &sympb.ModuleVersionSymbols{
-			ModuleName: id.moduleName,
-			Version:    id.moduleVersion,
-			Source:     sympb.SymbolSource_BEST_EFFORT,
-		})
-	}
+	// for _, id := range cfg.emptyModuleVers {
+	// 	result.ModuleVersion = append(result.ModuleVersion, &sympb.ModuleVersionSymbols{
+	// 		ModuleName: id.moduleName,
+	// 		Version:    id.moduleVersion,
+	// 		Source:     sympb.SymbolSource_BEST_EFFORT,
+	// 	})
+	// }
 
 	if err := protoutil.WriteFile(cfg.outputFile, result); err != nil {
 		return fmt.Errorf("failed to write output file: %v", err)
