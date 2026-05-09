@@ -1158,18 +1158,20 @@ class ModuleVersionDependentsComponent extends ContentComponent {
 				? depModule.getVersionsList()[0].getVersion()
 				: "";
 
-			// Create link to module version with version displayed
+			// Match the styling used by moduleDependencyRow (registry.soy):
+			// the name carries the link's default weight, the version
+			// renders alongside it via `ml-1 text-light text-small`. We
+			// keep the matrix's "version then name" reading order, so the
+			// version comes first with `mr-1 text-light text-small`.
+			const versionText = dom.createDom(
+				"span",
+				{ "class": "mr-1 text-light text-small" },
+				latestVersion,
+			);
 			const moduleNameText = dom.createDom(
 				"span",
 				{ "class": "text-bold" },
 				moduleName,
-			);
-			const versionText = dom.createDom(
-				"span",
-				{
-					"class": "mr-2 color-fg-muted text-small",
-				},
-				latestVersion,
 			);
 			const moduleLink = dom.createDom(
 				"a",

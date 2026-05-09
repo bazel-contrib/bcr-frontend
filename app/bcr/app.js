@@ -437,8 +437,37 @@ class RegistryApp extends App {
 			return;
 		}
 		if (segments[0] === "modules") {
-			const names = [...createModuleMap(this.registry_).keys()];
-			this.cycleSibling_(["modules"], names, segments[1], direction);
+			const moduleMap = createModuleMap(this.registry_);
+			/** @type {!Array<string>} */
+			const names = [];
+			moduleMap.forEach((_, key) => names.push(key));
+			if (names.length === 0) return;
+			names.sort((a, b) => {
+				const la = a.toLowerCase();
+				const lb = b.toLowerCase();
+				return la < lb ? -1 : la > lb ? 1 : 0;
+			});
+			const idx = names.indexOf(decodeURIComponent(segments[1]));
+			if (idx === -1) return;
+			const nextName = names[(idx + direction + names.length) % names.length];
+
+			// Preserve only the top-level tab (e.g. "docs", "testing",
+			// "overview") across modules. Deeper subpaths (a specific symbol,
+			// file, or version-specific anchor) don't generalize to the next
+			// module and would 404, so we drop them. The version (segments[2])
+			// is module-specific, so substitute the next module's latest. If
+			// there is no trailing path beyond the version, drop the version
+			// entirely and let the destination module's default route choose.
+			const tab = segments[3];
+			if (!tab) {
+				this.setLocation(["modules", nextName]);
+				return;
+			}
+			const nextModule = moduleMap.get(nextName);
+			const versions = nextModule ? nextModule.getVersionsList() : null;
+			const latestVersion =
+				versions && versions.length > 0 ? versions[0].getVersion() : "latest";
+			this.setLocation(["modules", nextName, latestVersion, tab]);
 			return;
 		}
 		if (
