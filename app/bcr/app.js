@@ -466,9 +466,7 @@ class RegistryApp extends App {
 			const nextModule = moduleMap.get(nextName);
 			const versions = nextModule ? nextModule.getVersionsList() : null;
 			const latestVersion =
-				versions && versions.length > 0
-					? versions[0].getVersion()
-					: "latest";
+				versions && versions.length > 0 ? versions[0].getVersion() : "latest";
 			this.setLocation(["modules", nextName, latestVersion, tab]);
 			return;
 		}

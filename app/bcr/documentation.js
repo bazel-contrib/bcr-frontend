@@ -507,7 +507,7 @@ class ModuleVersionSymbolsSelect extends ContentSelect {
 	 * @private
 	 */
 	hasFileSymbols_() {
-		return !!this.symbols_ && this.symbols_.getFileList().length > 0;
+		return !!this.symbols_ && buildFileSymbolGroups(this.symbols_).length > 0;
 	}
 
 	/**
@@ -542,7 +542,7 @@ class ModuleVersionSymbolsSelect extends ContentSelect {
 			return;
 		}
 
-		if (this.symbols_ && this.symbols_.getFileList().length > 0) {
+		if (this.symbols_ && buildFileSymbolGroups(this.symbols_).length > 0) {
 			if (name === TabName.LIST) {
 				this.addTab(
 					name,

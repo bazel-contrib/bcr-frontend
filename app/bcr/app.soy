@@ -1508,6 +1508,7 @@ import {
       symbols: list<Symbol>
     ]>
   ]>}
+{if length($fileSymbols) > 0}
 <div class="Box Box--condensed">
   <div class="Box-header">
     <div class="Box-title">Module Files {counterLabel(count: length($fileSymbols))}</div>
@@ -1544,6 +1545,7 @@ import {
     {/for}
   </div>
 </div>
+{/if}
 {/template}
 
 {template fileInfoListComponent}
