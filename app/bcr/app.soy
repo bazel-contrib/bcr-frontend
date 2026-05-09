@@ -10,6 +10,7 @@ import {
     octiconChevronRight16,
     octiconChevronUp24,
     octiconCode16,
+    octiconCommentDiscussion16,
     octiconDependabot16,
     octiconDependabot24,
     octiconDotFill16,
@@ -436,13 +437,13 @@ import {
     </a>
     <a class="Link--primary d-flex flex-items-center mb-2"
       href="javascript:void(0)" data-action="next-sibling">
-      <span class="color-fg-muted">Next Module / Maintainer</span>
+      <span class="color-fg-muted">Next Module / Maintainer / Flag</span>
       <span class="dotted-leader"></span>
       {kbd(key: ']')}
     </a>
     <a class="Link--primary d-flex flex-items-center mb-2"
       href="javascript:void(0)" data-action="prev-sibling">
-      <span class="color-fg-muted">Previous Module / Maintainer</span>
+      <span class="color-fg-muted">Previous Module / Maintainer / Flag</span>
       <span class="dotted-leader"></span>
       {kbd(key: '[')}
     </a>
@@ -493,7 +494,7 @@ import {
   {@param? title: string}
   {@param size: int}
   {let $safeName: $name ?? '' /}
-  {let $isBot: $safeName.endsWith('-bot') || $safeName.indexOf('[bot]') >= 0 || $safeName.startsWith('bot/') /}
+  {let $isBot: $safeName.indexOf('[bot]') >= 0 || $safeName == 'publish-to-bcr-bot' /}
 {if $safeName && $isBot}
   <div class="TimelineItem-badge timeline-avatar-badge"
        title="{$title ?? '@' + $safeName}"
@@ -527,7 +528,7 @@ import {
   {@param? displayName: string}
   {@param class: string}
   {let $safeName: $name ?? '' /}
-  {let $isBot: $safeName.endsWith('-bot') || $safeName.indexOf('[bot]') >= 0 || $safeName.startsWith('bot/') /}
+  {let $isBot: $safeName.indexOf('[bot]') >= 0 || $safeName == 'publish-to-bcr-bot' /}
   {if $safeName}
     {if $isBot}
       <span class="{$class}">{$displayName ?? $safeName}</span>
@@ -817,6 +818,56 @@ import {
 {/template}
 
 
+{template bazelFlagsCategoriesTable}
+  {@param categories: list<[name: string, count: int]>}
+<div>
+  {if length($categories) > 0}
+    <div class="Box Box--condensed">
+      {for $cat in $categories}
+        <a href="/#/bazel/flags/category/{$cat.name |escapeUri}"
+           class="Box-row d-flex flex-items-center"
+           style="text-decoration: none;">
+          <span class="text-bold">{$cat.name}</span>
+          <span class="color-fg-muted text-small ml-auto">
+            {$cat.count} flag{$cat.count == 1 ? '' : 's'}
+          </span>
+        </a>
+      {/for}
+    </div>
+  {else}
+    <div class="blankslate p-3">
+      <p>No categories found.</p>
+    </div>
+  {/if}
+</div>
+{/template}
+
+
+{template bazelFlagsTagsTable}
+  {@param tags: list<[name: string, count: int]>}
+<div>
+  {if length($tags) > 0}
+    <div class="Box Box--condensed">
+      {for $tag in $tags}
+        <a href="/#/bazel/flags/tag/{$tag.name |escapeUri}"
+           class="Box-row d-flex flex-items-center"
+           style="text-decoration: none;">
+          <span class="text-bold">{$tag.name}</span>
+          <span class="color-fg-muted text-small ml-auto">
+            {$tag.count} flag{$tag.count == 1 ? '' : 's'}
+          </span>
+        </a>
+      {/for}
+    </div>
+  {else}
+    <div class="blankslate p-3">
+      <p>No tags found.</p>
+    </div>
+  {/if}
+</div>
+{/template}
+
+
 {template bazelFlagsResultsList}
   {@param items: list<[flag: BazelFlag, description: string, current: bool]>}
 <div>
@@ -909,8 +960,21 @@ import {
   {@param totalSymbols: int}
   {@param totalBazelVersions: int}
   {@param uiCommitSha: string}
-<div class="PageLayout PageLayout--panePos-end PageLayout--hasPaneDivider PageLayout--responsive-stackRegions mt-3">
+<div class="PageLayout PageLayout--panePos-start PageLayout--hasPaneDivider PageLayout--responsive-stackRegions PageLayout--responsive-panePos-start mt-3">
 <div class="PageLayout-columns">
+
+  <div class="PageLayout-pane">
+    {call bcrSidePane}
+      {param registry: $registry /}
+      {param totalModules: $totalModules /}
+      {param totalModuleVersions: $totalModuleVersions /}
+      {param totalMaintainers: $totalMaintainers /}
+      {param totalSymbols: $totalSymbols /}
+      {param totalBazelVersions: $totalBazelVersions /}
+      {param uiCommitSha: $uiCommitSha /}
+    {/call}
+  </div>
+
   <div class="PageLayout-content px-3">
     <div class="mb-2">
       <a class="Link--muted f6" href="/#/bazel/flags/list">
@@ -918,7 +982,7 @@ import {
       </a>
     </div>
 
-    <h2 class="h2 d-flex flex-items-center mb-2">
+    <h2 class="h2 d-flex flex-items-center">
       <span class="text-mono">--{$flag.getName()}</span>
       {if $flag.getShort()}
         <span class="color-fg-muted text-mono ml-3 f4">-{$flag.getShort()}</span>
@@ -926,89 +990,119 @@ import {
       {copyToClipboardButton(content: '--' + $flag.getName())}
     </h2>
 
-    <div class="d-flex flex-wrap mb-3">
+    {if $flag.getToggle()}
+      <h3 class="h3 d-flex flex-items-center ml-1 color-fg-muted">
+        <span class="text-mono">--no{$flag.getName()}</span>
+        {copyToClipboardButton(content: '--no' + $flag.getName())}
+      </h3>
+    {/if}
+
+    <div class="d-flex flex-wrap mt-2">
       {if $flag.getType()}
-        <label class="Label Label--secondary mr-2 mb-1">{$flag.getType()}</label>
+        <label class="Label Label--secondary mr-2 mb-1"><span class="text-mono text-bold">{$flag.getType()}</span></label>
       {/if}
       {if $flag.getDefault()}
-        <label class="Label Label--secondary mr-2 mb-1">default: {$flag.getDefault()}</label>
-      {/if}
-      {if $flag.getToggle()}
-        <label class="Label Label--accent mr-2 mb-1">--[no]<span class="text-mono">{$flag.getName()}</span></label>
-      {/if}
-      {if $flag.getCategory()}
-        <label class="Label Label--secondary mr-2 mb-1">{$flag.getCategory()}</label>
+        <label class="Label Label--secondary mr-2 mb-1">default: <span class="text-mono text-bold">{$flag.getDefault()}</span></label>
       {/if}
     </div>
 
     {if length($flag.getDescriptionList()) > 0}
-      <div class="markdown-body color-fg-default mb-4 {css('marked')}">
+      <div class="markdown-body color-fg-default mt-3 {css('marked')}">
         {for $line in $flag.getDescriptionList()}
           {$line}{\n}
         {/for}
       </div>
     {/if}
 
-  </div>
+    <div class="mt-3">
+      <a class="Link--muted d-flex flex-items-center mb-1"
+          href="https://cs.opensource.google/search?q={$flag.getName()}&ss=bazel"
+          target="_blank" rel="noopener noreferrer">
+        <span class="mr-2">{octiconCode16()}</span>
+        <span>Search Bazel source for <span class="text-mono text-semibold">{$flag.getName()}</span></span>
+      </a>
+      <a class="Link--muted d-flex flex-items-center mb-1"
+          href="https://bazelbuild.slack.com/?q={$flag.getName()}"
+          target="_blank" rel="noopener noreferrer">
+        <span class="mr-2">{octiconCommentDiscussion16()}</span>
+        <span>Search Bazel Slack for <span class="text-mono text-semibold">{$flag.getName()}</span></span>
+      </a>
+    </div>
 
-  <div class="PageLayout-pane">
-    <div>
-      <div>
-        {sectionHeader(title: 'Available in')}
-        {if length($versions) > 0}
-          <div class="mt-2 d-flex flex-wrap" style="gap: 6px">
-            {for $v in $versions}
-              {if $v.active}
-                <a class="Label Label--success" href="/#/bazel/{$v.name}" style="text-decoration: none;">
-                  {$v.name}
-                </a>
-              {else}
-                <span class="Label Label--secondary color-fg-subtle" style="opacity: 0.4">
-                  {$v.name}
-                </span>
-              {/if}
-            {/for}
-          </div>
-        {else}
-          <div class="color-fg-muted">No bazel versions recorded for this flag.</div>
-        {/if}
-      </div>
-
+    {if $flag.getCategory()}
       {sectionDivider()}
 
-      <div>
-        {sectionHeader(title: 'Applies to')}
-        {if length($commands) > 0}
-          <div class="mt-2 d-flex flex-wrap" style="gap: 6px">
-            {for $cmd in $commands}
-              <a class="Label {if $cmd.active}Label--accent{else}Label--secondary color-fg-subtle{/if}"
-                 href="/#/bazel/command/{$cmd.name}"
-                 style="text-decoration: none;{if !$cmd.active} opacity: 0.4;{/if}">
-                {$cmd.name}
-              </a>
-            {/for}
-          </div>
-        {else}
-          <div class="color-fg-muted">No subcommands recorded.</div>
-        {/if}
-      </div>
-
-      {if length($flag.getTagList()) > 0}
-        {sectionDivider()}
-
-        <div>
-          {sectionHeader(title: 'Tags')}
-          <div class="mt-2 d-flex flex-wrap" style="gap: 6px">
-            {for $tag in $flag.getTagList()}
-              <a class="Label Label--secondary" href="/#/bazel/flags/tag/{$tag}" style="text-decoration: none;">
-                {$tag}
-              </a>
-            {/for}
-          </div>
+      <div class="mb-3">
+        {sectionHeader(title: 'Category')}
+        <div class="mt-2 d-flex flex-wrap" style="gap: 6px">
+          <a class="Label Label--secondary"
+             href="/#/bazel/flags/category/{$flag.getCategory() |escapeUri}"
+             style="text-decoration: none;">
+            {$flag.getCategory()}
+          </a>
         </div>
+      </div>
+    {/if}
+
+    {if length($flag.getTagList()) > 0}
+      {sectionDivider()}
+
+      <div class="mb-3">
+        {sectionHeader(title: 'Tags')}
+        <div class="mt-2 d-flex flex-wrap" style="gap: 6px">
+          {for $tag in $flag.getTagList()}
+            <a class="Label Label--secondary" href="/#/bazel/flags/tag/{$tag}" style="text-decoration: none;">
+              {$tag}
+            </a>
+          {/for}
+        </div>
+      </div>
+    {/if}
+
+    {sectionDivider()}
+
+    <div class="mb-3">
+      {sectionHeader(title: 'Applies to')}
+      {if length($commands) > 0}
+        <div class="mt-2 d-flex flex-wrap" style="gap: 6px">
+          {for $cmd in $commands}
+            <a class="Label {if $cmd.active}Label--accent{else}Label--secondary color-fg-subtle{/if}"
+               href="/#/bazel/command/{$cmd.name}"
+               style="text-decoration: none;{if !$cmd.active} opacity: 0.4;{/if}">
+              {$cmd.name}
+            </a>
+          {/for}
+        </div>
+      {else}
+        <div class="color-fg-muted">No subcommands recorded.</div>
       {/if}
     </div>
+
+    {sectionDivider()}
+
+    <div class="mb-3">
+      {sectionHeader(title: 'Available in')}
+      {if length($versions) > 0}
+        <div class="mt-2 d-flex flex-wrap" style="gap: 6px">
+          {for $v in $versions}
+            {if $v.active}
+              <a class="Label Label--success" href="/#/bazel/{$v.name}" style="text-decoration: none;">
+                {$v.name}
+              </a>
+            {else}
+              <span class="Label Label--secondary color-fg-subtle" style="opacity: 0.4">
+                {$v.name}
+              </span>
+            {/if}
+          {/for}
+        </div>
+      {else}
+        <div class="color-fg-muted">No bazel versions recorded for this flag.</div>
+      {/if}
+    </div>
+
   </div>
+
 </div>
 </div>
 {/template}

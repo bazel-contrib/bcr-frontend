@@ -29,7 +29,6 @@ function getEffectiveColorMode(ownerDocument) {
 async function highlight(preEl) {
 	const codeEl = preEl.firstElementChild || preEl;
 	const lang = codeEl.getAttribute("lang") || "py";
-	const lineNumbers = codeEl.hasAttribute("linenumbers") || true; // TODO(pcj): why is this not working?  (seems to always be beneficial tho)
 	const text = codeEl.textContent;
 	const theme =
 		"github-" +
@@ -37,7 +36,6 @@ async function highlight(preEl) {
 	const html = await dom.getWindow()["codeToHtml"](text, {
 		lang: lang,
 		theme: theme,
-		lineNumbers: lineNumbers,
 	});
 	preEl.outerHTML = html;
 	dom.dataset.set(preEl, "highlighted", lang);
