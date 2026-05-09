@@ -371,7 +371,6 @@ func createTarball(indexContent []byte, assets []HashedAsset, modulesSrcFiles []
 		if err := addFileToTar(tw, tarName, content); err != nil {
 			return nil, fmt.Errorf("failed to add %s: %v", tarName, err)
 		}
-		log.Printf("Added modules_src: %s", tarName)
 	}
 
 	// Merge entries from a prerendered-pages tarball, if provided. Entries
