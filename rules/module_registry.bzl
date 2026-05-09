@@ -379,7 +379,7 @@ def _compile_colors_action(ctx, colors_json, languages_json):
 
     return output
 
-def _compile_sitemap_action(ctx, registry_pb):
+def _compile_sitemap_action(ctx, registry_pb, bazel_flag_db_pb):
     output = ctx.actions.declare_file("sitemap.xml")
 
     # Build arguments for the compiler
@@ -390,11 +390,13 @@ def _compile_sitemap_action(ctx, registry_pb):
     args.add(registry_pb)
     args.add("--base_url")
     args.add(ctx.attr.registry_url)
+    args.add("--bazel_flag_db_file")
+    args.add(bazel_flag_db_pb)
 
     ctx.actions.run(
         executable = ctx.executable._sitemapcompiler,
         arguments = [args],
-        inputs = [registry_pb],
+        inputs = [registry_pb, bazel_flag_db_pb],
         outputs = [output],
         mnemonic = "CompileSitemap",
         progress_message = "Compiling sitemap",
@@ -471,10 +473,10 @@ def _module_registry_impl(ctx):
     registry_pb = _compile_registry_action(ctx, "registry.pb", modules, symbols_pb)
     registrylite_pb = _compile_registry_action(ctx, "registrylite.pb", modules)
 
-    sitemap_xml = _compile_sitemap_action(ctx, registry_pb)
-    prerender_urls = _write_prerender_urls_action(ctx, deps)
     bazel_help = _compile_bazel_help_registry_action(ctx, bazel_versions)
     bazel_flag_db = _compile_bazel_flag_db_action(ctx, bazel_help)
+    sitemap_xml = _compile_sitemap_action(ctx, registry_pb, bazel_flag_db)
+    prerender_urls = _write_prerender_urls_action(ctx, deps)
 
     return [
         DefaultInfo(files = depset([registry_pb])),

@@ -1,5 +1,6 @@
 goog.module("bcrfrontend.App");
 
+const BazelFlagDb = goog.require("proto.build.stack.bazel.help.v1.BazelFlagDb");
 const ComponentEventType = goog.require("goog.ui.Component.EventType");
 const Registry = goog.require("proto.build.stack.bazel.registry.v1.Registry");
 const asserts = goog.require("goog.asserts");
@@ -410,8 +411,8 @@ class RegistryApp extends App {
 
 	/**
 	 * Cycle to the next/previous sibling within the current section. Works
-	 * on /maintainers/<handle> (cycles maintainers) and /modules/<name>/...
-	 * (cycles modules). No-op elsewhere.
+	 * on /maintainers/<handle>, /modules/<name>/..., and
+	 * /bazel/flags/<flag-name>. No-op elsewhere.
 	 *
 	 * @param {number} direction +1 for next, -1 for previous
 	 * @param {!events.BrowserEvent=} opt_e
@@ -430,33 +431,56 @@ class RegistryApp extends App {
 			.filter(Boolean);
 		if (segments.length < 2) return;
 
-		/** @type {!Array<string>} */
-		let names = [];
 		if (segments[0] === "maintainers") {
-			createMaintainersMap(this.registry_).forEach((_, key) => {
-				names.push(key);
-			});
-		} else if (segments[0] === "modules") {
-			createModuleMap(this.registry_).forEach((_, key) => {
-				names.push(key);
-			});
-		} else {
+			const names = [...createMaintainersMap(this.registry_).keys()];
+			this.cycleSibling_(["maintainers"], names, segments[1], direction);
 			return;
 		}
+		if (segments[0] === "modules") {
+			const names = [...createModuleMap(this.registry_).keys()];
+			this.cycleSibling_(["modules"], names, segments[1], direction);
+			return;
+		}
+		if (
+			segments[0] === "bazel" &&
+			segments[1] === "flags" &&
+			segments.length >= 3 &&
+			segments[2] !== "list" &&
+			segments[2] !== "tag"
+		) {
+			// /bazel/flags/<flag-name> — cycle through every flag in the DB.
+			this.bazelFlagDbLoader_().then((db) => {
+				const typed = /** @type {!BazelFlagDb} */ (db);
+				const names = typed.getFlagList().map((f) => f.getName());
+				this.cycleSibling_(["bazel", "flags"], names, segments[2], direction);
+			});
+			return;
+		}
+	}
 
-		names.sort((a, b) => {
+	/**
+	 * Sorts `names` alphabetically and navigates to `[...prefix, sibling]`
+	 * where `sibling` is the entry `direction` positions away from
+	 * `currentName` (wrapping at the ends).
+	 *
+	 * @private
+	 * @param {!Array<string>} prefix path prefix segments (e.g. ["modules"]).
+	 * @param {!Array<string>} names siblings in the current section.
+	 * @param {string} currentName segment value to match (URL-encoded ok).
+	 * @param {number} direction +1 or -1.
+	 */
+	cycleSibling_(prefix, names, currentName, direction) {
+		if (names.length === 0) return;
+		const sorted = names.slice().sort((a, b) => {
 			const la = a.toLowerCase();
 			const lb = b.toLowerCase();
 			return la < lb ? -1 : la > lb ? 1 : 0;
 		});
-		if (names.length === 0) return;
-
-		const current = decodeURIComponent(segments[1]);
-		const idx = names.indexOf(current);
+		const current = decodeURIComponent(currentName);
+		const idx = sorted.indexOf(current);
 		if (idx === -1) return;
-
-		const next = (idx + direction + names.length) % names.length;
-		this.setLocation([segments[0], names[next]]);
+		const next = (idx + direction + sorted.length) % sorted.length;
+		this.setLocation([...prefix, sorted[next]]);
 	}
 
 	/**

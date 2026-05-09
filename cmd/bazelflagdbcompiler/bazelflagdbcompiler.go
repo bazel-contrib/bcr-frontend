@@ -150,7 +150,11 @@ func buildFlagDb(registry *bhpb.BazelHelpRegistry) *bhpb.BazelFlagDb {
 					}
 					// versions iterated ascending; last wins for canonical metadata.
 					st.canonical = opt
-					st.category = cat.Title
+					// Bazel's help output prints category titles as headings
+					// like "Options that control build execution:" — useful as
+					// a section break in raw output, awkward as a subtitle in
+					// the UI. Strip the trailing colon (and any whitespace).
+					st.category = strings.TrimRight(strings.TrimSpace(cat.Title), ":")
 				}
 			}
 		}

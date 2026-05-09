@@ -5,10 +5,12 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"net/url"
 	"os"
 	"path"
 	"time"
 
+	bhpb "github.com/bazel-contrib/bcr-frontend/build/stack/bazel/help/v1"
 	bzpb "github.com/bazel-contrib/bcr-frontend/build/stack/bazel/registry/v1"
 	"github.com/bazel-contrib/bcr-frontend/pkg/protoutil"
 )
@@ -29,9 +31,10 @@ type URL struct {
 }
 
 type Config struct {
-	RegistryFile string
-	OutputFile   string
-	BaseURL      string
+	RegistryFile    string
+	BazelFlagDbFile string
+	OutputFile      string
+	BaseURL         string
 }
 
 func main() {
@@ -65,7 +68,17 @@ func run(args []string) error {
 		return fmt.Errorf("failed to read registry file: %w", err)
 	}
 
-	sitemap, err := generateSitemap(registry, cfg.BaseURL)
+	// The flag DB is optional — dummy/test builds compile a sitemap with
+	// no flag entries.
+	var flagDb *bhpb.BazelFlagDb
+	if cfg.BazelFlagDbFile != "" {
+		flagDb = &bhpb.BazelFlagDb{}
+		if err := protoutil.ReadFile(cfg.BazelFlagDbFile, flagDb); err != nil {
+			return fmt.Errorf("failed to read bazel flag db file: %w", err)
+		}
+	}
+
+	sitemap, err := generateSitemap(registry, flagDb, cfg.BaseURL)
 	if err != nil {
 		return fmt.Errorf("failed to generate sitemap: %w", err)
 	}
@@ -81,6 +94,7 @@ func run(args []string) error {
 func parseFlags(args []string) (cfg Config, err error) {
 	fs := flag.NewFlagSet("sitemapcompiler", flag.ExitOnError)
 	fs.StringVar(&cfg.RegistryFile, "registry_file", "", "path to the registry protobuf file")
+	fs.StringVar(&cfg.BazelFlagDbFile, "bazel_flag_db_file", "", "optional path to the bazel flag database protobuf (enables /bazel/flags URLs)")
 	fs.StringVar(&cfg.OutputFile, "output_file", "", "path to the output sitemap.xml file")
 	fs.StringVar(&cfg.BaseURL, "base_url", "", "base URL for the sitemap (e.g., https://example.com)")
 	fs.Usage = func() {
@@ -94,7 +108,7 @@ func parseFlags(args []string) (cfg Config, err error) {
 	return
 }
 
-func generateSitemap(registry *bzpb.Registry, baseURL string) (*URLSet, error) {
+func generateSitemap(registry *bzpb.Registry, flagDb *bhpb.BazelFlagDb, baseURL string) (*URLSet, error) {
 	sitemap := &URLSet{
 		Xmlns: "http://www.sitemaps.org/schemas/sitemap/0.9",
 		URLs:  make([]URL, 0),
@@ -113,6 +127,90 @@ func generateSitemap(registry *bzpb.Registry, baseURL string) (*URLSet, error) {
 		ChangeFreq: "daily",
 		Priority:   0.9,
 	})
+
+	// Add Bazel core index pages.
+	for _, p := range []string{"/bazel", "/bazel/versions", "/bazel/flags", "/bazel/flags/list"} {
+		sitemap.URLs = append(sitemap.URLs, URL{
+			Loc:        baseURL + p,
+			ChangeFreq: "weekly",
+			Priority:   0.9,
+		})
+	}
+
+	// Add per-version Bazel pages from the bazel_tools pseudo-module.
+	for _, module := range registry.Modules {
+		if module.Name != "bazel_tools" {
+			continue
+		}
+		for _, version := range module.Versions {
+			if version.Version == "" {
+				continue
+			}
+			u := URL{
+				Loc:        fmt.Sprintf("%s/bazel/%s", baseURL, version.Version),
+				ChangeFreq: "monthly",
+				Priority:   0.7,
+			}
+			if version.Commit != nil && version.Commit.Date != "" {
+				if t, err := time.Parse(time.RFC3339, version.Commit.Date); err == nil {
+					u.LastMod = t.Format("2006-01-02")
+				}
+			}
+			sitemap.URLs = append(sitemap.URLs, u)
+		}
+		break
+	}
+
+	// Add per-flag, per-tag, per-category, and per-command pages from the
+	// flag DB.
+	if flagDb != nil {
+		seenTags := make(map[string]struct{})
+		seenCats := make(map[string]struct{})
+		for _, f := range flagDb.Flag {
+			if f.Name == "" {
+				continue
+			}
+			sitemap.URLs = append(sitemap.URLs, URL{
+				Loc:        fmt.Sprintf("%s/bazel/flags/%s", baseURL, f.Name),
+				ChangeFreq: "monthly",
+				Priority:   0.6,
+			})
+			for _, tag := range f.Tag {
+				if tag == "" {
+					continue
+				}
+				if _, ok := seenTags[tag]; ok {
+					continue
+				}
+				seenTags[tag] = struct{}{}
+				sitemap.URLs = append(sitemap.URLs, URL{
+					Loc:        fmt.Sprintf("%s/bazel/flags/tag/%s", baseURL, tag),
+					ChangeFreq: "monthly",
+					Priority:   0.5,
+				})
+			}
+			if f.Category != "" {
+				if _, ok := seenCats[f.Category]; !ok {
+					seenCats[f.Category] = struct{}{}
+					sitemap.URLs = append(sitemap.URLs, URL{
+						Loc:        fmt.Sprintf("%s/bazel/flags/category/%s", baseURL, url.PathEscape(f.Category)),
+						ChangeFreq: "monthly",
+						Priority:   0.5,
+					})
+				}
+			}
+		}
+		for _, cmd := range flagDb.Commands {
+			if cmd == "" {
+				continue
+			}
+			sitemap.URLs = append(sitemap.URLs, URL{
+				Loc:        fmt.Sprintf("%s/bazel/command/%s", baseURL, cmd),
+				ChangeFreq: "monthly",
+				Priority:   0.5,
+			})
+		}
+	}
 
 	// Iterate through all modules
 	for _, module := range registry.Modules {
