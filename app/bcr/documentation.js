@@ -1904,9 +1904,7 @@ class BzlFileSourceComponent extends GitHubSourceFileComponent {
 	 * @private
 	 */
 	overlayUrls_() {
-		const registry = /** @type {!Registry} */ (
-			getApplication(this).getRegistry()
-		);
+		const registry = getApplication(this).getRegistry();
 		const repoUrl = registry.getRepositoryUrl();
 		const sha = registry.getCommitSha();
 		if (!repoUrl || !sha) return null;

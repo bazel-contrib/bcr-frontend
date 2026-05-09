@@ -5,6 +5,7 @@ goog.module("bcrfrontend.common");
 
 const InputHandler = goog.require("goog.ui.ac.InputHandler");
 const Keyboard = goog.require("stack.ui.Keyboard");
+const Registry = goog.require("proto.build.stack.bazel.registry.v1.Registry");
 const Select = goog.require("stack.ui.Select");
 const dom = goog.require("goog.dom");
 const { Component } = goog.require("stack.ui");
@@ -49,7 +50,7 @@ class Application {
 	 * Synchronous: components rendering during the initial route can read
 	 * registry-wide metadata (e.g. the BCR submodule URL/commit) without
 	 * awaiting the symbols-load promise.
-	 * @returns {*}
+	 * @returns {!Registry}
 	 */
 	getRegistry() {}
 
