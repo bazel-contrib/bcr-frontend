@@ -21,7 +21,8 @@
 	},
 	"javascript": {
 		"formatter": {
-			"enabled": true
+			"enabled": true,
+			"quoteProperties": "preserve"
 		}
 	},
 	"json": {
