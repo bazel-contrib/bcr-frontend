@@ -20,7 +20,6 @@ const (
 	toolName          = "bzlcompiler"
 	debugArgs         = false
 	debugSandbox      = false
-	debugRewrites     = false
 	failOnParseErrors = false
 )
 

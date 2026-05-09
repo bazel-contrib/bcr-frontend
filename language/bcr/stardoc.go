@@ -264,7 +264,69 @@ func (ext *bcrExtension) prepareBzlRepositories() rankedModuleVersionMap {
 			})
 	}
 
+	ext.addOverlayBzlRepositories(versions)
+
 	return versions
+}
+
+// addOverlayBzlRepositories appends rankedVersion entries backed by the BCR
+// archive (with strip_prefix into the per-version overlay) for module-versions
+// whose upstream source repo does NOT advertise Starlark but whose overlay
+// directory contains .bzl files. Skipped when the BCR submodule SHA hasn't
+// been resolved yet (e.g. running outside the registry root).
+func (ext *bcrExtension) addOverlayBzlRepositories(versions rankedModuleVersionMap) {
+	if len(ext.overlayBzlByID) == 0 {
+		return
+	}
+	if ext.bcrCommitSHA == "" {
+		log.Printf("warning: %d overlay-bzl modules detected but BCR submodule SHA unavailable; skipping overlay docs", len(ext.overlayBzlByID))
+		return
+	}
+
+	added := 0
+	replaced := 0
+	for id := range ext.overlayBzlByID {
+		name := id.name()
+		ver := id.version()
+
+		// Skip if upstream repo already advertises Starlark — overlay is
+		// fallback only.
+		if metaRule, ok := ext.moduleMetadataRules[name]; ok &&
+			hasStarlarkLanguage(metaRule.Rule(), ext.repositoriesMetadataByID) {
+			continue
+		}
+
+		lbl := makeBzlRepositoryLabel(string(name), string(ver))
+		r := makeOverlayBzlRepository(lbl, string(name), string(ver), ext.bcrRepositoryURL, ext.bcrCommitSHA)
+
+		// If a source-URL-backed entry for this version exists, replace its
+		// underlying rule: the upstream tarball has no .bzl content so its
+		// rule can't produce docs. The overlay archive is the only viable
+		// source for stardoc.
+		replacedThis := false
+		for _, v := range versions[name] {
+			if v.version == ver {
+				v.bzlRepositoryRule = r
+				v.bzlRepositoryLabel = lbl
+				replaced++
+				replacedThis = true
+				break
+			}
+		}
+		if replacedThis {
+			continue
+		}
+
+		versions[name] = append(versions[name], &rankedVersion{
+			version:            ver,
+			bzlRepositoryRule:  r,
+			bzlRepositoryLabel: lbl,
+		})
+		added++
+	}
+	if added > 0 || replaced > 0 {
+		log.Printf("Overlay-bzl starlark_repository entries: %d added, %d replaced (modules with no upstream Starlark)", added, replaced)
+	}
 }
 
 func (ext *bcrExtension) rankBzlRepositoryVersions(perModuleVersionMvs mvs, bzlRepositories rankedModuleVersionMap) {
@@ -299,7 +361,10 @@ func (ext *bcrExtension) rankBzlRepositoryVersionsForModule(id moduleID, deps mo
 		if !exists {
 			return
 		}
-		if !hasStarlarkLanguage(moduleMetadataProtoRule.Rule(), ext.repositoriesMetadataByID) {
+		// Generate docs if the module's upstream repo advertises Starlark, OR
+		// (as a fallback) if the BCR overlay for this version carries .bzl files.
+		if !hasStarlarkLanguage(moduleMetadataProtoRule.Rule(), ext.repositoriesMetadataByID) &&
+			!ext.overlayBzlByID[id] {
 			continue
 		}
 
@@ -582,6 +647,49 @@ func makeBzlRepository(from label.Label, moduleVersion *bzpb.ModuleVersion, sour
 	r.SetAttr("build_directives", []string{rootDirective})
 
 	return r
+}
+
+// makeOverlayBzlRepository emits a starlark_repository.archive rule that
+// fetches the bazel-central-registry archive itself and points at the per-
+// module-version overlay directory. Used as a fallback when the upstream
+// source repo doesn't advertise Starlark but the BCR overlay carries .bzl
+// files that should be documented.
+func makeOverlayBzlRepository(from label.Label, moduleName, moduleVersion, registryRepoURL, registryCommitSHA string) *rule.Rule {
+	r := rule.NewRule(starlarkRepositoryArchiveKind, from.Repo)
+
+	owner, repo := parseGitHubRepoURL(registryRepoURL)
+	archiveURL := fmt.Sprintf("https://github.com/%s/%s/archive/%s.tar.gz", owner, repo, registryCommitSHA)
+	stripPrefix := fmt.Sprintf("%s-%s/modules/%s/%s/overlay", repo, registryCommitSHA, moduleName, moduleVersion)
+
+	r.SetAttr("urls", []string{archiveURL})
+	r.SetAttr("type", "tar.gz")
+	r.SetAttr("strip_prefix", stripPrefix)
+	r.SetAttr("build_file_generation", "clean")
+	r.SetAttr("languages", []string{starlarkRepositoryLanguageName})
+	r.SetAttr("build_directives", []string{fmt.Sprintf("gazelle:%s_root", starlarkRepositoryLanguageName)})
+
+	return r
+}
+
+// parseGitHubRepoURL extracts owner and repo from a github.com URL of either
+// `https://github.com/<owner>/<repo>(.git)?` or `git@github.com:<owner>/<repo>.git`
+// form, defaulting to "bazelbuild"/"bazel-central-registry" if parsing fails.
+func parseGitHubRepoURL(url string) (owner, repo string) {
+	owner, repo = "bazelbuild", "bazel-central-registry"
+	s := url
+	s = strings.TrimSuffix(s, ".git")
+	if rest, ok := strings.CutPrefix(s, "https://github.com/"); ok {
+		s = rest
+	} else if rest, ok := strings.CutPrefix(s, "git@github.com:"); ok {
+		s = rest
+	} else {
+		return
+	}
+	parts := strings.SplitN(s, "/", 2)
+	if len(parts) == 2 && parts[0] != "" && parts[1] != "" {
+		owner, repo = parts[0], parts[1]
+	}
+	return
 }
 
 // getArchiveTypeOrDefault retuns a default if the url extension is not one of

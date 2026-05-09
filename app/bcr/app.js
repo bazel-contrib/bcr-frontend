@@ -97,6 +97,15 @@ class RegistryApp extends App {
 	}
 
 	/**
+	 * Returns the registry proto loaded at startup (pre-symbol decoration).
+	 * @override
+	 * @returns {!Registry}
+	 */
+	getRegistry() {
+		return this.registry_;
+	}
+
+	/**
 	 * Returns the promise that resolves when symbols are loaded and decorated.
 	 * @override
 	 * @returns {!Promise<!Registry>}
