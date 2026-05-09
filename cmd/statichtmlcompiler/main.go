@@ -7,6 +7,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -81,6 +82,37 @@ func run(args []string) error {
 
 	// Batch mode (one chromedp tab per URL)
 	return processBatch(cfg)
+}
+
+// prerenderMetaAction injects <meta name="bcr:prerendered-path" content="<path>">
+// into <head> just before the snapshot is captured. The path is the URL
+// pathname (no scheme/host), normalized so trailing slashes match — i.e.
+// "/" stays "/", everything else has trailing slashes stripped. The early
+// inline script in index.html reads this meta to decide whether to hide the
+// route-specific .content panel until the SPA has mounted.
+func prerenderMetaAction(targetURL string) chromedp.Action {
+	path := normalizePrerenderPath(targetURL)
+	js := fmt.Sprintf(`(function () {
+  var existing = document.querySelector('meta[name="bcr:prerendered-path"]');
+  if (existing) existing.remove();
+  var m = document.createElement('meta');
+  m.setAttribute('name', 'bcr:prerendered-path');
+  m.setAttribute('content', %q);
+  document.head.appendChild(m);
+})();`, path)
+	return chromedp.Evaluate(js, nil)
+}
+
+func normalizePrerenderPath(rawURL string) string {
+	u, err := url.Parse(rawURL)
+	if err != nil || u.Path == "" {
+		return "/"
+	}
+	p := u.Path
+	if len(p) > 1 {
+		p = strings.TrimRight(p, "/")
+	}
+	return p
 }
 
 // writeRenderedHTML writes content to every path in outputSpec, where
@@ -292,6 +324,7 @@ func runWorkerSingleContext(cfg Config, workerID, start, end int) error {
 				chromedp.Navigate(targetURL),
 				chromedp.WaitReady("body"),
 				chromedp.Sleep(cfg.SettleDelay),
+				prerenderMetaAction(targetURL),
 				chromedp.OuterHTML("html", &html),
 			}
 		} else {
@@ -302,6 +335,7 @@ func runWorkerSingleContext(cfg Config, workerID, start, end int) error {
 			tasks = chromedp.Tasks{
 				chromedp.Evaluate(js, nil),
 				chromedp.Sleep(cfg.SettleDelay),
+				prerenderMetaAction(targetURL),
 				chromedp.OuterHTML("html", &html),
 			}
 		}
@@ -417,6 +451,8 @@ func fetchWithChromedpShared(cfg Config, allocCtx context.Context, targetURL str
 	if cfg.WaitVisible != "" {
 		tasks = append(tasks, chromedp.WaitVisible(cfg.WaitVisible))
 	}
+
+	tasks = append(tasks, prerenderMetaAction(targetURL))
 
 	// Get the rendered HTML
 	tasks = append(tasks, chromedp.OuterHTML("html", &html))

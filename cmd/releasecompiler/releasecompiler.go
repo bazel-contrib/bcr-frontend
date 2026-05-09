@@ -201,23 +201,27 @@ func processModuleRegistrySymbolsFile(documentationRegistryPath string) ([]Hashe
 	}
 	gzipContent := gzipBuf.Bytes()
 
-	// Output as symbols.pb.gz (no hashing - keep predictable name)
+	// Hash the gzip filename so the URL changes on every content-changing
+	// deploy. The frontend discovers the hashed name via a {symbols.pb.gz}
+	// placeholder in index.html.
 	gzOriginalName := "symbols.pb.gz"
+	gzHashedName := hashFilename(gzOriginalName, gzipContent)
 
 	return []HashedAsset{
 		{
 			OriginalPath: documentationRegistryPath,
 			OriginalName: gzOriginalName,
-			HashedName:   gzOriginalName, // No hashing - keep original name
+			HashedName:   gzHashedName,
 			Content:      gzipContent,
 		},
 	}, nil
 }
 
-// processBazelFlagDbFile gzips the BazelFlagDb proto and emits it as
-// bazelflagdb.pb.gz at the tarball root. The frontend fetches it lazily on
-// first navigation to /bazel/flags. An empty path is treated as "skip" so the
-// flag is optional during partial builds.
+// processBazelFlagDbFile gzips the BazelFlagDb proto and emits it as a
+// content-hashed bazelflagdb.<hash>.pb.gz at the tarball root. The frontend
+// fetches it lazily on first navigation to /bazel/flags via a meta-tag URL.
+// An empty path is treated as "skip" so the flag is optional during partial
+// builds.
 func processBazelFlagDbFile(flagDbPath string) ([]HashedAsset, error) {
 	if flagDbPath == "" {
 		return nil, nil
@@ -235,14 +239,16 @@ func processBazelFlagDbFile(flagDbPath string) ([]HashedAsset, error) {
 	if err := gzipWriter.Close(); err != nil {
 		return nil, fmt.Errorf("failed to close gzip writer: %v", err)
 	}
+	gzipContent := gzipBuf.Bytes()
 
 	gzOriginalName := "bazelflagdb.pb.gz"
+	gzHashedName := hashFilename(gzOriginalName, gzipContent)
 	return []HashedAsset{
 		{
 			OriginalPath: flagDbPath,
 			OriginalName: gzOriginalName,
-			HashedName:   gzOriginalName, // No hashing - frontend fetches by stable name.
-			Content:      gzipBuf.Bytes(),
+			HashedName:   gzHashedName,
+			Content:      gzipContent,
 		},
 	}, nil
 }
