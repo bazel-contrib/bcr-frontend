@@ -3,6 +3,15 @@
  * closure_css_binary and renaming.
  */
 
+/* When the prerendered HTML's path doesn't match window.location, the
+ * inline head script in index.html sets html.bcr-booting. Hide the
+ * route-specific content panel until main.js mounts the SPA and the
+ * router renders the correct page. visibility (not display) preserves
+ * layout so there's no reflow when the SPA mounts. */
+html.bcr-booting .content.PageLayout-content {
+	visibility: hidden;
+}
+
 .app-container {
 	background: var(--color-canvas-default);
 	color: var(--color-fg-default);

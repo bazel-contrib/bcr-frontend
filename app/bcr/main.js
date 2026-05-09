@@ -47,6 +47,23 @@ async function main(registryDataBase64) {
 	const app = new RegistryApp(registry, registryWithSymbols, getBazelFlagDb);
 	app.render(document.body);
 	app.start();
+
+	document.documentElement.classList.remove("bcr-booting");
+}
+
+/**
+ * Look up a build-time-substituted asset URL from a meta tag in <head>.
+ * The releasecompiler replaces `{<originalName>}` placeholders in index.html
+ * with content-hashed filenames; the meta tag carries the resolved URL so the
+ * browser bypasses cached payloads after every deploy.
+ *
+ * @param {string} name  meta-tag name (e.g. "bcr:symbols-url")
+ * @return {?string}     the resolved URL, or null if the meta tag is missing
+ */
+function metaUrl(name) {
+	const el = document.querySelector(`meta[name="${name}"]`);
+	const v = el?.getAttribute("content") || "";
+	return v ? v : null;
 }
 
 /**
@@ -59,11 +76,15 @@ function createBazelFlagDbLoader() {
 	return () => {
 		if (cached) return cached;
 		cached = (async () => {
-			const response = await fetch("/bazelflagdb.pb.gz");
-			if (!response.ok) {
+			const url = metaUrl("bcr:bazelflagdb-url");
+			if (!url) {
 				throw new Error(
-					`Failed to fetch bazelflagdb.pb.gz: ${response.status}`,
+					"bazelflagdb URL not set in <meta name=bcr:bazelflagdb-url>",
 				);
+			}
+			const response = await fetch(url);
+			if (!response.ok) {
+				throw new Error(`Failed to fetch ${url}: ${response.status}`);
 			}
 			const gzipData = new Uint8Array(await response.arrayBuffer());
 			const decompressed = await gzipDecode(gzipData);
@@ -127,9 +148,13 @@ function decorateRegistryWithSymbols(registry, symbolsRegistry) {
 function createRegistryWithSymbolsPromise(registry) {
 	return (async () => {
 		try {
-			const response = await fetch("/symbols.pb.gz");
+			const url = metaUrl("bcr:symbols-url");
+			if (!url) {
+				throw new Error("symbols URL not set in <meta name=bcr:symbols-url>");
+			}
+			const response = await fetch(url);
 			if (!response.ok) {
-				throw new Error(`Failed to fetch symbols.pb.gz: ${response.status}`);
+				throw new Error(`Failed to fetch ${url}: ${response.status}`);
 			}
 			const gzipData = new Uint8Array(await response.arrayBuffer());
 			const decompressed = await gzipDecode(gzipData);

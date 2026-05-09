@@ -372,6 +372,7 @@ RELEASE_SRCS = [
 
 RELEASE_HASHED_SRCS = [
     ":bcr.css",
+    "primer.css",
     ":bcr.js",
 ]
 

@@ -25,16 +25,27 @@
 				if (dm) document.documentElement.setAttribute("data-display-mode", dm);
 			} catch (e) {}
 		})();
+		// If this HTML is a prerendered snapshot whose path doesn't match the
+		// URL we're loading at, the body contains stale content (the SPA
+		// fallback served us index.html for a non-prerendered route). Mark
+		// <html> so CSS can hide the route-specific .content panel until
+		// main.js mounts the SPA and the router renders the correct page.
+		(function () {
+			var meta = document.querySelector('meta[name="bcr:prerendered-path"]');
+			if (!meta) return;
+			var snapshot =
+				(meta.getAttribute("content") || "").replace(/\/+$/, "") || "/";
+			var current = window.location.pathname.replace(/\/+$/, "") || "/";
+			if (current !== snapshot) {
+				document.documentElement.classList.add("bcr-booting");
+			}
+		})();
 		</script>
 		<link rel="icon" href="/favicon.png">
 		<link href="/{bcr.css}" type="text/css" rel="stylesheet">
-		<link
-			rel="stylesheet"
-			href="https://cdnjs.cloudflare.com/ajax/libs/Primer/21.1.1/primer.css"
-			integrity="sha512-DQRZcDaNuIkb4JiH6PHalnncWllAK5txkJVocLdyfglJSavW/HxQaJRJeRw5eEPnp+kD1QImSxCwUiOsRrCMEw=="
-			crossorigin="anonymous"
-			referrerpolicy="no-referrer"
-		>
+		<link href="/{primer.css}" type="text/css" rel="stylesheet">
+		<meta name="bcr:symbols-url" content="/{symbols.pb.gz}">
+		<meta name="bcr:bazelflagdb-url" content="/{bazelflagdb.pb.gz}">
 		<script src="/{bcr.js}" defer></script>
 		<script src="/{registry.pb.gz.b64.js}" defer></script>
 	</head>
