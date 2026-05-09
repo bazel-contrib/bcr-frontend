@@ -8,85 +8,23 @@ import (
 	"github.com/bazelbuild/bazel-gazelle/rule"
 )
 
-func TestParseGitHubRepoURL(t *testing.T) {
-	tests := []struct {
-		name      string
-		input     string
-		wantOwner string
-		wantRepo  string
-	}{
-		{
-			name:      "https with .git",
-			input:     "https://github.com/bazelbuild/bazel-central-registry.git",
-			wantOwner: "bazelbuild",
-			wantRepo:  "bazel-central-registry",
-		},
-		{
-			name:      "https without .git",
-			input:     "https://github.com/bazelbuild/bazel-central-registry",
-			wantOwner: "bazelbuild",
-			wantRepo:  "bazel-central-registry",
-		},
-		{
-			name:      "ssh form",
-			input:     "git@github.com:bazelbuild/bazel-central-registry.git",
-			wantOwner: "bazelbuild",
-			wantRepo:  "bazel-central-registry",
-		},
-		{
-			name:      "fork",
-			input:     "https://github.com/some-fork/bazel-central-registry.git",
-			wantOwner: "some-fork",
-			wantRepo:  "bazel-central-registry",
-		},
-		{
-			name:      "unrecognized URL falls back to default",
-			input:     "https://gitlab.com/foo/bar",
-			wantOwner: "bazelbuild",
-			wantRepo:  "bazel-central-registry",
-		},
-		{
-			name:      "empty string falls back to default",
-			input:     "",
-			wantOwner: "bazelbuild",
-			wantRepo:  "bazel-central-registry",
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			gotOwner, gotRepo := parseGitHubRepoURL(tt.input)
-			if gotOwner != tt.wantOwner || gotRepo != tt.wantRepo {
-				t.Errorf("parseGitHubRepoURL(%q) = (%q, %q), want (%q, %q)",
-					tt.input, gotOwner, gotRepo, tt.wantOwner, tt.wantRepo)
-			}
-		})
-	}
-}
-
 func TestMakeOverlayBzlRepository(t *testing.T) {
 	const (
 		moduleName    = "colordiff"
 		moduleVersion = "1.0.22"
-		commitSHA     = "abc123"
-		repoURL       = "https://github.com/bazelbuild/bazel-central-registry.git"
+		registryRoot  = "data/bazel-central-registry"
 	)
 	lbl := makeBzlRepositoryLabel(moduleName, moduleVersion)
-	r := makeOverlayBzlRepository(lbl, moduleName, moduleVersion, repoURL, commitSHA)
+	r := makeOverlayBzlRepository(lbl, moduleName, moduleVersion, registryRoot)
 
-	if got, want := r.Kind(), starlarkRepositoryArchiveKind; got != want {
+	if got, want := r.Kind(), starlarkRepositoryLocalKind; got != want {
 		t.Errorf("kind = %q, want %q", got, want)
 	}
 	if got, want := r.Name(), "bzl.colordiff---1.0.22"; got != want {
 		t.Errorf("name = %q, want %q", got, want)
 	}
-	if got, want := r.AttrString("strip_prefix"), "bazel-central-registry-abc123/modules/colordiff/1.0.22/overlay"; got != want {
-		t.Errorf("strip_prefix = %q, want %q", got, want)
-	}
-	if got, want := r.AttrStrings("urls"), []string{"https://github.com/bazelbuild/bazel-central-registry/archive/abc123.tar.gz"}; len(got) != 1 || got[0] != want[0] {
-		t.Errorf("urls = %v, want %v", got, want)
-	}
-	if got, want := r.AttrString("type"), "tar.gz"; got != want {
-		t.Errorf("type = %q, want %q", got, want)
+	if got, want := r.AttrString("path"), "data/bazel-central-registry/modules/colordiff/1.0.22/overlay"; got != want {
+		t.Errorf("path = %q, want %q", got, want)
 	}
 	if got, want := r.AttrString("build_file_generation"), "clean"; got != want {
 		t.Errorf("build_file_generation = %q, want %q", got, want)
@@ -97,20 +35,12 @@ func TestMakeOverlayBzlRepository(t *testing.T) {
 	if got := r.AttrStrings("build_directives"); len(got) != 1 || got[0] != "gazelle:starlarkrepository_root" {
 		t.Errorf("build_directives = %v, want [gazelle:starlarkrepository_root]", got)
 	}
-}
-
-func TestMakeOverlayBzlRepository_ForkURL(t *testing.T) {
-	lbl := makeBzlRepositoryLabel("foo", "1.0")
-	r := makeOverlayBzlRepository(lbl, "foo", "1.0", "https://github.com/some-fork/bazel-central-registry.git", "deadbeef")
-
-	gotURL := r.AttrStrings("urls")
-	wantURL := "https://github.com/some-fork/bazel-central-registry/archive/deadbeef.tar.gz"
-	if len(gotURL) != 1 || gotURL[0] != wantURL {
-		t.Errorf("urls = %v, want [%q]", gotURL, wantURL)
+	// The local kind must NOT carry archive-only attrs.
+	if got := r.AttrStrings("urls"); len(got) != 0 {
+		t.Errorf("urls should be empty on local kind, got %v", got)
 	}
-	wantStripPrefix := "bazel-central-registry-deadbeef/modules/foo/1.0/overlay"
-	if got := r.AttrString("strip_prefix"); got != wantStripPrefix {
-		t.Errorf("strip_prefix = %q, want %q", got, wantStripPrefix)
+	if got := r.AttrString("strip_prefix"); got != "" {
+		t.Errorf("strip_prefix should be empty on local kind, got %q", got)
 	}
 }
 
@@ -224,8 +154,7 @@ func TestAddOverlayBzlRepositories_OverlayOnlyModule(t *testing.T) {
 		overlayBzlByID:           map[moduleID]bool{newModuleID("colordiff", "1.0.22"): true},
 		moduleMetadataRules:      map[moduleName]*protoRule[*bzpb.ModuleMetadata]{"colordiff": metaRule},
 		repositoriesMetadataByID: repoMeta,
-		bcrCommitSHA:             "abc123",
-		bcrRepositoryURL:         "https://github.com/bazelbuild/bazel-central-registry.git",
+		registryRoot:             "data/bazel-central-registry",
 	}
 
 	versions := make(rankedModuleVersionMap)
@@ -238,9 +167,12 @@ func TestAddOverlayBzlRepositories_OverlayOnlyModule(t *testing.T) {
 	if string(got[0].version) != "1.0.22" {
 		t.Errorf("version = %q, want 1.0.22", got[0].version)
 	}
-	if got, want := got[0].bzlRepositoryRule.AttrString("strip_prefix"),
-		"bazel-central-registry-abc123/modules/colordiff/1.0.22/overlay"; got != want {
-		t.Errorf("strip_prefix = %q, want %q", got, want)
+	if got, want := got[0].bzlRepositoryRule.Kind(), starlarkRepositoryLocalKind; got != want {
+		t.Errorf("kind = %q, want %q", got, want)
+	}
+	if got, want := got[0].bzlRepositoryRule.AttrString("path"),
+		"data/bazel-central-registry/modules/colordiff/1.0.22/overlay"; got != want {
+		t.Errorf("path = %q, want %q", got, want)
 	}
 }
 
@@ -269,8 +201,7 @@ func TestAddOverlayBzlRepositories_ReplacesSourceURLEntry(t *testing.T) {
 		overlayBzlByID:           map[moduleID]bool{newModuleID("colordiff", "1.0.22"): true},
 		moduleMetadataRules:      map[moduleName]*protoRule[*bzpb.ModuleMetadata]{"colordiff": metaRule},
 		repositoriesMetadataByID: repoMeta,
-		bcrCommitSHA:             "abc123",
-		bcrRepositoryURL:         "https://github.com/bazelbuild/bazel-central-registry.git",
+		registryRoot:             "data/bazel-central-registry",
 	}
 	ext.addOverlayBzlRepositories(versions)
 
@@ -278,14 +209,12 @@ func TestAddOverlayBzlRepositories_ReplacesSourceURLEntry(t *testing.T) {
 		t.Fatalf("want 1 ranked version after replace, got %d", got)
 	}
 	v := versions["colordiff"][0]
-	if got, want := v.bzlRepositoryRule.AttrString("strip_prefix"),
-		"bazel-central-registry-abc123/modules/colordiff/1.0.22/overlay"; got != want {
-		t.Errorf("strip_prefix = %q (rule was not replaced), want %q", got, want)
+	if got, want := v.bzlRepositoryRule.Kind(), starlarkRepositoryLocalKind; got != want {
+		t.Errorf("kind = %q (rule was not replaced), want %q", got, want)
 	}
-	gotURLs := v.bzlRepositoryRule.AttrStrings("urls")
-	wantURL := "https://github.com/bazelbuild/bazel-central-registry/archive/abc123.tar.gz"
-	if len(gotURLs) != 1 || gotURLs[0] != wantURL {
-		t.Errorf("urls = %v, want [%q]", gotURLs, wantURL)
+	if got, want := v.bzlRepositoryRule.AttrString("path"),
+		"data/bazel-central-registry/modules/colordiff/1.0.22/overlay"; got != want {
+		t.Errorf("path = %q, want %q", got, want)
 	}
 }
 
@@ -313,31 +242,33 @@ func TestAddOverlayBzlRepositories_SkipsWhenUpstreamHasStarlark(t *testing.T) {
 		overlayBzlByID:           map[moduleID]bool{newModuleID("rules_foo", "1.0"): true},
 		moduleMetadataRules:      map[moduleName]*protoRule[*bzpb.ModuleMetadata]{"rules_foo": metaRule},
 		repositoriesMetadataByID: repoMeta,
-		bcrCommitSHA:             "abc123",
-		bcrRepositoryURL:         "https://github.com/bazelbuild/bazel-central-registry.git",
+		registryRoot:             "data/bazel-central-registry",
 	}
 	ext.addOverlayBzlRepositories(versions)
 
 	v := versions["rules_foo"][0]
+	if got, want := v.bzlRepositoryRule.Kind(), starlarkRepositoryArchiveKind; got != want {
+		t.Errorf("kind = %q (overlay should be skipped), want %q", got, want)
+	}
 	if got, want := v.bzlRepositoryRule.AttrString("strip_prefix"), "rules_foo-1.0"; got != want {
 		t.Errorf("strip_prefix mutated to %q (overlay should be skipped), want %q", got, want)
 	}
 }
 
-func TestAddOverlayBzlRepositories_NoSHASkips(t *testing.T) {
-	// Defensive: when BCR commit SHA hasn't been resolved yet (e.g. running
-	// outside the registry root), the overlay pass must not produce
-	// half-initialized rules.
+func TestAddOverlayBzlRepositories_NoRegistryRootSkips(t *testing.T) {
+	// Defensive: when registryRoot hasn't been resolved (e.g. running outside
+	// the registry root), the overlay pass must not produce half-initialized
+	// rules with empty path attrs.
 	metaRule, repoMeta := fakeNonStarlarkMetadataRule()
 	ext := &bcrExtension{
 		overlayBzlByID:           map[moduleID]bool{newModuleID("colordiff", "1.0.22"): true},
 		moduleMetadataRules:      map[moduleName]*protoRule[*bzpb.ModuleMetadata]{"colordiff": metaRule},
 		repositoriesMetadataByID: repoMeta,
-		// bcrCommitSHA intentionally empty
+		// registryRoot intentionally empty
 	}
 	versions := make(rankedModuleVersionMap)
 	ext.addOverlayBzlRepositories(versions)
 	if len(versions) != 0 {
-		t.Errorf("want empty versions when SHA missing, got %v", versions)
+		t.Errorf("want empty versions when registryRoot missing, got %v", versions)
 	}
 }

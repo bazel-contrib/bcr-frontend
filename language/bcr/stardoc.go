@@ -27,6 +27,7 @@ const (
 	bzlRepositoryPrefix                   = "bzl."
 	httpArchiveKind                       = "http_archive"
 	starlarkRepositoryArchiveKind         = "starlark_repository.archive"
+	starlarkRepositoryLocalKind           = "starlark_repository.local"
 	starlarkRepositoryModuleExtensionName = "starlark_repository"
 	starlarkRepositoryLanguageName        = "starlarkrepository"
 )
@@ -269,17 +270,18 @@ func (ext *bcrExtension) prepareBzlRepositories() rankedModuleVersionMap {
 	return versions
 }
 
-// addOverlayBzlRepositories appends rankedVersion entries backed by the BCR
-// archive (with strip_prefix into the per-version overlay) for module-versions
-// whose upstream source repo does NOT advertise Starlark but whose overlay
-// directory contains .bzl files. Skipped when the BCR submodule SHA hasn't
-// been resolved yet (e.g. running outside the registry root).
+// addOverlayBzlRepositories appends rankedVersion entries backed by a local
+// path into the BCR submodule for module-versions whose upstream source repo
+// does NOT advertise Starlark but whose overlay directory contains .bzl
+// files. Uses the on-disk submodule (no network) — the alternative of
+// fetching the BCR archive from GitHub once per module-version exhausts the
+// rate limit.
 func (ext *bcrExtension) addOverlayBzlRepositories(versions rankedModuleVersionMap) {
 	if len(ext.overlayBzlByID) == 0 {
 		return
 	}
-	if ext.bcrCommitSHA == "" {
-		log.Printf("warning: %d overlay-bzl modules detected but BCR submodule SHA unavailable; skipping overlay docs", len(ext.overlayBzlByID))
+	if ext.registryRoot == "" {
+		log.Printf("warning: %d overlay-bzl modules detected but registry root unavailable; skipping overlay docs", len(ext.overlayBzlByID))
 		return
 	}
 
@@ -297,7 +299,7 @@ func (ext *bcrExtension) addOverlayBzlRepositories(versions rankedModuleVersionM
 		}
 
 		lbl := makeBzlRepositoryLabel(string(name), string(ver))
-		r := makeOverlayBzlRepository(lbl, string(name), string(ver), ext.bcrRepositoryURL, ext.bcrCommitSHA)
+		r := makeOverlayBzlRepository(lbl, string(name), string(ver), ext.registryRoot)
 
 		// If a source-URL-backed entry for this version exists, replace its
 		// underlying rule: the upstream tarball has no .bzl content so its
@@ -484,7 +486,7 @@ func mergeGeneratedModuleBazelFile(repoRoot string, binaryProtoHttpArchives []*r
 				r.Delete()
 				deletedRules++
 			}
-		case starlarkRepositoryArchiveKind:
+		case starlarkRepositoryArchiveKind, starlarkRepositoryLocalKind:
 			if strings.HasPrefix(r.Name(), bzlRepositoryPrefix) {
 				r.Delete()
 				deletedRules++
@@ -649,47 +651,24 @@ func makeBzlRepository(from label.Label, moduleVersion *bzpb.ModuleVersion, sour
 	return r
 }
 
-// makeOverlayBzlRepository emits a starlark_repository.archive rule that
-// fetches the bazel-central-registry archive itself and points at the per-
-// module-version overlay directory. Used as a fallback when the upstream
-// source repo doesn't advertise Starlark but the BCR overlay carries .bzl
-// files that should be documented.
-func makeOverlayBzlRepository(from label.Label, moduleName, moduleVersion, registryRepoURL, registryCommitSHA string) *rule.Rule {
-	r := rule.NewRule(starlarkRepositoryArchiveKind, from.Repo)
+// makeOverlayBzlRepository emits a starlark_repository.local rule that points
+// at the on-disk BCR overlay directory for this module-version. Used as a
+// fallback when the upstream source repo doesn't advertise Starlark but the
+// BCR overlay carries .bzl files that should be documented.
+//
+// registryRoot is the workspace-relative path to the BCR root (e.g.
+// "data/bazel-central-registry"). Using a local path avoids ~449 parallel
+// fetches of the same github.com archive (which trip GitHub's 429 rate
+// limit) and skips redundant per-rule extraction of a 100MB tarball.
+func makeOverlayBzlRepository(from label.Label, moduleName, moduleVersion, registryRoot string) *rule.Rule {
+	r := rule.NewRule(starlarkRepositoryLocalKind, from.Repo)
 
-	owner, repo := parseGitHubRepoURL(registryRepoURL)
-	archiveURL := fmt.Sprintf("https://github.com/%s/%s/archive/%s.tar.gz", owner, repo, registryCommitSHA)
-	stripPrefix := fmt.Sprintf("%s-%s/modules/%s/%s/overlay", repo, registryCommitSHA, moduleName, moduleVersion)
-
-	r.SetAttr("urls", []string{archiveURL})
-	r.SetAttr("type", "tar.gz")
-	r.SetAttr("strip_prefix", stripPrefix)
+	r.SetAttr("path", filepath.Join(registryRoot, "modules", moduleName, moduleVersion, "overlay"))
 	r.SetAttr("build_file_generation", "clean")
 	r.SetAttr("languages", []string{starlarkRepositoryLanguageName})
 	r.SetAttr("build_directives", []string{fmt.Sprintf("gazelle:%s_root", starlarkRepositoryLanguageName)})
 
 	return r
-}
-
-// parseGitHubRepoURL extracts owner and repo from a github.com URL of either
-// `https://github.com/<owner>/<repo>(.git)?` or `git@github.com:<owner>/<repo>.git`
-// form, defaulting to "bazelbuild"/"bazel-central-registry" if parsing fails.
-func parseGitHubRepoURL(url string) (owner, repo string) {
-	owner, repo = "bazelbuild", "bazel-central-registry"
-	s := url
-	s = strings.TrimSuffix(s, ".git")
-	if rest, ok := strings.CutPrefix(s, "https://github.com/"); ok {
-		s = rest
-	} else if rest, ok := strings.CutPrefix(s, "git@github.com:"); ok {
-		s = rest
-	} else {
-		return
-	}
-	parts := strings.SplitN(s, "/", 2)
-	if len(parts) == 2 && parts[0] != "" && parts[1] != "" {
-		owner, repo = parts[0], parts[1]
-	}
-	return
 }
 
 // getArchiveTypeOrDefault retuns a default if the url extension is not one of

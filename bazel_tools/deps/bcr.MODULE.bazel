@@ -32,18 +32,78 @@ browsers.chrome()
 # Overrides
 # -------------------------------------------------------------------
 
+# Commit: 6d6b24a0456a381dc9b2c32da53152fb9cdf1347
+# Date: 2026-05-09 19:11:12 +0000 UTC
+# URL: https://github.com/stackb/rules_proto/commit/6d6b24a0456a381dc9b2c32da53152fb9cdf1347
+#
+# starlark_repository: add .local() tag class for on-disk repos
+#
+# Lets MODULE.bazel point starlark_repository at a workspace-local path
+# instead of an http_archive. Useful when the source already lives on
+# disk — e.g. a git submodule — and we want to skip the network fetch
+# entirely. The bcr-frontend project hits this with ~449 overlay-bzl
+# modules that all derive from the same bazel-central-registry archive;
+# emitting one `.archive(urls=...)` per module trips GitHub's 429 rate
+# limit on cold caches.
+#
+# Changes
+# - extensions/starlark_repository.bzl: new `local` tag class with attrs
+#   {name, path, build_directives, build_file_generation, languages,
+#   cfgs, imports, imports_out (default "imports.csv"), deleted_files,
+#   reresolve_known_proto_imports, importpath}. The extension impl maps
+#   user-facing `path` to the underlying `local_path` attr and dispatches
+#   to the same starlark_repository repo rule used by `.archive`.
+# - rules/proto/proto_repository.bzl: in `_proto_repository_impl`'s
+#   local_path branch, resolve workspace-relative paths against the main
+#   workspace root (via Label("@@//:MODULE.bazel").dirname) before
+#   passing them to ctx.watch_tree() and fetch_repo's --path arg. Bare
+#   strings were otherwise interpreted relative to the external repo's
+#   own dir, where the directory doesn't exist.
+# - rules/proto/proto_repository.bzl: in _generate_proto_repository_info,
+#   return empty string when imports_out is unset, so a future caller
+#   with no imports_out can't trip `exports_files([""])`.
+#
+# Usage:
+#
+#     starlark_repository = use_extension(
+#         "@build_stack_rules_proto//extensions:starlark_repository.bzl",
+#         "starlark_repository",
+#     )
+#     starlark_repository.local(
+#         name = "bzl.colordiff---1.0.22",
+#         path = "data/bazel-central-registry/modules/colordiff/1.0.22/overlay",
+#         build_directives = ["gazelle:starlarkrepository_root"],
+#         build_file_generation = "clean",
+#         languages = ["starlarkrepository"],
+#     )
+#     use_repo(starlark_repository, "bzl.colordiff---1.0.22")
+# Size: 4113640 (4.1 MB)
+archive_override(
+    name = "build_stack_rules_proto",
+    sha256 = "d86b5e0229207e862ce175cc3559f83d011f1528a8bf5539dec88a8ca2905e3f",
+    strip_prefix = "rules_proto-6d6b24a0456a381dc9b2c32da53152fb9cdf1347",
+    urls = ["https://github.com/stackb/rules_proto/archive/6d6b24a0456a381dc9b2c32da53152fb9cdf1347.tar.gz"],
+)
+
+# Local checkout while developing the `starlark_repository.local` tag class.
+# Swap back to archive_override (commented below) once a release is cut.
+# local_path_override(
+#     module_name = "build_stack_rules_proto",
+#     path = "../../stackb/rules_proto",
+# )
+
 # Commit: 3bcf945833dc086651abb8ebfb83dc8bf9da90ce
 # Date: 2025-12-13 15:49:51 +0000 UTC
 # URL: https://github.com/stackb/rules_proto/commit/3bcf945833dc086651abb8ebfb83dc8bf9da90ce
 #
 # checkpoint functioning version
 # Size: 4101266 (4.1 MB)
-archive_override(
-    module_name = "build_stack_rules_proto",
-    sha256 = "ca886c5aed0a93ea2c10397c50f6d2743109347e52832096ebb2e1846ffa3b14",
-    strip_prefix = "rules_proto-3bcf945833dc086651abb8ebfb83dc8bf9da90ce",
-    urls = ["https://github.com/stackb/rules_proto/archive/3bcf945833dc086651abb8ebfb83dc8bf9da90ce.tar.gz"],
-)
+# archive_override(
+#     module_name = "build_stack_rules_proto",
+#     sha256 = "ca886c5aed0a93ea2c10397c50f6d2743109347e52832096ebb2e1846ffa3b14",
+#     strip_prefix = "rules_proto-3bcf945833dc086651abb8ebfb83dc8bf9da90ce",
+#     urls = ["https://github.com/stackb/rules_proto/archive/3bcf945833dc086651abb8ebfb83dc8bf9da90ce.tar.gz"],
+# )
 
 # Commit: 8c7ea42b02671b60182ce298a1f386bee9960136
 # Date: 2025-12-10 18:31:16 +0000 UTC
