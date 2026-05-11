@@ -54,6 +54,8 @@ import {
   LoadStmt,
   LoadSymbol,
   MacroFunction,
+  Struct,
+  StructField,
   SymbolLocation,
   Value
 } from 'build/stack/starlark/v1beta1/starlark.proto';
@@ -1561,6 +1563,7 @@ import {
   {@param ruleMacros: list<Symbol>}
   {@param loads: list<Symbol>}
   {@param values: list<Symbol>}
+  {@param structs: list<Symbol>}
 <div style="min-width: 0">
   <div class="Subhead mb-2" style="border-bottom: none;">
     <div class="Subhead-heading d-flex flex-items-center">
@@ -1613,6 +1616,9 @@ import {
       {/if}
       {if length($providers) > 0}
         {symbolListBox(file: $file, symbols: $providers, title: 'Providers')}
+      {/if}
+      {if length($structs) > 0}
+        {symbolListBox(file: $file, symbols: $structs, title: 'Structs')}
       {/if}
       {if length($aspects) > 0}
         {symbolListBox(file: $file, symbols: $aspects, title: 'Aspects')}
@@ -2308,6 +2314,76 @@ import {
 </div>
 {/template}
 
+{template structInfoComponent}
+  {@param moduleVersion: ModuleVersion}
+  {@param file: File}
+  {@param sym: Symbol}
+  {@param fieldEntries: list<[field: StructField, resolved: Symbol|null]>}
+<div style="min-width: 0">
+  {call symbolInfoHeader}
+    {param moduleVersion: $moduleVersion /}
+    {param file: $file /}
+    {param sym: $sym /}
+    {param location: $sym.getStruct()?.getLocation() /}
+  {/call}
+
+  {if length($fieldEntries) > 0}
+    {structFieldListBox(file: $file, entries: $fieldEntries, title: 'Fields')}
+  {/if}
+</div>
+{/template}
+
+{template structFieldListBox visibility="private"}
+  {@param file: File}
+  {@param entries: list<[field: StructField, resolved: Symbol|null]>}
+  {@param title: string}
+<div class="Box Box--condensed mt-3">
+  <div class="Box-header">
+    <div class="Box-title">{$title} {counterLabel(count: length($entries))}</div>
+  </div>
+  <div>
+    {for $entry in $entries}
+      {structFieldListItem(file: $file, field: $entry.field, resolved: $entry.resolved)}
+    {/for}
+  </div>
+</div>
+{/template}
+
+{template structFieldListItem visibility="private"}
+  {@param file: File}
+  {@param field: StructField}
+  {@param resolved: Symbol|null}
+  {let $target: $field.getTargetSymbol() /}
+  {let $qualified: $field.getQualifiedName() /}
+<div class="Box-row d-flex flex-items-start">
+  <div class="flex-auto">
+    <div class="d-flex flex-items-center flex-wrap" style="gap: 6px;">
+      <span class="text-semibold text-mono">{$field.getName()}</span>
+      {if $target}
+        <span class="color-fg-muted">{sp}→{sp}</span>
+        <code class="color-fg-muted">{$target}</code>
+      {/if}
+      {if $resolved && $qualified}
+        <a class="text-mono" href="{symbolInfoUrl(file: $file, sym: $resolved)}"
+           style="color: var({symbolColor(type: $resolved.getType())})">
+          {$qualified}
+        </a>
+        {symbolTypeChip(type: $resolved.getType())}
+      {elseif $qualified && $qualified != $field.getName()}
+        <span class="text-mono color-fg-muted">{$qualified}</span>
+      {/if}
+    </div>
+  </div>
+</div>
+{/template}
+
+{template symbolTypeChip visibility="private"}
+  {@param type: int}
+  <span class="Label" style="background-color: var({symbolColor(type: $type)}); color: var(--color-fg-on-emphasis); font-size: 10px;">
+    {symbolTypeName(type: $type)}
+  </span>
+{/template}
+
 {template repositoryRuleInfoComponent}
   {@param moduleVersion: ModuleVersion}
   {@param file: File}
@@ -2745,6 +2821,8 @@ import {
     --color-prettylights-syntax-storage-modifier-import
   {case SymbolType.SYMBOL_TYPE_VALUE}
     --color-prettylights-syntax-markup-list
+  {case SymbolType.SYMBOL_TYPE_STRUCT}
+    --color-prettylights-syntax-markup-italic
   {default}
     --color-fg-default
 {/switch}
@@ -2773,6 +2851,8 @@ import {
     Load
   {case SymbolType.SYMBOL_TYPE_VALUE}
     Value
+  {case SymbolType.SYMBOL_TYPE_STRUCT}
+    Struct
   {default}
     Unknown
 {/switch}

@@ -19,6 +19,7 @@ enum SymbolType {
     SYMBOL_TYPE_RULE_MACRO = 8;
     SYMBOL_TYPE_VALUE = 9;
     SYMBOL_TYPE_LOAD_STMT = 10;
+    SYMBOL_TYPE_STRUCT = 11;
 }
 
 // Information about a Starlark symbol exported from a .bzl file
@@ -41,6 +42,7 @@ message Symbol {
         build.stack.starlark.v1beta1.RuleMacro rule_macro = 12;
         build.stack.starlark.v1beta1.Value value = 13;
         build.stack.starlark.v1beta1.LoadStmt load = 14;
+        build.stack.starlark.v1beta1.Struct struct = 15;
     }
 }
 

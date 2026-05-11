@@ -273,7 +273,12 @@ def _compile_bzl_for_module_version(ctx, mv, all_mv_by_id):
     args.add("--server_jar_file", ctx.file._starlarkserverjar)
 
     # use these for development
-    # args.add("--port", 3535)  # e.g. java -jar ./cmd/bzlcompiler/constellate.jar --listen_port=3535
+    #
+    # git checkout /Users/pcj/go/src/github.com/pcj/bazel
+    # git checkout master
+    # bazel run //src/main/java/build/stack/devtools/build/constellate:server -- --listen_port=3535 2>&1 | tee starlarkserver.log
+    # args.add("--port", 3524)  # e.g. java -jar ./cmd/bzlcompiler/constellate.jar --listen_port=3535
+
     # args.add("--error_limit=0")
     args.add("--log_file", "/tmp/bzlcompiler.log")
 
@@ -578,7 +583,7 @@ module_registry = rule(
             providers = [java_common.JavaRuntimeInfo],
         ),
         "_starlarkserverjar": attr.label(
-            default = "@github_com_pcj_bazel_releases_download_constellate_v0_1_0_constellate_server_jar//jar:file",
+            default = "@constellate_server_jar//jar:file",
             allow_single_file = True,
         ),
         "_bzl_bazel_tools": attr.label(

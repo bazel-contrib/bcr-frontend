@@ -17,6 +17,7 @@ const ProviderFieldInfo = goog.require(
 	"proto.stardoc_output.ProviderFieldInfo",
 );
 const Symbol = goog.require("proto.build.stack.bazel.symbol.v1.Symbol");
+const SymbolType = goog.require("proto.build.stack.bazel.symbol.v1.SymbolType");
 
 /**
  * Helper class for building Starlark function call examples
@@ -278,6 +279,36 @@ function generateAspectExample(moduleVersion, file, sym) {
 exports.generateAspectExample = generateAspectExample;
 
 /**
+ * If symbolName is a qualified struct-field name (e.g. "types.is_bool"),
+ * locate the parent struct symbol in the same file and return its name
+ * (e.g. "types"). Returns null for ordinary top-level names.
+ *
+ * @param {!File} file
+ * @param {string} symbolName
+ * @returns {?string}
+ */
+function findParentStructName(file, symbolName) {
+	if (symbolName.indexOf(".") < 0) {
+		return null;
+	}
+	for (const sym of file.getSymbolList()) {
+		if (sym.getType() !== SymbolType.SYMBOL_TYPE_STRUCT) {
+			continue;
+		}
+		const struct = sym.getStruct();
+		if (!struct) {
+			continue;
+		}
+		for (const field of struct.getFieldList()) {
+			if (field.getQualifiedName() === symbolName) {
+				return sym.getName();
+			}
+		}
+	}
+	return null;
+}
+
+/**
  * Generate a load statement for the current symbol
  *
  * @param {!ModuleVersion} moduleVersion
@@ -291,12 +322,15 @@ function generateLoadStatement(moduleVersion, file, symbolName) {
 		return "";
 	}
 
+	const parent = findParentStructName(file, symbolName);
+	const loadName = parent || symbolName;
+
 	// Create a new Label with the module name as repo
 	const loadLabel = label.clone();
 	loadLabel.setRepo(moduleVersion.getName());
 
 	const loadPath = formatLabel(loadLabel);
-	return `load("${loadPath}", "${symbolName}")`;
+	return `load("${loadPath}", "${loadName}")`;
 }
 
 /**
