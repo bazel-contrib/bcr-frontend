@@ -40,7 +40,7 @@ go_binary(
 java_binary(
     name = "starlarkserver",
     main_class = "build.stack.devtools.build.constellate.RemoteStarlarkServer",
-    runtime_deps = ["@github_com_pcj_bazel_releases_download_constellate_v0_1_0_constellate_server_jar//jar"],
+    runtime_deps = ["@constellate_server_jar//jar"],
 )
 
 go_test(

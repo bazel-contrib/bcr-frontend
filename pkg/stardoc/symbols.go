@@ -349,6 +349,28 @@ func processValue(value *slpb.Value) {
 	processSymbolLocation(value.Location)
 }
 
+func processStructField(field *slpb.StructField) {
+	processSymbolLocation(field.Location)
+}
+
+func processStruct(s *slpb.Struct) {
+	s.DocString = processDocString(s.DocString)
+	for _, field := range s.Field {
+		processStructField(field)
+	}
+	processSymbolLocation(s.Location)
+}
+
+func makeStructSymbol(s *slpb.Struct) *sympb.Symbol {
+	processStruct(s)
+	return &sympb.Symbol{
+		Type:        sympb.SymbolType_SYMBOL_TYPE_STRUCT,
+		Name:        s.Name,
+		Description: s.DocString,
+		Info:        &sympb.Symbol_Struct{Struct: s},
+	}
+}
+
 func makeValueSymbol(name string, value *slpb.Value) *sympb.Symbol {
 	processValue(value)
 	// Create a description based on the value type
@@ -476,6 +498,11 @@ func makeSymbolsFromModule(module *slpb.Module) []*sympb.Symbol {
 	for _, macro := range module.Macro {
 		symbol := makeMacroSymbol(macro.Info, macro)
 		symbols = append(symbols, symbol)
+	}
+
+	// Process structs
+	for _, s := range module.Struct {
+		symbols = append(symbols, makeStructSymbol(s))
 	}
 
 	// Process load statements

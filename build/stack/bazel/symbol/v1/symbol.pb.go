@@ -36,6 +36,7 @@ const (
 	SymbolType_SYMBOL_TYPE_RULE_MACRO       SymbolType = 8
 	SymbolType_SYMBOL_TYPE_VALUE            SymbolType = 9
 	SymbolType_SYMBOL_TYPE_LOAD_STMT        SymbolType = 10
+	SymbolType_SYMBOL_TYPE_STRUCT           SymbolType = 11
 )
 
 // Enum value maps for SymbolType.
@@ -52,6 +53,7 @@ var (
 		8:  "SYMBOL_TYPE_RULE_MACRO",
 		9:  "SYMBOL_TYPE_VALUE",
 		10: "SYMBOL_TYPE_LOAD_STMT",
+		11: "SYMBOL_TYPE_STRUCT",
 	}
 	SymbolType_value = map[string]int32{
 		"SYMBOL_TYPE_UNKNOWN":          0,
@@ -65,6 +67,7 @@ var (
 		"SYMBOL_TYPE_RULE_MACRO":       8,
 		"SYMBOL_TYPE_VALUE":            9,
 		"SYMBOL_TYPE_LOAD_STMT":        10,
+		"SYMBOL_TYPE_STRUCT":           11,
 	}
 )
 
@@ -161,6 +164,7 @@ type Symbol struct {
 	//	*Symbol_RuleMacro
 	//	*Symbol_Value
 	//	*Symbol_Load
+	//	*Symbol_Struct
 	Info          isSymbol_Info `protobuf_oneof:"info"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -314,6 +318,15 @@ func (x *Symbol) GetLoad() *v1beta1.LoadStmt {
 	return nil
 }
 
+func (x *Symbol) GetStruct() *v1beta1.Struct {
+	if x != nil {
+		if x, ok := x.Info.(*Symbol_Struct); ok {
+			return x.Struct
+		}
+	}
+	return nil
+}
+
 type isSymbol_Info interface {
 	isSymbol_Info()
 }
@@ -358,6 +371,10 @@ type Symbol_Load struct {
 	Load *v1beta1.LoadStmt `protobuf:"bytes,14,opt,name=load,proto3,oneof"`
 }
 
+type Symbol_Struct struct {
+	Struct *v1beta1.Struct `protobuf:"bytes,15,opt,name=struct,proto3,oneof"`
+}
+
 func (*Symbol_Rule) isSymbol_Info() {}
 
 func (*Symbol_Func) isSymbol_Info() {}
@@ -377,6 +394,8 @@ func (*Symbol_RuleMacro) isSymbol_Info() {}
 func (*Symbol_Value) isSymbol_Info() {}
 
 func (*Symbol_Load) isSymbol_Info() {}
+
+func (*Symbol_Struct) isSymbol_Info() {}
 
 type File struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -666,7 +685,7 @@ var File_build_stack_bazel_symbol_v1_symbol_proto protoreflect.FileDescriptor
 
 const file_build_stack_bazel_symbol_v1_symbol_proto_rawDesc = "" +
 	"\n" +
-	"(build/stack/bazel/symbol/v1/symbol.proto\x12\x1bbuild.stack.bazel.symbol.v1\x1a+build/stack/starlark/v1beta1/starlark.proto\"\xb8\x06\n" +
+	"(build/stack/bazel/symbol/v1/symbol.proto\x12\x1bbuild.stack.bazel.symbol.v1\x1a+build/stack/starlark/v1beta1/starlark.proto\"\xf8\x06\n" +
 	"\x06Symbol\x12;\n" +
 	"\x04type\x18\x01 \x01(\x0e2'.build.stack.bazel.symbol.v1.SymbolTypeR\x04type\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12 \n" +
@@ -682,7 +701,8 @@ const file_build_stack_bazel_symbol_v1_symbol_proto_rawDesc = "" +
 	"\n" +
 	"rule_macro\x18\f \x01(\v2'.build.stack.starlark.v1beta1.RuleMacroH\x00R\truleMacro\x12;\n" +
 	"\x05value\x18\r \x01(\v2#.build.stack.starlark.v1beta1.ValueH\x00R\x05value\x12<\n" +
-	"\x04load\x18\x0e \x01(\v2&.build.stack.starlark.v1beta1.LoadStmtH\x00R\x04loadB\x06\n" +
+	"\x04load\x18\x0e \x01(\v2&.build.stack.starlark.v1beta1.LoadStmtH\x00R\x04load\x12>\n" +
+	"\x06struct\x18\x0f \x01(\v2$.build.stack.starlark.v1beta1.StructH\x00R\x06structB\x06\n" +
 	"\x04info\"\xb6\x01\n" +
 	"\x04File\x129\n" +
 	"\x05label\x18\x01 \x01(\v2#.build.stack.starlark.v1beta1.LabelR\x05label\x12;\n" +
@@ -702,7 +722,7 @@ const file_build_stack_bazel_symbol_v1_symbol_proto_rawDesc = "" +
 	"\bchildren\x18\x02 \x03(\v2-.build.stack.bazel.symbol.v1.FileLoadTreeNodeR\bchildren\x12\x16\n" +
 	"\x06pruned\x18\x03 \x01(\bR\x06pruned\"S\n" +
 	"\fFileLoadTree\x12C\n" +
-	"\x05roots\x18\x01 \x03(\v2-.build.stack.bazel.symbol.v1.FileLoadTreeNodeR\x05roots*\xaf\x02\n" +
+	"\x05roots\x18\x01 \x03(\v2-.build.stack.bazel.symbol.v1.FileLoadTreeNodeR\x05roots*\xc7\x02\n" +
 	"\n" +
 	"SymbolType\x12\x17\n" +
 	"\x13SYMBOL_TYPE_UNKNOWN\x10\x00\x12\x14\n" +
@@ -716,7 +736,8 @@ const file_build_stack_bazel_symbol_v1_symbol_proto_rawDesc = "" +
 	"\x16SYMBOL_TYPE_RULE_MACRO\x10\b\x12\x15\n" +
 	"\x11SYMBOL_TYPE_VALUE\x10\t\x12\x19\n" +
 	"\x15SYMBOL_TYPE_LOAD_STMT\x10\n" +
-	"*I\n" +
+	"\x12\x16\n" +
+	"\x12SYMBOL_TYPE_STRUCT\x10\v*I\n" +
 	"\fSymbolSource\x12\x19\n" +
 	"\x15SYMBOL_SOURCE_UNKNOWN\x10\x00\x12\r\n" +
 	"\tPUBLISHED\x10\x01\x12\x0f\n" +
@@ -755,7 +776,8 @@ var file_build_stack_bazel_symbol_v1_symbol_proto_goTypes = []any{
 	(*v1beta1.RuleMacro)(nil),       // 15: build.stack.starlark.v1beta1.RuleMacro
 	(*v1beta1.Value)(nil),           // 16: build.stack.starlark.v1beta1.Value
 	(*v1beta1.LoadStmt)(nil),        // 17: build.stack.starlark.v1beta1.LoadStmt
-	(*v1beta1.Label)(nil),           // 18: build.stack.starlark.v1beta1.Label
+	(*v1beta1.Struct)(nil),          // 18: build.stack.starlark.v1beta1.Struct
+	(*v1beta1.Label)(nil),           // 19: build.stack.starlark.v1beta1.Label
 }
 var file_build_stack_bazel_symbol_v1_symbol_proto_depIdxs = []int32{
 	0,  // 0: build.stack.bazel.symbol.v1.Symbol.type:type_name -> build.stack.bazel.symbol.v1.SymbolType
@@ -769,19 +791,20 @@ var file_build_stack_bazel_symbol_v1_symbol_proto_depIdxs = []int32{
 	15, // 8: build.stack.bazel.symbol.v1.Symbol.rule_macro:type_name -> build.stack.starlark.v1beta1.RuleMacro
 	16, // 9: build.stack.bazel.symbol.v1.Symbol.value:type_name -> build.stack.starlark.v1beta1.Value
 	17, // 10: build.stack.bazel.symbol.v1.Symbol.load:type_name -> build.stack.starlark.v1beta1.LoadStmt
-	18, // 11: build.stack.bazel.symbol.v1.File.label:type_name -> build.stack.starlark.v1beta1.Label
-	2,  // 12: build.stack.bazel.symbol.v1.File.symbol:type_name -> build.stack.bazel.symbol.v1.Symbol
-	3,  // 13: build.stack.bazel.symbol.v1.ModuleVersionSymbols.file:type_name -> build.stack.bazel.symbol.v1.File
-	1,  // 14: build.stack.bazel.symbol.v1.ModuleVersionSymbols.source:type_name -> build.stack.bazel.symbol.v1.SymbolSource
-	4,  // 15: build.stack.bazel.symbol.v1.ModuleRegistrySymbols.module_version:type_name -> build.stack.bazel.symbol.v1.ModuleVersionSymbols
-	3,  // 16: build.stack.bazel.symbol.v1.FileLoadTreeNode.file:type_name -> build.stack.bazel.symbol.v1.File
-	6,  // 17: build.stack.bazel.symbol.v1.FileLoadTreeNode.children:type_name -> build.stack.bazel.symbol.v1.FileLoadTreeNode
-	6,  // 18: build.stack.bazel.symbol.v1.FileLoadTree.roots:type_name -> build.stack.bazel.symbol.v1.FileLoadTreeNode
-	19, // [19:19] is the sub-list for method output_type
-	19, // [19:19] is the sub-list for method input_type
-	19, // [19:19] is the sub-list for extension type_name
-	19, // [19:19] is the sub-list for extension extendee
-	0,  // [0:19] is the sub-list for field type_name
+	18, // 11: build.stack.bazel.symbol.v1.Symbol.struct:type_name -> build.stack.starlark.v1beta1.Struct
+	19, // 12: build.stack.bazel.symbol.v1.File.label:type_name -> build.stack.starlark.v1beta1.Label
+	2,  // 13: build.stack.bazel.symbol.v1.File.symbol:type_name -> build.stack.bazel.symbol.v1.Symbol
+	3,  // 14: build.stack.bazel.symbol.v1.ModuleVersionSymbols.file:type_name -> build.stack.bazel.symbol.v1.File
+	1,  // 15: build.stack.bazel.symbol.v1.ModuleVersionSymbols.source:type_name -> build.stack.bazel.symbol.v1.SymbolSource
+	4,  // 16: build.stack.bazel.symbol.v1.ModuleRegistrySymbols.module_version:type_name -> build.stack.bazel.symbol.v1.ModuleVersionSymbols
+	3,  // 17: build.stack.bazel.symbol.v1.FileLoadTreeNode.file:type_name -> build.stack.bazel.symbol.v1.File
+	6,  // 18: build.stack.bazel.symbol.v1.FileLoadTreeNode.children:type_name -> build.stack.bazel.symbol.v1.FileLoadTreeNode
+	6,  // 19: build.stack.bazel.symbol.v1.FileLoadTree.roots:type_name -> build.stack.bazel.symbol.v1.FileLoadTreeNode
+	20, // [20:20] is the sub-list for method output_type
+	20, // [20:20] is the sub-list for method input_type
+	20, // [20:20] is the sub-list for extension type_name
+	20, // [20:20] is the sub-list for extension extendee
+	0,  // [0:20] is the sub-list for field type_name
 }
 
 func init() { file_build_stack_bazel_symbol_v1_symbol_proto_init() }
@@ -800,6 +823,7 @@ func file_build_stack_bazel_symbol_v1_symbol_proto_init() {
 		(*Symbol_RuleMacro)(nil),
 		(*Symbol_Value)(nil),
 		(*Symbol_Load)(nil),
+		(*Symbol_Struct)(nil),
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{

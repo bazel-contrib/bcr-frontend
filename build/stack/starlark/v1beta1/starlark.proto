@@ -72,6 +72,8 @@ message Module {
     repeated Aspect aspect = 16;
     // rule macros - functions that wrap private rules
     repeated RuleMacro rule_macro = 17;
+    // structs exported at top-level as namespaces (e.g., `paths = struct(...)`)
+    repeated Struct struct = 18;
 }
 
 message Label {
@@ -189,6 +191,38 @@ message Macro {
     stardoc_output.MacroInfo info = 1;
     SymbolLocation location = 2;
     repeated Attribute attribute = 3;
+}
+
+// Struct represents a top-level `<name> = struct(...)` assignment in a .bzl
+// file. This is the common "namespace" pattern used throughout bazel_skylib
+// and similar libraries, where a public struct re-exports a related set of
+// private functions or constants.
+message Struct {
+    // Exported name of the struct (e.g., "paths").
+    string name = 1;
+    // Where `<name> = struct(...)` was written.
+    SymbolLocation location = 2;
+    // Best-effort docstring derived from Sphinx-style `#:` doc comments on the
+    // assignment, with the module-level docstring as a fallback.
+    string doc_string = 3;
+    // Fields in the order they appear in the struct() call.
+    repeated StructField field = 4;
+    // Origin file label, for IDE jump-to-definition.
+    string origin_file = 5;
+}
+
+message StructField {
+    // Field name as it appears on the struct (e.g., "basename").
+    string name = 1;
+    // Location of the `name = expr` entry inside the struct() call.
+    SymbolLocation location = 2;
+    // The referenced symbol's name in the defining module, if the RHS is a
+    // simple Identifier (e.g., for `basename = _basename`, this is "_basename").
+    // Empty when the RHS is a complex expression or literal.
+    string target_symbol = 3;
+    // The fully-qualified name a consumer would use to look up the field's
+    // value (e.g., "paths.basename"). Always populated.
+    string qualified_name = 4;
 }
 
 // RuleMacro is the case wherein a function forwards name and or kwargs to a

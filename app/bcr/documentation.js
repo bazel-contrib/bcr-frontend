@@ -14,6 +14,10 @@ const FileLoadTreeNode = goog.require(
 	"proto.build.stack.bazel.symbol.v1.FileLoadTreeNode",
 );
 const Label = goog.require("proto.build.stack.starlark.v1beta1.Label");
+const Struct = goog.require("proto.build.stack.starlark.v1beta1.Struct");
+const StructField = goog.require(
+	"proto.build.stack.starlark.v1beta1.StructField",
+);
 const Module = goog.require("proto.build.stack.bazel.registry.v1.Module");
 const ModuleVersion = goog.require(
 	"proto.build.stack.bazel.registry.v1.ModuleVersion",
@@ -64,6 +68,7 @@ const {
 	ruleInfoComponent,
 	ruleMacroInfoComponent,
 	searchSymbolsResultsList,
+	structInfoComponent,
 	symbolInfoComponent,
 	symbolTypeName,
 	valueInfoComponent,
@@ -135,6 +140,11 @@ const SYMBOL_TYPE_PREFIXES = new Map([
 	["e", [SymbolType.SYMBOL_TYPE_MODULE_EXTENSION]],
 	["ext", [SymbolType.SYMBOL_TYPE_MODULE_EXTENSION]],
 	["extension", [SymbolType.SYMBOL_TYPE_MODULE_EXTENSION]],
+	// Struct prefixes
+	["s", [SymbolType.SYMBOL_TYPE_STRUCT]],
+	["st", [SymbolType.SYMBOL_TYPE_STRUCT]],
+	["str", [SymbolType.SYMBOL_TYPE_STRUCT]],
+	["struct", [SymbolType.SYMBOL_TYPE_STRUCT]],
 ]);
 
 /**
@@ -733,6 +743,13 @@ class FileSelect extends ContentSelect {
 					sym,
 					this.dom_,
 				);
+			case SymbolType.SYMBOL_TYPE_STRUCT:
+				return new StructInfoComponent(
+					this.moduleVersion_,
+					this.file_,
+					sym,
+					this.dom_,
+				);
 			case SymbolType.SYMBOL_TYPE_ASPECT:
 				return new AspectInfoComponent(
 					this.moduleVersion_,
@@ -964,6 +981,74 @@ class ProviderInfoComponent extends SymbolComponent {
 					file: this.file_,
 					sym: this.sym_,
 					exampleCode,
+				},
+				{
+					baseUrl: this.getDocsBaseUrl(),
+				},
+			),
+		);
+	}
+}
+
+class StructInfoComponent extends SymbolComponent {
+	/**
+	 * @param {!ModuleVersion} moduleVersion
+	 * @param {!File} file
+	 * @param {!Symbol} sym
+	 * @param {?dom.DomHelper=} opt_domHelper
+	 */
+	constructor(moduleVersion, file, sym, opt_domHelper) {
+		super(moduleVersion, file, sym, opt_domHelper);
+	}
+
+	/**
+	 * @override
+	 */
+	createDom() {
+		/** @type {?Struct} */
+		const struct = this.sym_.getStruct();
+		/** @type {!Array<!StructField>} */
+		const fields = struct ? struct.getFieldList() : [];
+		const symbols = this.file_.getSymbolList();
+
+		/** @type {!Array<{field: !StructField, resolved: ?Symbol}>} */
+		const fieldEntries = [];
+		for (const field of fields) {
+			const qualified = field.getQualifiedName();
+			const target = field.getTargetSymbol();
+			/** @type {?Symbol} */
+			let resolved = null;
+			// Prefer the qualified-name symbol (e.g. "asserts.expect_failure")
+			// so the link goes to the public, user-facing function.
+			if (qualified) {
+				for (const s of symbols) {
+					if (s.getName() === qualified) {
+						resolved = s;
+						break;
+					}
+				}
+			}
+			// Fall back to target_symbol (covers value targets like SOME_CONST
+			// and private-only references when no qualified entry exists).
+			if (!resolved && target) {
+				for (const s of symbols) {
+					if (s.getName() === target) {
+						resolved = s;
+						break;
+					}
+				}
+			}
+			fieldEntries.push({ field, resolved });
+		}
+
+		this.setElementInternal(
+			soy.renderAsElement(
+				structInfoComponent,
+				{
+					moduleVersion: this.moduleVersion_,
+					file: this.file_,
+					sym: this.sym_,
+					fieldEntries,
 				},
 				{
 					baseUrl: this.getDocsBaseUrl(),
@@ -1486,6 +1571,7 @@ class FileListComponent extends MarkdownComponent {
 		const ruleMacros = [];
 		const loads = [];
 		const values = [];
+		const structs = [];
 
 		for (const sym of this.file_.getSymbolList()) {
 			switch (sym.getType()) {
@@ -1519,6 +1605,9 @@ class FileListComponent extends MarkdownComponent {
 				case SymbolType.SYMBOL_TYPE_VALUE:
 					values.push(sym);
 					break;
+				case SymbolType.SYMBOL_TYPE_STRUCT:
+					structs.push(sym);
+					break;
 			}
 		}
 
@@ -1538,6 +1627,7 @@ class FileListComponent extends MarkdownComponent {
 					ruleMacros: ruleMacros,
 					loads: loads,
 					values: values,
+					structs: structs,
 				},
 				{
 					baseUrl: path.join(
