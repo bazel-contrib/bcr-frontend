@@ -15,7 +15,7 @@ This repository provides a web UI and API for the [Bazel Central Registry](https
 CI works as follows:
 
 - When new commits land in `github.com/bazelbuild/bazel-central-registry`, a
-  repository dispatch triggers `trigger-via-bcr.yml`, which directly deploys
+  repository dispatch triggers `deploy-ghpages.yml`, which directly deploys
   to production without creating commits or PRs on main.
 - A weekly cron job (`periodic-submodule-sync.yaml`) syncs the main branch's
   submodule reference to keep it reasonably current.
@@ -30,13 +30,13 @@ CI works as follows:
 To manually deploy a specific BCR commit:
 
 ```sh
-gh workflow run trigger-via-bcr.yml -f bcr_commit=<sha>
+gh workflow run deploy-ghpages.yml -f bcr_commit=<sha>
 ```
 
 To deploy the latest BCR commit:
 
 ```sh
-gh workflow run trigger-via-bcr.yml
+gh workflow run deploy-ghpages.yml
 ```
 
 ## Linux Prerequisites for Production Builds
