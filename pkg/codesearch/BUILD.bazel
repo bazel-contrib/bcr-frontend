@@ -8,8 +8,8 @@ go_library(
     deps = [
         "//build/stack/livegrep/v1:livegrep",
         "//pkg/status",
-        "@com_github_junkblocker_codesearch//index:go_default_library",
-        "@com_github_junkblocker_codesearch//regexp:go_default_library",
-        "@com_github_samthor_sre2//:go_default_library",
+        "@com_github_junkblocker_codesearch//index",
+        "@com_github_junkblocker_codesearch//regexp",
+        "@com_github_samthor_sre2//:sre2",
     ],
 )

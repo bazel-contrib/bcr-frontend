@@ -5,5 +5,5 @@ go_library(
     srcs = ["netutil.go"],
     importpath = "github.com/bazel-contrib/bcr-frontend/pkg/netutil",
     visibility = ["//visibility:public"],
-    deps = ["@com_github_schollz_progressbar_v3//:go_default_library"],
+    deps = ["@com_github_schollz_progressbar_v3//:progressbar"],
 )

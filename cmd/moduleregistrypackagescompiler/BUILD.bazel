@@ -1,0 +1,18 @@
+load("@rules_go//go:def.bzl", "go_binary", "go_library")
+
+go_library(
+    name = "moduleregistrypackagescompiler_lib",
+    srcs = ["main.go"],
+    importpath = "github.com/bazel-contrib/bcr-frontend/cmd/moduleregistrypackagescompiler",
+    visibility = ["//visibility:private"],
+    deps = [
+        "//build/stack/bazel/symbol/v1:symbol",
+        "//pkg/protoutil",
+    ],
+)
+
+go_binary(
+    name = "moduleregistrypackagescompiler",
+    embed = [":moduleregistrypackagescompiler_lib"],
+    visibility = ["//visibility:public"],
+)

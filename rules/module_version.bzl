@@ -1,6 +1,7 @@
 """Provides the module_version rule."""
 
 load("@build_stack_rules_proto//rules:starlark_module_library.bzl", "StarlarkModuleLibraryInfo")
+load("@build_stack_rules_proto//rules:starlark_package_library.bzl", "StarlarkPackageLibraryInfo")
 load(
     "//rules:providers.bzl",
     "ModuleAttestationsInfo",
@@ -96,6 +97,8 @@ def _module_version_impl(ctx):
     deps = [dep[ModuleDependencyInfo] for dep in ctx.attr.deps]
     bzl_src = ctx.attr.bzl_src[StarlarkModuleLibraryInfo] if ctx.attr.bzl_src else None
     bzl_deps = [dep[StarlarkModuleLibraryInfo] for dep in ctx.attr.bzl_deps]
+    pkg_src = ctx.attr.pkg_src[StarlarkPackageLibraryInfo] if ctx.attr.pkg_src else None
+    pkg_deps = [dep[StarlarkPackageLibraryInfo] for dep in ctx.attr.pkg_deps]
     source = ctx.attr.source[ModuleSourceInfo]
     attestations = ctx.attr.attestations[ModuleAttestationsInfo] if ctx.attr.attestations and ModuleAttestationsInfo in ctx.attr.attestations else None
     presubmit = ctx.attr.presubmit[ModulePresubmitInfo] if ctx.attr.presubmit and ModulePresubmitInfo in ctx.attr.presubmit else None
@@ -116,6 +119,8 @@ def _module_version_impl(ctx):
             build_bazel = ctx.file.build_bazel if ctx.file.build_bazel else None,
             bzl_deps = bzl_deps,
             bzl_src = bzl_src,
+            pkg_deps = pkg_deps,
+            pkg_src = pkg_src,
             commit = commit,
             compatibility_level = ctx.attr.compatibility_level,
             deps = deps,
@@ -171,6 +176,14 @@ module_version = rule(
         "bzl_deps": attr.label_list(
             doc = "list[Target]: Starlark repository labels providing StarlarkModuleLibraryInfo (dependencies of bzl_src)",
             providers = [StarlarkModuleLibraryInfo],
+        ),
+        "pkg_src": attr.label(
+            doc = "Target: Starlark repository label providing StarlarkPackageLibraryInfo for the BUILD (.package) files for this moduleversion",
+            providers = [StarlarkPackageLibraryInfo],
+        ),
+        "pkg_deps": attr.label_list(
+            doc = "list[Target]: Starlark repository labels providing StarlarkPackageLibraryInfo (dependencies of pkg_src)",
+            providers = [StarlarkPackageLibraryInfo],
         ),
         "published_docs": attr.label_list(
             doc = "list[File]: Published documentation files from an http_archive (typically from docs_url .docs.tar.gz)",

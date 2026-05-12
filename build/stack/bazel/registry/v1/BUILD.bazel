@@ -32,8 +32,8 @@ go_library(
     deps = [
         "//build/stack/bazel/symbol/v1:symbol",
         "//build/stack/starlark/v1beta1",
-        "@org_golang_google_protobuf//reflect/protoreflect:go_default_library",
-        "@org_golang_google_protobuf//runtime/protoimpl:go_default_library",
+        "@org_golang_google_protobuf//reflect/protoreflect",
+        "@org_golang_google_protobuf//runtime/protoimpl",
     ],
 )
 

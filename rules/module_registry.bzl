@@ -1,6 +1,7 @@
 "provides the module_registry rule"
 
 load("@build_stack_rules_proto//rules:starlark_module_library.bzl", "StarlarkModuleLibraryInfo")
+load("@build_stack_rules_proto//rules:starlark_package_library.bzl", "StarlarkPackageLibraryInfo")
 load(
     "//rules:providers.bzl",
     "BazelVersionInfo",
@@ -179,6 +180,29 @@ def _compile_module_registry_symbols(ctx, doc_results):
 
     return output
 
+def _compile_module_registry_packages(ctx, pkg_results):
+    output = ctx.actions.declare_file("packages.pb")
+    inputs = [result.output for result in pkg_results if result.output != None]
+
+    args = ctx.actions.args()
+    args.add("--output_file")
+    args.add(output)
+    for result in pkg_results:
+        if result.output != None:
+            args.add("--input_file=%s=%s" % (result.mv.id, result.output.path))
+        else:
+            args.add("--empty=%s" % result.mv.id)
+
+    ctx.actions.run(
+        executable = ctx.executable._moduleregistrypackagescompiler,
+        arguments = [args],
+        inputs = inputs,
+        outputs = [output],
+        mnemonic = "CompileModuleRegistryPackages",
+    )
+
+    return output
+
 def _get_module_version_id_from_bzl_repository_repo_name(repo_name):
     parts = repo_name.split("+")
     if len(parts) == 0:
@@ -190,6 +214,16 @@ def _get_module_version_id_from_bzl_repository_repo_name(repo_name):
 def _add_args_for_starlark_modules(args, module_name, starlark_modules, deps):
     for starlark_module in starlark_modules:
         arg = "--bzl_file=%s|%s|%s" % (module_name, starlark_module.label, starlark_module.src.path)
+        args.add(arg)
+    if len(deps) == 0:
+        args.add("--module_dep=%s:NONE" % module_name)
+    else:
+        for dep in deps:
+            args.add("--module_dep=%s:%s=%s" % (module_name, dep.name, dep.repo_name))
+
+def _add_args_for_starlark_packages(args, module_name, starlark_packages, deps):
+    for starlark_package in starlark_packages:
+        arg = "--package_file=%s|%s|%s" % (module_name, starlark_package.label, starlark_package.src.path)
         args.add(arg)
     if len(deps) == 0:
         args.add("--module_dep=%s:NONE" % module_name)
@@ -325,6 +359,124 @@ def _compile_bzl_for_module_version(ctx, mv, all_mv_by_id):
     )
 
     return result
+
+def _packages_info_output_result(ctx, mv):
+    output = ctx.actions.declare_file("%s/%s/packagesinfo.pb.gz" % (mv.name, mv.version))
+    return struct(
+        mv = mv,
+        output = output,
+    )
+
+def _compile_packages_for_module_version(ctx, mv, all_mv_by_id):
+    """Generate BUILD-file extraction action for a single module version.
+
+    Args:
+        ctx: The rule context
+        mv: ModuleVersionInfo provider for the module version
+        all_mv_by_id: dict k->v where k is string like "rules_cc@0.0.9" and v is the ModuleVersionInfo provider
+    Returns:
+        struct having the moduleVersionInfo and the output file for the packages, or None if cannot generate
+    """
+    if not mv.pkg_src or len(mv.pkg_src.srcs) == 0:
+        return None
+
+    result = _packages_info_output_result(ctx, mv)
+
+    java_runtime = ctx.attr._java_runtime[java_common.JavaRuntimeInfo]
+    java_executable = java_runtime.java_executable_exec_path
+
+    # PackageInfo evaluates BUILD files but still walks transitive .bzl loads,
+    # so we feed it the same baseline as bzlcompiler.
+    bzl_builtins = ctx.attr._bzl_builtins[StarlarkModuleLibraryInfo]
+    bzl_bazel_tools = ctx.attr._bzl_bazel_tools[StarlarkModuleLibraryInfo]
+
+    bzl_modules = [bzl_builtins, bzl_bazel_tools]
+    if mv.bzl_src:
+        bzl_modules.append(mv.bzl_src)
+    bzl_modules.extend(mv.bzl_deps)
+
+    transitive_srcs = [depset([m.src for m in bzl_module.modules]) for bzl_module in bzl_modules]
+    transitive_pkg_srcs = [depset([p.src for p in mv.pkg_src.packages])]
+    for pkg_dep in mv.pkg_deps:
+        transitive_pkg_srcs.append(depset([p.src for p in pkg_dep.packages]))
+
+    inputs = depset(
+        [ctx.file._starlarkserverjar],
+        transitive = transitive_srcs + transitive_pkg_srcs,
+    )
+
+    args = ctx.actions.args()
+    args.use_param_file("@%s", use_always = True)
+    args.set_param_file_format("multiline")
+
+    args.add("--output_file", result.output)
+    args.add("--java_interpreter_file", java_executable)
+    args.add("--server_jar_file", ctx.file._starlarkserverjar)
+    args.add("--log_file", "/tmp/packagecompiler.log")
+
+    # 1. Bazel tools and @_builtins (shared .bzl baseline for load resolution).
+    _add_args_for_starlark_modules(args, "_builtins", bzl_builtins.modules, [])
+    _add_args_for_starlark_modules(args, "bazel_tools", bzl_bazel_tools.modules, [])
+
+    # 2. Root module's .bzl files so loads from the BUILD files resolve.
+    if mv.bzl_src:
+        _add_args_for_starlark_modules(args, mv.name, mv.bzl_src.modules, mv.deps)
+
+    # 3. Dependency .bzl files.
+    for starlark_module in mv.bzl_deps:
+        id = _get_module_version_id_from_bzl_repository_repo_name(starlark_module.label.repo_name)
+        module_version = all_mv_by_id.get(id)
+        if not module_version:
+            continue
+        _add_args_for_starlark_modules(args, module_version.name, starlark_module.modules, module_version.deps)
+
+    # 4. Root module's BUILD (.package) files.
+    _add_args_for_starlark_packages(args, mv.name, mv.pkg_src.packages, mv.deps)
+
+    # 5. Dependency BUILD (.package) files.
+    for starlark_package in mv.pkg_deps:
+        id = _get_module_version_id_from_bzl_repository_repo_name(starlark_package.label.repo_name)
+        module_version = all_mv_by_id.get(id)
+        if not module_version:
+            continue
+        _add_args_for_starlark_packages(args, module_version.name, starlark_package.packages, module_version.deps)
+
+    # Positional args are the .package files to extract.
+    args.add_all(mv.pkg_src.srcs)
+
+    ctx.actions.run(
+        mnemonic = "CompilePackageInfo",
+        progress_message = "Extracting packages for %s@%s (%d files)" % (mv.name, mv.version, len(mv.pkg_src.srcs)),
+        execution_requirements = {
+            "supports-workers": "1",
+            "requires-worker-protocol": "proto",
+        },
+        executable = ctx.executable._packagecompiler,
+        arguments = [args],
+        inputs = inputs,
+        outputs = [result.output],
+        tools = java_runtime.files.to_list(),
+    )
+
+    return result
+
+def _compile_packages(ctx, deps):
+    all_mv_by_id = {}
+    for m in deps:
+        for mv in m.deps:
+            all_mv_by_id[mv.id] = mv
+
+    results = []
+    for module in deps:
+        for mv in module.deps:
+            result = _compile_packages_for_module_version(ctx, mv, all_mv_by_id)
+            if result:
+                results.append(result)
+            else:
+                # Stub so the registry-wide aggregation can record an empty
+                # entry the same way symbols does.
+                results.append(struct(mv = mv, output = None))
+    return results
 
 def _compile_documentation_for_module_version(ctx, mv, all_mv_by_id):
     # if the module_source has published / "offical" docs, use those
@@ -475,6 +627,8 @@ def _module_registry_impl(ctx):
     codesearch_index = _compile_codesearch_index_action(ctx, deps)
     doc_results = _compile_documentation(ctx, deps)
     symbols_pb = _compile_module_registry_symbols(ctx, doc_results)
+    pkg_results = _compile_packages(ctx, deps)
+    packages_pb = _compile_module_registry_packages(ctx, pkg_results)
     registry_pb = _compile_registry_action(ctx, "registry.pb", modules, symbols_pb)
     registrylite_pb = _compile_registry_action(ctx, "registrylite.pb", modules)
 
@@ -498,6 +652,8 @@ def _module_registry_impl(ctx):
             doc_results = depset([d.output for d in doc_results if d.output != None]),
             docs = depset([r.output for r in doc_results if r.output != None]),
             symbols_pb = depset([symbols_pb]),
+            packages_pb = depset([packages_pb]),
+            pkg_results = depset([r.output for r in pkg_results if r.output != None]),
             bazel_help = depset([bazel_help]),
             bazel_flag_db = depset([bazel_flag_db]),
             **{d.mv.id.replace("@", "-"): depset([d.output]) for d in doc_results if d.output != None}
@@ -562,8 +718,18 @@ module_registry = rule(
             executable = True,
             cfg = "exec",
         ),
+        "_packagecompiler": attr.label(
+            default = "//cmd/packagecompiler",
+            executable = True,
+            cfg = "exec",
+        ),
         "_moduleregistrysymbolscompiler": attr.label(
             default = "//cmd/moduleregistrysymbolscompiler",
+            executable = True,
+            cfg = "exec",
+        ),
+        "_moduleregistrypackagescompiler": attr.label(
+            default = "//cmd/moduleregistrypackagescompiler",
             executable = True,
             cfg = "exec",
         ),

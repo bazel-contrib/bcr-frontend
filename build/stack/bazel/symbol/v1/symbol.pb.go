@@ -577,6 +577,118 @@ func (x *ModuleRegistrySymbols) GetModuleVersion() []*ModuleVersionSymbols {
 	return nil
 }
 
+type ModuleVersionPackages struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ModuleName    string                 `protobuf:"bytes,1,opt,name=module_name,json=moduleName,proto3" json:"module_name,omitempty"`
+	Version       string                 `protobuf:"bytes,2,opt,name=version,proto3" json:"version,omitempty"`
+	Package       []*v1beta1.Package     `protobuf:"bytes,3,rep,name=package,proto3" json:"package,omitempty"`
+	Source        SymbolSource           `protobuf:"varint,4,opt,name=source,proto3,enum=build.stack.bazel.symbol.v1.SymbolSource" json:"source,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ModuleVersionPackages) Reset() {
+	*x = ModuleVersionPackages{}
+	mi := &file_build_stack_bazel_symbol_v1_symbol_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ModuleVersionPackages) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ModuleVersionPackages) ProtoMessage() {}
+
+func (x *ModuleVersionPackages) ProtoReflect() protoreflect.Message {
+	mi := &file_build_stack_bazel_symbol_v1_symbol_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ModuleVersionPackages.ProtoReflect.Descriptor instead.
+func (*ModuleVersionPackages) Descriptor() ([]byte, []int) {
+	return file_build_stack_bazel_symbol_v1_symbol_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *ModuleVersionPackages) GetModuleName() string {
+	if x != nil {
+		return x.ModuleName
+	}
+	return ""
+}
+
+func (x *ModuleVersionPackages) GetVersion() string {
+	if x != nil {
+		return x.Version
+	}
+	return ""
+}
+
+func (x *ModuleVersionPackages) GetPackage() []*v1beta1.Package {
+	if x != nil {
+		return x.Package
+	}
+	return nil
+}
+
+func (x *ModuleVersionPackages) GetSource() SymbolSource {
+	if x != nil {
+		return x.Source
+	}
+	return SymbolSource_SYMBOL_SOURCE_UNKNOWN
+}
+
+type ModuleRegistryPackages struct {
+	state         protoimpl.MessageState   `protogen:"open.v1"`
+	ModuleVersion []*ModuleVersionPackages `protobuf:"bytes,1,rep,name=module_version,json=moduleVersion,proto3" json:"module_version,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ModuleRegistryPackages) Reset() {
+	*x = ModuleRegistryPackages{}
+	mi := &file_build_stack_bazel_symbol_v1_symbol_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ModuleRegistryPackages) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ModuleRegistryPackages) ProtoMessage() {}
+
+func (x *ModuleRegistryPackages) ProtoReflect() protoreflect.Message {
+	mi := &file_build_stack_bazel_symbol_v1_symbol_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ModuleRegistryPackages.ProtoReflect.Descriptor instead.
+func (*ModuleRegistryPackages) Descriptor() ([]byte, []int) {
+	return file_build_stack_bazel_symbol_v1_symbol_proto_rawDescGZIP(), []int{5}
+}
+
+func (x *ModuleRegistryPackages) GetModuleVersion() []*ModuleVersionPackages {
+	if x != nil {
+		return x.ModuleVersion
+	}
+	return nil
+}
+
 type FileLoadTreeNode struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	File          *File                  `protobuf:"bytes,1,opt,name=file,proto3" json:"file,omitempty"`
@@ -588,7 +700,7 @@ type FileLoadTreeNode struct {
 
 func (x *FileLoadTreeNode) Reset() {
 	*x = FileLoadTreeNode{}
-	mi := &file_build_stack_bazel_symbol_v1_symbol_proto_msgTypes[4]
+	mi := &file_build_stack_bazel_symbol_v1_symbol_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -600,7 +712,7 @@ func (x *FileLoadTreeNode) String() string {
 func (*FileLoadTreeNode) ProtoMessage() {}
 
 func (x *FileLoadTreeNode) ProtoReflect() protoreflect.Message {
-	mi := &file_build_stack_bazel_symbol_v1_symbol_proto_msgTypes[4]
+	mi := &file_build_stack_bazel_symbol_v1_symbol_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -613,7 +725,7 @@ func (x *FileLoadTreeNode) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FileLoadTreeNode.ProtoReflect.Descriptor instead.
 func (*FileLoadTreeNode) Descriptor() ([]byte, []int) {
-	return file_build_stack_bazel_symbol_v1_symbol_proto_rawDescGZIP(), []int{4}
+	return file_build_stack_bazel_symbol_v1_symbol_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *FileLoadTreeNode) GetFile() *File {
@@ -646,7 +758,7 @@ type FileLoadTree struct {
 
 func (x *FileLoadTree) Reset() {
 	*x = FileLoadTree{}
-	mi := &file_build_stack_bazel_symbol_v1_symbol_proto_msgTypes[5]
+	mi := &file_build_stack_bazel_symbol_v1_symbol_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -658,7 +770,7 @@ func (x *FileLoadTree) String() string {
 func (*FileLoadTree) ProtoMessage() {}
 
 func (x *FileLoadTree) ProtoReflect() protoreflect.Message {
-	mi := &file_build_stack_bazel_symbol_v1_symbol_proto_msgTypes[5]
+	mi := &file_build_stack_bazel_symbol_v1_symbol_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -671,7 +783,7 @@ func (x *FileLoadTree) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FileLoadTree.ProtoReflect.Descriptor instead.
 func (*FileLoadTree) Descriptor() ([]byte, []int) {
-	return file_build_stack_bazel_symbol_v1_symbol_proto_rawDescGZIP(), []int{5}
+	return file_build_stack_bazel_symbol_v1_symbol_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *FileLoadTree) GetRoots() []*FileLoadTreeNode {
@@ -716,7 +828,15 @@ const file_build_stack_bazel_symbol_v1_symbol_proto_rawDesc = "" +
 	"\x04file\x18\x03 \x03(\v2!.build.stack.bazel.symbol.v1.FileR\x04file\x12A\n" +
 	"\x06source\x18\x04 \x01(\x0e2).build.stack.bazel.symbol.v1.SymbolSourceR\x06source\"q\n" +
 	"\x15ModuleRegistrySymbols\x12X\n" +
-	"\x0emodule_version\x18\x01 \x03(\v21.build.stack.bazel.symbol.v1.ModuleVersionSymbolsR\rmoduleVersion\"\xac\x01\n" +
+	"\x0emodule_version\x18\x01 \x03(\v21.build.stack.bazel.symbol.v1.ModuleVersionSymbolsR\rmoduleVersion\"\xd6\x01\n" +
+	"\x15ModuleVersionPackages\x12\x1f\n" +
+	"\vmodule_name\x18\x01 \x01(\tR\n" +
+	"moduleName\x12\x18\n" +
+	"\aversion\x18\x02 \x01(\tR\aversion\x12?\n" +
+	"\apackage\x18\x03 \x03(\v2%.build.stack.starlark.v1beta1.PackageR\apackage\x12A\n" +
+	"\x06source\x18\x04 \x01(\x0e2).build.stack.bazel.symbol.v1.SymbolSourceR\x06source\"s\n" +
+	"\x16ModuleRegistryPackages\x12Y\n" +
+	"\x0emodule_version\x18\x01 \x03(\v22.build.stack.bazel.symbol.v1.ModuleVersionPackagesR\rmoduleVersion\"\xac\x01\n" +
 	"\x10FileLoadTreeNode\x125\n" +
 	"\x04file\x18\x01 \x01(\v2!.build.stack.bazel.symbol.v1.FileR\x04file\x12I\n" +
 	"\bchildren\x18\x02 \x03(\v2-.build.stack.bazel.symbol.v1.FileLoadTreeNodeR\bchildren\x12\x16\n" +
@@ -756,7 +876,7 @@ func file_build_stack_bazel_symbol_v1_symbol_proto_rawDescGZIP() []byte {
 }
 
 var file_build_stack_bazel_symbol_v1_symbol_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_build_stack_bazel_symbol_v1_symbol_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
+var file_build_stack_bazel_symbol_v1_symbol_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
 var file_build_stack_bazel_symbol_v1_symbol_proto_goTypes = []any{
 	(SymbolType)(0),                 // 0: build.stack.bazel.symbol.v1.SymbolType
 	(SymbolSource)(0),               // 1: build.stack.bazel.symbol.v1.SymbolSource
@@ -764,47 +884,53 @@ var file_build_stack_bazel_symbol_v1_symbol_proto_goTypes = []any{
 	(*File)(nil),                    // 3: build.stack.bazel.symbol.v1.File
 	(*ModuleVersionSymbols)(nil),    // 4: build.stack.bazel.symbol.v1.ModuleVersionSymbols
 	(*ModuleRegistrySymbols)(nil),   // 5: build.stack.bazel.symbol.v1.ModuleRegistrySymbols
-	(*FileLoadTreeNode)(nil),        // 6: build.stack.bazel.symbol.v1.FileLoadTreeNode
-	(*FileLoadTree)(nil),            // 7: build.stack.bazel.symbol.v1.FileLoadTree
-	(*v1beta1.Rule)(nil),            // 8: build.stack.starlark.v1beta1.Rule
-	(*v1beta1.Function)(nil),        // 9: build.stack.starlark.v1beta1.Function
-	(*v1beta1.Provider)(nil),        // 10: build.stack.starlark.v1beta1.Provider
-	(*v1beta1.Aspect)(nil),          // 11: build.stack.starlark.v1beta1.Aspect
-	(*v1beta1.ModuleExtension)(nil), // 12: build.stack.starlark.v1beta1.ModuleExtension
-	(*v1beta1.RepositoryRule)(nil),  // 13: build.stack.starlark.v1beta1.RepositoryRule
-	(*v1beta1.Macro)(nil),           // 14: build.stack.starlark.v1beta1.Macro
-	(*v1beta1.RuleMacro)(nil),       // 15: build.stack.starlark.v1beta1.RuleMacro
-	(*v1beta1.Value)(nil),           // 16: build.stack.starlark.v1beta1.Value
-	(*v1beta1.LoadStmt)(nil),        // 17: build.stack.starlark.v1beta1.LoadStmt
-	(*v1beta1.Struct)(nil),          // 18: build.stack.starlark.v1beta1.Struct
-	(*v1beta1.Label)(nil),           // 19: build.stack.starlark.v1beta1.Label
+	(*ModuleVersionPackages)(nil),   // 6: build.stack.bazel.symbol.v1.ModuleVersionPackages
+	(*ModuleRegistryPackages)(nil),  // 7: build.stack.bazel.symbol.v1.ModuleRegistryPackages
+	(*FileLoadTreeNode)(nil),        // 8: build.stack.bazel.symbol.v1.FileLoadTreeNode
+	(*FileLoadTree)(nil),            // 9: build.stack.bazel.symbol.v1.FileLoadTree
+	(*v1beta1.Rule)(nil),            // 10: build.stack.starlark.v1beta1.Rule
+	(*v1beta1.Function)(nil),        // 11: build.stack.starlark.v1beta1.Function
+	(*v1beta1.Provider)(nil),        // 12: build.stack.starlark.v1beta1.Provider
+	(*v1beta1.Aspect)(nil),          // 13: build.stack.starlark.v1beta1.Aspect
+	(*v1beta1.ModuleExtension)(nil), // 14: build.stack.starlark.v1beta1.ModuleExtension
+	(*v1beta1.RepositoryRule)(nil),  // 15: build.stack.starlark.v1beta1.RepositoryRule
+	(*v1beta1.Macro)(nil),           // 16: build.stack.starlark.v1beta1.Macro
+	(*v1beta1.RuleMacro)(nil),       // 17: build.stack.starlark.v1beta1.RuleMacro
+	(*v1beta1.Value)(nil),           // 18: build.stack.starlark.v1beta1.Value
+	(*v1beta1.LoadStmt)(nil),        // 19: build.stack.starlark.v1beta1.LoadStmt
+	(*v1beta1.Struct)(nil),          // 20: build.stack.starlark.v1beta1.Struct
+	(*v1beta1.Label)(nil),           // 21: build.stack.starlark.v1beta1.Label
+	(*v1beta1.Package)(nil),         // 22: build.stack.starlark.v1beta1.Package
 }
 var file_build_stack_bazel_symbol_v1_symbol_proto_depIdxs = []int32{
 	0,  // 0: build.stack.bazel.symbol.v1.Symbol.type:type_name -> build.stack.bazel.symbol.v1.SymbolType
-	8,  // 1: build.stack.bazel.symbol.v1.Symbol.rule:type_name -> build.stack.starlark.v1beta1.Rule
-	9,  // 2: build.stack.bazel.symbol.v1.Symbol.func:type_name -> build.stack.starlark.v1beta1.Function
-	10, // 3: build.stack.bazel.symbol.v1.Symbol.provider:type_name -> build.stack.starlark.v1beta1.Provider
-	11, // 4: build.stack.bazel.symbol.v1.Symbol.aspect:type_name -> build.stack.starlark.v1beta1.Aspect
-	12, // 5: build.stack.bazel.symbol.v1.Symbol.module_extension:type_name -> build.stack.starlark.v1beta1.ModuleExtension
-	13, // 6: build.stack.bazel.symbol.v1.Symbol.repository_rule:type_name -> build.stack.starlark.v1beta1.RepositoryRule
-	14, // 7: build.stack.bazel.symbol.v1.Symbol.macro:type_name -> build.stack.starlark.v1beta1.Macro
-	15, // 8: build.stack.bazel.symbol.v1.Symbol.rule_macro:type_name -> build.stack.starlark.v1beta1.RuleMacro
-	16, // 9: build.stack.bazel.symbol.v1.Symbol.value:type_name -> build.stack.starlark.v1beta1.Value
-	17, // 10: build.stack.bazel.symbol.v1.Symbol.load:type_name -> build.stack.starlark.v1beta1.LoadStmt
-	18, // 11: build.stack.bazel.symbol.v1.Symbol.struct:type_name -> build.stack.starlark.v1beta1.Struct
-	19, // 12: build.stack.bazel.symbol.v1.File.label:type_name -> build.stack.starlark.v1beta1.Label
+	10, // 1: build.stack.bazel.symbol.v1.Symbol.rule:type_name -> build.stack.starlark.v1beta1.Rule
+	11, // 2: build.stack.bazel.symbol.v1.Symbol.func:type_name -> build.stack.starlark.v1beta1.Function
+	12, // 3: build.stack.bazel.symbol.v1.Symbol.provider:type_name -> build.stack.starlark.v1beta1.Provider
+	13, // 4: build.stack.bazel.symbol.v1.Symbol.aspect:type_name -> build.stack.starlark.v1beta1.Aspect
+	14, // 5: build.stack.bazel.symbol.v1.Symbol.module_extension:type_name -> build.stack.starlark.v1beta1.ModuleExtension
+	15, // 6: build.stack.bazel.symbol.v1.Symbol.repository_rule:type_name -> build.stack.starlark.v1beta1.RepositoryRule
+	16, // 7: build.stack.bazel.symbol.v1.Symbol.macro:type_name -> build.stack.starlark.v1beta1.Macro
+	17, // 8: build.stack.bazel.symbol.v1.Symbol.rule_macro:type_name -> build.stack.starlark.v1beta1.RuleMacro
+	18, // 9: build.stack.bazel.symbol.v1.Symbol.value:type_name -> build.stack.starlark.v1beta1.Value
+	19, // 10: build.stack.bazel.symbol.v1.Symbol.load:type_name -> build.stack.starlark.v1beta1.LoadStmt
+	20, // 11: build.stack.bazel.symbol.v1.Symbol.struct:type_name -> build.stack.starlark.v1beta1.Struct
+	21, // 12: build.stack.bazel.symbol.v1.File.label:type_name -> build.stack.starlark.v1beta1.Label
 	2,  // 13: build.stack.bazel.symbol.v1.File.symbol:type_name -> build.stack.bazel.symbol.v1.Symbol
 	3,  // 14: build.stack.bazel.symbol.v1.ModuleVersionSymbols.file:type_name -> build.stack.bazel.symbol.v1.File
 	1,  // 15: build.stack.bazel.symbol.v1.ModuleVersionSymbols.source:type_name -> build.stack.bazel.symbol.v1.SymbolSource
 	4,  // 16: build.stack.bazel.symbol.v1.ModuleRegistrySymbols.module_version:type_name -> build.stack.bazel.symbol.v1.ModuleVersionSymbols
-	3,  // 17: build.stack.bazel.symbol.v1.FileLoadTreeNode.file:type_name -> build.stack.bazel.symbol.v1.File
-	6,  // 18: build.stack.bazel.symbol.v1.FileLoadTreeNode.children:type_name -> build.stack.bazel.symbol.v1.FileLoadTreeNode
-	6,  // 19: build.stack.bazel.symbol.v1.FileLoadTree.roots:type_name -> build.stack.bazel.symbol.v1.FileLoadTreeNode
-	20, // [20:20] is the sub-list for method output_type
-	20, // [20:20] is the sub-list for method input_type
-	20, // [20:20] is the sub-list for extension type_name
-	20, // [20:20] is the sub-list for extension extendee
-	0,  // [0:20] is the sub-list for field type_name
+	22, // 17: build.stack.bazel.symbol.v1.ModuleVersionPackages.package:type_name -> build.stack.starlark.v1beta1.Package
+	1,  // 18: build.stack.bazel.symbol.v1.ModuleVersionPackages.source:type_name -> build.stack.bazel.symbol.v1.SymbolSource
+	6,  // 19: build.stack.bazel.symbol.v1.ModuleRegistryPackages.module_version:type_name -> build.stack.bazel.symbol.v1.ModuleVersionPackages
+	3,  // 20: build.stack.bazel.symbol.v1.FileLoadTreeNode.file:type_name -> build.stack.bazel.symbol.v1.File
+	8,  // 21: build.stack.bazel.symbol.v1.FileLoadTreeNode.children:type_name -> build.stack.bazel.symbol.v1.FileLoadTreeNode
+	8,  // 22: build.stack.bazel.symbol.v1.FileLoadTree.roots:type_name -> build.stack.bazel.symbol.v1.FileLoadTreeNode
+	23, // [23:23] is the sub-list for method output_type
+	23, // [23:23] is the sub-list for method input_type
+	23, // [23:23] is the sub-list for extension type_name
+	23, // [23:23] is the sub-list for extension extendee
+	0,  // [0:23] is the sub-list for field type_name
 }
 
 func init() { file_build_stack_bazel_symbol_v1_symbol_proto_init() }
@@ -831,7 +957,7 @@ func file_build_stack_bazel_symbol_v1_symbol_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_build_stack_bazel_symbol_v1_symbol_proto_rawDesc), len(file_build_stack_bazel_symbol_v1_symbol_proto_rawDesc)),
 			NumEnums:      2,
-			NumMessages:   6,
+			NumMessages:   8,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

@@ -83,6 +83,19 @@ message ModuleRegistrySymbols {
     repeated ModuleVersionSymbols module_version = 1;
 }
 
+// BUILD-file extraction for a single module version
+message ModuleVersionPackages {
+    string module_name = 1;
+    string version = 2;
+    repeated build.stack.starlark.v1beta1.Package package = 3;
+    SymbolSource source = 4;
+}
+
+// Registry of all BUILD-file extraction for a module registry
+message ModuleRegistryPackages {
+    repeated ModuleVersionPackages module_version = 1;
+}
+
 // Node in the file load dependency graph
 message FileLoadTreeNode {
     // File at this node
