@@ -362,7 +362,7 @@ function computeBazelVersions(registry) {
 			moduleVersion: v,
 			commitDate: formatRelativeShort(v.getCommit().getDate()),
 			isNew: false,
-			linkUrl: `/#/bazel/${v.getVersion()}`,
+			linkUrl: `/bazel/${v.getVersion()}`,
 			pullRequestUrl: pr
 				? `https://github.com/bazelbuild/bazel/pull/${pr}`
 				: "",

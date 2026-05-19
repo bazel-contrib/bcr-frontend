@@ -247,7 +247,7 @@ function computeRecentlyUpdated(registry) {
 			moduleVersion: item.v,
 			commitDate: formatRelativeShort(item.v.getCommit().getDate()),
 			isNew: item.m.getVersionsList().length === 1,
-			linkUrl: `/#/modules/${item.v.getName()}/${item.v.getVersion()}`,
+			linkUrl: `/modules/${item.v.getName()}/${item.v.getVersion()}`,
 			pullRequestUrl: pr
 				? `https://github.com/bazelbuild/bazel-central-registry/pull/${pr}`
 				: "",
@@ -288,7 +288,7 @@ function computeRecentlyAdded(registry) {
 			moduleVersion: item.v,
 			commitDate: formatRelativeShort(item.v.getCommit().getDate()),
 			isNew: true,
-			linkUrl: `/#/modules/${item.v.getName()}/${item.v.getVersion()}`,
+			linkUrl: `/modules/${item.v.getName()}/${item.v.getVersion()}`,
 			pullRequestUrl: pr
 				? `https://github.com/bazelbuild/bazel-central-registry/pull/${pr}`
 				: "",

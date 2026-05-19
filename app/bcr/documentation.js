@@ -206,7 +206,7 @@ const TabName = {
 };
 
 /**
- * Build the `/#/targets/...` URL that lists every BCR target using a given
+ * Build the `/targets/...` URL that lists every BCR target using a given
  * callable symbol. Returns "" when the symbol has no file label.
  *
  * @param {!File} file
@@ -216,7 +216,7 @@ const TabName = {
 function makeUsagesUrl(file, sym) {
 	const label = file.getLabel();
 	if (!label) return "";
-	return "/#/targets/" + loadLabelToUrlKey(label, sym.getName());
+	return "/targets/" + loadLabelToUrlKey(label, sym.getName());
 }
 
 class DocsSelect extends ContentSelect {

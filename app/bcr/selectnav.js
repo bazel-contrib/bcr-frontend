@@ -158,7 +158,7 @@ class SelectNav extends ContentSelect {
 			title,
 			count,
 		});
-		a.href = "/#/" + path;
+		a.href = "/" + path;
 		dataset.set(a, "name", name);
 		return a;
 	}

@@ -409,7 +409,7 @@ class RegistryApp extends App {
 	 * Handle element click event and search for an el with a 'data-route'
 	 * or data-clippy element.  If found, send it.
 	 *
-	 * @param {!events.Event} e
+	 * @param {!events.BrowserEvent} e
 	 */
 	handleElementClick(e) {
 		const target = /** @type {?Node} */ (e.target);
@@ -448,10 +448,63 @@ class RegistryApp extends App {
 					this.gotoSibling(-1);
 					return true;
 				}
+				if (node instanceof HTMLAnchorElement) {
+					return this.maybeNavigateAnchor_(node, e);
+				}
 				return false;
 			},
 			true,
 		);
+	}
+
+	/**
+	 * Intercept a left-click on a same-origin <a href="/..."> and route via the
+	 * SPA router instead of letting the browser do a full page load. Keeping
+	 * the real href means right-click → "Open in new tab" still works: the
+	 * server's SPA fallback serves index.html for the new tab.
+	 *
+	 * @param {!HTMLAnchorElement} anchor
+	 * @param {!events.BrowserEvent} e
+	 * @return {boolean} true if the click was intercepted.
+	 * @private
+	 */
+	maybeNavigateAnchor_(anchor, e) {
+		if (e.defaultPrevented) return false;
+		if (e.button !== 0) return false;
+		if (e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return false;
+		const tgt = anchor.target;
+		if (tgt && tgt !== "_self") return false;
+		if (anchor.hasAttribute("download")) return false;
+		const rawHref = anchor.getAttribute("href");
+		if (!rawHref) return false;
+		if (
+			rawHref.startsWith("javascript:") ||
+			rawHref.startsWith("mailto:") ||
+			rawHref.startsWith("tel:")
+		) {
+			return false;
+		}
+		const url = new URL(anchor.href, window.location.href);
+		if (url.origin !== window.location.origin) return false;
+		// In-page hash navigation (e.g. <a href="#section">) — let the browser
+		// scroll without re-running the router.
+		if (
+			url.pathname === window.location.pathname &&
+			url.search === window.location.search &&
+			url.hash
+		) {
+			return false;
+		}
+		// Legacy `/#/foo` bookmarks: pull the path out of the hash.
+		let path = url.pathname;
+		if (path === "/" && url.hash.startsWith("#/")) {
+			path = url.hash.substring(1);
+		}
+		const segments = path.split("/").filter(Boolean);
+		if (segments.length === 0) return false;
+		e.preventDefault();
+		this.setLocation(segments);
+		return true;
 	}
 
 	/**

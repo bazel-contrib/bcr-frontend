@@ -165,7 +165,7 @@ import {
 {template header}
 <div class="Header" style="background-color: unset">
   <div class="Header-item" style="max-width: 54px">
-    <a href="/#/home">{logo()}</a>
+    <a href="/home">{logo()}</a>
   </div>
   <div class="Header-item Header-item--full">
     <form class="FormControl col-12 width-full" style="margin-block-end: 0">
@@ -281,7 +281,7 @@ import {
           {let $pkg: $label?.getPkg() ?? '' /}
           {let $name: $label?.getName() ?? '' /}
           {let $filePath: $pkg ? $pkg + '/' + $name : $name /}
-          <a href="/#/modules/{$result.module.getName()}/{$result.version.getVersion()}/docs/{$filePath}/{$result.sym.getName()}"
+          <a href="/modules/{$result.module.getName()}/{$result.version.getVersion()}/docs/{$filePath}/{$result.sym.getName()}"
              class="Box-row d-flex flex-items-center"
              style="text-decoration: none;">
             {symbolTypeLabel(type: $result.sym.getType())}
@@ -325,32 +325,32 @@ import {
     The central registry of Bazel modules for the Bzlmod external dependency system.  
   </p>
 
-  <a class="Link--primary d-flex flex-items-center mb-2" href="/#/modules">
+  <a class="Link--primary d-flex flex-items-center mb-2" href="/modules">
     <span class="color-fg-muted">Modules</span>
     <span class="dotted-leader"></span>
     <span class="text-bold">{$totalModules}</span>
   </a>
-  <a class="Link--primary d-flex flex-items-center mb-2" href="/#/modules">
+  <a class="Link--primary d-flex flex-items-center mb-2" href="/modules">
     <span class="color-fg-muted">Module Versions</span>
     <span class="dotted-leader"></span>
     <span class="text-bold">{$totalModuleVersions}</span>
   </a>
-  <a class="Link--primary d-flex flex-items-center mb-2" href="/#/maintainers">
+  <a class="Link--primary d-flex flex-items-center mb-2" href="/maintainers">
     <span class="color-fg-muted">Maintainers</span>
     <span class="dotted-leader"></span>
     <span class="text-bold">{$totalMaintainers}</span>
   </a>
-  <a class="Link--primary d-flex flex-items-center mb-2" href="/#/docs">
+  <a class="Link--primary d-flex flex-items-center mb-2" href="/docs">
     <span class="color-fg-muted">Documented Symbols</span>
     <span class="dotted-leader"></span>
     <span class="text-bold js-symbols-count">{$totalSymbols}</span>
   </a>
-  <a class="Link--primary d-flex flex-items-center mb-2" href="/#/bazel/versions">
+  <a class="Link--primary d-flex flex-items-center mb-2" href="/bazel/versions">
     <span class="color-fg-muted">Bazel Versions</span>
     <span class="dotted-leader"></span>
     <span class="text-bold">{$totalBazelVersions}</span>
   </a>
-  <a class="Link--primary d-flex flex-items-center mb-2" href="/#/bazel/flags">
+  <a class="Link--primary d-flex flex-items-center mb-2" href="/bazel/flags">
     <span class="color-fg-muted">Bazel Flags</span>
     <span class="dotted-leader"></span>
     <span class="text-bold js-bazel-flags-count">914</span>
@@ -679,7 +679,7 @@ import {
 
     <div class="PageLayout-content px-3">
       <div class="mb-2">
-        <a class="Link--muted f6" href="/#/bazel/versions">
+        <a class="Link--muted f6" href="/bazel/versions">
           {octiconChevronLeft16()}{sp}Back to all versions
         </a>
       </div>
@@ -745,7 +745,7 @@ import {
           <span>Bazel {$moduleVersion.getVersion()} release on GitHub</span>
         </a>
         <a class="Link--muted d-flex flex-items-center mb-2"
-           href="/#/modules/bazel_tools/{$moduleVersion.getVersion()}">
+           href="/modules/bazel_tools/{$moduleVersion.getVersion()}">
           <span class="mr-2">{octiconBook16()}</span>
           <span>Module record (bazel_tools@{$moduleVersion.getVersion()})</span>
         </a>
@@ -826,7 +826,7 @@ import {
   {if length($categories) > 0}
     <div class="Box Box--condensed">
       {for $cat in $categories}
-        <a href="/#/bazel/flags/category/{$cat.name |escapeUri}"
+        <a href="/bazel/flags/category/{$cat.name |escapeUri}"
            class="Box-row d-flex flex-items-center"
            style="text-decoration: none;">
           <span class="text-bold">{$cat.name}</span>
@@ -851,7 +851,7 @@ import {
   {if length($tags) > 0}
     <div class="Box Box--condensed">
       {for $tag in $tags}
-        <a href="/#/bazel/flags/tag/{$tag.name |escapeUri}"
+        <a href="/bazel/flags/tag/{$tag.name |escapeUri}"
            class="Box-row d-flex flex-items-center"
            style="text-decoration: none;">
           <span class="text-bold">{$tag.name}</span>
@@ -876,7 +876,7 @@ import {
   {if length($items) > 0}
     <div class="Box Box--condensed">
       {for $item in $items}
-        <a href="/#/bazel/flags/{$item.flag.getName()}"
+        <a href="/bazel/flags/{$item.flag.getName()}"
            class="Box-row d-flex flex-items-center{if !$item.current} color-fg-muted{/if}"
            {if !$item.current}style="text-decoration: none; opacity: 0.55;" title="Removed in the latest supported Bazel version"
            {else}style="text-decoration: none;"
@@ -937,7 +937,7 @@ import {
 
     <div class="PageLayout-content px-3">
       <div class="mb-2">
-        <a class="Link--muted f6" href="/#/bazel/flags/list">
+        <a class="Link--muted f6" href="/bazel/flags/list">
           {octiconChevronLeft16()}{sp}Back to all flags
         </a>
       </div>
@@ -986,7 +986,7 @@ import {
 
   <div class="PageLayout-content px-3">
     <div class="mb-2">
-      <a class="Link--muted f6" href="/#/bazel/flags/list">
+      <a class="Link--muted f6" href="/bazel/flags/list">
         {octiconChevronLeft16()}{sp}Back to all flags
       </a>
     </div>
@@ -1048,7 +1048,7 @@ import {
         {sectionHeader(title: 'Category')}
         <div class="mt-2 d-flex flex-wrap" style="gap: 6px">
           <a class="Label Label--secondary"
-             href="/#/bazel/flags/category/{$flag.getCategory() |escapeUri}"
+             href="/bazel/flags/category/{$flag.getCategory() |escapeUri}"
              style="text-decoration: none;">
             {$flag.getCategory()}
           </a>
@@ -1063,7 +1063,7 @@ import {
         {sectionHeader(title: 'Tags')}
         <div class="mt-2 d-flex flex-wrap" style="gap: 6px">
           {for $tag in $flag.getTagList()}
-            <a class="Label Label--secondary" href="/#/bazel/flags/tag/{$tag}" style="text-decoration: none;">
+            <a class="Label Label--secondary" href="/bazel/flags/tag/{$tag}" style="text-decoration: none;">
               {$tag}
             </a>
           {/for}
@@ -1079,7 +1079,7 @@ import {
         <div class="mt-2 d-flex flex-wrap" style="gap: 6px">
           {for $cmd in $commands}
             <a class="Label {if $cmd.active}Label--accent{else}Label--secondary color-fg-subtle{/if}"
-               href="/#/bazel/command/{$cmd.name}"
+               href="/bazel/command/{$cmd.name}"
                style="text-decoration: none;{if !$cmd.active} opacity: 0.4;{/if}">
               {$cmd.name}
             </a>
@@ -1098,7 +1098,7 @@ import {
         <div class="mt-2 d-flex flex-wrap" style="gap: 6px">
           {for $v in $versions}
             {if $v.active}
-              <a class="Label Label--success" href="/#/bazel/{$v.name}" style="text-decoration: none;">
+              <a class="Label Label--success" href="/bazel/{$v.name}" style="text-decoration: none;">
                 {$v.name}
               </a>
             {else}
@@ -1234,7 +1234,7 @@ import {
     <div class="PageLayout-pane" style="border-right: none">
       <nav class="SideNav ml-3" style="background-color: transparent; border: none">
         {for $language in $languages}
-          <a href="/#/{$pathUrl}/{$language.sanitizedName}" class="SideNav-item d-flex flex-items-center p-1 rounded" style="border: none; box-shadow: none">
+          <a href="/{$pathUrl}/{$language.sanitizedName}" class="SideNav-item d-flex flex-items-center p-1 rounded" style="border: none; box-shadow: none">
             <div class="mr-2" style="width: 6px; min-height: 20px; align-self: stretch; background-color: var(--lang-{$language.sanitizedName}-bg)"></div>
             {$language.name}
           </a>
@@ -2895,7 +2895,7 @@ import {
     <div class="blankslate-heading">
       Module Not Found
     </div>
-    <p><code>{$moduleName}</code> is not in the set of known <a href="/#/modules">modules</a>.</p>
+    <p><code>{$moduleName}</code> is not in the set of known <a href="/modules">modules</a>.</p>
   </div>
 </div>
 {/template}
@@ -2909,7 +2909,7 @@ import {
     <div class="blankslate-heading">
       Module Version Not Found
     </div>
-    <p>Module <a href="/#/modules/{$module.getName()}">{$module.getName()}</a> has no known version <code>{$version}</code></p>
+    <p>Module <a href="/modules/{$module.getName()}">{$module.getName()}</a> has no known version <code>{$version}</code></p>
   </div>
 </div>
 {/template}
