@@ -49,7 +49,7 @@ import {
 
 /**
  * Default LIST view: condensed Box of known load-coordinate keys with their
- * usage counts. Each row links to the detail view at /#/targets/<urlKey>.
+ * usage counts. Each row links to the detail view at /targets/<urlKey>.
  */
 {template targetsListComponent}
   {@param entries: list<[urlKey: string, displayLabel: string, count: int]>}
@@ -62,7 +62,7 @@ import {
       {for $e in $entries}
         <a class="Box-row d-flex flex-items-center"
             style="text-decoration: none;"
-            href="/#/targets/{$e.urlKey}">
+            href="/targets/{$e.urlKey}">
           <span class="text-mono">{$e.displayLabel}</span>
           <span class="ml-auto color-fg-muted text-small">{$e.count}</span>
         </a>

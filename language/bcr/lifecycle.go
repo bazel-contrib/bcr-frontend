@@ -59,7 +59,7 @@ func (ext *bcrExtension) AfterResolvingDeps(ctx context.Context) {
 	binaryProtoHttpArchives := ext.prepareBinaryprotoRepositories()
 	availableBzlRepositories := ext.prepareBzlRepositories()
 
-	// Calculate MVS sets - this updates the rankings of
+	// Calculate MVS sets
 	ext.calculateMvs(availableBzlRepositories)
 
 	if err := mergeGeneratedModuleBazelFile(ext.repoRoot, binaryProtoHttpArchives, availableBzlRepositories); err != nil {

@@ -1257,7 +1257,7 @@ class ModuleVersionDependentsComponent extends ContentComponent {
 			const moduleLink = dom.createDom(
 				"a",
 				{
-					"href": `/#/modules/${moduleName}/${latestVersion}`,
+					"href": `/modules/${moduleName}/${latestVersion}`,
 					"class": "Box-row-link no-wrap",
 				},
 				[versionText, moduleNameText],

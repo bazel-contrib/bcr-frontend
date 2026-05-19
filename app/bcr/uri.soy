@@ -19,7 +19,7 @@ import {
 // ====================================================================
 
 {template rootUrl kind="uri"}
-  /#/
+  /
 {/template}
 
 {template maintainersUrl kind="uri"}
@@ -133,7 +133,7 @@ import {
   {@param? label: Label}
   {let $pkg: $label?.getPkg() /}
   {let $name: $label?.getName() /}
-  /#/{$baseUrl}/{if $pkg}{$pkg}/{/if}{$name}
+  /{$baseUrl}/{if $pkg}{$pkg}/{/if}{$name}
 {/template}
 
 {template symbolInfoUrl kind="uri"}
@@ -193,7 +193,7 @@ import {
   {let $pkg: $label.getPkg() /}
   {let $name: $label.getName() /}
   {if $repo}
-    /#/modules/{$repo}/latest/docs/{if $pkg}{$pkg}/{/if}{$name}
+    /modules/{$repo}/latest/docs/{if $pkg}{$pkg}/{/if}{$name}
   {else}
     // {# Local file - no link #}
   {/if}
@@ -204,7 +204,7 @@ import {
   {@param repo: string}
   {@param pkg: string}
   {@param name: string}
-  /#/{$pathUrl}
+  /{$pathUrl}
   {if $repo.length > 1}/external/{$repo}{else}/@{/if}
   /package/
   {if $pkg}{$pkg}{else}:{/if}
