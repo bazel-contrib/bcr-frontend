@@ -41,6 +41,6 @@ http_jar = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_j
 
 http_jar(
     name = "constellate_server_jar",
-    sha256 = "93ad39803ce6694fac23aa12c7000e6079ef0b2ec3d717b75b3f2823b5437702",
-    urls = ["https://github.com/pcj/bazel/releases/download/constellate-v0.3.0/constellate-server.jar"],
+    sha256 = "f89aa22904e56670f76336e209b2e6c7c122d8a9bbe6f5bee65997dcd833d398",
+    urls = ["https://github.com/pcj/bazel/releases/download/constellate-v0.4.0/constellate-server.jar"],
 )
