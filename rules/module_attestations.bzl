@@ -2,6 +2,11 @@
 
 load("//rules:providers.bzl", "ModuleAttestationsInfo")
 
+# Suffix appended by attestation http_file rules to their downloaded files
+# (downloaded_file_path = "<entry-filename>.intoto.jsonl"). The _compile_action
+# strips this suffix to recover the original attestations.json entry filename.
+_INTOTO_SUFFIX = ".intoto.jsonl"
+
 def _compile_action(ctx):
     out = ctx.actions.declare_file(ctx.label.name + ".attestations.pb")
 
@@ -10,9 +15,24 @@ def _compile_action(ctx):
     args.add("--output_file", out)
 
     inputs = [ctx.file.attestations_json]
-    # PR 3 will append --intoto_file=<filename>=<path> per fetched .intoto.jsonl
-    # bundle. Until then, the compiler emits a proto whose entries carry url +
-    # integrity but no parsed payload.
+
+    # Pass each fetched .intoto.jsonl as --intoto_file=<entry-filename>=<path>.
+    # The entry filename is recovered from the file's basename: Gazelle emits
+    # http_file rules with downloaded_file_path = "<entry-filename>.intoto.jsonl",
+    # so stripping the trailing suffix yields the original key (e.g. "source.json",
+    # "MODULE.bazel", "re.bzl-v0.2.0.tar.gz").
+    for f in ctx.files.attestations_intoto:
+        if not f.basename.endswith(_INTOTO_SUFFIX):
+            fail("attestation file %s does not end with %s" % (f.path, _INTOTO_SUFFIX))
+        entry_filename = f.basename[:-len(_INTOTO_SUFFIX)]
+        args.add("--intoto_file", "%s=%s" % (entry_filename, f.path))
+        inputs.append(f)
+
+    # Entries whose .intoto.jsonl URL was dead at Gazelle time. The compiler
+    # records these as Attestation.Payload.ParseError so the frontend can
+    # distinguish "URL unavailable" from "not yet parsed".
+    for entry_filename in ctx.attr.unavailable_entries:
+        args.add("--unavailable_entry", entry_filename)
 
     ctx.actions.run(
         executable = ctx.executable._attestationscompiler,
@@ -53,6 +73,13 @@ module_attestations = rule(
         "attestations_json": attr.label(
             doc = "File: The attestations.json file",
             allow_single_file = [".json"],
+        ),
+        "attestations_intoto": attr.label_list(
+            doc = "list[Label]: Fetched .intoto.jsonl bundles, one per live entry in attestations.json. Each label resolves to a file named '<entry-filename>.intoto.jsonl'.",
+            allow_files = [".jsonl"],
+        ),
+        "unavailable_entries": attr.string_list(
+            doc = "list[str]: Entries from attestations.json whose .intoto.jsonl URL was dead at Gazelle time. The compiler emits an Attestation with Payload.ParseError set instead of a parsed payload.",
         ),
         "_attestationscompiler": attr.label(
             default = "//cmd/attestationscompiler",

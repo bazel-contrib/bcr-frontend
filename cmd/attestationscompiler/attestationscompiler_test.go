@@ -108,3 +108,51 @@ func TestRun_UnknownIntotoFilename(t *testing.T) {
 		t.Fatal("expected error for --intoto_file referring to unknown filename")
 	}
 }
+
+// TestRun_UnavailableEntry exercises the dead-URL-at-Gazelle-time path: pass
+// --unavailable_entry=source.json and verify the resulting entry's Payload
+// carries the canonical ParseError while other entries stay payload-free.
+func TestRun_UnavailableEntry(t *testing.T) {
+	out := filepath.Join(t.TempDir(), "compiled.pb")
+	err := run([]string{
+		"--attestations_json_file", "testdata/attestations.json",
+		"--unavailable_entry", "source.json",
+		"--output_file", out,
+	})
+	if err != nil {
+		t.Fatalf("run: %v", err)
+	}
+	got := &bzpb.Attestations{}
+	if err := protoutil.ReadFile(out, got); err != nil {
+		t.Fatalf("read output: %v", err)
+	}
+	src, ok := got.Attestations["source.json"]
+	if !ok {
+		t.Fatal("missing source.json entry")
+	}
+	if src.Payload == nil {
+		t.Fatal("source.json: expected non-nil Payload after --unavailable_entry")
+	}
+	if want := unavailableParseError; src.Payload.ParseError != want {
+		t.Errorf("source.json: ParseError = %q; want %q", src.Payload.ParseError, want)
+	}
+	other := got.Attestations["MODULE.bazel"]
+	if other == nil {
+		t.Fatal("missing MODULE.bazel entry")
+	}
+	if other.Payload != nil {
+		t.Errorf("MODULE.bazel: Payload = %+v; want nil (no flags passed for it)", other.Payload)
+	}
+}
+
+func TestRun_UnknownUnavailableFilename(t *testing.T) {
+	out := filepath.Join(t.TempDir(), "compiled.pb")
+	err := run([]string{
+		"--attestations_json_file", "testdata/attestations.json",
+		"--unavailable_entry", "does-not-exist.tar.gz",
+		"--output_file", out,
+	})
+	if err == nil {
+		t.Fatal("expected error for --unavailable_entry referring to unknown filename")
+	}
+}

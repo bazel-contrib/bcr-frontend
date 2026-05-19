@@ -9,6 +9,7 @@ import (
 	"path"
 	"path/filepath"
 	"slices"
+	"sort"
 	"strings"
 
 	bzpb "github.com/bazel-contrib/bcr-frontend/build/stack/bazel/registry/v1"
@@ -44,6 +45,8 @@ func NewLanguage() language.Language {
 		resourceStatusByUrl:      make(map[string]*bzpb.ResourceStatus),
 		moduleIDsByDocUrl:        make(map[string][]moduleID),
 		moduleIDsBySourceUrl:     make(map[string][]moduleID),
+		attestationFetches:       make(map[string]*attestationFetch),
+		fetchAttestations:        true,
 		moduleMetadataRules:      make(map[moduleName]*protoRule[*bzpb.ModuleMetadata]),
 		moduleVersionRules:       make(map[moduleID]*protoRule[*bzpb.ModuleVersion]),
 		moduleSourceRules:        make(map[moduleID]*protoRule[*bzpb.ModuleSource]),
@@ -95,6 +98,8 @@ type bcrExtension struct {
 	overlayBzlByID            map[moduleID]bool                               // module versions whose BCR overlay contains at least one .bzl file
 	bcrCommitSHA              string                                          // committed SHA of the bazel-central-registry submodule
 	bcrRepositoryURL          string                                          // remote URL of the bazel-central-registry submodule
+	fetchAttestations         bool                                            // whether to emit http_file rules for .intoto.jsonl bundles
+	attestationFetches        map[string]*attestationFetch                    // unique .intoto.jsonl fetches, keyed by URL
 }
 
 // Name returns the name of the language. This should be a prefix of the kinds
@@ -134,6 +139,8 @@ func (ext *bcrExtension) RegisterFlags(fs *flag.FlagSet, cmd string, c *config.C
 		"docs-module-filter", "", "comma-separated module name prefixes to limit doc generation (e.g. 'rules_,bazel_')")
 	fs.StringVar(&ext.docsSiteRepo,
 		"docs-site-repo", "", "URL of the GitHub Pages site repo to check for existing docs")
+	fs.BoolVar(&ext.fetchAttestations,
+		"fetch-attestations", true, "emit http_file rules to fetch .intoto.jsonl bundles referenced by each module-version's attestations.json")
 }
 
 func (ext *bcrExtension) CheckFlags(fs *flag.FlagSet, c *config.Config) error {
@@ -420,7 +427,26 @@ func (ext *bcrExtension) GenerateRules(args language.GenerateArgs) language.Gene
 				log.Fatalf("reading %s/attestations.json: %v", args.Rel, err)
 			}
 			module.Attestations = attestations
-			attestationsRule = makeModuleAttestationsRule(attestations, "attestations.json")
+
+			// Track each (url, integrity, filename) for later http_file emission;
+			// collect the resulting labels so the rule can wire them to its
+			// attestations_intoto attr.
+			var intotoLabels []string
+			urlByFilename := make(map[string]string)
+			for filename, att := range attestations.Attestations {
+				lbl := ext.trackAttestationFetch(att.Url, att.Integrity, filename)
+				if lbl != label.NoLabel {
+					intotoLabels = append(intotoLabels, lbl.String())
+					urlByFilename[filename] = att.Url
+				}
+			}
+			sort.Strings(intotoLabels)
+
+			attestationsRule = makeModuleAttestationsRule(attestations, "attestations.json", intotoLabels)
+			// Register the rule against each URL it references so the URL-check
+			// pass (AfterResolvingDeps → prepareAttestationRepositories) can
+			// drop labels of dead URLs and back-fill unavailable_entries.
+			ext.registerAttestationRule(attestationsRule, urlByFilename)
 			rules = append(rules, attestationsRule)
 		}
 

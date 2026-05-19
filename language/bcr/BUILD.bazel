@@ -4,6 +4,7 @@ go_library(
     name = "bcr",
     srcs = [
         "archive_override.go",
+        "attestations_fetch.go",
         "bazel.go",
         "bazel_release_cache.go",
         "bazel_version.go",
@@ -68,6 +69,7 @@ go_library(
 go_test(
     name = "bcr_test",
     srcs = [
+        "attestations_fetch_test.go",
         "registry_backup_test.go",
         "repository_test.go",
         "stardoc_test.go",

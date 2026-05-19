@@ -26,8 +26,11 @@ const toolName = "attestationscompiler"
 type Config struct {
 	AttestationsJsonFile string
 	IntotoFiles          []string // "<filename>=<path>" entries
+	UnavailableEntries   []string // attestations.json entry filenames whose URL was dead at Gazelle time
 	OutputFile           string
 }
+
+const unavailableParseError = "URL unavailable at Gazelle time"
 
 func main() {
 	log.SetPrefix(toolName + ": ")
@@ -86,6 +89,14 @@ func run(args []string) error {
 		entry.Payload = intoto.Parse(data)
 	}
 
+	for _, filename := range cfg.UnavailableEntries {
+		entry, ok := att.Attestations[filename]
+		if !ok || entry == nil {
+			return fmt.Errorf("--unavailable_entry refers to unknown filename %q (not in attestations.json)", filename)
+		}
+		entry.Payload = &bzpb.Attestations_AttestationPayload{ParseError: unavailableParseError}
+	}
+
 	if err := protoutil.WriteFile(cfg.OutputFile, att); err != nil {
 		return fmt.Errorf("writing output: %v", err)
 	}
@@ -115,6 +126,8 @@ func parseFlags(args []string) (Config, error) {
 	fs.StringVar(&cfg.OutputFile, "output_file", "", "the output .pb file to write (required)")
 	var intotoFiles repeatedString
 	fs.Var(&intotoFiles, "intoto_file", "<filename>=<path>; repeated; provides a .intoto.jsonl file for the named attestation entry")
+	var unavailable repeatedString
+	fs.Var(&unavailable, "unavailable_entry", "<filename>; repeated; marks an attestation entry whose URL was dead at Gazelle time")
 	fs.Usage = func() {
 		fmt.Fprintf(flag.CommandLine.Output(), "usage: %s @PARAMS_FILE\n", toolName)
 		fs.PrintDefaults()
@@ -123,5 +136,6 @@ func parseFlags(args []string) (Config, error) {
 		return cfg, err
 	}
 	cfg.IntotoFiles = intotoFiles
+	cfg.UnavailableEntries = unavailable
 	return cfg, nil
 }

@@ -488,8 +488,8 @@ func (ext *bcrExtension) finalizeBzlSrcsAndDeps(bzlRepositories rankedModuleVers
 
 // mergeGeneratedModuleBazelFile updates the MODULE.bazel file with additional
 // rules.
-func mergeGeneratedModuleBazelFile(repoRoot string, binaryProtoHttpArchives []*rule.Rule, bzlRepositories rankedModuleVersionMap) error {
-	if len(binaryProtoHttpArchives) == 0 && len(bzlRepositories) == 0 {
+func mergeGeneratedModuleBazelFile(repoRoot string, binaryProtoHttpArchives []*rule.Rule, attestationHttpFiles []*rule.Rule, bzlRepositories rankedModuleVersionMap) error {
+	if len(binaryProtoHttpArchives) == 0 && len(attestationHttpFiles) == 0 && len(bzlRepositories) == 0 {
 		return nil
 	}
 
@@ -499,12 +499,22 @@ func mergeGeneratedModuleBazelFile(repoRoot string, binaryProtoHttpArchives []*r
 		return fmt.Errorf("parsing: %v", err)
 	}
 
+	if len(attestationHttpFiles) > 0 {
+		ensureHttpFileUseRepoRule(f.File)
+		f.Sync()
+	}
+
 	// clean old rules
 	deletedRules := 0
 	for _, r := range f.Rules {
 		switch r.Kind() {
 		case httpArchiveKind:
 			if strings.HasSuffix(r.Name(), binaryProtoRepositorySuffix) {
+				r.Delete()
+				deletedRules++
+			}
+		case httpFileKind:
+			if strings.HasSuffix(r.Name(), attestationRepositorySuffix) {
 				r.Delete()
 				deletedRules++
 			}
@@ -564,6 +574,17 @@ func mergeGeneratedModuleBazelFile(repoRoot string, binaryProtoHttpArchives []*r
 		r.Insert(f)
 	}
 
+	// Insert attestation http_file rules in sorted order (Gazelle already
+	// sorted these by URL, but re-sort by repo name for stable output).
+	sortedHttpFiles := make([]*rule.Rule, 0, len(attestationHttpFiles))
+	sortedHttpFiles = append(sortedHttpFiles, attestationHttpFiles...)
+	sort.Slice(sortedHttpFiles, func(i, j int) bool {
+		return sortedHttpFiles[i].Name() < sortedHttpFiles[j].Name()
+	})
+	for _, r := range sortedHttpFiles {
+		r.Insert(f)
+	}
+
 	// Insert starlark_repository rules in sorted order by module name
 	for _, moduleNameStr := range moduleNames {
 		versions := bzlRepositories[moduleName(moduleNameStr)]
@@ -576,10 +597,61 @@ func mergeGeneratedModuleBazelFile(repoRoot string, binaryProtoHttpArchives []*r
 	f.Sync()
 
 	log.Printf("added %d http_archive rules", len(binaryProtoHttpArchives))
+	log.Printf("added %d http_file rules", len(attestationHttpFiles))
 	log.Printf("added %d starlark_repository rules", len(bzlRepositories))
 
 	log.Println("Updating:", filename)
 	return f.Save(filename)
+}
+
+// ensureHttpFileUseRepoRule prepends a `http_file = use_repo_rule(...)`
+// statement to the MODULE.bazel file if one is not already present. The repo
+// rule is needed before any http_file(...) calls Gazelle later inserts.
+func ensureHttpFileUseRepoRule(f *build.File) {
+	for _, stmt := range f.Stmt {
+		assign, ok := stmt.(*build.AssignExpr)
+		if !ok {
+			continue
+		}
+		lhs, ok := assign.LHS.(*build.Ident)
+		if !ok || lhs.Name != httpFileKind {
+			continue
+		}
+		// Already declared; nothing to do.
+		return
+	}
+
+	useRepoRule := &build.AssignExpr{
+		LHS: &build.Ident{Name: httpFileKind},
+		Op:  "=",
+		RHS: &build.CallExpr{
+			X: &build.Ident{Name: "use_repo_rule"},
+			List: []build.Expr{
+				&build.StringExpr{Value: "@bazel_tools//tools/build_defs/repo:http.bzl"},
+				&build.StringExpr{Value: httpFileKind},
+			},
+		},
+	}
+
+	// Insert just after the existing `http_archive = use_repo_rule(...)` if
+	// present, otherwise at the top of the file. Co-locating the two
+	// statements keeps generated.MODULE.bazel readable.
+	insertAt := 0
+	for i, stmt := range f.Stmt {
+		assign, ok := stmt.(*build.AssignExpr)
+		if !ok {
+			continue
+		}
+		lhs, ok := assign.LHS.(*build.Ident)
+		if !ok {
+			continue
+		}
+		if lhs.Name == httpArchiveKind {
+			insertAt = i + 1
+			break
+		}
+	}
+	f.Stmt = append(f.Stmt[:insertAt], append([]build.Expr{useRepoRule}, f.Stmt[insertAt:]...)...)
 }
 
 func getUseRepoCall(call *build.CallExpr, name string) *build.CallExpr {
