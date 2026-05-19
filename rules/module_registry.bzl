@@ -416,7 +416,7 @@ def _compile_packages_for_module_version(ctx, mv, all_mv_by_id):
     args.add("--log_file", "/tmp/packagecompiler.log")
 
     # bazel run //src/main/java/build/stack/devtools/build/constellate:server -- --listen_port=3535 2>&1 | tee starlarkserver.log
-    args.add("--port", 3524)  # e.g. java -jar ./cmd/bzlcompiler/constellate.jar --listen_port=3535
+    # args.add("--port", 3524)  # e.g. java -jar ./cmd/bzlcompiler/constellate.jar --listen_port=3535
 
     # 1. Bazel tools and @_builtins (shared .bzl baseline for load resolution).
     _add_args_for_starlark_modules(args, "_builtins", bzl_builtins.modules, [])
