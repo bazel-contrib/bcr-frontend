@@ -2007,6 +2007,7 @@ import {
   {@param sym: Symbol}
   {@param? originKey: OriginKey}
   {@param? location: SymbolLocation}
+  {@param? usagesUrl: string}
 <div class="Subhead mb-2" style="border-bottom: none;">
   <div class="Subhead-heading d-flex flex-items-center flex-justify-between flex-wrap" style="gap: 8px; row-gap: 4px;">
     <h3 class="d-flex flex-items-center flex-wrap" style="min-width: 0; overflow-wrap: anywhere; gap: 4px; row-gap: 4px;">
@@ -2025,6 +2026,11 @@ import {
             </a>
           {/if}
         {/if}
+      {/if}
+      {if $usagesUrl}
+        <a href="{$usagesUrl}" class="btn btn-sm d-inline-flex flex-items-center flex-shrink-0" title="See where this rule is used across the registry">
+          <span>Usages</span>
+        </a>
       {/if}
     </h3>
     <div class="d-flex flex-row flex-items-center flex-shrink-0" style="min-width: 0; overflow-wrap: anywhere;">
@@ -2063,6 +2069,7 @@ import {
   {@param file: File}
   {@param sym: Symbol}
   {@param? exampleCode: string}
+  {@param? usagesUrl: string}
 <div style="min-width: 0">
   {call symbolInfoHeader}
     {param moduleVersion: $moduleVersion /}
@@ -2070,6 +2077,7 @@ import {
     {param sym: $sym /}
     {param originKey: $sym.getRule()?.getInfo()?.getOriginKey() /}
     {param location: $sym.getRule()?.getLocation() /}
+    {param usagesUrl: $usagesUrl /}
   {/call}
 
   {if $exampleCode}
@@ -2090,6 +2098,7 @@ import {
   {@param file: File}
   {@param sym: Symbol}
   {@param? exampleCode: string}
+  {@param? usagesUrl: string}
 <div style="min-width: 0">
   {call symbolInfoHeader}
     {param moduleVersion: $moduleVersion /}
@@ -2097,6 +2106,7 @@ import {
     {param sym: $sym /}
     {param originKey: $sym.getMacro()?.getInfo()?.getOriginKey() /}
     {param location: $sym.getMacro()?.getLocation() /}
+    {param usagesUrl: $usagesUrl /}
   {/call}
 
   {if $exampleCode}
@@ -2117,6 +2127,7 @@ import {
   {@param file: File}
   {@param sym: Symbol}
   {@param? exampleCode: string}
+  {@param? usagesUrl: string}
 <div style="min-width: 0">
   {call symbolInfoHeader}
     {param moduleVersion: $moduleVersion /}
@@ -2124,6 +2135,7 @@ import {
     {param sym: $sym /}
     {param originKey: $sym.getRuleMacro()?.getFunction()?.getInfo()?.getOriginKey() /}
     {param location: $sym.getRuleMacro()?.getFunction()?.getLocation() /}
+    {param usagesUrl: $usagesUrl /}
   {/call}
 
   {if $exampleCode}
@@ -2250,6 +2262,7 @@ import {
   {@param file: File}
   {@param sym: Symbol}
   {@param? exampleCode: string}
+  {@param? usagesUrl: string}
 <div style="min-width: 0">
   {call symbolInfoHeader}
     {param moduleVersion: $moduleVersion /}
@@ -2257,6 +2270,7 @@ import {
     {param sym: $sym /}
     {param originKey: $sym.getFunc()?.getInfo()?.getOriginKey() /}
     {param location: $sym.getFunc()?.getLocation() /}
+    {param usagesUrl: $usagesUrl /}
   {/call}
 
   {let $func: $sym.getFunc() /}

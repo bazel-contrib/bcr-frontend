@@ -47,6 +47,12 @@ import {
   {moduleVersionUrl(name: $name, version: $version)}/docs
 {/template}
 
+{template moduleVersionPackagesUrl kind="uri"}
+  {@param name: string}
+  {@param version: string}
+  {moduleVersionUrl(name: $name, version: $version)}/packages
+{/template}
+
 {template maintainerUrl kind="uri"}
   {@param maintainer: Maintainer}
   {if $maintainer.getGithub()}

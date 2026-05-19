@@ -7,6 +7,9 @@ const ModuleDependency = goog.require(
 const ModuleVersion = goog.require(
 	"proto.build.stack.bazel.registry.v1.ModuleVersion",
 );
+const ModuleVersionPackages = goog.require(
+	"proto.build.stack.bazel.symbol.v1.ModuleVersionPackages",
+);
 const ModuleVersionSymbols = goog.require(
 	"proto.build.stack.bazel.symbol.v1.ModuleVersionSymbols",
 );
@@ -25,6 +28,7 @@ const { ContentComponent } = goog.require("bcrfrontend.ContentComponent");
 const { ContentSelect } = goog.require("bcrfrontend.ContentSelect");
 const { ModuleVersionSymbolsSelect, DocumentationReadmeComponent } =
 	goog.require("bcrfrontend.documentation");
+const { ModuleVersionPackagesSelect } = goog.require("bcrfrontend.packages");
 const { PresubmitSelect } = goog.require("bcrfrontend.presubmit");
 const { MvsDependencyTree } = goog.require("bcrfrontend.mvs_tree");
 const { SelectNav } = goog.require("bcrfrontend.SelectNav");
@@ -92,12 +96,40 @@ async function fetchModuleVersionSymbolsFromGithubRepository(moduleVersion) {
 }
 
 /**
+ * Fetch BUILD-file extraction (ModuleVersionPackages) for a module version
+ * from the site assets. Used as a fallback when the registry-wide
+ * packages.pb.gz didn't carry data for this version (e.g. older versions not
+ * selected by MVS, but whose per-version artifact was committed to the site
+ * repo).
+ * @param {!ModuleVersion} moduleVersion
+ * @returns {!Promise<?ModuleVersionPackages>}
+ */
+async function fetchModuleVersionPackagesFromGithubRepository(moduleVersion) {
+	const name = moduleVersion.getName();
+	const version = moduleVersion.getVersion();
+	const baseUrl =
+		new URLSearchParams(window.location.search).get("modules_base_url") || "";
+	const url = `${baseUrl}/modules/${name}/${version}/packageinfo.pb.gz`;
+	try {
+		const response = await fetch(url);
+		if (!response.ok) return null;
+		const gzipData = new Uint8Array(await response.arrayBuffer());
+		const decompressed = await gzipDecode(gzipData);
+		return ModuleVersionPackages.deserializeBinary(decompressed);
+	} catch (/** @type {*} */ e) {
+		console.error(`Failed to fetch packages for ${name}@${version}:`, e);
+		return null;
+	}
+}
+
+/**
  * @enum {string}
  */
 const TabName = {
 	DOCS: "docs",
 	LIST: "list",
 	OVERVIEW: "overview",
+	PACKAGES: "packages",
 	TESTING: "testing",
 };
 
@@ -426,6 +458,17 @@ class ModuleVersionSelectNav extends SelectNav {
 			`${this.getPathUrl()}/${TabName.DOCS}`,
 		);
 
+		// Packages tab is deferred for the same reason as docs: the packages
+		// proto is fetched async, and older versions may also need the
+		// per-version packageinfo.pb.gz fallback fetch.
+		this.addNavTabDeferred(
+			TabName.PACKAGES,
+			"Packages",
+			"BUILD-file targets",
+			undefined,
+			`${this.getPathUrl()}/${TabName.PACKAGES}`,
+		);
+
 		const presubmit = this.moduleVersion_.getPresubmit();
 		this.addNavTabLazy(
 			TabName.TESTING,
@@ -485,6 +528,44 @@ class ModuleVersionSelectNav extends SelectNav {
 							this.module_,
 							this.moduleVersion_,
 							docs || null,
+						),
+					);
+					this.select(name, route);
+				});
+			return;
+		}
+
+		if (name === TabName.PACKAGES) {
+			// Mirror the docs branch: wait for the registry-wide packages
+			// fetch, then fall back to a per-version packageinfo.pb.gz fetch
+			// for older versions whose entry wasn't in the registry aggregate.
+			getApplication(this)
+				.getRegistryWithPackages()
+				.then(() => {
+					if (this.isDisposed()) return null;
+					const pkgs = this.moduleVersion_.getSource()?.getPackages();
+					if (pkgs && pkgs.getPackageList().length > 0) {
+						return pkgs;
+					}
+					if (
+						pkgs &&
+						pkgs.getSource() === SymbolSource.BEST_EFFORT &&
+						pkgs.getPackageList().length === 0
+					) {
+						return pkgs;
+					}
+					return fetchModuleVersionPackagesFromGithubRepository(
+						this.moduleVersion_,
+					);
+				})
+				.then((/** @type {?ModuleVersionPackages} */ pkgs) => {
+					if (this.isDisposed()) return;
+					this.addTab(
+						TabName.PACKAGES,
+						new ModuleVersionPackagesSelect(
+							this.module_,
+							this.moduleVersion_,
+							pkgs || null,
 						),
 					);
 					this.select(name, route);

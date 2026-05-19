@@ -30,6 +30,7 @@ type config struct {
 	ErrorLimit          int
 	Port                int
 	ServerJarFile       string
+	BzlFiles            bzlFileSlice
 	PackageFiles        packageFileSlice
 	FilesToExtract      []string
 	moduleDeps          moduleDepsMap
@@ -47,6 +48,7 @@ func parseConfig(args []string) (*config, error) {
 	fs.BoolVar(&cfg.PersistentWorker, "persistent_worker", false, "present if this tool is being invoked as a bazel persistent worker")
 	fs.IntVar(&cfg.ErrorLimit, "error_limit", 0, "fail if we exceed this limit (must be non-zero to take effect)")
 	fs.Var(&cfg.PackageFiles, "package_file", "package source file mapping in the format REPO|LABEL|PATH (repeatable)")
+	fs.Var(&cfg.BzlFiles, "bzl_file", ".bzl source file mapping in the format REPO|LABEL|PATH (repeatable). Staged into the workdir so PackageInfo can resolve transitive load() statements.")
 	fs.Var(&cfg.moduleDeps, "module_dep", "module dependency map (repeatable)")
 	fs.Usage = func() {
 		fmt.Fprintf(flag.CommandLine.Output(), "usage: %s @PARAMS_FILE", toolName)
@@ -97,6 +99,44 @@ func parseConfig(args []string) (*config, error) {
 	}
 
 	return &cfg, nil
+}
+
+type bzlFile struct {
+	RepoName string
+	Path     string
+	Label    *slpb.Label
+}
+
+type bzlFileSlice []*bzlFile
+
+func (s *bzlFileSlice) String() string {
+	var parts []string
+	for _, f := range *s {
+		parts = append(parts, fmt.Sprintf("%s|%s|%s", f.RepoName, f.Label, f.Path))
+	}
+	return strings.Join(parts, ",")
+}
+
+func (s *bzlFileSlice) Set(value string) error {
+	parts := strings.SplitN(value, "|", 3)
+	if len(parts) != 3 {
+		return fmt.Errorf("invalid mapping format %q, expected REPO_NAME|LABEL|PATH", value)
+	}
+
+	repoName := parts[0]
+	lbl, err := label.Parse(parts[1])
+	if err != nil {
+		return fmt.Errorf("invalid mapping format %q, malformed label %s: %v", value, parts[2], err)
+	}
+	path := parts[2]
+
+	*s = append(*s, &bzlFile{
+		RepoName: repoName,
+		Path:     path,
+		Label:    &slpb.Label{Repo: repoName, Pkg: lbl.Pkg, Name: filepath.Base(path)},
+	})
+
+	return nil
 }
 
 type packageFile struct {

@@ -151,6 +151,10 @@ func runBatch(cfg *config) error {
 		return fail(err)
 	}
 
+	if err := prepareBzlFiles(cfg); err != nil {
+		return fail(err)
+	}
+
 	prepareShimBzlFiles(cfg)
 
 	if debugSandbox {

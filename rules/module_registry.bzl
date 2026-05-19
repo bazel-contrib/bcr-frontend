@@ -1,7 +1,6 @@
 "provides the module_registry rule"
 
 load("@build_stack_rules_proto//rules:starlark_module_library.bzl", "StarlarkModuleLibraryInfo")
-load("@build_stack_rules_proto//rules:starlark_package_library.bzl", "StarlarkPackageLibraryInfo")
 load(
     "//rules:providers.bzl",
     "BazelVersionInfo",
@@ -361,7 +360,9 @@ def _compile_bzl_for_module_version(ctx, mv, all_mv_by_id):
     return result
 
 def _packages_info_output_result(ctx, mv):
-    output = ctx.actions.declare_file("%s/%s/packagesinfo.pb.gz" % (mv.name, mv.version))
+    output = ctx.actions.declare_file("%s/%s/packageinfo.pb.gz" % (mv.name, mv.version))
+
+    # output = ctx.actions.declare_file("%s/%s/packageinfo.json" % (mv.name, mv.version))
     return struct(
         mv = mv,
         output = output,
@@ -413,6 +414,9 @@ def _compile_packages_for_module_version(ctx, mv, all_mv_by_id):
     args.add("--java_interpreter_file", java_executable)
     args.add("--server_jar_file", ctx.file._starlarkserverjar)
     args.add("--log_file", "/tmp/packagecompiler.log")
+
+    # bazel run //src/main/java/build/stack/devtools/build/constellate:server -- --listen_port=3535 2>&1 | tee starlarkserver.log
+    args.add("--port", 3524)  # e.g. java -jar ./cmd/bzlcompiler/constellate.jar --listen_port=3535
 
     # 1. Bazel tools and @_builtins (shared .bzl baseline for load resolution).
     _add_args_for_starlark_modules(args, "_builtins", bzl_builtins.modules, [])
@@ -637,6 +641,15 @@ def _module_registry_impl(ctx):
     sitemap_xml = _compile_sitemap_action(ctx, registry_pb, bazel_flag_db)
     prerender_urls = _write_prerender_urls_action(ctx, deps)
 
+    # Per-module-version output groups.
+    per_mv_output_groups = {}
+    for d in doc_results:
+        if d.output != None:
+            per_mv_output_groups[d.mv.id.replace("@", "-") + ".moduleinfo"] = depset([d.output])
+    for p in pkg_results:
+        if p.output != None:
+            per_mv_output_groups[p.mv.id.replace("@", "-") + ".packageinfo"] = depset([p.output])
+
     return [
         DefaultInfo(files = depset([registry_pb])),
         OutputGroupInfo(
@@ -656,7 +669,7 @@ def _module_registry_impl(ctx):
             pkg_results = depset([r.output for r in pkg_results if r.output != None]),
             bazel_help = depset([bazel_help]),
             bazel_flag_db = depset([bazel_flag_db]),
-            **{d.mv.id.replace("@", "-"): depset([d.output]) for d in doc_results if d.output != None}
+            **per_mv_output_groups
         ),
         ModuleRegistryInfo(
             deps = depset(deps),

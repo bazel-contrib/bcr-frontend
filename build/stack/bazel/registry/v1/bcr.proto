@@ -169,6 +169,8 @@ message ModuleSource {
     ResourceStatus url_status = 15;
     // Git commit SHA resolved from source URL (GitHub releases/tags)
     string commit_sha = 16;
+    // Optional BUILD-file extraction (parallel to `documentation`).
+    build.stack.bazel.symbol.v1.ModuleVersionPackages packages = 17;
 }
 
 // Attestations represents an attestations.json file for a module version.

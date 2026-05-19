@@ -19,6 +19,7 @@ const { ModulesMapSelect, ModuleSearchComponent } = goog.require(
 );
 const { SelectNav } = goog.require("bcrfrontend.SelectNav");
 const { SettingsSelect } = goog.require("bcrfrontend.settings");
+const { TargetsSelect } = goog.require("bcrfrontend.targets");
 const { bodySelect, searchSelectNav } = goog.require("soy.bcrfrontend.app");
 
 /**
@@ -34,6 +35,7 @@ const TabName = {
 	SEARCH: "search",
 	SETTINGS: "settings",
 	SYMBOLS: "symbols",
+	TARGETS: "targets",
 };
 
 /**
@@ -126,6 +128,18 @@ class BodySelect extends ContentSelect {
 		if (name === TabName.MAINTAINERS) {
 			this.addTab(name, new MaintainersSelect(this.registry_, this.dom_));
 			this.select(name, route);
+			return;
+		}
+		if (name === TabName.TARGETS) {
+			// Wait for packages (which the rule-usage index derives from) to
+			// be loaded; same pattern as DOCS waiting for symbols.
+			getApplication(this)
+				.getRegistryWithPackages()
+				.then(() => {
+					if (this.isDisposed()) return;
+					this.addTab(name, new TargetsSelect(this.registry_, this.dom_));
+					this.select(name, route);
+				});
 			return;
 		}
 		if (name === TabName.SETTINGS) {

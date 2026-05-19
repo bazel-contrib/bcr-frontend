@@ -797,23 +797,24 @@ func (x *ResourceStatusSet) GetStatus() []*ResourceStatus {
 }
 
 type ModuleSource struct {
-	state         protoimpl.MessageState   `protogen:"open.v1"`
-	Url           string                   `protobuf:"bytes,1,opt,name=url,proto3" json:"url,omitempty"`
-	Integrity     string                   `protobuf:"bytes,2,opt,name=integrity,proto3" json:"integrity,omitempty"`
-	StripPrefix   string                   `protobuf:"bytes,3,opt,name=strip_prefix,json=stripPrefix,proto3" json:"strip_prefix,omitempty"`
-	PatchStrip    int32                    `protobuf:"varint,4,opt,name=patch_strip,json=patchStrip,proto3" json:"patch_strip,omitempty"`
-	Patches       map[string]string        `protobuf:"bytes,5,rep,name=patches,proto3" json:"patches,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
-	Overlay       map[string]string        `protobuf:"bytes,6,rep,name=overlay,proto3" json:"overlay,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
-	DocsUrl       string                   `protobuf:"bytes,7,opt,name=docs_url,json=docsUrl,proto3" json:"docs_url,omitempty"`
-	MirrorUrls    []string                 `protobuf:"bytes,8,rep,name=mirror_urls,json=mirrorUrls,proto3" json:"mirror_urls,omitempty"`
-	ArchiveType   string                   `protobuf:"bytes,9,opt,name=archive_type,json=archiveType,proto3" json:"archive_type,omitempty"`
-	Type          string                   `protobuf:"bytes,10,opt,name=type,proto3" json:"type,omitempty"`
-	Remote        string                   `protobuf:"bytes,11,opt,name=remote,proto3" json:"remote,omitempty"`
-	Commit        string                   `protobuf:"bytes,12,opt,name=commit,proto3" json:"commit,omitempty"`
-	Documentation *v1.ModuleVersionSymbols `protobuf:"bytes,13,opt,name=documentation,proto3" json:"documentation,omitempty"`
-	DocsUrlStatus *ResourceStatus          `protobuf:"bytes,14,opt,name=docs_url_status,json=docsUrlStatus,proto3" json:"docs_url_status,omitempty"`
-	UrlStatus     *ResourceStatus          `protobuf:"bytes,15,opt,name=url_status,json=urlStatus,proto3" json:"url_status,omitempty"`
-	CommitSha     string                   `protobuf:"bytes,16,opt,name=commit_sha,json=commitSha,proto3" json:"commit_sha,omitempty"`
+	state         protoimpl.MessageState    `protogen:"open.v1"`
+	Url           string                    `protobuf:"bytes,1,opt,name=url,proto3" json:"url,omitempty"`
+	Integrity     string                    `protobuf:"bytes,2,opt,name=integrity,proto3" json:"integrity,omitempty"`
+	StripPrefix   string                    `protobuf:"bytes,3,opt,name=strip_prefix,json=stripPrefix,proto3" json:"strip_prefix,omitempty"`
+	PatchStrip    int32                     `protobuf:"varint,4,opt,name=patch_strip,json=patchStrip,proto3" json:"patch_strip,omitempty"`
+	Patches       map[string]string         `protobuf:"bytes,5,rep,name=patches,proto3" json:"patches,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	Overlay       map[string]string         `protobuf:"bytes,6,rep,name=overlay,proto3" json:"overlay,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	DocsUrl       string                    `protobuf:"bytes,7,opt,name=docs_url,json=docsUrl,proto3" json:"docs_url,omitempty"`
+	MirrorUrls    []string                  `protobuf:"bytes,8,rep,name=mirror_urls,json=mirrorUrls,proto3" json:"mirror_urls,omitempty"`
+	ArchiveType   string                    `protobuf:"bytes,9,opt,name=archive_type,json=archiveType,proto3" json:"archive_type,omitempty"`
+	Type          string                    `protobuf:"bytes,10,opt,name=type,proto3" json:"type,omitempty"`
+	Remote        string                    `protobuf:"bytes,11,opt,name=remote,proto3" json:"remote,omitempty"`
+	Commit        string                    `protobuf:"bytes,12,opt,name=commit,proto3" json:"commit,omitempty"`
+	Documentation *v1.ModuleVersionSymbols  `protobuf:"bytes,13,opt,name=documentation,proto3" json:"documentation,omitempty"`
+	DocsUrlStatus *ResourceStatus           `protobuf:"bytes,14,opt,name=docs_url_status,json=docsUrlStatus,proto3" json:"docs_url_status,omitempty"`
+	UrlStatus     *ResourceStatus           `protobuf:"bytes,15,opt,name=url_status,json=urlStatus,proto3" json:"url_status,omitempty"`
+	CommitSha     string                    `protobuf:"bytes,16,opt,name=commit_sha,json=commitSha,proto3" json:"commit_sha,omitempty"`
+	Packages      *v1.ModuleVersionPackages `protobuf:"bytes,17,opt,name=packages,proto3" json:"packages,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -958,6 +959,13 @@ func (x *ModuleSource) GetCommitSha() string {
 		return x.CommitSha
 	}
 	return ""
+}
+
+func (x *ModuleSource) GetPackages() *v1.ModuleVersionPackages {
+	if x != nil {
+		return x.Packages
+	}
+	return nil
 }
 
 type Attestations struct {
@@ -2381,7 +2389,7 @@ const file_build_stack_bazel_registry_v1_bcr_proto_rawDesc = "" +
 	"\x04code\x18\x02 \x01(\x05R\x04code\x12\x18\n" +
 	"\amessage\x18\x03 \x01(\tR\amessage\"Z\n" +
 	"\x11ResourceStatusSet\x12E\n" +
-	"\x06status\x18\x01 \x03(\v2-.build.stack.bazel.registry.v1.ResourceStatusR\x06status\"\xe2\x06\n" +
+	"\x06status\x18\x01 \x03(\v2-.build.stack.bazel.registry.v1.ResourceStatusR\x06status\"\xb2\a\n" +
 	"\fModuleSource\x12\x10\n" +
 	"\x03url\x18\x01 \x01(\tR\x03url\x12\x1c\n" +
 	"\tintegrity\x18\x02 \x01(\tR\tintegrity\x12!\n" +
@@ -2403,7 +2411,8 @@ const file_build_stack_bazel_registry_v1_bcr_proto_rawDesc = "" +
 	"\n" +
 	"url_status\x18\x0f \x01(\v2-.build.stack.bazel.registry.v1.ResourceStatusR\turlStatus\x12\x1d\n" +
 	"\n" +
-	"commit_sha\x18\x10 \x01(\tR\tcommitSha\x1a:\n" +
+	"commit_sha\x18\x10 \x01(\tR\tcommitSha\x12N\n" +
+	"\bpackages\x18\x11 \x01(\v22.build.stack.bazel.symbol.v1.ModuleVersionPackagesR\bpackages\x1a:\n" +
 	"\fPatchesEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\x1a:\n" +
@@ -2600,6 +2609,7 @@ var file_build_stack_bazel_registry_v1_bcr_proto_goTypes = []any{
 	nil,                               // 36: build.stack.bazel.registry.v1.Presubmit.TasksEntry
 	nil,                               // 37: build.stack.bazel.registry.v1.Presubmit.BcrTestModule.TasksEntry
 	(*v1.ModuleVersionSymbols)(nil),   // 38: build.stack.bazel.symbol.v1.ModuleVersionSymbols
+	(*v1.ModuleVersionPackages)(nil),  // 39: build.stack.bazel.symbol.v1.ModuleVersionPackages
 }
 var file_build_stack_bazel_registry_v1_bcr_proto_depIdxs = []int32{
 	2,  // 0: build.stack.bazel.registry.v1.Registry.modules:type_name -> build.stack.bazel.registry.v1.Module
@@ -2621,37 +2631,38 @@ var file_build_stack_bazel_registry_v1_bcr_proto_depIdxs = []int32{
 	38, // 16: build.stack.bazel.registry.v1.ModuleSource.documentation:type_name -> build.stack.bazel.symbol.v1.ModuleVersionSymbols
 	10, // 17: build.stack.bazel.registry.v1.ModuleSource.docs_url_status:type_name -> build.stack.bazel.registry.v1.ResourceStatus
 	10, // 18: build.stack.bazel.registry.v1.ModuleSource.url_status:type_name -> build.stack.bazel.registry.v1.ResourceStatus
-	32, // 19: build.stack.bazel.registry.v1.Attestations.attestations:type_name -> build.stack.bazel.registry.v1.Attestations.AttestationsEntry
-	19, // 20: build.stack.bazel.registry.v1.ModuleVersion.deps:type_name -> build.stack.bazel.registry.v1.ModuleDependency
-	12, // 21: build.stack.bazel.registry.v1.ModuleVersion.source:type_name -> build.stack.bazel.registry.v1.ModuleSource
-	13, // 22: build.stack.bazel.registry.v1.ModuleVersion.attestations:type_name -> build.stack.bazel.registry.v1.Attestations
-	24, // 23: build.stack.bazel.registry.v1.ModuleVersion.presubmit:type_name -> build.stack.bazel.registry.v1.Presubmit
-	18, // 24: build.stack.bazel.registry.v1.ModuleVersion.override:type_name -> build.stack.bazel.registry.v1.ModuleDependencyOverride
-	15, // 25: build.stack.bazel.registry.v1.ModuleVersion.commit:type_name -> build.stack.bazel.registry.v1.ModuleCommit
-	5,  // 26: build.stack.bazel.registry.v1.ModuleVersion.repository_metadata:type_name -> build.stack.bazel.registry.v1.RepositoryMetadata
-	16, // 27: build.stack.bazel.registry.v1.PRAuthorSet.authors:type_name -> build.stack.bazel.registry.v1.PRAuthor
-	20, // 28: build.stack.bazel.registry.v1.ModuleDependencyOverride.git_override:type_name -> build.stack.bazel.registry.v1.GitOverride
-	21, // 29: build.stack.bazel.registry.v1.ModuleDependencyOverride.archive_override:type_name -> build.stack.bazel.registry.v1.ArchiveOverride
-	22, // 30: build.stack.bazel.registry.v1.ModuleDependencyOverride.single_version_override:type_name -> build.stack.bazel.registry.v1.SingleVersionOverride
-	23, // 31: build.stack.bazel.registry.v1.ModuleDependencyOverride.local_path_override:type_name -> build.stack.bazel.registry.v1.LocalPathOverride
-	18, // 32: build.stack.bazel.registry.v1.ModuleDependency.override:type_name -> build.stack.bazel.registry.v1.ModuleDependencyOverride
-	33, // 33: build.stack.bazel.registry.v1.Presubmit.bcr_test_module:type_name -> build.stack.bazel.registry.v1.Presubmit.BcrTestModule
-	34, // 34: build.stack.bazel.registry.v1.Presubmit.matrix:type_name -> build.stack.bazel.registry.v1.Presubmit.PresubmitMatrix
-	36, // 35: build.stack.bazel.registry.v1.Presubmit.tasks:type_name -> build.stack.bazel.registry.v1.Presubmit.TasksEntry
-	14, // 36: build.stack.bazel.registry.v1.DependencyTreeNode.module_version:type_name -> build.stack.bazel.registry.v1.ModuleVersion
-	25, // 37: build.stack.bazel.registry.v1.DependencyTreeNode.children:type_name -> build.stack.bazel.registry.v1.DependencyTreeNode
-	14, // 38: build.stack.bazel.registry.v1.DependencyTree.module_version:type_name -> build.stack.bazel.registry.v1.ModuleVersion
-	25, // 39: build.stack.bazel.registry.v1.DependencyTree.children:type_name -> build.stack.bazel.registry.v1.DependencyTreeNode
-	31, // 40: build.stack.bazel.registry.v1.Attestations.AttestationsEntry.value:type_name -> build.stack.bazel.registry.v1.Attestations.Attestation
-	34, // 41: build.stack.bazel.registry.v1.Presubmit.BcrTestModule.matrix:type_name -> build.stack.bazel.registry.v1.Presubmit.PresubmitMatrix
-	37, // 42: build.stack.bazel.registry.v1.Presubmit.BcrTestModule.tasks:type_name -> build.stack.bazel.registry.v1.Presubmit.BcrTestModule.TasksEntry
-	35, // 43: build.stack.bazel.registry.v1.Presubmit.TasksEntry.value:type_name -> build.stack.bazel.registry.v1.Presubmit.PresubmitTask
-	35, // 44: build.stack.bazel.registry.v1.Presubmit.BcrTestModule.TasksEntry.value:type_name -> build.stack.bazel.registry.v1.Presubmit.PresubmitTask
-	45, // [45:45] is the sub-list for method output_type
-	45, // [45:45] is the sub-list for method input_type
-	45, // [45:45] is the sub-list for extension type_name
-	45, // [45:45] is the sub-list for extension extendee
-	0,  // [0:45] is the sub-list for field type_name
+	39, // 19: build.stack.bazel.registry.v1.ModuleSource.packages:type_name -> build.stack.bazel.symbol.v1.ModuleVersionPackages
+	32, // 20: build.stack.bazel.registry.v1.Attestations.attestations:type_name -> build.stack.bazel.registry.v1.Attestations.AttestationsEntry
+	19, // 21: build.stack.bazel.registry.v1.ModuleVersion.deps:type_name -> build.stack.bazel.registry.v1.ModuleDependency
+	12, // 22: build.stack.bazel.registry.v1.ModuleVersion.source:type_name -> build.stack.bazel.registry.v1.ModuleSource
+	13, // 23: build.stack.bazel.registry.v1.ModuleVersion.attestations:type_name -> build.stack.bazel.registry.v1.Attestations
+	24, // 24: build.stack.bazel.registry.v1.ModuleVersion.presubmit:type_name -> build.stack.bazel.registry.v1.Presubmit
+	18, // 25: build.stack.bazel.registry.v1.ModuleVersion.override:type_name -> build.stack.bazel.registry.v1.ModuleDependencyOverride
+	15, // 26: build.stack.bazel.registry.v1.ModuleVersion.commit:type_name -> build.stack.bazel.registry.v1.ModuleCommit
+	5,  // 27: build.stack.bazel.registry.v1.ModuleVersion.repository_metadata:type_name -> build.stack.bazel.registry.v1.RepositoryMetadata
+	16, // 28: build.stack.bazel.registry.v1.PRAuthorSet.authors:type_name -> build.stack.bazel.registry.v1.PRAuthor
+	20, // 29: build.stack.bazel.registry.v1.ModuleDependencyOverride.git_override:type_name -> build.stack.bazel.registry.v1.GitOverride
+	21, // 30: build.stack.bazel.registry.v1.ModuleDependencyOverride.archive_override:type_name -> build.stack.bazel.registry.v1.ArchiveOverride
+	22, // 31: build.stack.bazel.registry.v1.ModuleDependencyOverride.single_version_override:type_name -> build.stack.bazel.registry.v1.SingleVersionOverride
+	23, // 32: build.stack.bazel.registry.v1.ModuleDependencyOverride.local_path_override:type_name -> build.stack.bazel.registry.v1.LocalPathOverride
+	18, // 33: build.stack.bazel.registry.v1.ModuleDependency.override:type_name -> build.stack.bazel.registry.v1.ModuleDependencyOverride
+	33, // 34: build.stack.bazel.registry.v1.Presubmit.bcr_test_module:type_name -> build.stack.bazel.registry.v1.Presubmit.BcrTestModule
+	34, // 35: build.stack.bazel.registry.v1.Presubmit.matrix:type_name -> build.stack.bazel.registry.v1.Presubmit.PresubmitMatrix
+	36, // 36: build.stack.bazel.registry.v1.Presubmit.tasks:type_name -> build.stack.bazel.registry.v1.Presubmit.TasksEntry
+	14, // 37: build.stack.bazel.registry.v1.DependencyTreeNode.module_version:type_name -> build.stack.bazel.registry.v1.ModuleVersion
+	25, // 38: build.stack.bazel.registry.v1.DependencyTreeNode.children:type_name -> build.stack.bazel.registry.v1.DependencyTreeNode
+	14, // 39: build.stack.bazel.registry.v1.DependencyTree.module_version:type_name -> build.stack.bazel.registry.v1.ModuleVersion
+	25, // 40: build.stack.bazel.registry.v1.DependencyTree.children:type_name -> build.stack.bazel.registry.v1.DependencyTreeNode
+	31, // 41: build.stack.bazel.registry.v1.Attestations.AttestationsEntry.value:type_name -> build.stack.bazel.registry.v1.Attestations.Attestation
+	34, // 42: build.stack.bazel.registry.v1.Presubmit.BcrTestModule.matrix:type_name -> build.stack.bazel.registry.v1.Presubmit.PresubmitMatrix
+	37, // 43: build.stack.bazel.registry.v1.Presubmit.BcrTestModule.tasks:type_name -> build.stack.bazel.registry.v1.Presubmit.BcrTestModule.TasksEntry
+	35, // 44: build.stack.bazel.registry.v1.Presubmit.TasksEntry.value:type_name -> build.stack.bazel.registry.v1.Presubmit.PresubmitTask
+	35, // 45: build.stack.bazel.registry.v1.Presubmit.BcrTestModule.TasksEntry.value:type_name -> build.stack.bazel.registry.v1.Presubmit.PresubmitTask
+	46, // [46:46] is the sub-list for method output_type
+	46, // [46:46] is the sub-list for method input_type
+	46, // [46:46] is the sub-list for extension type_name
+	46, // [46:46] is the sub-list for extension extendee
+	0,  // [0:46] is the sub-list for field type_name
 }
 
 func init() { file_build_stack_bazel_registry_v1_bcr_proto_init() }

@@ -26,6 +26,95 @@ func preparePackageFiles(cfg *config) (map[string]*packageFile, error) {
 	return packageFileByPath, nil
 }
 
+// prepareBzlFiles stages every --bzl_file into the work dir with load
+// statements rewritten so PackageInfo can resolve transitive loads from a
+// BUILD file. Mirrors bzlcompiler/files.go:rewriteBzlFile but does not
+// populate the extraction set — these files are dependency context only.
+func prepareBzlFiles(cfg *config) error {
+	for _, file := range cfg.BzlFiles {
+		if err := rewriteBzlFile(cfg, file); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func rewriteBzlFile(cfg *config, file *bzlFile) error {
+	deps, found := cfg.moduleDeps[file.RepoName]
+	if !found {
+		cfg.Logger.Printf("WARN: dependencies for %s not found", file.RepoName)
+	}
+
+	srcPath := filepath.Join(cfg.Cwd, file.Path)
+	if _, err := os.Stat(srcPath); os.IsNotExist(err) {
+		return fmt.Errorf("rewriteBzlFile: source file %s not found in %s", file.Path, cfg.Cwd)
+	}
+
+	data, err := os.ReadFile(srcPath)
+	if err != nil {
+		return fmt.Errorf("os.ReadFile(%q) error: %v", srcPath, err)
+	}
+	ast, parseErr := build.ParseBzl(srcPath, data)
+	if parseErr != nil {
+		if failOnParseErrors {
+			return fmt.Errorf("build.ParseBzl(%q) error: %v", srcPath, parseErr)
+		}
+		cfg.Logger.Printf("WARN: build.ParseBzl(%q) error: %v", srcPath, parseErr)
+	}
+
+	if ast != nil {
+		var loads []*build.LoadStmt
+		build.WalkOnce(ast, func(expr *build.Expr) {
+			n := *expr
+			if l, ok := n.(*build.LoadStmt); ok {
+				loads = append(loads, l)
+			}
+		})
+
+		for _, load := range loads {
+			from, err := label.Parse(load.Module.Value)
+			if err != nil {
+				return fmt.Errorf("failed to parse label %s in module %s: %v", load.Module.Value, file.Path, err)
+			}
+			to := from.Abs(file.RepoName, file.Label.Pkg)
+
+			switch from.Repo {
+			case "":
+				to.Repo = sanitizeRepoName(file.RepoName)
+			case file.RepoName:
+				to.Repo = sanitizeRepoName(file.RepoName)
+			case "bazel_tools":
+				to.Repo = "bazel_tools"
+			case "_builtins":
+				to.Repo = "_builtins"
+			default:
+				var match *bzpb.ModuleDependency
+				for _, dep := range deps {
+					if dep.RepoName == from.Repo {
+						to.Repo = dep.Name
+						match = dep
+					} else if dep.Name == from.Repo {
+						to.Repo = dep.Name
+						match = dep
+					}
+				}
+				if match == nil && debugSandbox {
+					cfg.Logger.Printf("WARN: unknown dependency @%s of module %s (%s)", from.Repo, file.RepoName, file.Path)
+				}
+			}
+			if from != to {
+				load.Module.Value = to.String()
+			}
+		}
+
+		data = build.Format(ast)
+	}
+
+	workingPath := filepath.Join(workDir, "external", file.Label.Repo, file.Label.Pkg, file.Label.Name)
+	dstPath := filepath.Join(cfg.Cwd, workingPath)
+	return writeFile(dstPath, data, os.ModePerm)
+}
+
 // prepareShimBzlFiles are special-case stand-ins for non-module dependencies
 // that BUILD files (and the .bzl files they load) may reach for.  Kept in sync
 // with bzlcompiler/files.go.

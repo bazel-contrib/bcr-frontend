@@ -13,11 +13,14 @@ const Label = goog.require("proto.build.stack.starlark.v1beta1.Label");
 const ModuleVersion = goog.require(
 	"proto.build.stack.bazel.registry.v1.ModuleVersion",
 );
+const Package = goog.require("proto.build.stack.starlark.v1beta1.Package");
 const ProviderFieldInfo = goog.require(
 	"proto.stardoc_output.ProviderFieldInfo",
 );
 const Symbol = goog.require("proto.build.stack.bazel.symbol.v1.Symbol");
 const SymbolType = goog.require("proto.build.stack.bazel.symbol.v1.SymbolType");
+const Target = goog.require("proto.build.stack.starlark.v1beta1.Target");
+const Value = goog.require("proto.build.stack.starlark.v1beta1.Value");
 
 /**
  * Helper class for building Starlark function call examples
@@ -771,5 +774,144 @@ function formatLabel(label) {
 	return result;
 }
 
+exports.formatLabel = formatLabel;
+
+/**
+ * Encode a load-symbol coordinate into the URL form used by the /targets
+ * view's Trie router. Empty `pkg` collapses (no intermediate segments) so
+ * `@swig//:swig.bzl%swig_library` becomes `@swig/swig.bzl/swig_library`.
+ *
+ * @param {!Label} label  the loaded .bzl file's label
+ * @param {string} symbol the symbol name (the rule/function being loaded)
+ * @returns {string}
+ */
+function loadLabelToUrlKey(label, symbol) {
+	const repo = `@${label.getRepo() || ""}`;
+	const pkg = label.getPkg() || "";
+	const file = label.getName() || "";
+	return pkg
+		? `${repo}/${pkg}/${file}/${symbol}`
+		: `${repo}/${file}/${symbol}`;
+}
+exports.loadLabelToUrlKey = loadLabelToUrlKey;
+
+/**
+ * Inverse of loadLabelToUrlKey: parse a `/targets/<urlKey>` path into the
+ * underlying load coordinate so the detail view can render the user-friendly
+ * `@<repo>//<pkg>:<file>%<symbol>` form. Returns null when the urlKey has no
+ * `.bzl` segment to anchor on.
+ *
+ * @param {string} urlKey
+ * @returns {?{repo: string, pkg: string, file: string, symbol: string}}
+ */
+function parseLoadUrlKey(urlKey) {
+	const parts = urlKey.split("/");
+	if (parts.length < 3) return null;
+	if (!parts[0].startsWith("@")) return null;
+	// Find the segment ending in .bzl — everything before it (after the @repo)
+	// is the package path, the .bzl segment is the file, everything after is
+	// the symbol.
+	let bzlIdx = -1;
+	for (let i = 1; i < parts.length; i++) {
+		if (parts[i].endsWith(".bzl")) {
+			bzlIdx = i;
+			break;
+		}
+	}
+	if (bzlIdx === -1 || bzlIdx === parts.length - 1) return null;
+	return {
+		repo: parts[0].slice(1),
+		pkg: parts.slice(1, bzlIdx).join("/"),
+		file: parts[bzlIdx],
+		symbol: parts.slice(bzlIdx + 1).join("/"),
+	};
+}
+exports.parseLoadUrlKey = parseLoadUrlKey;
+
 // Export StarlarkCallBuilder for testing
 exports.StarlarkCallBuilder = StarlarkCallBuilder;
+
+/**
+ * Render a captured Value proto as a Starlark literal. Mirrors the Value
+ * oneof: string -> quoted, int/bool -> bare, list -> recursive render, macro
+ * or anything else unrepresentable -> a `# <complex expr>` placeholder
+ * comment so the rendered call stays syntactically valid.
+ *
+ * @param {?Value} value
+ * @param {string=} indent leading whitespace for nested list lines
+ * @returns {string}
+ */
+function valueToStarlark(value, indent = "    ") {
+	if (!value) return "None";
+
+	const oneofCase = value.getValueCase();
+	switch (oneofCase) {
+		case Value.ValueCase.STRING:
+			return JSON.stringify(value.getString());
+		case Value.ValueCase.INT:
+			return String(value.getInt());
+		case Value.ValueCase.BOOL:
+			return value.getBool() ? "True" : "False";
+		case Value.ValueCase.LIST: {
+			const list = value.getList();
+			if (!list) return "[]";
+			const entries = list.getValueList();
+			if (entries.length === 0) {
+				return "[]";
+			}
+			if (entries.length === 1) {
+				return `[${valueToStarlark(entries[0], indent)}]`;
+			}
+			const inner = indent + "    ";
+			const items = entries.map(
+				/** @param {!Value} v */
+				(v) => `${inner}${valueToStarlark(v, inner)}`,
+			);
+			return `[\n${items.join(",\n")},\n${indent}]`;
+		}
+		case Value.ValueCase.MACRO:
+			return "# <macro>";
+		default:
+			return "# <complex expr>";
+	}
+}
+exports.valueToStarlark = valueToStarlark;
+
+/**
+ * Reproduce the BUILD-file invocation for a captured Target. If the target's
+ * rule was loaded from a .bzl, prepend the matching load() statement (from
+ * the Package's load list). Native rules render bare.
+ *
+ * @param {!Package} pkg
+ * @param {!Target} target
+ * @returns {string}
+ */
+function generateTargetCall(pkg, target) {
+	const ruleName = target.getRule();
+	const builder = new StarlarkCallBuilder(ruleName);
+
+	for (const attr of target.getAttributeList()) {
+		const literal = valueToStarlark(attr.getValue(), "    ");
+		builder.addKeyword(attr.getName(), literal, attr.getName() === "name");
+	}
+
+	let load = "";
+	if (target.getIsMacro()) {
+		for (const stmt of pkg.getLoadList()) {
+			for (const sym of stmt.getSymbolList()) {
+				const exported = sym.getTo() || sym.getFrom();
+				if (exported === ruleName) {
+					const label = stmt.getLabel();
+					if (label) {
+						load = `load(${JSON.stringify(formatLabel(label))}, ${JSON.stringify(ruleName)})\n\n`;
+					}
+					break;
+				}
+			}
+			if (load) break;
+		}
+	}
+
+	return load + builder.build();
+}
+exports.generateTargetCall = generateTargetCall;
