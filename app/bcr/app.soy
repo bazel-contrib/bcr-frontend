@@ -84,6 +84,7 @@ import {
   BazelFlagDb
 } from 'build/stack/bazel/help/v1/help.proto';
 import {
+  attestationBadge,
   attestationsTable,
   compatibilityTable,
   copyToClipboardButton,
@@ -565,13 +566,19 @@ import {
                 </a>
                 {sp}
                 <span class="color-fg-muted">{$item.moduleVersion.getVersion()}</span>
-                {if $item.isNew}
-                  {sp}
-                  <span title="New Module">{octiconStarFill16(fill: 'var(--color-success-fg)')}</span>
-                {/if}
               </div>
               <span class="dotted-leader"></span>
+              {if $item.moduleVersion.getAttestations()}
+                <span class="mr-2">
+                  {call attestationBadge}
+                    {param href: $item.linkUrl + '/attestations' /}
+                  {/call}
+                </span>
+              {/if}
               <span class="color-fg-muted f6 text-right no-wrap">{$item.commitDate}</span>
+              {if $item.isNew}
+                <span class="ml-2" title="New Module">{octiconStarFill16(fill: 'var(--color-success-fg)')}</span>
+              {/if}
             </div>
             {if $commit?.getPullRequest()}
               <div class="f6 color-fg-muted mt-1">
