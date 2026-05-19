@@ -503,10 +503,7 @@ class RegistryApp extends App {
 						}
 					}
 				}
-				const pkgList = mvForPkg
-					?.getSource()
-					?.getPackages()
-					?.getPackageList();
+				const pkgList = mvForPkg?.getSource()?.getPackages()?.getPackageList();
 				if (pkgList && pkgList.length > 0) {
 					/** @type {!Array<string>} */
 					const allPaths = pkgList.map((p) =>
@@ -521,9 +518,7 @@ class RegistryApp extends App {
 					// what's left is a known package path. Works for both
 					// `/packages/lib/foo` and `/packages/lib/foo/my_target`.
 					/** @type {!Array<string>} */
-					const tail = segments
-						.slice(4)
-						.map((s) => decodeURIComponent(s));
+					const tail = segments.slice(4).map((s) => decodeURIComponent(s));
 					/** @type {?string} */
 					let current = null;
 					for (let n = tail.length; n > 0; n--) {

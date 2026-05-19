@@ -789,9 +789,7 @@ function loadLabelToUrlKey(label, symbol) {
 	const repo = `@${label.getRepo() || ""}`;
 	const pkg = label.getPkg() || "";
 	const file = label.getName() || "";
-	return pkg
-		? `${repo}/${pkg}/${file}/${symbol}`
-		: `${repo}/${file}/${symbol}`;
+	return pkg ? `${repo}/${pkg}/${file}/${symbol}` : `${repo}/${file}/${symbol}`;
 }
 exports.loadLabelToUrlKey = loadLabelToUrlKey;
 

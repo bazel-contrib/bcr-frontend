@@ -15,11 +15,8 @@ const {
 	createModuleMap,
 } = goog.require("bcrfrontend.registry");
 const { commitSha: uiCommitSha } = goog.require("bcrfrontend.uiVersion");
-const {
-	targetsSelect,
-	targetsListComponent,
-	targetUsagesComponent,
-} = goog.require("soy.bcrfrontend.targets");
+const { targetsSelect, targetsListComponent, targetUsagesComponent } =
+	goog.require("soy.bcrfrontend.targets");
 
 /**
  * @enum {string}
@@ -122,10 +119,7 @@ class TargetsSelect extends ContentSelect {
 		}
 
 		if (name === TabName.LIST) {
-			this.addTab(
-				name,
-				new TargetsListComponent(this.usageIndex_, this.dom_),
-			);
+			this.addTab(name, new TargetsListComponent(this.usageIndex_, this.dom_));
 			this.select(name, route);
 			return;
 		}

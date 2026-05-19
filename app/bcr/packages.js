@@ -137,9 +137,7 @@ function contrastFg(bg) {
 		const r = parseInt(bg.slice(1, 3), 16);
 		const g = parseInt(bg.slice(3, 5), 16);
 		const b = parseInt(bg.slice(5, 7), 16);
-		return (r * 0.299 + g * 0.587 + b * 0.114) / 255 > 0.6
-			? "#000"
-			: "#fff";
+		return (r * 0.299 + g * 0.587 + b * 0.114) / 255 > 0.6 ? "#000" : "#fff";
 	}
 	// hsl(...) fallbacks always pair with white; the L=40% lookup keeps
 	// luminance low enough for white text to remain legible.
@@ -257,7 +255,10 @@ function computeSourceUrl(registry, moduleVersion, pkg, target) {
 	const relPkg = pkgPath === ROOT_KEY ? "" : pkgPath;
 	const filename = pkg.getFilename() || "";
 	const buildBase =
-		filename.split("/").pop()?.replace(/\.package$/, "") || "BUILD.bazel";
+		filename
+			.split("/")
+			.pop()
+			?.replace(/\.package$/, "") || "BUILD.bazel";
 	const relPath = relPkg ? `${relPkg}/${buildBase}` : buildBase;
 	const line = target.getLocation()?.getStart()?.getLine() || 0;
 	const lineFrag = line ? `#L${line}` : "";
@@ -698,8 +699,7 @@ class TargetInfoComponent extends Component {
 			this.pkg_,
 			this.target_,
 		);
-		const sourceLine =
-			this.target_.getLocation()?.getStart()?.getLine() || 0;
+		const sourceLine = this.target_.getLocation()?.getStart()?.getLine() || 0;
 
 		const displayName = this.target_.getName() || this.target_.getRule();
 
