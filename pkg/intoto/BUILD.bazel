@@ -1,0 +1,25 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "intoto",
+    srcs = [
+        "cert.go",
+        "parse.go",
+        "types.go",
+    ],
+    importpath = "github.com/bazel-contrib/bcr-frontend/pkg/intoto",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//build/stack/bazel/registry/v1:registry",
+    ],
+)
+
+go_test(
+    name = "intoto_test",
+    srcs = ["parse_test.go"],
+    data = ["testdata/re-bzl-0.2.0-source.intoto.jsonl"],
+    embed = [":intoto"],
+    deps = [
+        "//build/stack/bazel/registry/v1:registry",
+    ],
+)

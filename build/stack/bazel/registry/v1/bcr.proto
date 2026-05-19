@@ -181,6 +181,65 @@ message Attestations {
         string url = 1;
         // Integrity hash of the attestation
         string integrity = 2;
+        // Parsed payload extracted from the .intoto.jsonl bundle at `url`.
+        // Empty when the bundle has not been fetched + parsed yet.
+        AttestationPayload payload = 3;
+    }
+    // AttestationPayload is the UI-shaped flattening of fields extracted from a
+    // Sigstore bundle wrapping an in-toto Statement with a SLSA v1 (or v0.2)
+    // provenance predicate. Populated by the attestations compiler.
+    message AttestationPayload {
+        // === Subject (in-toto Statement subject[0]) ===
+        // Name of the artifact this attestation covers (e.g. "source.json").
+        string subject_name = 1;
+        // sha256 digest of the subject artifact, lowercase hex.
+        string subject_sha256 = 2;
+        // True when subject_sha256 matches the sha256 from `Attestation.integrity`
+        // of the file this attestation is for.
+        bool subject_matches = 3;
+
+        // === Signer identity (Fulcio leaf cert) ===
+        // SAN URI from the leaf certificate. For GitHub Actions OIDC this is
+        // typically the workflow ref, e.g.
+        // "https://github.com/foo/bar/.github/workflows/release.yaml@refs/tags/v1".
+        string signer_identity = 10;
+        // OIDC issuer URL (e.g. "https://token.actions.githubusercontent.com").
+        string signer_issuer = 11;
+
+        // === Source (from SLSA buildDefinition.resolvedDependencies / cert OIDs) ===
+        // Source repository URL (e.g. "https://github.com/foo/bar").
+        string source_repo_url = 20;
+        // Git commit SHA the artifact was built from.
+        string source_commit_sha = 21;
+        // Git ref (e.g. "refs/tags/v0.2.0").
+        string source_ref = 22;
+
+        // === Builder / build (from SLSA predicate + cert OIDs) ===
+        // Builder ID (runDetails.builder.id), typically a workflow URL.
+        string builder_id = 30;
+        // Build type (buildDefinition.buildType).
+        string build_type = 31;
+        // Workflow path relative to the source repo
+        // (e.g. ".github/workflows/release.yaml").
+        string workflow_path = 32;
+        // URL of the CI invocation (e.g. GitHub Actions run URL).
+        string invocation_url = 33;
+        // Statement predicate type (e.g. "https://slsa.dev/provenance/v1").
+        string predicate_type = 34;
+
+        // === Transparency log (Rekor) ===
+        // Rekor log index from verificationMaterial.tlogEntries[0].logIndex.
+        int64 rekor_log_index = 40;
+        // Direct URL to the Rekor entry (search.sigstore.dev).
+        string rekor_log_url = 41;
+        // Unix-seconds time the entry was integrated into Rekor.
+        int64 rekor_integrated_time = 42;
+
+        // === Diagnostics ===
+        // Set when structural parsing failed or the bundle had an unsupported
+        // shape (e.g. unknown predicateType). When non-empty, other fields may
+        // be partially populated on a best-effort basis.
+        string parse_error = 90;
     }
     // Media type (e.g., 'application/vnd.dev.sigstore.bundle+json;version=0.1')
     string media_type = 1;
