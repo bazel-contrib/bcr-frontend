@@ -30,12 +30,36 @@ browsers.chrome()
 # Overrides
 # -------------------------------------------------------------------
 
-# Pointed at local working copy while iterating on starlark_package /
-# starlark_package_library + the matching gazelle support. Swap back to
-# archive_override once the changes are released upstream.
-local_path_override(
+# Commit: ab383bb888085a9851568bf9f248a37a63b8b851
+# Date: 2026-05-19 05:30:35 +0000 UTC
+# URL: https://github.com/stackb/rules_proto/commit/ab383bb888085a9851568bf9f248a37a63b8b851
+#
+# starlark_repository: capture upstream BUILD files as starlark_package targets (#423)
+#
+# Adds a new "preserve" build_file_generation mode that runs cmd/preserve_packages
+# between fetch_repo and gazelle. The tool mirrors fetch_repo -clean semantics
+# (deletes WORKSPACE / MODULE.bazel / etc.) but renames BUILD and BUILD.bazel to
+# BUILD.package and BUILD.bazel.package so the upstream package layout is
+# preserved as opaque files rather than discarded.
+#
+# The starlarkrepository gazelle extension grows a parallel pair of kinds
+# alongside starlark_module / starlark_module_library:
+#
+#   - starlark_package: one per BUILD*.package, src points at the preserved file.
+#     Name is the dot-sanitized filename (BUILD.package -> BUILD_package) to
+#     avoid clashing with starlark_module names derived from .bzl files.
+#   - starlark_package_library: emitted at the configured root, named
+#     "starlark_packages" (not "packages", which would clash with packages.bzl).
+#     Its `packages` attr is populated in Resolve via the RuleIndex.
+#
+# starlark_repository.archive/.local default build_file_generation to "preserve"
+# so users get the new behavior automatically; they can still override.
+# Size: 4117603 (4.1 MB)
+archive_override(
     module_name = "build_stack_rules_proto",
-    path = "/Users/pcj/go/src/github.com/stackb/rules_proto",
+    sha256 = "563a8ed2dc192b6e95d5633cd0a5ad0453867335eff42f7cb61711655a1b6842",
+    strip_prefix = "rules_proto-ab383bb888085a9851568bf9f248a37a63b8b851",
+    urls = ["https://github.com/stackb/rules_proto/archive/ab383bb888085a9851568bf9f248a37a63b8b851.tar.gz"],
 )
 
 # Commit: 8c7ea42b02671b60182ce298a1f386bee9960136
