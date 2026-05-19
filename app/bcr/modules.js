@@ -7,6 +7,9 @@ const ModuleDependency = goog.require(
 const ModuleVersion = goog.require(
 	"proto.build.stack.bazel.registry.v1.ModuleVersion",
 );
+const Attestations = goog.require(
+	"proto.build.stack.bazel.registry.v1.Attestations",
+);
 const ModuleVersionPackages = goog.require(
 	"proto.build.stack.bazel.symbol.v1.ModuleVersionPackages",
 );
@@ -49,7 +52,8 @@ const {
 	moduleVersionsFilterSelect,
 	searchModulesResultsList,
 } = goog.require("soy.bcrfrontend.app");
-const { moduleVersionsListComponent } = goog.require("soy.registry");
+const { attestationsTabContent, moduleVersionsListComponent } =
+	goog.require("soy.registry");
 const { computeLanguageData, sanitizeLanguageName, unsanitizeLanguageName } =
 	goog.require("bcrfrontend.language");
 const {
@@ -126,6 +130,7 @@ async function fetchModuleVersionPackagesFromGithubRepository(moduleVersion) {
  * @enum {string}
  */
 const TabName = {
+	ATTESTATIONS: "attestations",
 	DOCS: "docs",
 	LIST: "list",
 	OVERVIEW: "overview",
@@ -484,6 +489,27 @@ class ModuleVersionSelectNav extends SelectNav {
 					presubmit || null,
 				),
 		);
+
+		// Attestations tab: only shown when the module version carries an
+		// attestations.json. The Attestations proto (URL + integrity + parsed
+		// payload per file) is already on the moduleVersion, so this tab is
+		// lazy-sync, no fetch.
+		const maybeAttestations = this.moduleVersion_.getAttestations();
+		if (maybeAttestations) {
+			// Capture into a const with a non-null type so the lambda closure
+			// below typechecks under Closure's strict nullability rules.
+			// `asserts.assert` preserves the input type (narrowing away null).
+			const attestations = asserts.assert(maybeAttestations);
+			this.addNavTabLazy(
+				TabName.ATTESTATIONS,
+				"Attestations",
+				"Source attestations and supply-chain provenance",
+				undefined,
+				`${this.getPathUrl()}/${TabName.ATTESTATIONS}`,
+				() =>
+					new AttestationsComponent(this.moduleVersion_, attestations),
+			);
+		}
 	}
 
 	/**
@@ -1323,6 +1349,33 @@ class ModuleVersionDependentsComponent extends ContentComponent {
 	 */
 	getTableButtonElement() {
 		return this.getCssElement(goog.getCssName("btn-table"));
+	}
+}
+
+class AttestationsComponent extends ContentComponent {
+	/**
+	 * @param {!ModuleVersion} moduleVersion
+	 * @param {!Attestations} attestations
+	 * @param {?dom.DomHelper=} opt_domHelper
+	 */
+	constructor(moduleVersion, attestations, opt_domHelper) {
+		super(opt_domHelper);
+
+		/** @private @const @type {!ModuleVersion} */
+		this.moduleVersion_ = moduleVersion;
+
+		/** @private @const @type {!Attestations} */
+		this.attestations_ = attestations;
+	}
+
+	/** @override */
+	createDom() {
+		this.setElementInternal(
+			soy.renderAsElement(attestationsTabContent, {
+				moduleVersion: this.moduleVersion_,
+				attestations: this.attestations_,
+			}),
+		);
 	}
 }
 

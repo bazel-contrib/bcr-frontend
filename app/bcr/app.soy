@@ -85,7 +85,6 @@ import {
 } from 'build/stack/bazel/help/v1/help.proto';
 import {
   attestationBadge,
-  attestationsTable,
   compatibilityTable,
   copyToClipboardButton,
   counterLabel,
@@ -1338,16 +1337,6 @@ import {
           {param maintainers: $metadata.getMaintainersList() /}
         {/call}
       </div>
-
-      {if $moduleVersion.getAttestations()}
-        {sectionDivider()}
-        <div>
-          {call attestationsTable}
-            {param moduleVersion: $moduleVersion /}
-            {param attestations: $moduleVersion.getAttestations() /}
-          {/call}
-        </div>
-      {/if}
 
       {if $moduleVersion.getSource()}
         {sectionDivider()}
@@ -3234,7 +3223,7 @@ import {
     {let $matrix: $bcr ? $bcr.getMatrix() : $presubmit.getMatrix() /}
     {let $tasksMap: $bcr ? $bcr.getTasksMap() : $presubmit.getTasksMap() /}
 
-    <div class="PageLayout PageLayout--panePos-end PageLayout--hasPaneDivider PageLayout--responsive-stackRegions PageLayout--responsive-panePos-start mt-3">
+    <div class="PageLayout PageLayout--panePos-start PageLayout--hasPaneDivider PageLayout--responsive-stackRegions PageLayout--responsive-panePos-start mt-3">
       <div class="PageLayout-columns">
         <div class="PageLayout-content">
           {if $tasksMap && $tasksMap.keys()}

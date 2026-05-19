@@ -15,11 +15,16 @@ import {
   octiconFileZip16,
   octiconGitCommit16,
   octiconGitPullRequest16,
+  octiconHash16,
   octiconHome16,
+  octiconLinkExternal16,
+  octiconLog16,
   octiconNorthStar16,
   octiconMail16,
   octiconMarkGithub16,
   octiconMarkGithub24,
+  octiconPlay16,
+  octiconShieldCheck16,
   octiconSparkleFill16,
   octiconSquareFill16,
   octiconSquareFill24,
@@ -209,16 +214,207 @@ import {
   {@param attestations: Attestations}
   <div>
     {sectionHeader(title: 'Source Attestations', count: $attestations.getAttestationsMap()?.size)}
+    <p class="f4 mb-3 color-fg-muted">
+      Supply-chain provenance for the artifacts published by this module version.
+      Each entry is a Sigstore-signed in-toto Statement linking a published file to its build context.
+    </p>
     <div>
       {for $filename in $attestations.getAttestationsMap()?.keys()}
         {let $att: $attestations.getAttestationsMap()?.get($filename) /}
         <a class="Link--muted d-flex flex-items-center mb-1" href="{$att?.getUrl()}">
-          <span class="mr-2">{octiconVerified16(fill: 'var(--color-ansi-magenta-bright)')}</span>
+          <span class="mr-2">{octiconVerified16(fill: 'var(--color-accent-fg)')}</span>
           <span class="text-bold mr-1">{$filename|truncate:48}</span>
         </a>
       {/for}
     </div>
   </div>
+{/template}
+
+{template attestationsTabContent}
+  {@param moduleVersion: ModuleVersion}
+  {@param attestations: Attestations}
+  <div class="PageLayout PageLayout--panePos-start PageLayout--hasPaneDivider PageLayout--responsive-stackRegions PageLayout--responsive-panePos-start mt-3">
+    <div class="PageLayout-columns">
+      <div class="PageLayout-pane">
+        {call attestationsTable}
+          {param moduleVersion: $moduleVersion /}
+          {param attestations: $attestations /}
+        {/call}
+      </div>
+      <div class="PageLayout-content">
+        {for $filename in $attestations.getAttestationsMap()?.keys()}
+          {let $att: $attestations.getAttestationsMap()?.get($filename) /}
+          {if $att}
+            {call attestationCard}
+              {param filename: $filename /}
+              {param att: $att /}
+            {/call}
+          {/if}
+        {/for}
+      </div>
+    </div>
+  </div>
+{/template}
+
+{template attestationCard}
+  {@param filename: string}
+  {@param att: Attestations.Attestation}
+
+  {let $payload: $att.getPayload() /}
+  {let $parseError: $payload ? $payload.getParseError() : '' /}
+
+  <div class="Box mb-3">
+    <div class="Box-row d-flex flex-items-center py-2">
+      {if !$payload}
+        <span class="mr-2" title="Attestation bundle has not been parsed yet">
+          {octiconVerified16(fill: 'var(--color-fg-muted)')}
+        </span>
+      {elseif $parseError != ''}
+        <span class="mr-2" title="Attestation listed but bundle could not be fetched">
+          {octiconAlert16(fill: 'var(--color-attention-fg)')}
+        </span>
+      {else}
+        <span class="mr-2" title="Source attestation verified">
+          {octiconVerified16(fill: 'var(--color-accent-fg)')}
+        </span>
+      {/if}
+      <span class="text-bold text-mono">{$filename}</span>
+      <a class="Link--muted text-small no-wrap ml-auto" href="{$att.getUrl()}" target="_blank" rel="noopener" title="Raw .intoto.jsonl bundle">
+        {octiconLinkExternal16()}
+      </a>
+    </div>
+    {if $payload && $parseError == ''}
+      {call attestationCardDetails_}
+        {param payload: $payload /}
+      {/call}
+    {elseif $parseError != ''}
+      <div class="Box-row py-2 text-small">
+        <div class="d-flex flex-items-center color-fg-attention mb-1">
+          <span class="mr-2">{octiconAlert16(fill: 'var(--color-attention-fg)')}</span>
+          <span class="text-bold">Attestation unavailable.</span>
+          {sp}{$parseError}
+        </div>
+        <div class="color-fg-muted">
+          The registry lists this attestation but it could not be retrieved (typically because the upstream release asset was deleted or renamed).
+        </div>
+      </div>
+    {else}
+      <div class="Box-row py-2 text-small color-fg-muted">
+        Attestation file is available but the parsed payload has not been populated.
+      </div>
+    {/if}
+  </div>
+{/template}
+
+{template attestationCardDetails_}
+  {@param payload: Attestations.AttestationPayload}
+
+  {let $signerIdentity: $payload.getSignerIdentity() /}
+  {let $signerIssuer: $payload.getSignerIssuer() /}
+  {let $sourceRepo: $payload.getSourceRepoUrl() /}
+  {let $sourceCommit: $payload.getSourceCommitSha() /}
+  {let $sourceRef: $payload.getSourceRef() /}
+  {let $builderId: $payload.getBuilderId() /}
+  {let $buildType: $payload.getBuildType() /}
+  {let $workflowPath: $payload.getWorkflowPath() /}
+  {let $invocationUrl: $payload.getInvocationUrl() /}
+  {let $predicateType: $payload.getPredicateType() /}
+  {let $rekorIdx: $payload.getRekorLogIndex() /}
+  {let $rekorUrl: $payload.getRekorLogUrl() /}
+  {let $subjectSha: $payload.getSubjectSha256() /}
+
+  <div class="Box-row py-2"
+       style="display: grid; grid-template-columns: 20px max-content 1fr; column-gap: 12px; row-gap: 8px; align-items: start;">
+    {if $signerIdentity != ''}
+      {call attestationDetailRow_}
+        {param icon kind="html"}{octiconShieldCheck16(fill: 'var(--color-accent-fg)')}{/param}
+        {param label: 'Signed by' /}
+        {param valueHtml kind="html"}
+          <span class="text-mono text-small" style="word-break: break-all;">{$signerIdentity}</span>
+          {if $signerIssuer != ''}
+            <div class="color-fg-muted text-small mt-1">via {$signerIssuer}</div>
+          {/if}
+        {/param}
+      {/call}
+    {/if}
+
+    {if $sourceRepo != '' || $sourceCommit != ''}
+      {call attestationDetailRow_}
+        {param icon kind="html"}{octiconMarkGithub16()}{/param}
+        {param label: 'Source' /}
+        {param valueHtml kind="html"}
+          {if $sourceRepo != ''}
+            <a class="Link--muted" href="{$sourceRepo}" target="_blank" rel="noopener">{$sourceRepo}</a>
+          {/if}
+          {if $sourceCommit != '' && $sourceRepo != ''}
+            {sp}
+            <a class="Link--muted text-mono text-small" href="{$sourceRepo}/commit/{$sourceCommit}" target="_blank" rel="noopener" title="{$sourceCommit}">
+              @{$sourceCommit|truncate:12}
+            </a>
+          {elseif $sourceCommit != ''}
+            {sp}<span class="text-mono text-small">@{$sourceCommit|truncate:12}</span>
+          {/if}
+          {if $sourceRef != ''}
+            {sp}<span class="color-fg-muted text-small">({$sourceRef})</span>
+          {/if}
+        {/param}
+      {/call}
+    {/if}
+
+    {if $builderId != '' || $invocationUrl != '' || $workflowPath != '' || $buildType != '' || $predicateType != ''}
+      {call attestationDetailRow_}
+        {param icon kind="html"}{octiconPlay16()}{/param}
+        {param label: 'Built by' /}
+        {param valueHtml kind="html"}
+          {if $invocationUrl != ''}
+            <a class="Link--muted text-mono" href="{$invocationUrl}" target="_blank" rel="noopener" style="word-break: break-all;">
+              {$builderId != '' ? $builderId : $invocationUrl}
+            </a>
+          {elseif $builderId != ''}
+            <span class="text-mono text-small">{$builderId}</span>
+          {/if}
+          {if $workflowPath != ''}
+            <div class="color-fg-muted text-small mt-1">{$workflowPath}</div>
+          {/if}
+          {if $buildType != ''}
+            <div class="color-fg-muted text-small mt-1"><span class="text-bold">Build type:</span> {$buildType}</div>
+          {/if}
+          {if $predicateType != ''}
+            <div class="color-fg-muted text-small mt-1"><span class="text-bold">Predicate:</span> {$predicateType}</div>
+          {/if}
+        {/param}
+      {/call}
+    {/if}
+
+    {if $subjectSha != ''}
+      {call attestationDetailRow_}
+        {param icon kind="html"}{octiconHash16()}{/param}
+        {param label: 'Subject' /}
+        {param valueHtml kind="html"}
+          <span class="text-mono text-small" style="word-break: break-all;">{$subjectSha}</span>
+        {/param}
+      {/call}
+    {/if}
+
+    {if $rekorUrl != ''}
+      {call attestationDetailRow_}
+        {param icon kind="html"}{octiconLog16()}{/param}
+        {param label: 'Transparency log' /}
+        {param valueHtml kind="html"}
+          <a class="Link--muted" href="{$rekorUrl}" target="_blank" rel="noopener">Rekor entry #{$rekorIdx}</a>
+        {/param}
+      {/call}
+    {/if}
+  </div>
+{/template}
+
+{template attestationDetailRow_}
+  {@param icon: html}
+  {@param label: string}
+  {@param valueHtml: html}
+  <span class="color-fg-muted" style="line-height: 20px;">{$icon}</span>
+  <span class="color-fg-muted text-small no-wrap" style="line-height: 20px;">{$label}</span>
+  <span style="min-width: 0; line-height: 20px;">{$valueHtml}</span>
 {/template}
 
 {template compatibilityTable}
