@@ -10,11 +10,11 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//build/stack/bazel/registry/v1:registry",
-        "@com_github_google_go_github_v66//github:go_default_library",
-        "@com_github_shurcool_githubv4//:go_default_library",
-        "@org_golang_x_oauth2//:go_default_library",
-        "@org_golang_x_sync//errgroup:go_default_library",
-        "@org_golang_x_time//rate:go_default_library",
+        "@com_github_google_go_github_v66//github",
+        "@com_github_shurcool_githubv4//:githubv4",
+        "@org_golang_x_oauth2//:oauth2",
+        "@org_golang_x_sync//errgroup",
+        "@org_golang_x_time//rate",
     ],
 )
 

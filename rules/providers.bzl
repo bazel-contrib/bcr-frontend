@@ -93,6 +93,8 @@ ModuleVersionInfo = provider(
         "published_docs": "list[File]: Published documentation files from http_archive",
         "bzl_src": "StarlarkModuleLibraryInfo | None: .bzl source files for the current module version",
         "bzl_deps": "List[StarlarkModuleLibraryInfo]]: List of .bzl source file dependencies",
+        "pkg_src": "StarlarkPackageLibraryInfo | None: BUILD (.package) source files for the current module version",
+        "pkg_deps": "List[StarlarkPackageLibraryInfo]: List of BUILD (.package) source file dependencies",
     },
 )
 

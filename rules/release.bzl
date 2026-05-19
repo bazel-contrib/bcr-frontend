@@ -26,6 +26,9 @@ def _compile_release_action(ctx):
     if ctx.file.module_registry_symbols_file:
         args.add("--module_registry_symbols_file")
         args.add(ctx.file.module_registry_symbols_file)
+    if ctx.file.module_registry_packages_file:
+        args.add("--module_registry_packages_file")
+        args.add(ctx.file.module_registry_packages_file)
     if ctx.file.bazel_flag_db_file:
         args.add("--bazel_flag_db_file")
         args.add(ctx.file.bazel_flag_db_file)
@@ -55,6 +58,8 @@ def _compile_release_action(ctx):
         ctx.file.registry_file,
     ] + (
         [ctx.file.module_registry_symbols_file] if ctx.file.module_registry_symbols_file else []
+    ) + (
+        [ctx.file.module_registry_packages_file] if ctx.file.module_registry_packages_file else []
     ) + (
         [ctx.file.bazel_flag_db_file] if ctx.file.bazel_flag_db_file else []
     ) + (
@@ -99,6 +104,10 @@ release_archive = rule(
         "index_html": attr.label(allow_single_file = True, mandatory = True),
         "registry_file": attr.label(allow_single_file = True, mandatory = True),
         "module_registry_symbols_file": attr.label(allow_single_file = True, mandatory = True),
+        "module_registry_packages_file": attr.label(
+            allow_single_file = True,
+            doc = "Optional ModuleRegistryPackages proto. Gzipped into the tarball as packages.<hash>.pb.gz; the frontend lazy-loads it for the packages tab.",
+        ),
         "bazel_flag_db_file": attr.label(
             allow_single_file = True,
             doc = "Optional BazelFlagDb proto. Gzipped into the tarball as bazelflagdb.pb.gz; the frontend lazy-loads it on first navigation to /bazel/flags.",

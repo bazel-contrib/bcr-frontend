@@ -240,6 +240,76 @@ message RuleMacro {
     repeated LoadStmt loads = 4;
 }
 
+// Package represents a parsed BUILD / BUILD.bazel file. Unlike Module (which
+// describes rule *definitions* in a .bzl file), Package describes the rule
+// *instances* (targets) that a BUILD file declares.
+message Package {
+    // Bazel package label without target — e.g., "@@repo//foo/bar".
+    string name = 1;
+    // Source filename, absolute path.
+    string filename = 2;
+    // Targets created by rule/macro calls in source order.
+    repeated Target target = 3;
+    // load statements used in the file.
+    repeated LoadStmt load = 4;
+    // Public top-level value bindings — e.g., `LIBS = ["a", "b"]`.
+    map<string, Value> binding = 5;
+    // The package(...) call's metadata if present.
+    PackageDeclaration package_declaration = 6;
+    // Symbol locations for IDE goto-definition.
+    repeated SymbolLocation symbol_location = 7;
+    // Extraction errors surfaced best-effort.
+    repeated string error = 8;
+}
+
+// Target is a single rule/macro invocation at the top level of a BUILD file —
+// for example, `cc_library(name = "foo", srcs = [...])`.
+message Target {
+    // The rule class invoked — "cc_library", "genrule", or a user macro name.
+    string rule = 1;
+    // The target's "name" attribute.
+    string name = 2;
+    // Where the call appears in source.
+    SymbolLocation location = 3;
+    // All keyword arguments passed to the rule/macro call. Captured
+    // best-effort: literals become typed Values; complex expressions
+    // map to FakeDeepStructure placeholders or are omitted.
+    repeated TargetAttribute attribute = 4;
+    // True when the call dispatched through a loaded macro (a user-defined
+    // function from a .bzl file). False for native rules and rule()-defined
+    // rule callables. Opaque: macro bodies are not expanded.
+    bool is_macro = 5;
+}
+
+// TargetAttribute represents one keyword argument captured from a rule/macro
+// call site in a BUILD file. Distinct from the top-level `Attribute` message
+// (which wraps stardoc_output.AttributeInfo for rule *definitions*).
+message TargetAttribute {
+    string name = 1;
+    Value value = 2;
+    SymbolLocation location = 3;
+}
+
+// Optional package(...) metadata declared at the top of a BUILD file.
+message PackageDeclaration {
+    SymbolLocation location = 1;
+    map<string, Value> attribute = 2;
+}
+
+// PackageInfoRequest mirrors ModuleInfoRequest but targets BUILD / BUILD.bazel.
+message PackageInfoRequest {
+    // Path or label of the BUILD file to evaluate.
+    string target_file_label = 1;
+    // Relative package path, for resolving relative labels.
+    string rel = 2;
+    // Search roots for transitive .bzl loads (same as ModuleInfoRequest).
+    repeated string dep_roots = 3;
+    // Optional in-memory content override for the target file.
+    string file_content = 4;
+    // Builtins bzl path for StarlarkSemantics (mirrors ModuleInfoRequest).
+    string builtins_bzl_path = 5;
+}
+
 // ModuleRequest is a request for module information.
 message ModuleInfoRequest {
     // target_file_label corresponds to the stardoc_binary --input argument.  Inputs are
@@ -271,6 +341,8 @@ message PingResponse { }
 service Starlark {
     // ModuleInfo services requests for ModuleInfo.
     rpc ModuleInfo(ModuleInfoRequest) returns (Module) {}
+    // PackageInfo extracts target/macro/load info from a BUILD or BUILD.bazel file.
+    rpc PackageInfo(PackageInfoRequest) returns (Package) {}
     // Ping allows connectivity checks
     rpc Ping(PingRequest) returns (PingResponse) {}
 }

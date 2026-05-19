@@ -11,9 +11,9 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//build/stack/bazel/registry/v1:registry",
-        "@bazel_gazelle//rule:go_default_library",
-        "@com_github_bazelbuild_buildtools//build:go_default_library",
-        "@net_starlark_go//starlark:go_default_library",
-        "@net_starlark_go//starlarkstruct:go_default_library",
+        "@bazel_gazelle//rule",
+        "@com_github_bazelbuild_buildtools//build",
+        "@net_starlark_go//starlark",
+        "@net_starlark_go//starlarkstruct",
     ],
 )

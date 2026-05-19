@@ -2,6 +2,9 @@ goog.module("bcrfrontend.App");
 
 const BazelFlagDb = goog.require("proto.build.stack.bazel.help.v1.BazelFlagDb");
 const ComponentEventType = goog.require("goog.ui.Component.EventType");
+const ModuleVersion = goog.require(
+	"proto.build.stack.bazel.registry.v1.ModuleVersion",
+);
 const Registry = goog.require("proto.build.stack.bazel.registry.v1.Registry");
 const asserts = goog.require("goog.asserts");
 const dataset = goog.require("goog.dom.dataset");
@@ -33,10 +36,19 @@ class RegistryApp extends App {
 	/**
 	 * @param {!Registry} registry
 	 * @param {!Promise<!Registry>} registryWithSymbols
+	 * @param {!Promise<!Registry>} registryWithPackages
+	 * @param {!Promise<*>} ruleUsageIndex resolves to Map<urlKey, Array<TargetRef>>.
 	 * @param {function():!Promise<*>} bazelFlagDbLoader memoized lazy loader.
 	 * @param {?dom.DomHelper=} opt_domHelper
 	 */
-	constructor(registry, registryWithSymbols, bazelFlagDbLoader, opt_domHelper) {
+	constructor(
+		registry,
+		registryWithSymbols,
+		registryWithPackages,
+		ruleUsageIndex,
+		bazelFlagDbLoader,
+		opt_domHelper,
+	) {
 		super(opt_domHelper);
 
 		/** @private @const */
@@ -44,6 +56,12 @@ class RegistryApp extends App {
 
 		/** @private @const */
 		this.registryWithSymbols_ = registryWithSymbols;
+
+		/** @private @const */
+		this.registryWithPackages_ = registryWithPackages;
+
+		/** @private @const */
+		this.ruleUsageIndex_ = ruleUsageIndex;
 
 		/** @private @const @type {function():!Promise<*>} */
 		this.bazelFlagDbLoader_ = bazelFlagDbLoader;
@@ -112,6 +130,24 @@ class RegistryApp extends App {
 	 */
 	getRegistryWithSymbols() {
 		return this.registryWithSymbols_;
+	}
+
+	/**
+	 * Returns the promise that resolves when packages are loaded and decorated.
+	 * @override
+	 * @returns {!Promise<!Registry>}
+	 */
+	getRegistryWithPackages() {
+		return this.registryWithPackages_;
+	}
+
+	/**
+	 * Returns the promise that resolves to the rule-usage index.
+	 * @override
+	 * @returns {!Promise<*>}
+	 */
+	getRuleUsageIndex() {
+		return this.ruleUsageIndex_;
 	}
 
 	/**
@@ -446,6 +482,69 @@ class RegistryApp extends App {
 			return;
 		}
 		if (segments[0] === "modules") {
+			// /modules/<name>/<version>/packages/<pkg>/[...] — cycle through the
+			// packages of this module-version rather than across modules. The
+			// package path itself is slash-separated and may be multiple
+			// segments long, and additional segments after it (target name,
+			// LIST tab) should be discarded on cycle.
+			if (segments[3] === "packages" && segments.length >= 5) {
+				const moduleMapForPkg = createModuleMap(this.registry_);
+				const moduleForPkg = moduleMapForPkg.get(
+					decodeURIComponent(segments[1]),
+				);
+				const versionStr = decodeURIComponent(segments[2]);
+				/** @type {?ModuleVersion} */
+				let mvForPkg = null;
+				if (moduleForPkg) {
+					for (const v of moduleForPkg.getVersionsList()) {
+						if (v.getVersion() === versionStr) {
+							mvForPkg = v;
+							break;
+						}
+					}
+				}
+				const pkgList = mvForPkg?.getSource()?.getPackages()?.getPackageList();
+				if (pkgList && pkgList.length > 0) {
+					/** @type {!Array<string>} */
+					const allPaths = pkgList.map((p) =>
+						stripRepoPrefixForCycle(p.getName()),
+					);
+					/** @type {!Set<string>} */
+					const known = new Set(allPaths);
+					/** @type {!Array<string>} */
+					const sorted = allPaths.slice().sort();
+
+					// Greedy longest-prefix match: trim trailing segments until
+					// what's left is a known package path. Works for both
+					// `/packages/lib/foo` and `/packages/lib/foo/my_target`.
+					/** @type {!Array<string>} */
+					const tail = segments.slice(4).map((s) => decodeURIComponent(s));
+					/** @type {?string} */
+					let current = null;
+					for (let n = tail.length; n > 0; n--) {
+						const candidate = tail.slice(0, n).join("/");
+						if (known.has(candidate)) {
+							current = candidate;
+							break;
+						}
+					}
+					if (current !== null) {
+						const idx = sorted.indexOf(current);
+						/** @type {string} */
+						const next =
+							sorted[(idx + direction + sorted.length) % sorted.length];
+						this.setLocation([
+							"modules",
+							segments[1],
+							segments[2],
+							"packages",
+							...next.split("/"),
+						]);
+						return;
+					}
+				}
+			}
+
 			const moduleMap = createModuleMap(this.registry_);
 			/** @type {!Array<string>} */
 			const names = [];
@@ -532,4 +631,20 @@ class RegistryApp extends App {
 		setTimeout(() => dom.removeNode(toast), opt_dismiss || 3000);
 	}
 }
+
+/**
+ * Strip the leading "@@<repo>//" segment from a package label, returning
+ * "ROOT" for the empty (root) package. Duplicates the helper in packages.js
+ * so app.js doesn't need to depend on it; keep them in sync.
+ *
+ * @param {string} pkgName
+ * @returns {string}
+ */
+function stripRepoPrefixForCycle(pkgName) {
+	const idx = pkgName.indexOf("//");
+	if (idx === -1) return pkgName;
+	const rest = pkgName.substring(idx + 2);
+	return rest === "" ? "ROOT" : rest;
+}
+
 exports = RegistryApp;

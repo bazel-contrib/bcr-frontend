@@ -39,8 +39,6 @@ filegroup(
 
 http_jar = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_jar")
 
-# Last-Modified: Sun, 28 Dec 2025 02:03:29 GMT
-# Size: 43986646 (44 MB)
 http_jar(
     name = "constellate_server_jar",
     sha256 = "93ad39803ce6694fac23aa12c7000e6079ef0b2ec3d717b75b3f2823b5437702",

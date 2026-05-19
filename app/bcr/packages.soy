@@ -1,0 +1,398 @@
+{namespace soy.bcrfrontend.packages}
+
+import {
+  octiconAlert16,
+  octiconContainer24,
+  octiconDotFill16,
+  octiconFile16,
+  octiconMarkGithub16
+} from 'app/bcr/octicons.soy';
+import {
+  Package,
+  Target
+} from 'build/stack/starlark/v1beta1/starlark.proto';
+import {
+  ModuleVersion
+} from 'build/stack/bazel/registry/v1/bcr.proto';
+import {
+  copyToClipboardButton,
+  counterLabel
+} from 'app/bcr/registry.soy';
+import {
+  moduleVersionPackagesUrl
+} from 'app/bcr/uri.soy';
+
+/**
+ * Compact attribute summary computed in JS so Soy doesn't have to introspect
+ * the Value oneof. Used for the per-target attribute list view.
+ */
+{template targetAttributeSummary kind="html<div>"}
+  {@param attr: [name: string, valueText: string]}
+<div class="Box-row d-flex flex-items-start">
+  <span class="text-mono text-bold mr-3" style="min-width: 160px;">{$attr.name}</span>
+  <span class="color-fg-muted text-small text-mono" style="overflow-wrap: anywhere;">
+    {$attr.valueText}
+  </span>
+</div>
+{/template}
+
+/**
+ * URL/trie sentinel for the root package "@@repo//". Mirrors ROOT_KEY in
+ * packages.js — the empty path can't be addressed in the SPA router.
+ */
+{template rootKey kind="text"}
+ROOT
+{/template}
+
+/**
+ * Strip the leading "@@<repo>//" (or "@<repo>//") prefix from a package
+ * label, returning ROOT for the empty (root) package so URLs round-trip.
+ */
+{template stripRepoPrefix kind="text"}
+  {@param name: string}
+  {let $idx: $name.indexOf('//') /}
+  {if $idx < 0}
+    {$name}
+  {else}
+    {let $rest: $name.substring($idx + 2) /}
+    {if $rest == ''}
+      {rootKey()}
+    {else}
+      {$rest}
+    {/if}
+  {/if}
+{/template}
+
+/**
+ * Display form of a package path — substitutes "(ROOT)" for the ROOT
+ * sentinel so the row isn't blank (and a literal "//" isn't visually
+ * distinct enough next to ordinary package paths).
+ */
+{template displayPkgPath kind="text"}
+  {@param path: string}
+  {if $path == 'ROOT'}
+    (ROOT)
+  {else}
+    {$path}
+  {/if}
+{/template}
+
+{template moduleVersionPackagesBlankslate}
+  {@param? detail: string}
+<div class="Box Box--condensed">
+  <div class="Box-row">
+    <div class="blankslate">
+      <div class="blankslate-icon mb-3 color-fg-muted">{octiconContainer24()}</div>
+      <div class="blankslate-heading">No packages available</div>
+      {if $detail}<p>{$detail}</p>{/if}
+    </div>
+  </div>
+</div>
+{/template}
+
+{template moduleVersionPackagesListComponent}
+  {@param moduleVersion: ModuleVersion}
+  {@param rows: list<[
+    pkgPath: string,
+    filename: string,
+    hasErrors: bool,
+    errors: list<string>,
+    segments: list<[ruleKind: string, count: int, percentage: number, color: string]>,
+    totalCount: int,
+    widthPct: number
+  ]>}
+<div>
+  <div class="Box Box--condensed">
+    <div class="Box-header">
+      <div class="Box-title">Packages {counterLabel(count: length($rows))}</div>
+    </div>
+    {if length($rows) > 0}
+      {for $row in $rows}
+        {if $row.hasErrors}
+          <div class="Box-row d-flex flex-items-start"
+              style="background: var(--color-danger-subtle, rgba(255,129,130,0.08));">
+            <span class="color-fg-danger mt-1">{octiconAlert16()}</span>
+            <div class="ml-2 flex-1">
+              <div class="text-bold text-mono" style="word-break: break-all;">
+                {$row.pkgPath ? $row.pkgPath : ($row.filename ? $row.filename : '(unknown)')}
+              </div>
+              {for $err in $row.errors}
+                <div class="color-fg-danger text-small text-mono mt-1" style="word-break: break-word;">{$err}</div>
+              {/for}
+            </div>
+          </div>
+        {else}
+          <a class="Box-row d-flex flex-items-center"
+              style="text-decoration: none;"
+              href="{moduleVersionPackagesUrl(name: $moduleVersion.getName(), version: $moduleVersion.getVersion())}/{$row.pkgPath}">
+            <span class="text-bold">{displayPkgPath(path: $row.pkgPath)}</span>
+            <span class="ml-auto" style="width: 40%; max-width: 320px; min-width: 80px;
+                                          display: flex; justify-content: flex-end;">
+              {targetBreakdownBar(segments: $row.segments,
+                                  totalCount: $row.totalCount,
+                                  widthPct: $row.widthPct)}
+            </span>
+          </a>
+        {/if}
+      {/for}
+    {else}
+      <div class="Box-row">
+        <div class="blankslate">
+          <p>No BUILD files found.</p>
+        </div>
+      </div>
+    {/if}
+  </div>
+</div>
+{/template}
+
+/**
+ * Stacked color bar showing per-rule-kind breakdown of a package's targets.
+ * Outer width scales with package size relative to the largest package in
+ * the list (widthPct in [0..100]); inner segment widths sum to 100% so the
+ * bar always looks "full" of color regardless of its outer width.
+ */
+{template targetBreakdownBar visibility="private"}
+  {@param segments: list<[ruleKind: string, count: int, percentage: number, color: string]>}
+  {@param totalCount: int}
+  {@param widthPct: number}
+  <div title="{$totalCount} target{$totalCount == 1 ? '' : 's'}"
+       style="width: {$widthPct}%; display: flex; height: 8px;
+              overflow: hidden; background: var(--color-canvas-subtle, transparent);">
+    {for $seg in $segments}
+      {if $seg.percentage > 0}
+        <span style="width: {$seg.percentage}%; background-color: {$seg.color};"
+              title="{$seg.ruleKind}: {$seg.count}">
+          {sp}
+        </span>
+      {/if}
+    {/for}
+  </div>
+{/template}
+
+/**
+ * Top-level shell for the Packages tab: a 2-pane PageLayout with the
+ * `.content` placeholder on the left (where ContentSelect.addTab mounts the
+ * list / package / target views) and a sticky sidebar on the right that
+ * groups every target across every package by rule kind. Mirrors
+ * documentationInfoSelect's structure.
+ */
+{template moduleVersionPackagesSelect}
+  {@param moduleVersion: ModuleVersion}
+  {@param navTargetGroups: list<[
+    ruleKind: string,
+    styleBg: string,
+    styleFg: string,
+    urlKey: string,
+    items: list<[pkgPath: string, name: string]>
+  ]>}
+<div>
+  <div class="PageLayout PageLayout--panePos-start PageLayout--hasPaneDivider PageLayout--responsive-stackRegions">
+    <div class="PageLayout-wrapper">
+      <div class="PageLayout-columns">
+        <div class="PageLayout-content PageLayout-pane--sticky {css('content')}"></div>
+        <div class="PageLayout-pane pl-2 overflow-x-hidden">
+          <nav class="SideNav" style="background-color: transparent; border: none">
+            {packagesNavSection(moduleVersion: $moduleVersion, navTargetGroups: $navTargetGroups)}
+          </nav>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{/template}
+
+/**
+ * Sidebar content for the Packages tab: a tree grouped by rule kind with a
+ * colored dot per group. Empty groups list renders nothing (so a blankslate
+ * page can be shown via the LIST tab without competing UI).
+ */
+{template packagesNavSection visibility="private"}
+  {@param moduleVersion: ModuleVersion}
+  {@param navTargetGroups: list<[
+    ruleKind: string,
+    styleBg: string,
+    styleFg: string,
+    urlKey: string,
+    items: list<[pkgPath: string, name: string]>
+  ]>}
+  {if length($navTargetGroups) > 0}
+    <div class="treeview-root treeview-compact" role="tree">
+      {for $group, $groupIndex in $navTargetGroups}
+        {navTargetTreeGroup(
+            moduleVersion: $moduleVersion,
+            ruleKind: $group.ruleKind,
+            styleBg: $group.styleBg,
+            urlKey: $group.urlKey,
+            items: $group.items,
+            isLastGroup: $groupIndex == length($navTargetGroups) - 1
+        )}
+      {/for}
+    </div>
+  {/if}
+{/template}
+
+/**
+ * One rule-kind group in the sidebar tree: header (colored dot + kind +
+ * count) followed by an indented list of target items. Each item links to
+ * the existing target detail route, which ModuleVersionPackagesSelect already
+ * resolves through its package trie.
+ */
+{template navTargetTreeGroup visibility="private"}
+  {@param moduleVersion: ModuleVersion}
+  {@param ruleKind: string}
+  {@param styleBg: string}
+  {@param urlKey: string}
+  {@param items: list<[pkgPath: string, name: string]>}
+  {@param isLastGroup: bool}
+  <div class="treeview-item" role="treeitem">
+    <div class="treeview-item-row d-flex flex-items-center" style="padding: 0.25rem 0 0.10rem 0;">
+      <span class="color-fg-muted" style="margin-right: 0.25rem; font-family: monospace; user-select: none; flex-shrink: 0;">
+        {if $isLastGroup}└─{else}├─{/if}
+      </span>
+      <span style="flex-shrink: 0;">{octiconDotFill16(fill: $styleBg)}</span>
+      {if $urlKey}
+        <a class="ml-1 text-bold flex-shrink-0 Link--primary"
+            href="/#/targets/{$urlKey}"
+            title="See registry-wide usages of {$ruleKind}">
+          {$ruleKind}
+        </a>
+      {else}
+        <span class="ml-1 text-bold flex-shrink-0">{$ruleKind}</span>
+      {/if}
+      <span class="ml-1 text-small color-fg-muted">{counterLabel(count: length($items))}</span>
+    </div>
+    <div class="treeview-children ml-1" role="group">
+      {for $item, $index in $items}
+        {let $isLast: $index == length($items) - 1 /}
+        {let $displayName: $item.pkgPath == 'ROOT' ? ':' + $item.name : $item.pkgPath + ':' + $item.name /}
+        <div class="treeview-item" role="treeitem">
+          <div class="treeview-item-row d-flex flex-items-center" style="margin-left: 1.2rem;">
+            <span class="color-fg-muted" style="margin-right: 0.25rem; font-family: monospace; user-select: none; flex-shrink: 0;">
+              {if $isLast}└─{else}├─{/if}
+            </span>
+            <span style="flex-shrink: 0;">{octiconDotFill16(fill: $styleBg)}</span>
+            <a class="Link--primary flex-auto"
+                href="{moduleVersionPackagesUrl(name: $moduleVersion.getName(), version: $moduleVersion.getVersion())}/{$item.pkgPath}/{$item.name}"
+                style="margin-left: 0.25rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"
+                title="{$displayName}">
+              {$displayName}
+            </a>
+          </div>
+        </div>
+      {/for}
+    </div>
+  </div>
+{/template}
+
+/**
+ * Per-package Select shell — same content-placeholder shape.
+ */
+{template packageInfoSelect}
+  {@param moduleVersion: ModuleVersion}
+  {@param pkg: Package}
+<div>
+  <div class="{css('content')}"></div>
+</div>
+{/template}
+
+/**
+ * Colorized chip for a rule kind. Background/foreground are precomputed in
+ * JS (ruleKindStyle) so unknown kinds still get a stable hashed color.
+ */
+{template ruleKindChip kind="html<span>"}
+  {@param rule: string}
+  {@param bg: string}
+  {@param fg: string}
+  <span class="Label" style="background-color: {$bg}; color: {$fg}; font-size: 10px;">{$rule}</span>
+{/template}
+
+{template packageListComponent}
+  {@param moduleVersion: ModuleVersion}
+  {@param pkg: Package}
+  {@param targets: list<[name: string, rule: string, styleBg: string, styleFg: string]>}
+  {let $pkgPath: stripRepoPrefix(name: $pkg.getName()) /}
+<div>
+  <div class="Box Box--condensed mt-3">
+    <div class="Box-header">
+      <div class="Box-title">
+        <span class="text-bold">{displayPkgPath(path: $pkgPath)}</span>
+        <span class="color-fg-muted text-small ml-2">{counterLabel(count: length($targets))}</span>
+      </div>
+    </div>
+    {if length($targets) > 0}
+      {for $row in $targets}
+        <a class="Box-row d-flex flex-items-center"
+            style="text-decoration: none;"
+            href="{moduleVersionPackagesUrl(name: $moduleVersion.getName(), version: $moduleVersion.getVersion())}/{$pkgPath}/{$row.name}">
+          {octiconFile16()}
+          <span class="ml-2 text-bold">{$row.name}</span>
+          <span class="ml-auto">
+            {ruleKindChip(rule: $row.rule, bg: $row.styleBg, fg: $row.styleFg)}
+          </span>
+        </a>
+      {/for}
+    {else}
+      <div class="Box-row">
+        <div class="blankslate">
+          <p>No targets declared in this package.</p>
+        </div>
+      </div>
+    {/if}
+  </div>
+</div>
+{/template}
+
+{template targetInfoComponent}
+  {@param? moduleVersion: ModuleVersion}
+  {@param? pkg: Package}
+  {@param target: Target}
+  {@param displayName: string}
+  {@param exampleCode: string}
+  {@param attributes: list<[name: string, valueText: string]>}
+  {@param styleBg: string}
+  {@param styleFg: string}
+  {@param sourceUrl: string}
+  {@param sourceLine: int}
+<div>
+  <div class="d-flex flex-items-center flex-wrap mb-3" style="gap: 8px;">
+    {ruleKindChip(rule: $target.getRule(), bg: $styleBg, fg: $styleFg)}
+    <h2 class="text-bold" style="margin: 0;">{$displayName}</h2>
+    {if $sourceUrl}
+      <a class="btn btn-sm btn-octicon d-inline-flex flex-items-center"
+          href="{$sourceUrl}"
+          target="_blank"
+          rel="noopener noreferrer"
+          title="View source on GitHub">
+        {octiconMarkGithub16()}
+        {if $sourceLine}
+          <span class="ml-1">L{$sourceLine}</span>
+        {/if}
+      </a>
+    {/if}
+  </div>
+  <div class="Box Box--condensed">
+    <div class="Box-header">
+      <div class="d-flex flex-justify-between flex-items-center">
+        <div class="Box-title">BUILD call</div>
+        {copyToClipboardButton(content: $exampleCode)}
+      </div>
+    </div>
+    <div class="Box-body p-3">
+      <pre class="width-full {css('shiki')}"><code lang="py">{$exampleCode}</code></pre>
+    </div>
+  </div>
+  {if length($attributes) > 0}
+    <div class="Box Box--condensed mt-3">
+      <div class="Box-header">
+        <div class="Box-title">Attributes {counterLabel(count: length($attributes))}</div>
+      </div>
+      <div>
+        {for $attr in $attributes}
+          {targetAttributeSummary(attr: $attr)}
+        {/for}
+      </div>
+    </div>
+  {/if}
+</div>
+{/template}

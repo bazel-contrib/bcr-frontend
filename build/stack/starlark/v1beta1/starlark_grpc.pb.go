@@ -19,8 +19,9 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	Starlark_ModuleInfo_FullMethodName = "/build.stack.starlark.v1beta1.Starlark/ModuleInfo"
-	Starlark_Ping_FullMethodName       = "/build.stack.starlark.v1beta1.Starlark/Ping"
+	Starlark_ModuleInfo_FullMethodName  = "/build.stack.starlark.v1beta1.Starlark/ModuleInfo"
+	Starlark_PackageInfo_FullMethodName = "/build.stack.starlark.v1beta1.Starlark/PackageInfo"
+	Starlark_Ping_FullMethodName        = "/build.stack.starlark.v1beta1.Starlark/Ping"
 )
 
 // StarlarkClient is the client API for Starlark service.
@@ -28,6 +29,7 @@ const (
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type StarlarkClient interface {
 	ModuleInfo(ctx context.Context, in *ModuleInfoRequest, opts ...grpc.CallOption) (*Module, error)
+	PackageInfo(ctx context.Context, in *PackageInfoRequest, opts ...grpc.CallOption) (*Package, error)
 	Ping(ctx context.Context, in *PingRequest, opts ...grpc.CallOption) (*PingResponse, error)
 }
 
@@ -49,6 +51,16 @@ func (c *starlarkClient) ModuleInfo(ctx context.Context, in *ModuleInfoRequest, 
 	return out, nil
 }
 
+func (c *starlarkClient) PackageInfo(ctx context.Context, in *PackageInfoRequest, opts ...grpc.CallOption) (*Package, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(Package)
+	err := c.cc.Invoke(ctx, Starlark_PackageInfo_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *starlarkClient) Ping(ctx context.Context, in *PingRequest, opts ...grpc.CallOption) (*PingResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(PingResponse)
@@ -64,6 +76,7 @@ func (c *starlarkClient) Ping(ctx context.Context, in *PingRequest, opts ...grpc
 // for forward compatibility.
 type StarlarkServer interface {
 	ModuleInfo(context.Context, *ModuleInfoRequest) (*Module, error)
+	PackageInfo(context.Context, *PackageInfoRequest) (*Package, error)
 	Ping(context.Context, *PingRequest) (*PingResponse, error)
 	mustEmbedUnimplementedStarlarkServer()
 }
@@ -77,6 +90,9 @@ type UnimplementedStarlarkServer struct{}
 
 func (UnimplementedStarlarkServer) ModuleInfo(context.Context, *ModuleInfoRequest) (*Module, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ModuleInfo not implemented")
+}
+func (UnimplementedStarlarkServer) PackageInfo(context.Context, *PackageInfoRequest) (*Package, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method PackageInfo not implemented")
 }
 func (UnimplementedStarlarkServer) Ping(context.Context, *PingRequest) (*PingResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Ping not implemented")
@@ -120,6 +136,24 @@ func _Starlark_ModuleInfo_Handler(srv interface{}, ctx context.Context, dec func
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Starlark_PackageInfo_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(PackageInfoRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(StarlarkServer).PackageInfo(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Starlark_PackageInfo_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(StarlarkServer).PackageInfo(ctx, req.(*PackageInfoRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _Starlark_Ping_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(PingRequest)
 	if err := dec(in); err != nil {
@@ -148,6 +182,10 @@ var Starlark_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ModuleInfo",
 			Handler:    _Starlark_ModuleInfo_Handler,
+		},
+		{
+			MethodName: "PackageInfo",
+			Handler:    _Starlark_PackageInfo_Handler,
 		},
 		{
 			MethodName: "Ping",

@@ -92,6 +92,7 @@ const {
 	generateRepositoryRuleExample,
 	generateRuleExample,
 	generateRuleMacroExample,
+	loadLabelToUrlKey,
 } = goog.require("bcrfrontend.starlark");
 const { setElementInnerHtml } = goog.require(
 	"google3.third_party.javascript.safevalues.dom.elements.element",
@@ -203,6 +204,20 @@ const TabName = {
 	SOURCE: "source",
 	TREE: "tree",
 };
+
+/**
+ * Build the `/#/targets/...` URL that lists every BCR target using a given
+ * callable symbol. Returns "" when the symbol has no file label.
+ *
+ * @param {!File} file
+ * @param {!Symbol} sym
+ * @returns {string}
+ */
+function makeUsagesUrl(file, sym) {
+	const label = file.getLabel();
+	if (!label) return "";
+	return "/#/targets/" + loadLabelToUrlKey(label, sym.getName());
+}
 
 class DocsSelect extends ContentSelect {
 	/**
@@ -480,10 +495,7 @@ class ModuleVersionSymbolsSelect extends ContentSelect {
 
 		const fileSymbols = buildFileSymbolGroups(this.symbols_);
 		if (fileSymbols.length === 0) {
-			const detail =
-				this.symbols_.getSource() === SymbolSource.BEST_EFFORT
-					? "Module contains no .bzl module files"
-					: "No symbols present";
+			const detail = "Symbol data not available";
 			this.setElementInternal(
 				soy.renderAsElement(documentationBlankslate, { detail }),
 			);
@@ -905,6 +917,7 @@ class RuleInfoComponent extends SymbolComponent {
 					file: this.file_,
 					sym: this.sym_,
 					exampleCode,
+					usagesUrl: makeUsagesUrl(this.file_, this.sym_),
 				},
 				{
 					baseUrl: this.getDocsBaseUrl(),
@@ -943,6 +956,7 @@ class FunctionInfoComponent extends SymbolComponent {
 					file: this.file_,
 					sym: this.sym_,
 					exampleCode,
+					usagesUrl: makeUsagesUrl(this.file_, this.sym_),
 				},
 				{
 					baseUrl: this.getDocsBaseUrl(),
@@ -1163,6 +1177,7 @@ class MacroInfoComponent extends SymbolComponent {
 					file: this.file_,
 					sym: this.sym_,
 					exampleCode,
+					usagesUrl: makeUsagesUrl(this.file_, this.sym_),
 				},
 				{
 					baseUrl: this.getDocsBaseUrl(),
@@ -1201,6 +1216,7 @@ class RuleMacroInfoComponent extends SymbolComponent {
 					file: this.file_,
 					sym: this.sym_,
 					exampleCode,
+					usagesUrl: makeUsagesUrl(this.file_, this.sym_),
 				},
 				{
 					baseUrl: this.getDocsBaseUrl(),

@@ -61,6 +61,22 @@ class Application {
 	getRegistryWithSymbols() {}
 
 	/**
+	 * Returns a promise that resolves when packages (BUILD-file extraction) are
+	 * loaded and decorated.
+	 * @returns {!Promise<*>}
+	 */
+	getRegistryWithPackages() {}
+
+	/**
+	 * Returns a promise that resolves to a Map<urlKey, Array<TargetRef>>
+	 * indexing every loaded callable found in the registry-wide packages.pb.
+	 * The urlKey is the slash-form load coordinate (e.g.
+	 * "@rules_go/go/def.bzl/go_binary") used by the /targets Trie router.
+	 * @returns {!Promise<*>}
+	 */
+	getRuleUsageIndex() {}
+
+	/**
 	 * Returns a promise that resolves to the lazily-fetched BazelFlagDb.
 	 * Memoized; the underlying network fetch happens at most once.
 	 * @returns {!Promise<*>}

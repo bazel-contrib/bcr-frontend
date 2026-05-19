@@ -1,18 +1,15 @@
-load("@rules_go//go:def.bzl", "go_binary", "go_library", "go_test")
-
-# load("@rules_java//java:java_library.bzl", "java_library")
-load("@rules_java//java:java_binary.bzl", "java_binary")
+load("@rules_go//go:def.bzl", "go_binary", "go_library")
 
 go_library(
-    name = "bzlcompiler_lib",
+    name = "packagecompiler_lib",
     srcs = [
-        "bzlcompiler.go",
         "config.go",
         "extract.go",
         "files.go",
+        "packagecompiler.go",
         "server.go",
     ],
-    importpath = "github.com/bazel-contrib/bcr-frontend/cmd/bzlcompiler",
+    importpath = "github.com/bazel-contrib/bcr-frontend/cmd/packagecompiler",
     visibility = ["//visibility:private"],
     deps = [
         "//blaze/worker",
@@ -31,20 +28,7 @@ go_library(
 )
 
 go_binary(
-    name = "bzlcompiler",
-    embed = [":bzlcompiler_lib"],
+    name = "packagecompiler",
+    embed = [":packagecompiler_lib"],
     visibility = ["//visibility:public"],
-)
-
-# ProTip: grpcurl -plaintext localhost:3524 list
-java_binary(
-    name = "starlarkserver",
-    main_class = "build.stack.devtools.build.constellate.RemoteStarlarkServer",
-    runtime_deps = ["@constellate_server_jar//jar"],
-)
-
-go_test(
-    name = "bzlcompiler_test",
-    srcs = ["extract_test.go"],
-    embed = [":bzlcompiler_lib"],
 )

@@ -1,6 +1,9 @@
 goog.module("bcr.main");
 
 const BazelFlagDb = goog.require("proto.build.stack.bazel.help.v1.BazelFlagDb");
+const ModuleRegistryPackages = goog.require(
+	"proto.build.stack.bazel.symbol.v1.ModuleRegistryPackages",
+);
 const ModuleRegistrySymbols = goog.require(
 	"proto.build.stack.bazel.symbol.v1.ModuleRegistrySymbols",
 );
@@ -11,6 +14,7 @@ const Registry = goog.require("proto.build.stack.bazel.registry.v1.Registry");
 const RegistryApp = goog.require("bcrfrontend.App");
 const base64 = goog.require("goog.crypt.base64");
 const { gzipDecode } = goog.require("bcrfrontend.common");
+const { loadLabelToUrlKey } = goog.require("bcrfrontend.starlark");
 
 /**
  * Main entry point for the browser application.
@@ -25,6 +29,13 @@ async function main(registryDataBase64) {
 
 	// Create lazy-loading promise for registry with symbols
 	const registryWithSymbols = createRegistryWithSymbolsPromise(registry);
+
+	// Same shape for the BUILD-file extraction registry.
+	const registryWithPackages = createRegistryWithPackagesPromise(registry);
+
+	// Derived index: load-coordinate → list of usages. Built once when the
+	// packages.pb.gz fetch resolves.
+	const ruleUsageIndex = registryWithPackages.then(buildRuleUsageIndex);
 
 	// One-shot lazy loader for the bazel flag db. The first call kicks off
 	// the fetch; subsequent calls reuse the cached promise.
@@ -44,7 +55,13 @@ async function main(registryDataBase64) {
 		stale[i].remove();
 	}
 
-	const app = new RegistryApp(registry, registryWithSymbols, getBazelFlagDb);
+	const app = new RegistryApp(
+		registry,
+		registryWithSymbols,
+		registryWithPackages,
+		ruleUsageIndex,
+		getBazelFlagDb,
+	);
 	app.render(document.body);
 	app.start();
 
@@ -141,6 +158,63 @@ function decorateRegistryWithSymbols(registry, symbolsRegistry) {
 }
 
 /**
+ * Decorates a Registry with packages from ModuleRegistryPackages.
+ * Mirrors decorateRegistryWithSymbols but writes onto ModuleSource.packages.
+ * @param {!Registry} registry The registry to decorate
+ * @param {!ModuleRegistryPackages} packagesRegistry The packages to apply
+ */
+function decorateRegistryWithPackages(registry, packagesRegistry) {
+	/** @type {!Map<string,!ModuleVersion>} */
+	const moduleVersionsById = new Map();
+	for (const module of registry.getModulesList()) {
+		for (const mv of module.getVersionsList()) {
+			const id = `${mv.getName()}@${mv.getVersion()}`;
+			moduleVersionsById.set(id, mv);
+		}
+	}
+
+	for (const p of packagesRegistry.getModuleVersionList()) {
+		const id = `${p.getModuleName()}@${p.getVersion()}`;
+		const mv = moduleVersionsById.get(id);
+		if (mv) {
+			const source = mv.getSource();
+			if (source && !source.getPackages()) {
+				source.setPackages(p);
+			}
+		}
+	}
+}
+
+/**
+ * Creates a Promise that fetches packages.pb.gz and decorates the registry.
+ * @param {!Registry} registry The base registry to decorate
+ * @returns {!Promise<!Registry>} Promise that resolves to decorated registry
+ */
+function createRegistryWithPackagesPromise(registry) {
+	return (async () => {
+		try {
+			const url = metaUrl("bcr:packages-url");
+			if (!url) {
+				throw new Error("packages URL not set in <meta name=bcr:packages-url>");
+			}
+			const response = await fetch(url);
+			if (!response.ok) {
+				throw new Error(`Failed to fetch ${url}: ${response.status}`);
+			}
+			const gzipData = new Uint8Array(await response.arrayBuffer());
+			const decompressed = await gzipDecode(gzipData);
+			const packagesRegistry =
+				ModuleRegistryPackages.deserializeBinary(decompressed);
+			decorateRegistryWithPackages(registry, packagesRegistry);
+			return registry;
+		} catch (/** @type {*} */ e) {
+			console.error("Failed to load packages:", e);
+			return registry;
+		}
+	})();
+}
+
+/**
  * Creates a Promise that fetches symbols.pb.gz and decorates the registry.
  * @param {!Registry} registry The base registry to decorate
  * @returns {!Promise<!Registry>} Promise that resolves to decorated registry
@@ -167,6 +241,84 @@ function createRegistryWithSymbolsPromise(registry) {
 			return registry; // Graceful degradation
 		}
 	})();
+}
+
+/**
+ * Strip "@@<repo>//" (or "@<repo>//") from a Package label, returning "ROOT"
+ * for the empty (root) package. Mirrors stripRepoPrefix in packages.js;
+ * duplicated here to avoid a cross-module dependency.
+ * @param {string} pkgName
+ * @returns {string}
+ */
+function stripRepoPrefix_(pkgName) {
+	const idx = pkgName.indexOf("//");
+	if (idx === -1) return pkgName;
+	const rest = pkgName.substring(idx + 2);
+	return rest === "" ? "ROOT" : rest;
+}
+
+/**
+ * Sweep every Target in every Package of every ModuleVersion that carries a
+ * decorated `source.packages`, and build a Map<urlKey, Array<TargetRef>>
+ * where urlKey is the slash-form load coordinate used by the /targets Trie
+ * router. Only Targets whose rule kind resolves to a LoadStmt in their
+ * package are indexed; native rules are skipped.
+ *
+ * @param {!Registry} registry
+ * @returns {!Map<string, !Array<{moduleName: string, version: string,
+ *                                 pkgPath: string, targetName: string,
+ *                                 ruleKind: string}>>}
+ */
+function buildRuleUsageIndex(registry) {
+	/** @type {!Map<string, !Array<{moduleName: string, version: string,
+	 *                              pkgPath: string, targetName: string,
+	 *                              ruleKind: string}>>} */
+	const index = new Map();
+	for (const module of registry.getModulesList()) {
+		for (const mv of module.getVersionsList()) {
+			const packages = mv.getSource()?.getPackages();
+			if (!packages) continue;
+			const moduleName = mv.getName();
+			const version = mv.getVersion();
+			for (const pkg of packages.getPackageList()) {
+				const pkgPath = stripRepoPrefix_(pkg.getName());
+				const loads = pkg.getLoadList();
+				if (loads.length === 0) continue;
+				for (const target of pkg.getTargetList()) {
+					const ruleKind = target.getRule();
+					if (!ruleKind) continue;
+					// Find the LoadStmt whose effective local name matches.
+					let matchedLabel = null;
+					let matchedFrom = "";
+					outer: for (const ls of loads) {
+						for (const sym of ls.getSymbolList()) {
+							const localName = sym.getTo() || sym.getFrom();
+							if (localName === ruleKind) {
+								matchedLabel = ls.getLabel();
+								matchedFrom = sym.getFrom();
+								break outer;
+							}
+						}
+					}
+					if (!matchedLabel) continue; // native or unresolved
+					const key = loadLabelToUrlKey(matchedLabel, matchedFrom);
+					let bucket = index.get(key);
+					if (!bucket) {
+						bucket = [];
+						index.set(key, bucket);
+					}
+					bucket.push({
+						moduleName,
+						version,
+						pkgPath,
+						targetName: target.getName() || ruleKind,
+						ruleKind,
+					});
+				}
+			}
+		}
+	}
+	return index;
 }
 
 /**

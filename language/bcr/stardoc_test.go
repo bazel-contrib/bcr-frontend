@@ -14,7 +14,7 @@ func TestMakeOverlayBzlRepository(t *testing.T) {
 		moduleVersion = "1.0.22"
 		registryRoot  = "data/bazel-central-registry"
 	)
-	lbl := makeBzlRepositoryLabel(moduleName, moduleVersion)
+	lbl := makeBzlRepositoryModulesLabel(moduleName, moduleVersion)
 	r := makeOverlayBzlRepository(lbl, moduleName, moduleVersion, registryRoot)
 
 	if got, want := r.Kind(), starlarkRepositoryLocalKind; got != want {
@@ -26,7 +26,7 @@ func TestMakeOverlayBzlRepository(t *testing.T) {
 	if got, want := r.AttrString("path"), "data/bazel-central-registry/modules/colordiff/1.0.22/overlay"; got != want {
 		t.Errorf("path = %q, want %q", got, want)
 	}
-	if got, want := r.AttrString("build_file_generation"), "clean"; got != want {
+	if got, want := r.AttrString("build_file_generation"), "preserve"; got != want {
 		t.Errorf("build_file_generation = %q, want %q", got, want)
 	}
 	if got := r.AttrStrings("languages"); len(got) != 1 || got[0] != starlarkRepositoryLanguageName {
@@ -182,7 +182,7 @@ func TestAddOverlayBzlRepositories_ReplacesSourceURLEntry(t *testing.T) {
 	// underlying rule (since the upstream tarball has no .bzl content).
 	metaRule, repoMeta := fakeNonStarlarkMetadataRule()
 
-	preexistingLbl := makeBzlRepositoryLabel("colordiff", "1.0.22")
+	preexistingLbl := makeBzlRepositoryModulesLabel("colordiff", "1.0.22")
 	preexistingRule := rule.NewRule(starlarkRepositoryArchiveKind, preexistingLbl.Repo)
 	preexistingRule.SetAttr("urls", []string{"https://www.colordiff.org/colordiff-1.0.22.tar.gz"})
 	preexistingRule.SetAttr("strip_prefix", "colordiff-1.0.22")
@@ -223,7 +223,7 @@ func TestAddOverlayBzlRepositories_SkipsWhenUpstreamHasStarlark(t *testing.T) {
 	// fallback only, so the existing source-URL entry must not be touched.
 	metaRule, repoMeta := fakeStarlarkMetadataRule()
 
-	preexistingLbl := makeBzlRepositoryLabel("rules_foo", "1.0")
+	preexistingLbl := makeBzlRepositoryModulesLabel("rules_foo", "1.0")
 	preexistingRule := rule.NewRule(starlarkRepositoryArchiveKind, preexistingLbl.Repo)
 	preexistingRule.SetAttr("urls", []string{"https://github.com/bazelbuild/rules_foo/archive/v1.0.tar.gz"})
 	preexistingRule.SetAttr("strip_prefix", "rules_foo-1.0")

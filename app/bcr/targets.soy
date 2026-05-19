@@ -1,0 +1,136 @@
+{namespace soy.bcrfrontend.targets}
+
+import {
+  Registry
+} from 'build/stack/bazel/registry/v1/bcr.proto';
+import {
+  counterLabel
+} from 'app/bcr/registry.soy';
+import {
+  bcrSidePane
+} from 'app/bcr/app.soy';
+import {
+  moduleVersionUrl,
+  moduleVersionPackagesUrl
+} from 'app/bcr/uri.soy';
+
+/**
+ * Top-level shell for the Targets view: bcrSidePane on the left, `.content`
+ * placeholder on the right that TargetsSelect.addTab mounts list / detail
+ * views into. Mirrors maintainersMapSelectNav.
+ */
+{template targetsSelect}
+  {@param registry: Registry}
+  {@param totalModules: int}
+  {@param totalModuleVersions: int}
+  {@param totalMaintainers: int}
+  {@param totalSymbols: int}
+  {@param totalBazelVersions: int}
+  {@param uiCommitSha: string}
+<div class="PageLayout PageLayout--panePos-start PageLayout--hasPaneDivider PageLayout--responsive-stackRegions PageLayout--responsive-panePos-start mt-3">
+  <div class="PageLayout-columns">
+    <div class="PageLayout-pane">
+      {call bcrSidePane}
+        {param registry: $registry /}
+        {param totalModules: $totalModules /}
+        {param totalModuleVersions: $totalModuleVersions /}
+        {param totalMaintainers: $totalMaintainers /}
+        {param totalSymbols: $totalSymbols /}
+        {param totalBazelVersions: $totalBazelVersions /}
+        {param uiCommitSha: $uiCommitSha /}
+      {/call}
+    </div>
+    <div class="PageLayout-content">
+      <div class="{css('content')} mt-3"></div>
+    </div>
+  </div>
+</div>
+{/template}
+
+/**
+ * Default LIST view: condensed Box of known load-coordinate keys with their
+ * usage counts. Each row links to the detail view at /#/targets/<urlKey>.
+ */
+{template targetsListComponent}
+  {@param entries: list<[urlKey: string, displayLabel: string, count: int]>}
+<div>
+  <div class="Box Box--condensed">
+    <div class="Box-header">
+      <div class="Box-title">Callable rule kinds {counterLabel(count: length($entries))}</div>
+    </div>
+    {if length($entries) > 0}
+      {for $e in $entries}
+        <a class="Box-row d-flex flex-items-center"
+            style="text-decoration: none;"
+            href="/#/targets/{$e.urlKey}">
+          <span class="text-mono">{$e.displayLabel}</span>
+          <span class="ml-auto color-fg-muted text-small">{$e.count}</span>
+        </a>
+      {/for}
+    {else}
+      <div class="Box-row">
+        <div class="blankslate">
+          <p>No loaded rules detected in the registry-wide packages.</p>
+        </div>
+      </div>
+    {/if}
+  </div>
+</div>
+{/template}
+
+/**
+ * Detail view for a single load-coordinate: header showing the load shape
+ * and a Box of usages grouped by module-version. Renders a blankslate when
+ * the symbol is defined but no BUILD file in the registry invokes it.
+ */
+{template targetUsagesComponent}
+  {@param displayLabel: string}
+  {@param totalCount: int}
+  {@param grouped: list<[moduleName: string, version: string,
+                          targets: list<[pkgPath: string, targetName: string]>]>}
+<div>
+  <div class="mt-3 mb-3">
+    <h2 class="text-mono">{$displayLabel}</h2>
+    <div class="color-fg-muted text-small">{$totalCount} usage{$totalCount == 1 ? '' : 's'}</div>
+  </div>
+  {if length($grouped) > 0}
+    <div class="Box Box--condensed">
+      {for $m in $grouped}
+        <div class="Box-row">
+          <div class="d-flex flex-items-center mb-1">
+            <a class="text-bold" href="{moduleVersionUrl(name: $m.moduleName, version: $m.version)}">
+              {$m.moduleName}
+            </a>
+            <span class="color-fg-muted text-small ml-2">{$m.version}</span>
+            <span class="ml-auto color-fg-muted text-small">
+              {counterLabel(count: length($m.targets))}
+            </span>
+          </div>
+          <div class="pl-3">
+            {for $t in $m.targets}
+              {let $displayPath: $t.pkgPath == 'ROOT' ? ':' + $t.targetName : $t.pkgPath + ':' + $t.targetName /}
+              <div>
+                <a class="Link--primary text-mono text-small"
+                    href="{moduleVersionPackagesUrl(name: $m.moduleName, version: $m.version)}/{$t.pkgPath}/{$t.targetName}">
+                  {$displayPath}
+                </a>
+              </div>
+            {/for}
+          </div>
+        </div>
+      {/for}
+    </div>
+  {else}
+    <div class="Box Box--condensed">
+      <div class="Box-row">
+        <div class="blankslate">
+          <p>No BUILD-file targets in the registry invoke this symbol directly.</p>
+          <p class="color-fg-muted text-small">
+            It may be called only from other .bzl macros, or its load statement may not be picked up by the package extractor.
+          </p>
+        </div>
+      </div>
+    </div>
+  {/if}
+</div>
+{/template}

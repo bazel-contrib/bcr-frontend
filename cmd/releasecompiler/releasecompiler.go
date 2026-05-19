@@ -21,15 +21,16 @@ import (
 const toolName = "releasecompiler"
 
 type Config struct {
-	OutputFile                string
-	IndexHtmlFile             string
-	RegistryFile              string
-	ModuleRegistrySymbolsFile string
-	BazelFlagDbFile           string
-	PrerenderedPagesTar       string
-	AssetFiles                []string
-	ModulesSrcFiles           stringSliceFlag
-	ExcludeFromHash           map[string]bool // basenames to exclude from hashing
+	OutputFile                 string
+	IndexHtmlFile              string
+	RegistryFile               string
+	ModuleRegistrySymbolsFile  string
+	ModuleRegistryPackagesFile string
+	BazelFlagDbFile            string
+	PrerenderedPagesTar        string
+	AssetFiles                 []string
+	ModulesSrcFiles            stringSliceFlag
+	ExcludeFromHash            map[string]bool // basenames to exclude from hashing
 }
 
 // stringSliceFlag is a custom flag type for repeatable flags
@@ -98,6 +99,15 @@ func run(args []string) error {
 	for _, asset := range symbolsAssets {
 		assets = append(assets, asset)
 		log.Printf("Processed symbols file: %s -> %s", asset.OriginalName, asset.HashedName)
+	}
+
+	packagesAssets, err := processModuleRegistryPackagesFile(cfg.ModuleRegistryPackagesFile)
+	if err != nil {
+		return fmt.Errorf("failed to process packages file: %v", err)
+	}
+	for _, asset := range packagesAssets {
+		assets = append(assets, asset)
+		log.Printf("Processed packages file: %s -> %s", asset.OriginalName, asset.HashedName)
 	}
 
 	flagDbAssets, err := processBazelFlagDbFile(cfg.BazelFlagDbFile)
@@ -210,6 +220,43 @@ func processModuleRegistrySymbolsFile(documentationRegistryPath string) ([]Hashe
 	return []HashedAsset{
 		{
 			OriginalPath: documentationRegistryPath,
+			OriginalName: gzOriginalName,
+			HashedName:   gzHashedName,
+			Content:      gzipContent,
+		},
+	}, nil
+}
+
+// processModuleRegistryPackagesFile gzips the ModuleRegistryPackages proto and
+// emits it as a content-hashed packages.<hash>.pb.gz at the tarball root.
+// Mirrors processModuleRegistrySymbolsFile. Empty path means "skip" so the
+// flag is optional during partial builds.
+func processModuleRegistryPackagesFile(packagesRegistryPath string) ([]HashedAsset, error) {
+	if packagesRegistryPath == "" {
+		return nil, nil
+	}
+
+	content, err := os.ReadFile(packagesRegistryPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read packages registry file: %v", err)
+	}
+
+	var gzipBuf bytes.Buffer
+	gzipWriter := gzip.NewWriter(&gzipBuf)
+	if _, err := gzipWriter.Write(content); err != nil {
+		return nil, fmt.Errorf("failed to gzip content: %v", err)
+	}
+	if err := gzipWriter.Close(); err != nil {
+		return nil, fmt.Errorf("failed to close gzip writer: %v", err)
+	}
+	gzipContent := gzipBuf.Bytes()
+
+	gzOriginalName := "packages.pb.gz"
+	gzHashedName := hashFilename(gzOriginalName, gzipContent)
+
+	return []HashedAsset{
+		{
+			OriginalPath: packagesRegistryPath,
 			OriginalName: gzOriginalName,
 			HashedName:   gzHashedName,
 			Content:      gzipContent,
@@ -459,6 +506,7 @@ func parseFlags(args []string) (cfg Config, err error) {
 	fs.StringVar(&cfg.IndexHtmlFile, "index_html_file", "", "the index.html file to read")
 	fs.StringVar(&cfg.RegistryFile, "registry_file", "", "the registry protobuf file to process (gzipped and base64 encoded)")
 	fs.StringVar(&cfg.ModuleRegistrySymbolsFile, "module_registry_symbols_file", "", "the documentation registry protobuf file to process (gzipped and base64 encoded)")
+	fs.StringVar(&cfg.ModuleRegistryPackagesFile, "module_registry_packages_file", "", "the packages registry protobuf file to process (gzipped into the tarball as packages.<hash>.pb.gz)")
 	fs.StringVar(&cfg.BazelFlagDbFile, "bazel_flag_db_file", "", "the bazel flag database protobuf file (gzipped into the tarball as bazelflagdb.pb.gz)")
 	fs.StringVar(&cfg.PrerenderedPagesTar, "prerendered_pages_tar", "", "optional tar of prerendered HTML files to merge into the output tarball verbatim (entries are added as-is)")
 	fs.Var(&cfg.ModulesSrcFiles, "modules_src", "a file to include under modules/ in the tarball (repeatable)")

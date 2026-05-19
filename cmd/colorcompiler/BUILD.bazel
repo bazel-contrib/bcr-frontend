@@ -8,7 +8,7 @@ go_library(
     deps = [
         "//pkg/css",
         "//pkg/paramsfile",
-        "@com_github_teacat_noire//:go_default_library",
+        "@com_github_teacat_noire//:noire",
     ],
 )
 

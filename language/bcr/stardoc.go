@@ -24,6 +24,7 @@ const (
 	binaryProtoRepositorySuffix           = ".binaryprotos"
 	binaryProtosRepositoryRootTargetName  = "files"
 	bzlRepositoryModulesName              = "modules"
+	bzlRepositoryPackagesName             = "starlark_packages"
 	bzlRepositoryPrefix                   = "bzl."
 	httpArchiveKind                       = "http_archive"
 	starlarkRepositoryArchiveKind         = "starlark_repository.archive"
@@ -37,12 +38,13 @@ const (
 // when multiple versions of the same module are available. A rank of 0 means the version
 // is not selected for documentation.
 type rankedVersion struct {
-	version            moduleVersion                     // semver version string
-	bzlRepositoryLabel label.Label                       // label of the starlark_repository rule
-	bzlRepositoryRule  *rule.Rule                        // the starlark_repository rule itself
-	source             *protoRule[*bzpb.ModuleVersion]   // source module version proto
-	deps               []*protoRule[*bzpb.ModuleVersion] // dependency module version protos
-	rank               int                               // MVS rank (0 = not selected, >0 = selected)
+	version                    moduleVersion                     // semver version string
+	bzlRepositoryLabel         label.Label                       // label of the starlark_repository :modules target
+	bzlRepositoryPackagesLabel label.Label                       // label of the starlark_repository :packages target
+	bzlRepositoryRule          *rule.Rule                        // the starlark_repository rule itself
+	source                     *protoRule[*bzpb.ModuleVersion]   // source module version proto
+	deps                       []*protoRule[*bzpb.ModuleVersion] // dependency module version protos
+	rank                       int                               // MVS rank (0 = not selected, >0 = selected)
 }
 
 // rankedModuleVersionMap maps module names to their ranked versions.
@@ -185,11 +187,17 @@ func (ext *bcrExtension) handleSourceUrlStatus(url string, moduleIDs []moduleID,
 
 	module := moduleSourceProtoRule.Rule().PrivateAttr(moduleVersionPrivateAttr).(*bzpb.ModuleVersion)
 	source := moduleSourceProtoRule.Proto()
-	lbl := makeBzlRepositoryLabel(module.Name, module.Version)
+	lbl := makeBzlRepositoryModulesLabel(module.Name, module.Version)
+	pkgLbl := makeBzlRepositoryPackagesLabel(module.Name, module.Version)
 	rule := makeBzlRepository(lbl, module, source)
 	name := moduleName(module.Name)
 	version := moduleVersion(module.Version)
-	versions[name] = append(versions[name], &rankedVersion{version: version, bzlRepositoryRule: rule, bzlRepositoryLabel: lbl})
+	versions[name] = append(versions[name], &rankedVersion{
+		version:                    version,
+		bzlRepositoryRule:          rule,
+		bzlRepositoryLabel:         lbl,
+		bzlRepositoryPackagesLabel: pkgLbl,
+	})
 }
 
 func (ext *bcrExtension) prepareBzlRepositories() rankedModuleVersionMap {
@@ -298,7 +306,8 @@ func (ext *bcrExtension) addOverlayBzlRepositories(versions rankedModuleVersionM
 			continue
 		}
 
-		lbl := makeBzlRepositoryLabel(string(name), string(ver))
+		lbl := makeBzlRepositoryModulesLabel(string(name), string(ver))
+		pkgLbl := makeBzlRepositoryPackagesLabel(string(name), string(ver))
 		r := makeOverlayBzlRepository(lbl, string(name), string(ver), ext.registryRoot)
 
 		// If a source-URL-backed entry for this version exists, replace its
@@ -310,6 +319,7 @@ func (ext *bcrExtension) addOverlayBzlRepositories(versions rankedModuleVersionM
 			if v.version == ver {
 				v.bzlRepositoryRule = r
 				v.bzlRepositoryLabel = lbl
+				v.bzlRepositoryPackagesLabel = pkgLbl
 				replaced++
 				replacedThis = true
 				break
@@ -320,9 +330,10 @@ func (ext *bcrExtension) addOverlayBzlRepositories(versions rankedModuleVersionM
 		}
 
 		versions[name] = append(versions[name], &rankedVersion{
-			version:            ver,
-			bzlRepositoryRule:  r,
-			bzlRepositoryLabel: lbl,
+			version:                    ver,
+			bzlRepositoryRule:          r,
+			bzlRepositoryLabel:         lbl,
+			bzlRepositoryPackagesLabel: pkgLbl,
 		})
 		added++
 	}
@@ -399,6 +410,9 @@ func (ext *bcrExtension) finalizeBzlSrcsAndDeps(bzlRepositories rankedModuleVers
 	// collect selected bzlDeps foreach rule so we can sort them later
 	bzlSrcRuleMap := make(map[*protoRule[*bzpb.ModuleVersion]]string)
 	bzlDepsRuleMap := make(map[*protoRule[*bzpb.ModuleVersion]][]string)
+	// parallel maps for the :packages target on the same starlark_repository
+	pkgSrcRuleMap := make(map[*protoRule[*bzpb.ModuleVersion]]string)
+	pkgDepsRuleMap := make(map[*protoRule[*bzpb.ModuleVersion]][]string)
 
 	// Debug: Log all available versions and their ranks
 	if debugBzlRepositoryResolution {
@@ -446,10 +460,11 @@ func (ext *bcrExtension) finalizeBzlSrcsAndDeps(bzlRepositories rankedModuleVers
 			if version.rank > 0 {
 				if version.source != nil {
 					bzlSrcRuleMap[version.source] = version.bzlRepositoryLabel.String()
+					pkgSrcRuleMap[version.source] = version.bzlRepositoryPackagesLabel.String()
 				}
 				for _, rule := range version.deps {
-					label := version.bzlRepositoryLabel.String()
-					bzlDepsRuleMap[rule] = append(bzlDepsRuleMap[rule], label)
+					bzlDepsRuleMap[rule] = append(bzlDepsRuleMap[rule], version.bzlRepositoryLabel.String())
+					pkgDepsRuleMap[rule] = append(pkgDepsRuleMap[rule], version.bzlRepositoryPackagesLabel.String())
 				}
 			}
 		}
@@ -461,6 +476,13 @@ func (ext *bcrExtension) finalizeBzlSrcsAndDeps(bzlRepositories rankedModuleVers
 	for rule, bzlDeps := range bzlDepsRuleMap {
 		sort.Strings(bzlDeps)
 		rule.Rule().SetAttr("bzl_deps", makeBzlDepsSelectExpr(bzlDeps))
+	}
+	for rule, pkgSrc := range pkgSrcRuleMap {
+		rule.Rule().SetAttr("pkg_src", makeBzlSrcSelectExpr(pkgSrc))
+	}
+	for rule, pkgDeps := range pkgDepsRuleMap {
+		sort.Strings(pkgDeps)
+		rule.Rule().SetAttr("pkg_deps", makeBzlDepsSelectExpr(pkgDeps))
 	}
 }
 
@@ -609,11 +631,21 @@ func makeBzlRepositoryName(moduleName, moduleVersion string) (name string) {
 	return fmt.Sprintf("%s%s---%s", bzlRepositoryPrefix, moduleName, moduleVersion) // TODO: do we need to sanitize moduleVersion?
 }
 
-// makeBzlRepositoryLabel creates a label for a starlark_repository rule.
-func makeBzlRepositoryLabel(moduleName, moduleVersion string) label.Label {
+// makeBzlRepositoryModulesLabel creates a label for a starlark_repository modules rule.
+func makeBzlRepositoryModulesLabel(moduleName, moduleVersion string) label.Label {
+	return makeBzlRepositoryLabel(moduleName, moduleVersion, bzlRepositoryModulesName)
+}
+
+// makeBzlRepositoryPackagesLabel creates a label for a starlark_repository Packages rule.
+func makeBzlRepositoryPackagesLabel(moduleName, moduleVersion string) label.Label {
+	return makeBzlRepositoryLabel(moduleName, moduleVersion, bzlRepositoryPackagesName)
+}
+
+// makeBzlRepositoryLabel creates a label for a starlark_repository target rule.
+func makeBzlRepositoryLabel(moduleName, moduleVersion, targetName string) label.Label {
 	repo := makeBzlRepositoryName(moduleName, moduleVersion)
 	pkg := ""
-	name := bzlRepositoryModulesName
+	name := targetName
 
 	// special case: if this is the bazel_tools repo
 	if moduleName == bazelToolsName {
@@ -636,7 +668,7 @@ func makeBzlRepository(from label.Label, moduleVersion *bzpb.ModuleVersion, sour
 			r.SetAttr("sha256", sha256)
 		}
 	}
-	r.SetAttr("build_file_generation", "clean")
+	r.SetAttr("build_file_generation", "preserve")
 	r.SetAttr("languages", []string{starlarkRepositoryLanguageName})
 
 	rootDirective := fmt.Sprintf("gazelle:%s_root", starlarkRepositoryLanguageName)
@@ -664,7 +696,7 @@ func makeOverlayBzlRepository(from label.Label, moduleName, moduleVersion, regis
 	r := rule.NewRule(starlarkRepositoryLocalKind, from.Repo)
 
 	r.SetAttr("path", filepath.Join(registryRoot, "modules", moduleName, moduleVersion, "overlay"))
-	r.SetAttr("build_file_generation", "clean")
+	r.SetAttr("build_file_generation", "preserve")
 	r.SetAttr("languages", []string{starlarkRepositoryLanguageName})
 	r.SetAttr("build_directives", []string{fmt.Sprintf("gazelle:%s_root", starlarkRepositoryLanguageName)})
 
@@ -794,12 +826,13 @@ func narrowSelectedVersionsByPatchLevel(sortedVersions []moduleVersion, versions
 
 		// Create a new rankedVersion with merged data
 		merged := &rankedVersion{
-			version:            highest.version,
-			bzlRepositoryLabel: highest.bzlRepositoryLabel,
-			bzlRepositoryRule:  highest.bzlRepositoryRule,
-			source:             mergedSource,
-			deps:               mergedDeps,
-			rank:               mergedRank,
+			version:                    highest.version,
+			bzlRepositoryLabel:         highest.bzlRepositoryLabel,
+			bzlRepositoryPackagesLabel: highest.bzlRepositoryPackagesLabel,
+			bzlRepositoryRule:          highest.bzlRepositoryRule,
+			source:                     mergedSource,
+			deps:                       mergedDeps,
+			rank:                       mergedRank,
 		}
 
 		narrowed = append(narrowed, merged)
