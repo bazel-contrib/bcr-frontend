@@ -16,7 +16,9 @@ import {
 } from 'build/stack/bazel/registry/v1/bcr.proto';
 import {
   copyToClipboardButton,
-  counterLabel
+  counterLabel,
+  moduleSourceTable,
+  sectionDivider
 } from 'app/bcr/registry.soy';
 import {
   moduleVersionPackagesUrl
@@ -101,11 +103,14 @@ ROOT
     totalCount: int,
     widthPct: number
   ]>}
+  {@param? showHeader: bool}
 <div>
   <div class="Box Box--condensed">
-    <div class="Box-header">
-      <div class="Box-title">Packages {counterLabel(count: length($rows))}</div>
-    </div>
+    {if $showHeader ?? true}
+      <div class="Box-header">
+        <div class="Box-title">Packages {counterLabel(count: length($rows))}</div>
+      </div>
+    {/if}
     {if length($rows) > 0}
       {for $row in $rows}
         {if $row.hasErrors}
@@ -178,6 +183,23 @@ ROOT
  * documentationInfoSelect's structure.
  */
 {template moduleVersionPackagesSelect}
+<div>
+  <div class="{css('content')}"></div>
+</div>
+{/template}
+
+/**
+ * Top-level shell for the new Source tab. Two-pane PageLayout:
+ *   - left: moduleSourceTable (Source Details) + packagesNavSection (when
+ *     there are packages — the per-rule-kind tree that used to live on the
+ *     right of the standalone Packages tab).
+ *   - right: .content placeholder that the SourceSelect SelectNav populates
+ *     with the active sub-tab (packages, attestations, overlay, patches).
+ *
+ * Lives in packages.soy (not registry.soy) because it calls packagesNavSection
+ * — moving the template here keeps the soy import graph acyclic.
+ */
+{template sourceSelect}
   {@param moduleVersion: ModuleVersion}
   {@param navTargetGroups: list<[
     ruleKind: string,
@@ -186,20 +208,32 @@ ROOT
     urlKey: string,
     items: list<[pkgPath: string, name: string]>
   ]>}
-<div>
-  <div class="PageLayout PageLayout--panePos-start PageLayout--hasPaneDivider PageLayout--responsive-stackRegions">
-    <div class="PageLayout-wrapper">
-      <div class="PageLayout-columns">
-        <div class="PageLayout-content PageLayout-pane--sticky {css('content')}"></div>
-        <div class="PageLayout-pane pl-2 overflow-x-hidden">
-          <nav class="SideNav" style="background-color: transparent; border: none">
-            {packagesNavSection(moduleVersion: $moduleVersion, navTargetGroups: $navTargetGroups)}
-          </nav>
-        </div>
+  <div class="PageLayout PageLayout--panePos-start PageLayout--hasPaneDivider PageLayout--responsive-stackRegions PageLayout--responsive-panePos-start mt-3">
+    <div class="PageLayout-columns">
+      <div class="PageLayout-pane">
+        {if $moduleVersion.getSource()}
+          {call moduleSourceTable}
+            {param moduleVersion: $moduleVersion /}
+            {param source: $moduleVersion.getSource() /}
+          {/call}
+        {/if}
+        {if length($navTargetGroups) > 0}
+          {sectionDivider()}
+          {call packagesNavSection}
+            {param moduleVersion: $moduleVersion /}
+            {param navTargetGroups: $navTargetGroups /}
+          {/call}
+        {/if}
+      </div>
+      <div class="PageLayout-content">
+        <nav class="UnderlineNav">
+          <div class="UnderlineNav-body {css('nav')}">
+          </div>
+        </nav>
+        <div class="{css('content')} mt-3"></div>
       </div>
     </div>
   </div>
-</div>
 {/template}
 
 /**
@@ -207,7 +241,7 @@ ROOT
  * colored dot per group. Empty groups list renders nothing (so a blankslate
  * page can be shown via the LIST tab without competing UI).
  */
-{template packagesNavSection visibility="private"}
+{template packagesNavSection}
   {@param moduleVersion: ModuleVersion}
   {@param navTargetGroups: list<[
     ruleKind: string,

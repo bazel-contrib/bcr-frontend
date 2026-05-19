@@ -336,14 +336,10 @@ class ModuleVersionPackagesSelect extends ContentSelect {
 		// Render the Select shell that carries the `.content` placeholder
 		// element. The list view itself is added as a LIST tab so addTab can
 		// inject it (and any nested PackageSelect tabs) into that slot. The
-		// sidebar is part of the shell so it persists across nested
-		// navigations (list → package → target detail).
-		const navTargetGroups = buildNavTargetGroups(this.packages_);
+		// per-rule-kind SideNav lives in the parent Source tab's left pane
+		// now, so this shell is just the routing placeholder.
 		this.setElementInternal(
-			soy.renderAsElement(moduleVersionPackagesSelect, {
-				moduleVersion: this.moduleVersion_,
-				navTargetGroups,
-			}),
+			soy.renderAsElement(moduleVersionPackagesSelect, {}),
 		);
 	}
 
@@ -372,6 +368,7 @@ class ModuleVersionPackagesSelect extends ContentSelect {
 					new ModuleVersionPackagesListComponent(
 						this.moduleVersion_,
 						this.packages_,
+						false,
 						this.dom_,
 					),
 				);
@@ -411,6 +408,7 @@ class ModuleVersionPackagesSelect extends ContentSelect {
 	}
 }
 exports.ModuleVersionPackagesSelect = ModuleVersionPackagesSelect;
+exports.buildNavTargetGroups = buildNavTargetGroups;
 
 /**
  * Default "list of packages" view rendered under the Packages tab.
@@ -419,9 +417,12 @@ class ModuleVersionPackagesListComponent extends Component {
 	/**
 	 * @param {!ModuleVersion} moduleVersion
 	 * @param {!ModuleVersionPackages} packages
+	 * @param {boolean=} opt_showHeader Show the "Packages [N]" Box-header
+	 *   above the list. Defaults to true; the Source tab's sub-tab passes
+	 *   false because the surrounding sub-tab counter is already labeled.
 	 * @param {?dom.DomHelper=} opt_domHelper
 	 */
-	constructor(moduleVersion, packages, opt_domHelper) {
+	constructor(moduleVersion, packages, opt_showHeader, opt_domHelper) {
 		super(opt_domHelper);
 
 		/** @private @const */
@@ -429,6 +430,9 @@ class ModuleVersionPackagesListComponent extends Component {
 
 		/** @private @const */
 		this.packages_ = packages;
+
+		/** @private @const */
+		this.showHeader_ = opt_showHeader !== false;
 	}
 
 	/** @override */
@@ -503,6 +507,7 @@ class ModuleVersionPackagesListComponent extends Component {
 			soy.renderAsElement(moduleVersionPackagesListComponent, {
 				moduleVersion: this.moduleVersion_,
 				rows,
+				showHeader: this.showHeader_,
 			}),
 		);
 	}

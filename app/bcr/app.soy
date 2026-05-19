@@ -98,7 +98,6 @@ import {
   moduleDependencyRow,
   moduleDependencyTable,
   moduleLanguageTable,
-  moduleSourceTable,
   moduleVersionAboutTable,
   moduleVersionBreadcrumb,
   moduleVersionButton,
@@ -1337,17 +1336,6 @@ import {
           {param maintainers: $metadata.getMaintainersList() /}
         {/call}
       </div>
-
-      {if $moduleVersion.getSource()}
-        {sectionDivider()}
-        <div>
-          {call moduleSourceTable}
-            {param moduleVersion: $moduleVersion /}
-            {param source: $moduleVersion.getSource() /}
-          {/call}
-        </div>
-      {/if}
-
 
       {if length($moduleVersion.getBazelCompatibilityList())}
         {sectionDivider()}

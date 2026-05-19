@@ -31,8 +31,14 @@ const { ContentComponent } = goog.require("bcrfrontend.ContentComponent");
 const { ContentSelect } = goog.require("bcrfrontend.ContentSelect");
 const { ModuleVersionSymbolsSelect, DocumentationReadmeComponent } =
 	goog.require("bcrfrontend.documentation");
-const { ModuleVersionPackagesSelect } = goog.require("bcrfrontend.packages");
+const { ModuleVersionPackagesSelect, buildNavTargetGroups } =
+	goog.require("bcrfrontend.packages");
 const { PresubmitSelect } = goog.require("bcrfrontend.presubmit");
+const {
+	SourceArchiveFileSelect,
+	KIND_OVERLAY,
+	KIND_PATCHES,
+} = goog.require("bcrfrontend.sourceArchiveFiles");
 const { MvsDependencyTree } = goog.require("bcrfrontend.mvs_tree");
 const { SelectNav } = goog.require("bcrfrontend.SelectNav");
 const { isDocumentDisplayModeMaintainer } = goog.require(
@@ -54,6 +60,7 @@ const {
 } = goog.require("soy.bcrfrontend.app");
 const { attestationsTabContent, moduleVersionsListComponent } =
 	goog.require("soy.registry");
+const { sourceSelect } = goog.require("soy.bcrfrontend.packages");
 const { computeLanguageData, sanitizeLanguageName, unsanitizeLanguageName } =
 	goog.require("bcrfrontend.language");
 const {
@@ -130,12 +137,22 @@ async function fetchModuleVersionPackagesFromGithubRepository(moduleVersion) {
  * @enum {string}
  */
 const TabName = {
-	ATTESTATIONS: "attestations",
 	DOCS: "docs",
 	LIST: "list",
 	OVERVIEW: "overview",
-	PACKAGES: "packages",
+	SOURCE: "source",
 	TESTING: "testing",
+};
+
+/**
+ * Sub-tabs rendered inside the Source tab's right-hand pane.
+ * @enum {string}
+ */
+const SourceTabName = {
+	PACKAGES: "packages",
+	ATTESTATIONS: "attestations",
+	OVERLAY: "overlay",
+	PATCHES: "patches",
 };
 
 /**
@@ -453,6 +470,18 @@ class ModuleVersionSelectNav extends SelectNav {
 				),
 		);
 
+		// Source tab: aggregates Source Details, packages, attestations, and
+		// overlay/patch files into one place. Deferred because we wait on the
+		// packages aggregate fetch so the left-pane SideNav (rule-kind tree)
+		// can be rendered up-front; subsequent activations hit the cache.
+		this.addNavTabDeferred(
+			TabName.SOURCE,
+			"Source",
+			"Source archive, packages, attestations, overlay, and patches",
+			undefined,
+			`${this.getPathUrl()}/${TabName.SOURCE}`,
+		);
+
 		// Add docs nav tab link - component will be added lazily in selectFail
 		// (the DOCS branch waits for the symbols proto to load first).
 		this.addNavTabDeferred(
@@ -461,17 +490,6 @@ class ModuleVersionSelectNav extends SelectNav {
 			"Generated Stardoc Documentation",
 			undefined,
 			`${this.getPathUrl()}/${TabName.DOCS}`,
-		);
-
-		// Packages tab is deferred for the same reason as docs: the packages
-		// proto is fetched async, and older versions may also need the
-		// per-version packageinfo.pb.gz fallback fetch.
-		this.addNavTabDeferred(
-			TabName.PACKAGES,
-			"Packages",
-			"BUILD-file targets",
-			undefined,
-			`${this.getPathUrl()}/${TabName.PACKAGES}`,
 		);
 
 		const presubmit = this.moduleVersion_.getPresubmit();
@@ -489,27 +507,6 @@ class ModuleVersionSelectNav extends SelectNav {
 					presubmit || null,
 				),
 		);
-
-		// Attestations tab: only shown when the module version carries an
-		// attestations.json. The Attestations proto (URL + integrity + parsed
-		// payload per file) is already on the moduleVersion, so this tab is
-		// lazy-sync, no fetch.
-		const maybeAttestations = this.moduleVersion_.getAttestations();
-		if (maybeAttestations) {
-			// Capture into a const with a non-null type so the lambda closure
-			// below typechecks under Closure's strict nullability rules.
-			// `asserts.assert` preserves the input type (narrowing away null).
-			const attestations = asserts.assert(maybeAttestations);
-			this.addNavTabLazy(
-				TabName.ATTESTATIONS,
-				"Attestations",
-				"Source attestations and supply-chain provenance",
-				undefined,
-				`${this.getPathUrl()}/${TabName.ATTESTATIONS}`,
-				() =>
-					new AttestationsComponent(this.moduleVersion_, attestations),
-			);
-		}
 	}
 
 	/**
@@ -561,10 +558,12 @@ class ModuleVersionSelectNav extends SelectNav {
 			return;
 		}
 
-		if (name === TabName.PACKAGES) {
-			// Mirror the docs branch: wait for the registry-wide packages
-			// fetch, then fall back to a per-version packageinfo.pb.gz fetch
-			// for older versions whose entry wasn't in the registry aggregate.
+		if (name === TabName.SOURCE) {
+			// Wait for the registry-wide packages aggregate (cached after the
+			// first call), then fall back to a per-version packageinfo.pb.gz
+			// fetch for older versions whose entry wasn't aggregated. After
+			// the fetch settles we instantiate SourceSelect so its left-pane
+			// SideNav has data on first paint.
 			getApplication(this)
 				.getRegistryWithPackages()
 				.then(() => {
@@ -587,8 +586,9 @@ class ModuleVersionSelectNav extends SelectNav {
 				.then((/** @type {?ModuleVersionPackages} */ pkgs) => {
 					if (this.isDisposed()) return;
 					this.addTab(
-						TabName.PACKAGES,
-						new ModuleVersionPackagesSelect(
+						TabName.SOURCE,
+						new SourceSelect(
+							this.registry_,
 							this.module_,
 							this.moduleVersion_,
 							pkgs || null,
@@ -1355,7 +1355,8 @@ class ModuleVersionDependentsComponent extends ContentComponent {
 class AttestationsComponent extends ContentComponent {
 	/**
 	 * @param {!ModuleVersion} moduleVersion
-	 * @param {!Attestations} attestations
+	 * @param {!Attestations} attestations Empty Attestations() is valid;
+	 *   the soy template renders a blankslate when the map is empty.
 	 * @param {?dom.DomHelper=} opt_domHelper
 	 */
 	constructor(moduleVersion, attestations, opt_domHelper) {
@@ -1376,6 +1377,157 @@ class AttestationsComponent extends ContentComponent {
 				attestations: this.attestations_,
 			}),
 		);
+	}
+}
+
+/**
+ * Two-pane SelectNav that hosts the Source tab. Left pane shows
+ * moduleSourceTable + (if packages) packagesNavSection; right pane is a
+ * sub-tab selector across packages/attestations/overlay/patches.
+ */
+class SourceSelect extends SelectNav {
+	/**
+	 * @param {!Registry} registry
+	 * @param {!Module} module
+	 * @param {!ModuleVersion} moduleVersion
+	 * @param {?ModuleVersionPackages} packages Packages aggregate for this
+	 *   module-version (or null if data wasn't available).
+	 * @param {?dom.DomHelper=} opt_domHelper
+	 */
+	constructor(registry, module, moduleVersion, packages, opt_domHelper) {
+		super(opt_domHelper);
+		/** @private @const @type {!Registry} */
+		this.registry_ = registry;
+		/** @private @const @type {!Module} */
+		this.module_ = module;
+		/** @private @const @type {!ModuleVersion} */
+		this.moduleVersion_ = moduleVersion;
+		/** @private @const @type {?ModuleVersionPackages} */
+		this.packages_ = packages;
+	}
+
+	/** @override */
+	createDom() {
+		const navTargetGroups =
+			this.packages_ && this.packages_.getPackageList().length > 0
+				? buildNavTargetGroups(this.packages_)
+				: [];
+		this.setElementInternal(
+			soy.renderAsElement(
+				sourceSelect,
+				{
+					moduleVersion: this.moduleVersion_,
+					navTargetGroups,
+				},
+				// moduleSourceTable (called via sourceSelect's left pane)
+				// references the bcrModuleVersionPatch/OverlayFileUrl helpers
+				// which take repositoryUrl + repositoryCommit as @inject params.
+				{
+					repositoryUrl: this.registry_.getRepositoryUrl(),
+					repositoryCommit: this.registry_.getCommitSha(),
+				},
+			),
+		);
+	}
+
+	/**
+	 * @override
+	 * @returns {string}
+	 */
+	getDefaultTabName() {
+		if (this.packages_ && this.packages_.getPackageList().length > 0) {
+			return SourceTabName.PACKAGES;
+		}
+		return SourceTabName.ATTESTATIONS;
+	}
+
+	/** @override */
+	enterDocument() {
+		super.enterDocument();
+
+		const moduleVersion = this.moduleVersion_;
+		const source = moduleVersion.getSource();
+
+		// Packages — conditional. Reuses ModuleVersionPackagesSelect so nested
+		// /source/packages/<pkg-path> routing keeps working.
+		const packages = this.packages_;
+		if (packages && packages.getPackageList().length > 0) {
+			const nonNullPackages = asserts.assert(packages);
+			this.addNavTabLazy(
+				SourceTabName.PACKAGES,
+				"Packages",
+				"BUILD-file targets",
+				packages.getPackageList().length,
+				`${this.getPathUrl()}/${SourceTabName.PACKAGES}`,
+				() =>
+					new ModuleVersionPackagesSelect(
+						this.module_,
+						this.moduleVersion_,
+						nonNullPackages,
+						this.dom_,
+					),
+			);
+		}
+
+		// Attestations — always registered; soy template handles blankslate.
+		const attestations =
+			moduleVersion.getAttestations() ?? new Attestations();
+		const nonNullAttestations = asserts.assert(attestations);
+		const attestationsCount =
+			nonNullAttestations.getAttestationsMap()?.getLength() ?? 0;
+		this.addNavTabLazy(
+			SourceTabName.ATTESTATIONS,
+			"Attestations",
+			"Source attestations and supply-chain provenance",
+			attestationsCount > 0 ? attestationsCount : undefined,
+			`${this.getPathUrl()}/${SourceTabName.ATTESTATIONS}`,
+			() => new AttestationsComponent(moduleVersion, nonNullAttestations),
+		);
+
+		// Overlay — conditional on at least one overlay file. Trie-routed file
+		// browser; SourceArchiveFileSelect handles /<mod>/<ver>/source/overlay
+		// and drills into /<filename> via greedy longest-prefix match.
+		const overlayLen = source ? source.getOverlayMap().getLength() : 0;
+		if (source && overlayLen > 0) {
+			const nonNullSource = asserts.assert(source);
+			this.addNavTabLazy(
+				SourceTabName.OVERLAY,
+				"Overlay",
+				"Files added on top of the upstream source archive",
+				overlayLen,
+				`${this.getPathUrl()}/${SourceTabName.OVERLAY}`,
+				() =>
+					new SourceArchiveFileSelect(
+						this.registry_,
+						this.module_,
+						moduleVersion,
+						nonNullSource,
+						KIND_OVERLAY,
+					),
+			);
+		}
+
+		// Patches — conditional on at least one patch file. Same Trie pattern
+		// as overlay; renders the diff with Shiki's `diff` language.
+		const patchesLen = source ? source.getPatchesMap().getLength() : 0;
+		if (source && patchesLen > 0) {
+			const nonNullSource = asserts.assert(source);
+			this.addNavTabLazy(
+				SourceTabName.PATCHES,
+				"Patches",
+				"Patches applied to the upstream source archive",
+				patchesLen,
+				`${this.getPathUrl()}/${SourceTabName.PATCHES}`,
+				() =>
+					new SourceArchiveFileSelect(
+						this.registry_,
+						this.module_,
+						moduleVersion,
+						nonNullSource,
+						KIND_PATCHES,
+					),
+			);
+		}
 	}
 }
 
