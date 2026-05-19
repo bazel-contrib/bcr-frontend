@@ -176,30 +176,14 @@ ROOT
 {/template}
 
 /**
- * Top-level shell for the Packages tab: a 2-pane PageLayout with the
- * `.content` placeholder on the left (where ContentSelect.addTab mounts the
- * list / package / target views) and a sticky sidebar on the right that
- * groups every target across every package by rule kind. Mirrors
- * documentationInfoSelect's structure.
+ * Top-level shell for the Packages sub-tab (inside the Source tab). 2-pane
+ * PageLayout:
+ *   - left: moduleSourceTable (Source Details) + packagesNavSection (the
+ *     per-rule-kind sticky tree of targets across all packages).
+ *   - right: .content placeholder where ContentSelect.addTab mounts the
+ *     package list, individual PackageSelect drill-down, or TargetInfo.
  */
 {template moduleVersionPackagesSelect}
-<div>
-  <div class="{css('content')}"></div>
-</div>
-{/template}
-
-/**
- * Top-level shell for the new Source tab. Two-pane PageLayout:
- *   - left: moduleSourceTable (Source Details) + packagesNavSection (when
- *     there are packages — the per-rule-kind tree that used to live on the
- *     right of the standalone Packages tab).
- *   - right: .content placeholder that the SourceSelect SelectNav populates
- *     with the active sub-tab (packages, attestations, overlay, patches).
- *
- * Lives in packages.soy (not registry.soy) because it calls packagesNavSection
- * — moving the template here keeps the soy import graph acyclic.
- */
-{template sourceSelect}
   {@param moduleVersion: ModuleVersion}
   {@param navTargetGroups: list<[
     ruleKind: string,
@@ -216,23 +200,33 @@ ROOT
             {param moduleVersion: $moduleVersion /}
             {param source: $moduleVersion.getSource() /}
           {/call}
+          {sectionDivider()}
         {/if}
         {if length($navTargetGroups) > 0}
-          {sectionDivider()}
           {call packagesNavSection}
             {param moduleVersion: $moduleVersion /}
             {param navTargetGroups: $navTargetGroups /}
           {/call}
         {/if}
       </div>
-      <div class="PageLayout-content">
-        <nav class="UnderlineNav">
-          <div class="UnderlineNav-body {css('nav')}">
-          </div>
-        </nav>
-        <div class="{css('content')} mt-3"></div>
-      </div>
+      <div class="PageLayout-content {css('content')}"></div>
     </div>
+  </div>
+{/template}
+
+/**
+ * Top-level shell for the Source tab. Just the sub-tab nav strip + a content
+ * placeholder where each sub-tab's Select mounts its own 2-pane layout.
+ * moduleSourceTable now lives inside each sub-tab's left pane (so Source
+ * Details is always visible alongside the sub-tab-specific summary).
+ */
+{template sourceSelect}
+  <div class="mt-3">
+    <nav class="UnderlineNav">
+      <div class="UnderlineNav-body {css('nav')}">
+      </div>
+    </nav>
+    <div class="{css('content')} mt-3"></div>
   </div>
 {/template}
 

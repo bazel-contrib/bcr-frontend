@@ -1354,13 +1354,17 @@ class ModuleVersionDependentsComponent extends ContentComponent {
 
 class AttestationsComponent extends ContentComponent {
 	/**
+	 * @param {!Registry} registry
 	 * @param {!ModuleVersion} moduleVersion
 	 * @param {!Attestations} attestations Empty Attestations() is valid;
 	 *   the soy template renders a blankslate when the map is empty.
 	 * @param {?dom.DomHelper=} opt_domHelper
 	 */
-	constructor(moduleVersion, attestations, opt_domHelper) {
+	constructor(registry, moduleVersion, attestations, opt_domHelper) {
 		super(opt_domHelper);
+
+		/** @private @const @type {!Registry} */
+		this.registry_ = registry;
 
 		/** @private @const @type {!ModuleVersion} */
 		this.moduleVersion_ = moduleVersion;
@@ -1372,10 +1376,19 @@ class AttestationsComponent extends ContentComponent {
 	/** @override */
 	createDom() {
 		this.setElementInternal(
-			soy.renderAsElement(attestationsTabContent, {
-				moduleVersion: this.moduleVersion_,
-				attestations: this.attestations_,
-			}),
+			soy.renderAsElement(
+				attestationsTabContent,
+				{
+					moduleVersion: this.moduleVersion_,
+					attestations: this.attestations_,
+				},
+				// moduleSourceTable (left pane) needs the BCR repo url/commit
+				// for its bcrModuleVersionPatch/OverlayFileUrl helper calls.
+				{
+					repositoryUrl: this.registry_.getRepositoryUrl(),
+					repositoryCommit: this.registry_.getCommitSha(),
+				},
+			),
 		);
 	}
 }
@@ -1408,26 +1421,11 @@ class SourceSelect extends SelectNav {
 
 	/** @override */
 	createDom() {
-		const navTargetGroups =
-			this.packages_ && this.packages_.getPackageList().length > 0
-				? buildNavTargetGroups(this.packages_)
-				: [];
-		this.setElementInternal(
-			soy.renderAsElement(
-				sourceSelect,
-				{
-					moduleVersion: this.moduleVersion_,
-					navTargetGroups,
-				},
-				// moduleSourceTable (called via sourceSelect's left pane)
-				// references the bcrModuleVersionPatch/OverlayFileUrl helpers
-				// which take repositoryUrl + repositoryCommit as @inject params.
-				{
-					repositoryUrl: this.registry_.getRepositoryUrl(),
-					repositoryCommit: this.registry_.getCommitSha(),
-				},
-			),
-		);
+		// SourceSelect is just the sub-tab nav strip + a content placeholder
+		// now. Each sub-tab (packages / attestations / overlay / patches)
+		// owns its own 2-pane layout and renders moduleSourceTable in its
+		// own left pane, so this shell takes no params.
+		this.setElementInternal(soy.renderAsElement(sourceSelect));
 	}
 
 	/**
@@ -1461,6 +1459,7 @@ class SourceSelect extends SelectNav {
 				`${this.getPathUrl()}/${SourceTabName.PACKAGES}`,
 				() =>
 					new ModuleVersionPackagesSelect(
+						this.registry_,
 						this.module_,
 						this.moduleVersion_,
 						nonNullPackages,
@@ -1481,7 +1480,12 @@ class SourceSelect extends SelectNav {
 			"Source attestations and supply-chain provenance",
 			attestationsCount > 0 ? attestationsCount : undefined,
 			`${this.getPathUrl()}/${SourceTabName.ATTESTATIONS}`,
-			() => new AttestationsComponent(moduleVersion, nonNullAttestations),
+			() =>
+				new AttestationsComponent(
+					this.registry_,
+					moduleVersion,
+					nonNullAttestations,
+				),
 		);
 
 		// Overlay — conditional on at least one overlay file. Trie-routed file

@@ -209,27 +209,72 @@ import {
   {/if}
 {/template}
 
+/**
+ * Attestations sub-tab content (2-pane). Left pane shows moduleSourceTable
+ * (Source Details) + a compact verified-icon file list summarizing the per-
+ * file attestations. Right pane shows the descriptive blurb and the full
+ * cards (with parsed signer / source / builder / Rekor details).
+ */
 {template attestationsTabContent}
   {@param moduleVersion: ModuleVersion}
   {@param attestations: Attestations}
-  <div>
-    <p class="f4 mb-3 color-fg-muted">
-      Supply-chain provenance for the artifacts published by this module version.
-      Each entry is a Sigstore-signed in-toto Statement linking a published file to its build context.
-    </p>
-    {if $attestations.getAttestationsMap() && $attestations.getAttestationsMap().size > 0}
-      {for $filename in $attestations.getAttestationsMap().keys()}
-        {let $att: $attestations.getAttestationsMap().get($filename) /}
-        {if $att}
-          {call attestationCard}
-            {param filename: $filename /}
-            {param att: $att /}
+  {let $source: $moduleVersion.getSource() /}
+  <div class="PageLayout PageLayout--panePos-start PageLayout--hasPaneDivider PageLayout--responsive-stackRegions PageLayout--responsive-panePos-start mt-3">
+    <div class="PageLayout-columns">
+      <div class="PageLayout-pane">
+        {if $source}
+          {call moduleSourceTable}
+            {param moduleVersion: $moduleVersion /}
+            {param source: $source /}
           {/call}
+          {sectionDivider()}
         {/if}
+        {call attestationsTable}
+          {param moduleVersion: $moduleVersion /}
+          {param attestations: $attestations /}
+        {/call}
+      </div>
+      <div class="PageLayout-content">
+        <p class="f4 mb-3 color-fg-muted">
+          Supply-chain provenance for the artifacts published by this module version.
+          Each entry is a Sigstore-signed in-toto Statement linking a published file to its build context.
+        </p>
+        {if $attestations.getAttestationsMap() && $attestations.getAttestationsMap().size > 0}
+          {for $filename in $attestations.getAttestationsMap().keys()}
+            {let $att: $attestations.getAttestationsMap().get($filename) /}
+            {if $att}
+              {call attestationCard}
+                {param filename: $filename /}
+                {param att: $att /}
+              {/call}
+            {/if}
+          {/for}
+        {else}
+          {call attestationsBlankslate /}
+        {/if}
+      </div>
+    </div>
+  </div>
+{/template}
+
+/**
+ * Compact verified-icon file list of attestation entries — used in the left
+ * pane of the Attestations sub-tab as a sidebar summary.
+ */
+{template attestationsTable}
+  {@param moduleVersion: ModuleVersion}
+  {@param attestations: Attestations}
+  <div>
+    {sectionHeader(title: 'Source Attestations', count: $attestations.getAttestationsMap()?.size)}
+    <div>
+      {for $filename in $attestations.getAttestationsMap()?.keys()}
+        {let $att: $attestations.getAttestationsMap()?.get($filename) /}
+        <a class="Link--muted d-flex flex-items-center mb-1" href="{$att?.getUrl()}">
+          <span class="mr-2">{octiconVerified16(fill: 'var(--color-accent-fg)')}</span>
+          <span class="text-bold mr-1">{$filename|truncate:48}</span>
+        </a>
       {/for}
-    {else}
-      {call attestationsBlankslate /}
-    {/if}
+    </div>
   </div>
 {/template}
 
@@ -469,16 +514,40 @@ import {
   </div>
 {/template}
 
+/**
+ * 2-pane shell for the overlay/patches Trie-routed file Select.
+ *   - Left pane: moduleSourceTable (Source Details) + condensed list of files
+ *     of the active `kind`. List rows link to /<mod>/<ver>/source/<kind>/<file>
+ *     so the SourceArchiveFileSelect Trie routes into the file view.
+ *   - Right pane: the .content placeholder where individual file views (or a
+ *     blankslate prompt) get mounted by SourceArchiveFileSelect.addTab.
+ */
 {template sourceArchiveFileSelectShell}
-  <div>
-    <div class="{css('content')}"></div>
+  {@param moduleVersion: ModuleVersion}
+  {@param source: ModuleSource}
+  {@param kind: string}
+  <div class="PageLayout PageLayout--panePos-start PageLayout--hasPaneDivider PageLayout--responsive-stackRegions PageLayout--responsive-panePos-start mt-3">
+    <div class="PageLayout-columns">
+      <div class="PageLayout-pane">
+        {call moduleSourceTable}
+          {param moduleVersion: $moduleVersion /}
+          {param source: $source /}
+        {/call}
+        {sectionDivider()}
+        {call sourceArchiveFileListPane}
+          {param moduleVersion: $moduleVersion /}
+          {param source: $source /}
+          {param kind: $kind /}
+        {/call}
+      </div>
+      <div class="PageLayout-content {css('content')}"></div>
+    </div>
   </div>
 {/template}
 
 /**
- * Generalized file-list pane for the overlay/patches sub-tabs. `kind` is
- * "overlay" or "patches" — drives the descriptive blurb, icon, and which map
- * is iterated. Each row links to the in-app file viewer at
+ * Condensed file list for the overlay/patches left pane. `kind` is "overlay"
+ * or "patches" — drives the icon and which map is iterated. Rows link to
  * /<mod>/<ver>/source/<kind>/<filename>, which the SourceArchiveFileSelect
  * Trie routes into.
  */
@@ -487,12 +556,9 @@ import {
   {@param source: ModuleSource}
   {@param kind: string}
   {let $isOverlay: $kind == 'overlay' /}
-  {let $blurb: $isOverlay
-      ? 'Files added on top of the upstream archive by the registry — useful for adding a BUILD/MODULE.bazel or otherwise patching the source tree at checkout time.'
-      : 'Patch files applied by the registry to the upstream source archive at checkout time.' /}
   {let $filenames: $isOverlay ? $source.getOverlayMap()?.keys() : $source.getPatchesMap()?.keys() /}
   <div>
-    <p class="f4 mb-3 color-fg-muted">{$blurb}</p>
+    {sectionHeader(title: $isOverlay ? 'Overlay files' : 'Patches')}
     <div class="Box Box--condensed">
       {for $filename in $filenames}
         <a class="Box-row d-flex flex-items-center"
@@ -501,10 +567,26 @@ import {
           <span class="mr-2 color-fg-muted">
             {if $isOverlay}{octiconFileAdded16()}{else}{octiconFileDiff16()}{/if}
           </span>
-          <span class="text-mono">{$filename}</span>
+          <span class="text-mono">{$filename|truncate:48}</span>
         </a>
       {/for}
     </div>
+  </div>
+{/template}
+
+/**
+ * Blankslate rendered in the right pane when no specific file is selected
+ * (i.e. the user lands on /source/overlay or /source/patches without a
+ * file path). The actual list is on the left.
+ */
+{template sourceArchiveFileBlankslate}
+  {@param kind: string}
+  <div class="blankslate">
+    <div class="blankslate-icon mb-3 color-fg-muted">
+      {if $kind == 'overlay'}{octiconFileAdded16()}{else}{octiconFileDiff16()}{/if}
+    </div>
+    <div class="blankslate-heading">Select a {$kind == 'overlay' ? 'file' : 'patch'} to view</div>
+    <p>Choose one from the list on the left.</p>
   </div>
 {/template}
 

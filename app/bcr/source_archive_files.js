@@ -30,8 +30,11 @@ const { ContentSelect } = goog.require("bcrfrontend.ContentSelect");
 const { GitHubSourceFileComponent, parseGitHubRepoUrl } = goog.require(
 	"bcrfrontend.githubsourcefile",
 );
-const { sourceArchiveFileListPane, sourceArchiveFileSelectShell, sourceArchiveFileView } =
-	goog.require("soy.registry");
+const {
+	sourceArchiveFileBlankslate,
+	sourceArchiveFileSelectShell,
+	sourceArchiveFileView,
+} = goog.require("soy.registry");
 
 /**
  * Sub-tab name for the file-list view (the default landing when no specific
@@ -131,7 +134,21 @@ class SourceArchiveFileSelect extends ContentSelect {
 	/** @override */
 	createDom() {
 		this.setElementInternal(
-			soy.renderAsElement(sourceArchiveFileSelectShell, {}),
+			soy.renderAsElement(
+				sourceArchiveFileSelectShell,
+				{
+					moduleVersion: this.moduleVersion_,
+					source: this.source_,
+					kind: this.kind_,
+				},
+				// moduleSourceTable + sourceArchiveFileListPane (both rendered
+				// in the left pane of the shell) call URI helpers that take
+				// repositoryUrl + repositoryCommit as @inject params.
+				{
+					repositoryUrl: this.registry_.getRepositoryUrl(),
+					repositoryCommit: this.registry_.getCommitSha(),
+				},
+			),
 		);
 	}
 
@@ -152,12 +169,7 @@ class SourceArchiveFileSelect extends ContentSelect {
 		if (name === TAB_LIST) {
 			this.addTab(
 				name,
-				new SourceArchiveFileListComponent(
-					this.moduleVersion_,
-					this.source_,
-					this.kind_,
-					this.dom_,
-				),
+				new SourceArchiveFileListComponent(this.kind_, this.dom_),
 			);
 			this.select(name, route);
 			return;
@@ -198,26 +210,17 @@ class SourceArchiveFileSelect extends ContentSelect {
 }
 
 /**
- * Renders the condensed-Box file list — same shape as the old static
- * overlay/patches panes, but with in-app subpath links instead of github.com
- * tree URLs.
+ * "Pick a file" blankslate shown in the right pane when the user lands on
+ * /source/overlay or /source/patches without a specific file path — the
+ * actual file list lives in the left pane of SourceArchiveFileSelect's shell.
  */
 class SourceArchiveFileListComponent extends Component {
 	/**
-	 * @param {!ModuleVersion} moduleVersion
-	 * @param {!ModuleSource} source
 	 * @param {string} kind
 	 * @param {?dom.DomHelper=} opt_domHelper
 	 */
-	constructor(moduleVersion, source, kind, opt_domHelper) {
+	constructor(kind, opt_domHelper) {
 		super(opt_domHelper);
-
-		/** @private @const @type {!ModuleVersion} */
-		this.moduleVersion_ = moduleVersion;
-
-		/** @private @const @type {!ModuleSource} */
-		this.source_ = source;
-
 		/** @private @const @type {string} */
 		this.kind_ = kind;
 	}
@@ -225,11 +228,7 @@ class SourceArchiveFileListComponent extends Component {
 	/** @override */
 	createDom() {
 		this.setElementInternal(
-			soy.renderAsElement(sourceArchiveFileListPane, {
-				moduleVersion: this.moduleVersion_,
-				source: this.source_,
-				kind: this.kind_,
-			}),
+			soy.renderAsElement(sourceArchiveFileBlankslate, { kind: this.kind_ }),
 		);
 	}
 }

@@ -296,13 +296,17 @@ function computeSourceUrl(registry, moduleVersion, pkg, target) {
  */
 class ModuleVersionPackagesSelect extends ContentSelect {
 	/**
+	 * @param {!Registry} registry
 	 * @param {!Module} module
 	 * @param {!ModuleVersion} moduleVersion
 	 * @param {?ModuleVersionPackages} packages
 	 * @param {?dom.DomHelper=} opt_domHelper
 	 */
-	constructor(module, moduleVersion, packages, opt_domHelper) {
+	constructor(registry, module, moduleVersion, packages, opt_domHelper) {
 		super(opt_domHelper);
+
+		/** @private @const @type {!Registry} */
+		this.registry_ = registry;
 
 		/** @private @const @type {!Module} */
 		this.module_ = module;
@@ -333,13 +337,25 @@ class ModuleVersionPackagesSelect extends ContentSelect {
 			return;
 		}
 
-		// Render the Select shell that carries the `.content` placeholder
-		// element. The list view itself is added as a LIST tab so addTab can
-		// inject it (and any nested PackageSelect tabs) into that slot. The
-		// per-rule-kind SideNav lives in the parent Source tab's left pane
-		// now, so this shell is just the routing placeholder.
+		// 2-pane shell: left = Source Details + per-rule-kind tree; right =
+		// .content placeholder where the LIST view (and nested PackageSelect /
+		// TargetInfo tabs) get mounted via addTab.
+		const navTargetGroups = buildNavTargetGroups(this.packages_);
 		this.setElementInternal(
-			soy.renderAsElement(moduleVersionPackagesSelect, {}),
+			soy.renderAsElement(
+				moduleVersionPackagesSelect,
+				{
+					moduleVersion: this.moduleVersion_,
+					navTargetGroups,
+				},
+				// moduleSourceTable (left pane) calls bcrModuleVersionPatch /
+				// OverlayFileUrl which take repositoryUrl + repositoryCommit
+				// as @inject params.
+				{
+					repositoryUrl: this.registry_.getRepositoryUrl(),
+					repositoryCommit: this.registry_.getCommitSha(),
+				},
+			),
 		);
 	}
 
