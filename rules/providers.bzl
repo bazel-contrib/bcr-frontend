@@ -69,6 +69,7 @@ ModuleAttestationsInfo = provider(
         "urls": "dict[str, str]: Mapping of filename to attestation URL",
         "integrities": "dict[str, str]: Mapping of filename to attestation integrity hash",
         "attestations_json": "File: The attestations.json file",
+        "proto": "File: The compiled Attestations protobuf file (filename -> url + integrity + parsed payload)",
     },
 )
 

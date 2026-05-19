@@ -197,3 +197,32 @@ func TestFixturePresent(t *testing.T) {
 		t.Fatalf("fixture not found: %v", err)
 	}
 }
+
+func TestSetSubjectMatches(t *testing.T) {
+	// 32 bytes of 0xab in hex / base64.
+	hexAB := "abababababababababababababababababababababababababababababababab"
+	sriAB := "sha256-q6urq6urq6urq6urq6urq6urq6urq6urq6urq6urq6s="
+
+	cases := []struct {
+		name      string
+		hexSha256 string
+		integrity string
+		want      bool
+	}{
+		{"match", hexAB, sriAB, true},
+		{"mismatch", hexAB, "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=", false},
+		{"empty integrity", hexAB, "", false},
+		{"non-sha256 prefix", hexAB, "sha512-q6urq6urq6urq6urq6urq6urq6urq6urq6urq6urq6s=", false},
+		{"bad base64", hexAB, "sha256-not!base64!", false},
+		{"empty subject sha", "", sriAB, false},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			p := &bzpb.Attestations_AttestationPayload{SubjectSha256: c.hexSha256}
+			SetSubjectMatches(p, c.integrity)
+			if p.SubjectMatches != c.want {
+				t.Errorf("SubjectMatches = %v; want %v", p.SubjectMatches, c.want)
+			}
+		})
+	}
+}

@@ -58,11 +58,12 @@ def _compile_action(ctx, source, deps, attestations, presubmit, commit):
         args.add(presubmit.presubmit_yml)
         inputs.append(presubmit.presubmit_yml)
 
-    # Add optional attestations.json file
-    if attestations and attestations.attestations_json:
-        args.add("--attestations_json_file")
-        args.add(attestations.attestations_json)
-        inputs.append(attestations.attestations_json)
+    # Add optional compiled attestations proto (produced by the
+    # module_attestations rule via cmd/attestationscompiler).
+    if attestations and attestations.proto:
+        args.add("--attestations_proto_file")
+        args.add(attestations.proto)
+        inputs.append(attestations.proto)
 
     # Add optional commit metadata
     if commit:

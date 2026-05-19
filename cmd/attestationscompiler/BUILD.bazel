@@ -1,0 +1,35 @@
+load("@rules_go//go:def.bzl", "go_binary", "go_library", "go_test")
+
+go_library(
+    name = "attestationscompiler_lib",
+    srcs = ["attestationscompiler.go"],
+    importpath = "github.com/bazel-contrib/bcr-frontend/cmd/attestationscompiler",
+    visibility = ["//visibility:private"],
+    deps = [
+        "//build/stack/bazel/registry/v1:registry",
+        "//pkg/attestationsjson",
+        "//pkg/intoto",
+        "//pkg/paramsfile",
+        "//pkg/protoutil",
+    ],
+)
+
+go_binary(
+    name = "attestationscompiler",
+    embed = [":attestationscompiler_lib"],
+    visibility = ["//visibility:public"],
+)
+
+go_test(
+    name = "attestationscompiler_test",
+    srcs = ["attestationscompiler_test.go"],
+    data = [
+        "testdata/attestations.json",
+        "testdata/source.intoto.jsonl",
+    ],
+    embed = [":attestationscompiler_lib"],
+    deps = [
+        "//build/stack/bazel/registry/v1:registry",
+        "//pkg/protoutil",
+    ],
+)

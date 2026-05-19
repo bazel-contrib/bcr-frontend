@@ -8,7 +8,6 @@ go_library(
     deps = [
         "//build/stack/bazel/registry/v1:registry",
         "//build/stack/bazel/symbol/v1:symbol",
-        "//pkg/attestationsjson",
         "//pkg/git",
         "//pkg/modulebazel",
         "//pkg/paramsfile",

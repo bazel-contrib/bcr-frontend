@@ -4,9 +4,11 @@ import (
 	"bytes"
 	"crypto/x509"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"strconv"
+	"strings"
 
 	bzpb "github.com/bazel-contrib/bcr-frontend/build/stack/bazel/registry/v1"
 )
@@ -181,4 +183,28 @@ func appendErr(existing, msg string) string {
 		return msg
 	}
 	return existing + "; " + msg
+}
+
+// SetSubjectMatches sets payload.SubjectMatches by comparing payload.SubjectSha256
+// (lowercase hex) to the sha256 carried in an SRI-style integrity string
+// ("sha256-<base64>"). The flag is left false on any mismatch, unsupported
+// integrity algorithm, or decode failure.
+//
+// The caller is responsible for passing the integrity of the actual subject
+// file (e.g. source.json's sha256), NOT the integrity field from
+// attestations.json — that one is the integrity of the .intoto.jsonl bundle
+// itself and would never match a subject digest.
+func SetSubjectMatches(payload *bzpb.Attestations_AttestationPayload, integrity string) {
+	if payload == nil || payload.SubjectSha256 == "" || integrity == "" {
+		return
+	}
+	const prefix = "sha256-"
+	if !strings.HasPrefix(integrity, prefix) {
+		return
+	}
+	decoded, err := base64.StdEncoding.DecodeString(integrity[len(prefix):])
+	if err != nil {
+		return
+	}
+	payload.SubjectMatches = strings.EqualFold(hex.EncodeToString(decoded), payload.SubjectSha256)
 }

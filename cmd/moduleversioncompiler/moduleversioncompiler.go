@@ -10,7 +10,6 @@ import (
 	bzpb "github.com/bazel-contrib/bcr-frontend/build/stack/bazel/registry/v1"
 	sympb "github.com/bazel-contrib/bcr-frontend/build/stack/bazel/symbol/v1"
 	gitpkg "github.com/bazel-contrib/bcr-frontend/pkg/git"
-	"github.com/bazel-contrib/bcr-frontend/pkg/attestationsjson"
 	"github.com/bazel-contrib/bcr-frontend/pkg/modulebazel"
 	"github.com/bazel-contrib/bcr-frontend/pkg/paramsfile"
 	"github.com/bazel-contrib/bcr-frontend/pkg/presubmityml"
@@ -24,7 +23,7 @@ type Config struct {
 	OutputFile               string
 	ModuleBazelFile          string
 	SourceJsonFile           string
-	AttestationsJsonFile     string
+	AttestationsProtoFile    string
 	PresubmitYmlFile         string
 	ModuleVersionSymbolsFile string
 	CommitSha1               string
@@ -120,13 +119,15 @@ func run(args []string) error {
 		}
 	}
 
-	// Read attestions.json file (optional)
-	if cfg.AttestationsJsonFile != "" {
-		attestations, err := attestationsjson.ReadFile(cfg.AttestationsJsonFile)
-		if err != nil {
-			return fmt.Errorf("failed to read presubmit.yml: %v", err)
+	// Read compiled attestations proto (optional). The attestations compiler
+	// (cmd/attestationscompiler) translates attestations.json + any fetched
+	// .intoto.jsonl bundles into this proto upstream of us.
+	if cfg.AttestationsProtoFile != "" {
+		var attestations bzpb.Attestations
+		if err := protoutil.ReadFile(cfg.AttestationsProtoFile, &attestations); err != nil {
+			return fmt.Errorf("failed to read attestations proto: %v", err)
 		}
-		module.Attestations = attestations
+		module.Attestations = &attestations
 	}
 
 	// Add commit information (optional)
@@ -164,7 +165,7 @@ func parseFlags(args []string) (cfg Config, err error) {
 	fs.StringVar(&cfg.SourceJsonFile, "source_json_file", "", "the source.json file to read (optional)")
 	fs.StringVar(&cfg.ModuleVersionSymbolsFile, "documentation_info_file", "", "the (optional) ModuleVersionSymbols proto file to read")
 	fs.StringVar(&cfg.PresubmitYmlFile, "presubmit_yml_file", "", "the presubmit.yml file to read (optional)")
-	fs.StringVar(&cfg.AttestationsJsonFile, "attestations_json_file", "", "the attestations.json file to read (optional)")
+	fs.StringVar(&cfg.AttestationsProtoFile, "attestations_proto_file", "", "the compiled attestations .pb file to read (optional, produced by cmd/attestationscompiler)")
 	fs.StringVar(&cfg.CommitSha1, "commit_sha1", "", "the git commit SHA-1 hash (optional)")
 	fs.StringVar(&cfg.CommitDate, "commit_date", "", "the git commit date in ISO 8601 format (optional)")
 	fs.StringVar(&cfg.CommitMessage, "commit_message", "", "the git commit message (optional)")
