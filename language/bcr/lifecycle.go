@@ -57,12 +57,13 @@ func (ext *bcrExtension) AfterResolvingDeps(ctx context.Context) {
 
 	// Make docs repositories
 	binaryProtoHttpArchives := ext.prepareBinaryprotoRepositories()
+	attestationHttpFiles := ext.prepareAttestationRepositories()
 	availableBzlRepositories := ext.prepareBzlRepositories()
 
 	// Calculate MVS sets
 	ext.calculateMvs(availableBzlRepositories)
 
-	if err := mergeGeneratedModuleBazelFile(ext.repoRoot, binaryProtoHttpArchives, availableBzlRepositories); err != nil {
+	if err := mergeGeneratedModuleBazelFile(ext.repoRoot, binaryProtoHttpArchives, attestationHttpFiles, availableBzlRepositories); err != nil {
 		log.Fatal(err)
 	}
 

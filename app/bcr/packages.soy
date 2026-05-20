@@ -16,7 +16,8 @@ import {
 } from 'build/stack/bazel/registry/v1/bcr.proto';
 import {
   copyToClipboardButton,
-  counterLabel
+  counterLabel,
+  sectionHeader
 } from 'app/bcr/registry.soy';
 import {
   moduleVersionPackagesUrl
@@ -171,11 +172,11 @@ ROOT
 {/template}
 
 /**
- * Top-level shell for the Packages tab: a 2-pane PageLayout with the
- * `.content` placeholder on the left (where ContentSelect.addTab mounts the
- * list / package / target views) and a sticky sidebar on the right that
- * groups every target across every package by rule kind. Mirrors
- * documentationInfoSelect's structure.
+ * Top-level shell for the (top-level) Packages tab. 2-pane PageLayout:
+ *   - left: section title + description + packagesNavSection (the per-rule-kind
+ *     sticky tree of targets across all packages).
+ *   - right: .content placeholder where ContentSelect.addTab mounts the
+ *     package list, individual PackageSelect drill-down, or TargetInfo.
  */
 {template moduleVersionPackagesSelect}
   {@param moduleVersion: ModuleVersion}
@@ -186,20 +187,24 @@ ROOT
     urlKey: string,
     items: list<[pkgPath: string, name: string]>
   ]>}
-<div>
-  <div class="PageLayout PageLayout--panePos-start PageLayout--hasPaneDivider PageLayout--responsive-stackRegions">
-    <div class="PageLayout-wrapper">
-      <div class="PageLayout-columns">
-        <div class="PageLayout-content PageLayout-pane--sticky {css('content')}"></div>
-        <div class="PageLayout-pane pl-2 overflow-x-hidden">
-          <nav class="SideNav" style="background-color: transparent; border: none">
-            {packagesNavSection(moduleVersion: $moduleVersion, navTargetGroups: $navTargetGroups)}
-          </nav>
-        </div>
+  <div class="PageLayout PageLayout--panePos-start PageLayout--hasPaneDivider PageLayout--responsive-stackRegions PageLayout--responsive-panePos-start mt-3">
+    <div class="PageLayout-columns">
+      <div class="PageLayout-pane">
+        {sectionHeader(title: 'Bazel Packages')}
+        <p class="f4 mb-3 color-fg-muted">
+          BUILD-file targets extracted at registry compile time, grouped by
+          rule kind.
+        </p>
+        {if length($navTargetGroups) > 0}
+          {call packagesNavSection}
+            {param moduleVersion: $moduleVersion /}
+            {param navTargetGroups: $navTargetGroups /}
+          {/call}
+        {/if}
       </div>
+      <div class="PageLayout-content {css('content')}"></div>
     </div>
   </div>
-</div>
 {/template}
 
 /**
@@ -207,7 +212,7 @@ ROOT
  * colored dot per group. Empty groups list renders nothing (so a blankslate
  * page can be shown via the LIST tab without competing UI).
  */
-{template packagesNavSection visibility="private"}
+{template packagesNavSection}
   {@param moduleVersion: ModuleVersion}
   {@param navTargetGroups: list<[
     ruleKind: string,

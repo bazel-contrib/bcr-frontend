@@ -7,7 +7,11 @@ import (
 
 const moduleAttestationsKind = "module_attestations"
 
-func makeModuleAttestationsRule(attestations *bzpb.Attestations, attestationsJsonFile string) *rule.Rule {
+// makeModuleAttestationsRule emits a module_attestations rule. attestationsIntotoLabels
+// is the (deduped, sorted) list of label strings pointing at fetched
+// .intoto.jsonl files; the downstream _compile_action recovers each entry's
+// filename from the file's basename and passes them to cmd/attestationscompiler.
+func makeModuleAttestationsRule(attestations *bzpb.Attestations, attestationsJsonFile string, attestationsIntotoLabels []string) *rule.Rule {
 	r := rule.NewRule(moduleAttestationsKind, "attestations")
 	if attestations.MediaType != "" {
 		r.SetAttr("media_type", attestations.MediaType)
@@ -33,6 +37,9 @@ func makeModuleAttestationsRule(attestations *bzpb.Attestations, attestationsJso
 	}
 	if attestationsJsonFile != "" {
 		r.SetAttr("attestations_json", attestationsJsonFile)
+	}
+	if len(attestationsIntotoLabels) > 0 {
+		r.SetAttr("attestations_intoto", attestationsIntotoLabels)
 	}
 	return r
 }

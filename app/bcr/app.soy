@@ -84,7 +84,7 @@ import {
   BazelFlagDb
 } from 'build/stack/bazel/help/v1/help.proto';
 import {
-  attestationsTable,
+  attestationBadge,
   compatibilityTable,
   copyToClipboardButton,
   counterLabel,
@@ -98,7 +98,6 @@ import {
   moduleDependencyRow,
   moduleDependencyTable,
   moduleLanguageTable,
-  moduleSourceTable,
   moduleVersionAboutTable,
   moduleVersionBreadcrumb,
   moduleVersionButton,
@@ -565,13 +564,19 @@ import {
                 </a>
                 {sp}
                 <span class="color-fg-muted">{$item.moduleVersion.getVersion()}</span>
-                {if $item.isNew}
-                  {sp}
-                  <span title="New Module">{octiconStarFill16(fill: 'var(--color-success-fg)')}</span>
-                {/if}
               </div>
               <span class="dotted-leader"></span>
+              {if $item.moduleVersion.getAttestations()}
+                <span class="mr-2">
+                  {call attestationBadge}
+                    {param href: $item.linkUrl + '/attestations' /}
+                  {/call}
+                </span>
+              {/if}
               <span class="color-fg-muted f6 text-right no-wrap">{$item.commitDate}</span>
+              {if $item.isNew}
+                <span class="ml-2" title="New Module">{octiconStarFill16(fill: 'var(--color-success-fg)')}</span>
+              {/if}
             </div>
             {if $commit?.getPullRequest()}
               <div class="f6 color-fg-muted mt-1">
@@ -1331,27 +1336,6 @@ import {
           {param maintainers: $metadata.getMaintainersList() /}
         {/call}
       </div>
-
-      {if $moduleVersion.getAttestations()}
-        {sectionDivider()}
-        <div>
-          {call attestationsTable}
-            {param moduleVersion: $moduleVersion /}
-            {param attestations: $moduleVersion.getAttestations() /}
-          {/call}
-        </div>
-      {/if}
-
-      {if $moduleVersion.getSource()}
-        {sectionDivider()}
-        <div>
-          {call moduleSourceTable}
-            {param moduleVersion: $moduleVersion /}
-            {param source: $moduleVersion.getSource() /}
-          {/call}
-        </div>
-      {/if}
-
 
       {if length($moduleVersion.getBazelCompatibilityList())}
         {sectionDivider()}
@@ -3146,6 +3130,7 @@ import {
   {@param navSymbolGroups: list<[type: SymbolType, typeName: string, items: list<[file: File, sym: Symbol]>]>}
   {@param? extractionStats: [success: int, total: int, pct: number, pctText: string]}
 <div>
+  {sectionHeader(title: 'Stardoc')}
   {if $info}
     <div class="f4 color-fg-muted">
       <span class="mr-1">{documentationSourceOcticon(source: $info.getSource())}</span>
@@ -3227,7 +3212,7 @@ import {
     {let $matrix: $bcr ? $bcr.getMatrix() : $presubmit.getMatrix() /}
     {let $tasksMap: $bcr ? $bcr.getTasksMap() : $presubmit.getTasksMap() /}
 
-    <div class="PageLayout PageLayout--panePos-end PageLayout--hasPaneDivider PageLayout--responsive-stackRegions PageLayout--responsive-panePos-start mt-3">
+    <div class="PageLayout PageLayout--panePos-start PageLayout--hasPaneDivider PageLayout--responsive-stackRegions PageLayout--responsive-panePos-start mt-3">
       <div class="PageLayout-columns">
         <div class="PageLayout-content">
           {if $tasksMap && $tasksMap.keys()}

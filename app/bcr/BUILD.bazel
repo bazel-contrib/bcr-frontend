@@ -264,6 +264,7 @@ closure_js_library(
         "search.js",
         "selectnav.js",
         "settings.js",
+        "source_archive_files.js",
         "syntax.js",
         "targets.js",
         "treeview.js",
