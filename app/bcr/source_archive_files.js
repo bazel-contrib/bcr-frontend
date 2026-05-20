@@ -141,9 +141,9 @@ class SourceArchiveFileSelect extends ContentSelect {
 					source: this.source_,
 					kind: this.kind_,
 				},
-				// moduleSourceTable + sourceArchiveFileListPane (both rendered
-				// in the left pane of the shell) call URI helpers that take
-				// repositoryUrl + repositoryCommit as @inject params.
+				// The shell's left-pane file list uses moduleVersionUrl (no ij
+				// data needed). Pass empty ij; if any helper called from
+				// within the template ever grows an @inject, add it here.
 				{
 					repositoryUrl: this.registry_.getRepositoryUrl(),
 					repositoryCommit: this.registry_.getCommitSha(),

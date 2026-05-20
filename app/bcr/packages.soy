@@ -17,8 +17,7 @@ import {
 import {
   copyToClipboardButton,
   counterLabel,
-  moduleSourceTable,
-  sectionDivider
+  sectionHeader
 } from 'app/bcr/registry.soy';
 import {
   moduleVersionPackagesUrl
@@ -103,14 +102,11 @@ ROOT
     totalCount: int,
     widthPct: number
   ]>}
-  {@param? showHeader: bool}
 <div>
   <div class="Box Box--condensed">
-    {if $showHeader ?? true}
-      <div class="Box-header">
-        <div class="Box-title">Packages {counterLabel(count: length($rows))}</div>
-      </div>
-    {/if}
+    <div class="Box-header">
+      <div class="Box-title">Packages {counterLabel(count: length($rows))}</div>
+    </div>
     {if length($rows) > 0}
       {for $row in $rows}
         {if $row.hasErrors}
@@ -176,10 +172,9 @@ ROOT
 {/template}
 
 /**
- * Top-level shell for the Packages sub-tab (inside the Source tab). 2-pane
- * PageLayout:
- *   - left: moduleSourceTable (Source Details) + packagesNavSection (the
- *     per-rule-kind sticky tree of targets across all packages).
+ * Top-level shell for the (top-level) Packages tab. 2-pane PageLayout:
+ *   - left: section title + description + packagesNavSection (the per-rule-kind
+ *     sticky tree of targets across all packages).
  *   - right: .content placeholder where ContentSelect.addTab mounts the
  *     package list, individual PackageSelect drill-down, or TargetInfo.
  */
@@ -195,13 +190,11 @@ ROOT
   <div class="PageLayout PageLayout--panePos-start PageLayout--hasPaneDivider PageLayout--responsive-stackRegions PageLayout--responsive-panePos-start mt-3">
     <div class="PageLayout-columns">
       <div class="PageLayout-pane">
-        {if $moduleVersion.getSource()}
-          {call moduleSourceTable}
-            {param moduleVersion: $moduleVersion /}
-            {param source: $moduleVersion.getSource() /}
-          {/call}
-          {sectionDivider()}
-        {/if}
+        {sectionHeader(title: 'Bazel Packages')}
+        <p class="f4 mb-3 color-fg-muted">
+          BUILD-file targets extracted at registry compile time, grouped by
+          rule kind.
+        </p>
         {if length($navTargetGroups) > 0}
           {call packagesNavSection}
             {param moduleVersion: $moduleVersion /}
@@ -211,22 +204,6 @@ ROOT
       </div>
       <div class="PageLayout-content {css('content')}"></div>
     </div>
-  </div>
-{/template}
-
-/**
- * Top-level shell for the Source tab. Just the sub-tab nav strip + a content
- * placeholder where each sub-tab's Select mounts its own 2-pane layout.
- * moduleSourceTable now lives inside each sub-tab's left pane (so Source
- * Details is always visible alongside the sub-tab-specific summary).
- */
-{template sourceSelect}
-  <div class="mt-3">
-    <nav class="UnderlineNav">
-      <div class="UnderlineNav-body {css('nav')}">
-      </div>
-    </nav>
-    <div class="{css('content')} mt-3"></div>
   </div>
 {/template}
 

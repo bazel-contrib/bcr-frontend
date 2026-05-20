@@ -3130,6 +3130,7 @@ import {
   {@param navSymbolGroups: list<[type: SymbolType, typeName: string, items: list<[file: File, sym: Symbol]>]>}
   {@param? extractionStats: [success: int, total: int, pct: number, pctText: string]}
 <div>
+  {sectionHeader(title: 'Stardoc')}
   {if $info}
     <div class="f4 color-fg-muted">
       <span class="mr-1">{documentationSourceOcticon(source: $info.getSource())}</span>

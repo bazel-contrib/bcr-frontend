@@ -31,14 +31,13 @@ const { ContentComponent } = goog.require("bcrfrontend.ContentComponent");
 const { ContentSelect } = goog.require("bcrfrontend.ContentSelect");
 const { ModuleVersionSymbolsSelect, DocumentationReadmeComponent } =
 	goog.require("bcrfrontend.documentation");
-const { ModuleVersionPackagesSelect, buildNavTargetGroups } =
-	goog.require("bcrfrontend.packages");
+const { ModuleVersionPackagesSelect, buildNavTargetGroups } = goog.require(
+	"bcrfrontend.packages",
+);
 const { PresubmitSelect } = goog.require("bcrfrontend.presubmit");
-const {
-	SourceArchiveFileSelect,
-	KIND_OVERLAY,
-	KIND_PATCHES,
-} = goog.require("bcrfrontend.sourceArchiveFiles");
+const { SourceArchiveFileSelect, KIND_OVERLAY, KIND_PATCHES } = goog.require(
+	"bcrfrontend.sourceArchiveFiles",
+);
 const { MvsDependencyTree } = goog.require("bcrfrontend.mvs_tree");
 const { SelectNav } = goog.require("bcrfrontend.SelectNav");
 const { isDocumentDisplayModeMaintainer } = goog.require(
@@ -60,7 +59,6 @@ const {
 } = goog.require("soy.bcrfrontend.app");
 const { attestationsTabContent, moduleVersionsListComponent } =
 	goog.require("soy.registry");
-const { sourceSelect } = goog.require("soy.bcrfrontend.packages");
 const { computeLanguageData, sanitizeLanguageName, unsanitizeLanguageName } =
 	goog.require("bcrfrontend.language");
 const {
@@ -137,22 +135,14 @@ async function fetchModuleVersionPackagesFromGithubRepository(moduleVersion) {
  * @enum {string}
  */
 const TabName = {
+	ATTESTATIONS: "attestations",
 	DOCS: "docs",
 	LIST: "list",
-	OVERVIEW: "overview",
-	SOURCE: "source",
-	TESTING: "testing",
-};
-
-/**
- * Sub-tabs rendered inside the Source tab's right-hand pane.
- * @enum {string}
- */
-const SourceTabName = {
-	PACKAGES: "packages",
-	ATTESTATIONS: "attestations",
 	OVERLAY: "overlay",
+	OVERVIEW: "overview",
+	PACKAGES: "packages",
 	PATCHES: "patches",
+	TESTING: "testing",
 };
 
 /**
@@ -455,6 +445,11 @@ class ModuleVersionSelectNav extends SelectNav {
 	enterDocument() {
 		super.enterDocument();
 
+		// Tab order (left → right): Overview, Documentation, Packages,
+		// Attestations, Overlay, Patches, Testing. Rationale: high-signal
+		// "how do I use this" content (docs, packages) leftmost; trust
+		// signal (attestations) mid; source-archive modifications (overlay,
+		// patches — conditional on data) next; CI config last.
 		this.addNavTabLazy(
 			TabName.OVERVIEW,
 			"Overview",
@@ -470,20 +465,9 @@ class ModuleVersionSelectNav extends SelectNav {
 				),
 		);
 
-		// Source tab: aggregates Source Details, packages, attestations, and
-		// overlay/patch files into one place. Deferred because we wait on the
-		// packages aggregate fetch so the left-pane SideNav (rule-kind tree)
-		// can be rendered up-front; subsequent activations hit the cache.
-		this.addNavTabDeferred(
-			TabName.SOURCE,
-			"Source",
-			"Source archive, packages, attestations, overlay, and patches",
-			undefined,
-			`${this.getPathUrl()}/${TabName.SOURCE}`,
-		);
-
-		// Add docs nav tab link - component will be added lazily in selectFail
-		// (the DOCS branch waits for the symbols proto to load first).
+		// Documentation: deferred — symbols proto is fetched lazily in the
+		// DOCS branch of selectFail (with a per-version fallback for older
+		// versions whose entry wasn't in the registry aggregate).
 		this.addNavTabDeferred(
 			TabName.DOCS,
 			"Documentation",
@@ -491,6 +475,79 @@ class ModuleVersionSelectNav extends SelectNav {
 			undefined,
 			`${this.getPathUrl()}/${TabName.DOCS}`,
 		);
+
+		// Packages: deferred — the packages proto is fetched lazily (registry
+		// aggregate + per-version fallback). Blankslate renders when no data.
+		this.addNavTabDeferred(
+			TabName.PACKAGES,
+			"Packages",
+			"BUILD-file targets",
+			undefined,
+			`${this.getPathUrl()}/${TabName.PACKAGES}`,
+		);
+
+		// Attestations: lazy-sync, always shown. The soy template renders a
+		// blankslate when the module version has no attestations.json.
+		const maybeAttestations = this.moduleVersion_.getAttestations();
+		const attestations = maybeAttestations
+			? asserts.assert(maybeAttestations)
+			: new Attestations();
+		this.addNavTabLazy(
+			TabName.ATTESTATIONS,
+			"Attestations",
+			"Source attestations and supply-chain provenance",
+			undefined,
+			`${this.getPathUrl()}/${TabName.ATTESTATIONS}`,
+			() =>
+				new AttestationsComponent(
+					this.registry_,
+					this.moduleVersion_,
+					attestations,
+				),
+		);
+
+		// Overlay: only when source.json has overlay entries.
+		const source = this.moduleVersion_.getSource();
+		const overlayLen = source ? source.getOverlayMap().getLength() : 0;
+		if (source && overlayLen > 0) {
+			const nonNullSource = asserts.assert(source);
+			this.addNavTabLazy(
+				TabName.OVERLAY,
+				"Overlay",
+				"Files added on top of the upstream source archive",
+				undefined,
+				`${this.getPathUrl()}/${TabName.OVERLAY}`,
+				() =>
+					new SourceArchiveFileSelect(
+						this.registry_,
+						this.module_,
+						this.moduleVersion_,
+						nonNullSource,
+						KIND_OVERLAY,
+					),
+			);
+		}
+
+		// Patches: only when source.json has patch entries.
+		const patchesLen = source ? source.getPatchesMap().getLength() : 0;
+		if (source && patchesLen > 0) {
+			const nonNullSource = asserts.assert(source);
+			this.addNavTabLazy(
+				TabName.PATCHES,
+				"Patches",
+				"Patches applied to the upstream source archive",
+				undefined,
+				`${this.getPathUrl()}/${TabName.PATCHES}`,
+				() =>
+					new SourceArchiveFileSelect(
+						this.registry_,
+						this.module_,
+						this.moduleVersion_,
+						nonNullSource,
+						KIND_PATCHES,
+					),
+			);
+		}
 
 		const presubmit = this.moduleVersion_.getPresubmit();
 		this.addNavTabLazy(
@@ -558,12 +615,10 @@ class ModuleVersionSelectNav extends SelectNav {
 			return;
 		}
 
-		if (name === TabName.SOURCE) {
+		if (name === TabName.PACKAGES) {
 			// Wait for the registry-wide packages aggregate (cached after the
 			// first call), then fall back to a per-version packageinfo.pb.gz
-			// fetch for older versions whose entry wasn't aggregated. After
-			// the fetch settles we instantiate SourceSelect so its left-pane
-			// SideNav has data on first paint.
+			// fetch for older versions whose entry wasn't aggregated.
 			getApplication(this)
 				.getRegistryWithPackages()
 				.then(() => {
@@ -586,12 +641,13 @@ class ModuleVersionSelectNav extends SelectNav {
 				.then((/** @type {?ModuleVersionPackages} */ pkgs) => {
 					if (this.isDisposed()) return;
 					this.addTab(
-						TabName.SOURCE,
-						new SourceSelect(
+						TabName.PACKAGES,
+						new ModuleVersionPackagesSelect(
 							this.registry_,
 							this.module_,
 							this.moduleVersion_,
 							pkgs || null,
+							this.dom_,
 						),
 					);
 					this.select(name, route);
@@ -1390,148 +1446,6 @@ class AttestationsComponent extends ContentComponent {
 				},
 			),
 		);
-	}
-}
-
-/**
- * Two-pane SelectNav that hosts the Source tab. Left pane shows
- * moduleSourceTable + (if packages) packagesNavSection; right pane is a
- * sub-tab selector across packages/attestations/overlay/patches.
- */
-class SourceSelect extends SelectNav {
-	/**
-	 * @param {!Registry} registry
-	 * @param {!Module} module
-	 * @param {!ModuleVersion} moduleVersion
-	 * @param {?ModuleVersionPackages} packages Packages aggregate for this
-	 *   module-version (or null if data wasn't available).
-	 * @param {?dom.DomHelper=} opt_domHelper
-	 */
-	constructor(registry, module, moduleVersion, packages, opt_domHelper) {
-		super(opt_domHelper);
-		/** @private @const @type {!Registry} */
-		this.registry_ = registry;
-		/** @private @const @type {!Module} */
-		this.module_ = module;
-		/** @private @const @type {!ModuleVersion} */
-		this.moduleVersion_ = moduleVersion;
-		/** @private @const @type {?ModuleVersionPackages} */
-		this.packages_ = packages;
-	}
-
-	/** @override */
-	createDom() {
-		// SourceSelect is just the sub-tab nav strip + a content placeholder
-		// now. Each sub-tab (packages / attestations / overlay / patches)
-		// owns its own 2-pane layout and renders moduleSourceTable in its
-		// own left pane, so this shell takes no params.
-		this.setElementInternal(soy.renderAsElement(sourceSelect));
-	}
-
-	/**
-	 * @override
-	 * @returns {string}
-	 */
-	getDefaultTabName() {
-		if (this.packages_ && this.packages_.getPackageList().length > 0) {
-			return SourceTabName.PACKAGES;
-		}
-		return SourceTabName.ATTESTATIONS;
-	}
-
-	/** @override */
-	enterDocument() {
-		super.enterDocument();
-
-		const moduleVersion = this.moduleVersion_;
-		const source = moduleVersion.getSource();
-
-		// Packages — conditional. Reuses ModuleVersionPackagesSelect so nested
-		// /source/packages/<pkg-path> routing keeps working.
-		const packages = this.packages_;
-		if (packages && packages.getPackageList().length > 0) {
-			const nonNullPackages = asserts.assert(packages);
-			this.addNavTabLazy(
-				SourceTabName.PACKAGES,
-				"Packages",
-				"BUILD-file targets",
-				packages.getPackageList().length,
-				`${this.getPathUrl()}/${SourceTabName.PACKAGES}`,
-				() =>
-					new ModuleVersionPackagesSelect(
-						this.registry_,
-						this.module_,
-						this.moduleVersion_,
-						nonNullPackages,
-						this.dom_,
-					),
-			);
-		}
-
-		// Attestations — always registered; soy template handles blankslate.
-		const attestations =
-			moduleVersion.getAttestations() ?? new Attestations();
-		const nonNullAttestations = asserts.assert(attestations);
-		const attestationsCount =
-			nonNullAttestations.getAttestationsMap()?.getLength() ?? 0;
-		this.addNavTabLazy(
-			SourceTabName.ATTESTATIONS,
-			"Attestations",
-			"Source attestations and supply-chain provenance",
-			attestationsCount > 0 ? attestationsCount : undefined,
-			`${this.getPathUrl()}/${SourceTabName.ATTESTATIONS}`,
-			() =>
-				new AttestationsComponent(
-					this.registry_,
-					moduleVersion,
-					nonNullAttestations,
-				),
-		);
-
-		// Overlay — conditional on at least one overlay file. Trie-routed file
-		// browser; SourceArchiveFileSelect handles /<mod>/<ver>/source/overlay
-		// and drills into /<filename> via greedy longest-prefix match.
-		const overlayLen = source ? source.getOverlayMap().getLength() : 0;
-		if (source && overlayLen > 0) {
-			const nonNullSource = asserts.assert(source);
-			this.addNavTabLazy(
-				SourceTabName.OVERLAY,
-				"Overlay",
-				"Files added on top of the upstream source archive",
-				overlayLen,
-				`${this.getPathUrl()}/${SourceTabName.OVERLAY}`,
-				() =>
-					new SourceArchiveFileSelect(
-						this.registry_,
-						this.module_,
-						moduleVersion,
-						nonNullSource,
-						KIND_OVERLAY,
-					),
-			);
-		}
-
-		// Patches — conditional on at least one patch file. Same Trie pattern
-		// as overlay; renders the diff with Shiki's `diff` language.
-		const patchesLen = source ? source.getPatchesMap().getLength() : 0;
-		if (source && patchesLen > 0) {
-			const nonNullSource = asserts.assert(source);
-			this.addNavTabLazy(
-				SourceTabName.PATCHES,
-				"Patches",
-				"Patches applied to the upstream source archive",
-				patchesLen,
-				`${this.getPathUrl()}/${SourceTabName.PATCHES}`,
-				() =>
-					new SourceArchiveFileSelect(
-						this.registry_,
-						this.module_,
-						moduleVersion,
-						nonNullSource,
-						KIND_PATCHES,
-					),
-			);
-		}
 	}
 }
 

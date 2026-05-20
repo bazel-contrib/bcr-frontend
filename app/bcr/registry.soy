@@ -215,65 +215,56 @@ import {
  * file attestations. Right pane shows the descriptive blurb and the full
  * cards (with parsed signer / source / builder / Rekor details).
  */
+/**
+ * Top-level Attestations tab content. 2-pane PageLayout:
+ *   - left: title "Source Attestations" + descriptive blurb + compact
+ *     verified-icon file list (the per-file summary).
+ *   - right: full cards (parsed signer / source / builder / Rekor details)
+ *     or attestationsBlankslate when the map is empty.
+ *
+ * Registered for every module version; the blankslate covers the no-data case.
+ */
 {template attestationsTabContent}
   {@param moduleVersion: ModuleVersion}
   {@param attestations: Attestations}
-  {let $source: $moduleVersion.getSource() /}
+  {let $attMap: $attestations.getAttestationsMap() /}
+  {let $hasAtts: $attMap && $attMap.size > 0 /}
   <div class="PageLayout PageLayout--panePos-start PageLayout--hasPaneDivider PageLayout--responsive-stackRegions PageLayout--responsive-panePos-start mt-3">
     <div class="PageLayout-columns">
       <div class="PageLayout-pane">
-        {if $source}
-          {call moduleSourceTable}
-            {param moduleVersion: $moduleVersion /}
-            {param source: $source /}
-          {/call}
-          {sectionDivider()}
-        {/if}
-        {call attestationsTable}
-          {param moduleVersion: $moduleVersion /}
-          {param attestations: $attestations /}
-        {/call}
-      </div>
-      <div class="PageLayout-content">
         <p class="f4 mb-3 color-fg-muted">
           Supply-chain provenance for the artifacts published by this module version.
           Each entry is a Sigstore-signed in-toto Statement linking a published file to its build context.
         </p>
-        {if $attestations.getAttestationsMap() && $attestations.getAttestationsMap().size > 0}
-          {for $filename in $attestations.getAttestationsMap().keys()}
-            {let $att: $attestations.getAttestationsMap().get($filename) /}
-            {if $att}
-              {call attestationCard}
-                {param filename: $filename /}
-                {param att: $att /}
-              {/call}
-            {/if}
-          {/for}
+        {if $hasAtts}
+          {call fileTreeNav}
+            {param heading: 'Artifacts' /}
+            {param icon kind="html"}{octiconVerified16(fill: 'var(--color-accent-fg)')}{/param}
+            {param filenames: $attMap.keys() /}
+            {param hrefPrefix: '#attestation-' /}
+          {/call}
+        {/if}
+      </div>
+      <div class="PageLayout-content">
+        {if $hasAtts}
+          <div class="Box Box--condensed">
+            <div class="Box-header">
+              <div class="Box-title">Source Attestations {counterLabel(count: $attMap.size)}</div>
+            </div>
+            {for $filename in $attMap.keys()}
+              {let $att: $attMap.get($filename) /}
+              {if $att}
+                {call attestationCard}
+                  {param filename: $filename /}
+                  {param att: $att /}
+                {/call}
+              {/if}
+            {/for}
+          </div>
         {else}
           {call attestationsBlankslate /}
         {/if}
       </div>
-    </div>
-  </div>
-{/template}
-
-/**
- * Compact verified-icon file list of attestation entries — used in the left
- * pane of the Attestations sub-tab as a sidebar summary.
- */
-{template attestationsTable}
-  {@param moduleVersion: ModuleVersion}
-  {@param attestations: Attestations}
-  <div>
-    {sectionHeader(title: 'Source Attestations', count: $attestations.getAttestationsMap()?.size)}
-    <div>
-      {for $filename in $attestations.getAttestationsMap()?.keys()}
-        {let $att: $attestations.getAttestationsMap()?.get($filename) /}
-        <a class="Link--muted d-flex flex-items-center mb-1" href="{$att?.getUrl()}">
-          <span class="mr-2">{octiconVerified16(fill: 'var(--color-accent-fg)')}</span>
-          <span class="text-bold mr-1">{$filename|truncate:48}</span>
-        </a>
-      {/for}
     </div>
   </div>
 {/template}
@@ -290,6 +281,42 @@ import {
   </div>
 {/template}
 
+/**
+ * Single-group tree-view of file links. The group header carries the icon +
+ * heading (e.g., "Artifacts", "Overlay Files", "Patch Files"); each child row
+ * is just the filename link, no per-row icon. Wraps the standard
+ * `treeview-root` DOM so the styling matches the multi-group trees in the
+ * Packages and Documentation tabs.
+ */
+{template fileTreeNav}
+  {@param heading: string}
+  {@param icon: html}
+  {@param filenames: list<string>}
+  {@param hrefPrefix: string}
+  <div class="treeview-root treeview-compact" role="tree">
+    <div class="treeview-item" role="treeitem">
+      <div class="treeview-item-row d-flex flex-items-center">
+        <span class="mr-2 flex-shrink-0">{$icon}</span>
+        <span class="text-bold">{$heading}</span>
+        <span class="ml-auto">{counterLabel(count: length($filenames))}</span>
+      </div>
+      <div class="treeview-children ml-1" role="group">
+        {for $filename, $index in $filenames}
+          {let $isLast: $index == length($filenames) - 1 /}
+          <div class="treeview-item" role="treeitem">
+            <div class="treeview-item-row d-flex flex-items-center" style="margin-left: 1.2rem;">
+              <span class="color-fg-muted" style="margin-right: 0.25rem; font-family: monospace; user-select: none; flex-shrink: 0;">
+                {if $isLast}└─{else}├─{/if}
+              </span>
+              <a class="treeview-label" href="{$hrefPrefix + $filename}" title="{$filename}">{$filename|truncate:48}</a>
+            </div>
+          </div>
+        {/for}
+      </div>
+    </div>
+  </div>
+{/template}
+
 {template attestationCard}
   {@param filename: string}
   {@param att: Attestations.Attestation}
@@ -297,50 +324,46 @@ import {
   {let $payload: $att.getPayload() /}
   {let $parseError: $payload ? $payload.getParseError() : '' /}
 
-  <div class="Box mb-3">
-    <div class="Box-header d-flex flex-items-center py-2">
-      {if !$payload}
-        <span class="mr-2" title="Attestation bundle has not been parsed yet">
-          {octiconVerified16(fill: 'var(--color-fg-muted)')}
-        </span>
-      {elseif $parseError != ''}
-        <span class="mr-2" title="Attestation listed but bundle could not be fetched">
-          {octiconAlert16(fill: 'var(--color-attention-fg)')}
-        </span>
-      {else}
-        <span class="mr-2" title="Source attestation verified">
-          {octiconVerified16(fill: 'var(--color-accent-fg)')}
-        </span>
-      {/if}
-      <span class="text-bold text-mono">{$filename}</span>
-      <a class="Link--muted text-small no-wrap ml-auto" href="{$att.getUrl()}" target="_blank" rel="noopener" title="Raw .intoto.jsonl bundle">
-        {octiconLinkExternal16()}
-      </a>
-    </div>
-    {if $payload && $parseError == ''}
-      {call attestationCardDetails_}
-        {param payload: $payload /}
-      {/call}
-    {elseif $parseError != ''}
-      <div class="Box-row py-2 text-small">
-        <div class="d-flex flex-items-center color-fg-attention mb-1">
-          <span class="mr-2">{octiconAlert16(fill: 'var(--color-attention-fg)')}</span>
-          <span class="text-bold">Attestation unavailable.</span>
-          {sp}{$parseError}
-        </div>
-        <div class="color-fg-muted">
+  {if $payload && $parseError == ''}
+    {call attestationCardDetails_}
+      {param filename: $filename /}
+      {param att: $att /}
+      {param payload: $payload /}
+    {/call}
+  {else}
+    <div class="Box-row py-2" id="attestation-{$filename}">
+      <div class="d-flex flex-items-center">
+        {if !$payload}
+          <span class="mr-2" title="Attestation bundle has not been parsed yet">
+            {octiconVerified16(fill: 'var(--color-fg-muted)')}
+          </span>
+        {else}
+          <span class="mr-2" title="Attestation listed but bundle could not be fetched">
+            {octiconAlert16(fill: 'var(--color-attention-fg)')}
+          </span>
+        {/if}
+        <span class="text-bold text-mono">{$filename}</span>
+        <a class="Link--muted text-small no-wrap ml-auto" href="{$att.getUrl()}" target="_blank" rel="noopener" title="Raw .intoto.jsonl bundle">
+          {octiconLinkExternal16()}
+        </a>
+      </div>
+      {if $parseError != ''}
+        <div class="text-small color-fg-attention mt-1">{$parseError}</div>
+        <div class="text-small color-fg-muted mt-1">
           The registry lists this attestation but it could not be retrieved (typically because the upstream release asset was deleted or renamed).
         </div>
-      </div>
-    {else}
-      <div class="Box-row py-2 text-small color-fg-muted">
-        Attestation file is available but the parsed payload has not been populated.
-      </div>
-    {/if}
-  </div>
+      {else}
+        <div class="text-small color-fg-muted mt-1">
+          Attestation file is available but the parsed payload has not been populated.
+        </div>
+      {/if}
+    </div>
+  {/if}
 {/template}
 
 {template attestationCardDetails_}
+  {@param filename: string}
+  {@param att: Attestations.Attestation}
   {@param payload: Attestations.AttestationPayload}
 
   {let $signerIdentity: $payload.getSignerIdentity() /}
@@ -357,39 +380,29 @@ import {
   {let $rekorUrl: $payload.getRekorLogUrl() /}
   {let $subjectSha: $payload.getSubjectSha256() /}
 
-  <div class="Box-row py-2"
+  <div class="Box-row py-2" id="attestation-{$filename}"
        style="display: grid; grid-template-columns: 20px max-content 1fr; column-gap: 12px; row-gap: 8px; align-items: start;">
+    {call attestationDetailRow_}
+      {param icon kind="html"}{octiconVerified16(fill: 'var(--color-accent-fg)')}{/param}
+      {param label: 'Artifact' /}
+      {param valueHtml kind="html"}
+        <div class="d-flex flex-items-center" style="min-width: 0;">
+          <span class="text-bold text-mono" style="overflow-wrap: anywhere;">{$filename}</span>
+          <a class="Link--muted ml-2 flex-shrink-0" href="{$att.getUrl()}" target="_blank" rel="noopener" title="Raw .intoto.jsonl bundle">
+            {octiconLinkExternal16()}
+          </a>
+        </div>
+      {/param}
+    {/call}
+
     {if $signerIdentity != ''}
       {call attestationDetailRow_}
-        {param icon kind="html"}{octiconShieldCheck16(fill: 'var(--color-accent-fg)')}{/param}
+        {param icon kind="html"}{octiconShieldCheck16()}{/param}
         {param label: 'Signed by' /}
         {param valueHtml kind="html"}
           <span class="text-mono text-small" style="word-break: break-all;">{$signerIdentity}</span>
           {if $signerIssuer != ''}
             <div class="color-fg-muted text-small mt-1">via {$signerIssuer}</div>
-          {/if}
-        {/param}
-      {/call}
-    {/if}
-
-    {if $sourceRepo != '' || $sourceCommit != ''}
-      {call attestationDetailRow_}
-        {param icon kind="html"}{octiconMarkGithub16()}{/param}
-        {param label: 'Source' /}
-        {param valueHtml kind="html"}
-          {if $sourceRepo != ''}
-            <a class="Link--muted" href="{$sourceRepo}" target="_blank" rel="noopener">{$sourceRepo}</a>
-          {/if}
-          {if $sourceCommit != '' && $sourceRepo != ''}
-            {sp}
-            <a class="Link--muted text-mono text-small" href="{$sourceRepo}/commit/{$sourceCommit}" target="_blank" rel="noopener" title="{$sourceCommit}">
-              @{$sourceCommit|truncate:12}
-            </a>
-          {elseif $sourceCommit != ''}
-            {sp}<span class="text-mono text-small">@{$sourceCommit|truncate:12}</span>
-          {/if}
-          {if $sourceRef != ''}
-            {sp}<span class="color-fg-muted text-small">({$sourceRef})</span>
           {/if}
         {/param}
       {/call}
@@ -415,6 +428,29 @@ import {
           {/if}
           {if $predicateType != ''}
             <div class="color-fg-muted text-small mt-1"><span class="text-bold">Predicate:</span> {$predicateType}</div>
+          {/if}
+        {/param}
+      {/call}
+    {/if}
+
+    {if $sourceRepo != '' || $sourceCommit != ''}
+      {call attestationDetailRow_}
+        {param icon kind="html"}{octiconMarkGithub16()}{/param}
+        {param label: 'Source' /}
+        {param valueHtml kind="html"}
+          {if $sourceRepo != ''}
+            <a class="Link--muted" href="{$sourceRepo}" target="_blank" rel="noopener">{$sourceRepo}</a>
+          {/if}
+          {if $sourceCommit != '' && $sourceRepo != ''}
+            {sp}
+            <a class="Link--muted text-mono text-small" href="{$sourceRepo}/commit/{$sourceCommit}" target="_blank" rel="noopener" title="{$sourceCommit}">
+              @{$sourceCommit|truncate:12}
+            </a>
+          {elseif $sourceCommit != ''}
+            {sp}<span class="text-mono text-small">@{$sourceCommit|truncate:12}</span>
+          {/if}
+          {if $sourceRef != ''}
+            {sp}<span class="color-fg-muted text-small">({$sourceRef})</span>
           {/if}
         {/param}
       {/call}
@@ -515,29 +551,37 @@ import {
 {/template}
 
 /**
- * 2-pane shell for the overlay/patches Trie-routed file Select.
- *   - Left pane: moduleSourceTable (Source Details) + condensed list of files
- *     of the active `kind`. List rows link to /<mod>/<ver>/source/<kind>/<file>
- *     so the SourceArchiveFileSelect Trie routes into the file view.
- *   - Right pane: the .content placeholder where individual file views (or a
+ * 2-pane shell for the (top-level) Overlay / Patches tab. Trie-routed file
+ * Select.
+ *   - Left pane: section title + descriptive blurb + a simple Link--muted
+ *     file list (Source-Details row style). Rows link to /<mod>/<ver>/<kind>/
+ *     <filename>, which the SourceArchiveFileSelect Trie routes into.
+ *   - Right pane: .content placeholder where individual file views (or the
  *     blankslate prompt) get mounted by SourceArchiveFileSelect.addTab.
  */
 {template sourceArchiveFileSelectShell}
   {@param moduleVersion: ModuleVersion}
   {@param source: ModuleSource}
   {@param kind: string}
+  {let $isOverlay: $kind == 'overlay' /}
+  {let $filenames: $isOverlay ? $source.getOverlayMap()?.keys() : $source.getPatchesMap()?.keys() /}
+  {let $heading: $isOverlay ? 'Overlay Files' : 'Patch Files' /}
+  {let $blurb: $isOverlay
+      ? 'Files merged on top of the upstream source archive by the registry — typically a BUILD/MODULE.bazel for the build to bootstrap from.'
+      : 'Patch files applied by the registry to the upstream source archive at checkout time.' /}
+  {let $baseUrl: moduleVersionUrl(name: $moduleVersion.getName(), version: $moduleVersion.getVersion()) /}
+  {let $hrefPrefix: '' + $baseUrl + '/' + $kind + '/' /}
   <div class="PageLayout PageLayout--panePos-start PageLayout--hasPaneDivider PageLayout--responsive-stackRegions PageLayout--responsive-panePos-start mt-3">
     <div class="PageLayout-columns">
       <div class="PageLayout-pane">
-        {call moduleSourceTable}
-          {param moduleVersion: $moduleVersion /}
-          {param source: $source /}
-        {/call}
-        {sectionDivider()}
-        {call sourceArchiveFileListPane}
-          {param moduleVersion: $moduleVersion /}
-          {param source: $source /}
-          {param kind: $kind /}
+        <p class="f4 mb-3 color-fg-muted">{$blurb}</p>
+        {call fileTreeNav}
+          {param heading: $heading /}
+          {param icon kind="html"}
+            {if $isOverlay}{octiconFileAdded16()}{else}{octiconFileDiff16()}{/if}
+          {/param}
+          {param filenames: $filenames /}
+          {param hrefPrefix: $hrefPrefix /}
         {/call}
       </div>
       <div class="PageLayout-content {css('content')}"></div>
@@ -546,38 +590,9 @@ import {
 {/template}
 
 /**
- * Condensed file list for the overlay/patches left pane. `kind` is "overlay"
- * or "patches" — drives the icon and which map is iterated. Rows link to
- * /<mod>/<ver>/source/<kind>/<filename>, which the SourceArchiveFileSelect
- * Trie routes into.
- */
-{template sourceArchiveFileListPane}
-  {@param moduleVersion: ModuleVersion}
-  {@param source: ModuleSource}
-  {@param kind: string}
-  {let $isOverlay: $kind == 'overlay' /}
-  {let $filenames: $isOverlay ? $source.getOverlayMap()?.keys() : $source.getPatchesMap()?.keys() /}
-  <div>
-    {sectionHeader(title: $isOverlay ? 'Overlay files' : 'Patches')}
-    <div class="Box Box--condensed">
-      {for $filename in $filenames}
-        <a class="Box-row d-flex flex-items-center"
-           style="text-decoration: none;"
-           href="{moduleVersionUrl(name: $moduleVersion.getName(), version: $moduleVersion.getVersion())}/source/{$kind}/{$filename}">
-          <span class="mr-2 color-fg-muted">
-            {if $isOverlay}{octiconFileAdded16()}{else}{octiconFileDiff16()}{/if}
-          </span>
-          <span class="text-mono">{$filename|truncate:48}</span>
-        </a>
-      {/for}
-    </div>
-  </div>
-{/template}
-
-/**
  * Blankslate rendered in the right pane when no specific file is selected
- * (i.e. the user lands on /source/overlay or /source/patches without a
- * file path). The actual list is on the left.
+ * (i.e. the user lands on /<mod>/<ver>/overlay or /patches without a file
+ * path). The actual list is on the left.
  */
 {template sourceArchiveFileBlankslate}
   {@param kind: string}
@@ -835,8 +850,15 @@ import {
         </div>
       {/if}
       {if $moduleVersion.getCommit()?.getPullRequest()}
+        {let $ghUser: $moduleVersion.getCommit().getGithubUser() /}
         <a class="Link--muted d-flex flex-items-center mb-2" href="{registryPullRequestUrl(pr: $moduleVersion.getCommit().getPullRequest())}">
-          <span class="mr-2">{octiconGitPullRequest16(fill: 'var(--color-done-fg)')}</span>
+          {if $ghUser}
+            <img class="avatar circle mr-2 flex-shrink-0" width="20" height="20"
+                 src="{githubAvatarUrl(name: $ghUser)}"
+                 alt="@{$ghUser}">
+          {else}
+            <span class="mr-2">{octiconGitPullRequest16(fill: 'var(--color-done-fg)')}</span>
+          {/if}
           <span title="{$moduleVersion.getCommit().getMessage()}"><span class="text-mono">#{$moduleVersion.getCommit().getPullRequest()}</span> <span class="text-light">{$moduleVersion.getCommit().getMessage()|truncate:32}</span></span>
         </a>
       {/if}
