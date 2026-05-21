@@ -372,6 +372,22 @@ class RegistryApp extends App {
 	handleRouteDone(e) {
 		const routeEvent = /** @type {!RouteEvent} */ (e);
 		this.activeComponent_ = routeEvent.component || null;
+		// Prerender ready signal. statichtmlcompiler polls
+		// window.__bcrPrerenderReady after every navigation (initial Navigate
+		// AND SPA-style pushState) and snapshots HTML once it flips to true.
+		// Double-rAF: by the time the second callback fires, the synchronous
+		// route-mount has committed AND its follow-up microtasks have
+		// flushed, so OuterHTML doesn't race against still-pending DOM
+		// mutations. Tried single rAF — measured ~11% wall-clock regression
+		// at pool_size=16, likely because OuterHTML serialization
+		// interleaved with the follow-up microtasks triggers layout
+		// recomputation mid-capture.
+		window["__bcrPrerenderReady"] = false;
+		requestAnimationFrame(() => {
+			requestAnimationFrame(() => {
+				window["__bcrPrerenderReady"] = true;
+			});
+		});
 		// DEBUG const route = /** @type {!Route} */ (e.target);
 		// DEBUG console.log("done:", route.getPath());
 	}

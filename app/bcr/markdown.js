@@ -89,7 +89,7 @@ async function formatMarkdown(el) {
 	preElements = el.querySelectorAll("pre");
 	for (const pre of preElements) {
 		pre.style.position = "relative";
-		dom.classlist.addAll(pre, ["border", "color-bg-subtle"]);
+		dom.classlist.addAll(pre, ["border", "color-bg-subtle", "mb-2"]);
 		const button = soy.renderAsElement(copyToClipboardButton, {
 			content: pre.firstChild.textContent,
 		});

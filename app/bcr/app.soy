@@ -3065,12 +3065,19 @@ import {
 
 {template documentationBlankslate}
   {@param? detail: string}
+  {@param? latestVersion: string}
+  {@param? latestVersionUrl: string}
 <div class="Box Box--condensed">
   <div class="Box-row">
     <div class="blankslate">
       <div class="blankslate-icon mb-3 color-fg-muted">{octiconBook24()}</div>
       <div class="blankslate-heading">No documentation available</div>
       {if $detail}<p>{$detail}</p>{/if}
+      {if $latestVersionUrl && $latestVersion}
+        <p class="mt-2">
+          <a href="{$latestVersionUrl}">Check latest version ({$latestVersion})</a>
+        </p>
+      {/if}
     </div>
   </div>
 </div>

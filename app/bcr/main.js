@@ -66,6 +66,12 @@ async function main(registryDataBase64) {
 	app.start();
 
 	document.documentElement.classList.remove("bcr-booting");
+
+	// Initialize the prerender-ready flag. The actual flip-to-true happens
+	// in RegistryApp.handleRouteDone after each routing transition (initial
+	// route AND subsequent SPA-style pushState), so prerender_pages picks
+	// up a fresh signal per URL without main() needing to coordinate.
+	window["__bcrPrerenderReady"] = false;
 }
 
 /**

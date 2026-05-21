@@ -485,19 +485,46 @@ class ModuleVersionSymbolsSelect extends ContentSelect {
 	}
 
 	/**
+	 * If the current module version is not the latest, returns the latest
+	 * version string. Otherwise returns null.
+	 * @return {?string}
+	 * @private
+	 */
+	getNewerVersionString_() {
+		const latest = getLatestModuleVersion(this.module_);
+		if (!latest) return null;
+		const latestStr = latest.getVersion();
+		if (latestStr === this.moduleVersion_.getVersion()) return null;
+		return latestStr;
+	}
+
+	/**
 	 * @override
 	 */
 	createDom() {
+		const newerVersion = this.getNewerVersionString_();
+		const latestUrl = newerVersion
+			? `/modules/${this.moduleVersion_.getName()}/${newerVersion}/docs`
+			: undefined;
+
 		if (!this.symbols_) {
-			this.setElementInternal(soy.renderAsElement(documentationBlankslate, {}));
+			this.setElementInternal(
+				soy.renderAsElement(documentationBlankslate, {
+					latestVersion: newerVersion || undefined,
+					latestVersionUrl: latestUrl,
+				}),
+			);
 			return;
 		}
 
 		const fileSymbols = buildFileSymbolGroups(this.symbols_);
 		if (fileSymbols.length === 0) {
-			const detail = "Symbol data not available";
 			this.setElementInternal(
-				soy.renderAsElement(documentationBlankslate, { detail }),
+				soy.renderAsElement(documentationBlankslate, {
+					detail: "Symbol data not available",
+					latestVersion: newerVersion || undefined,
+					latestVersionUrl: latestUrl,
+				}),
 			);
 			return;
 		}
@@ -1717,34 +1744,44 @@ class DocumentationReadmeComponent extends MarkdownComponent {
 	}
 
 	/**
+	 * Resolve the GitHub org/repo/commitSha for the current module version.
+	 * Falls back to the latest version's commit SHA, then to "HEAD" so a
+	 * tag-only source.json (no `commit` field) still produces usable URLs.
+	 * @return {?{org: string, repo: string, commitSha: string}}
+	 * @private
+	 */
+	getGithubRef_() {
+		const metadata = this.moduleVersion_.getRepositoryMetadata();
+		if (!metadata || metadata.getType() !== RepositoryType.GITHUB) {
+			return null;
+		}
+		let commitSha = this.moduleVersion_.getSource()?.getCommitSha();
+		if (!commitSha) {
+			const latestVersion = getLatestModuleVersion(this.module_);
+			commitSha = latestVersion?.getSource()?.getCommitSha();
+		}
+		if (!commitSha) {
+			commitSha = "HEAD";
+		}
+		return {
+			org: metadata.getOrganization(),
+			repo: metadata.getName(),
+			commitSha,
+		};
+	}
+
+	/**
 	 * Fetch README.md from GitHub for the specific commit
 	 * @private
 	 */
 	fetchReadme_() {
-		const metadata = this.moduleVersion_.getRepositoryMetadata();
-
-		// Only fetch if it's a GitHub repo
-		if (!metadata || metadata.getType() !== RepositoryType.GITHUB) {
+		const ref = this.getGithubRef_();
+		if (!ref) {
 			this.error_ = "README is only available for GitHub repositories";
 			this.loading_ = false;
 			this.updateDom_();
 			return;
 		}
-
-		// Get commit SHA from current version, or fall back to latest version, or use HEAD
-		let commitSha = this.moduleVersion_.getSource()?.getCommitSha();
-		if (!commitSha) {
-			// Use the latest version's commit SHA
-			const latestVersion = getLatestModuleVersion(this.module_);
-			commitSha = latestVersion?.getSource()?.getCommitSha();
-			if (!commitSha) {
-				// Fall back to HEAD which resolves to the default branch
-				commitSha = "HEAD";
-			}
-		}
-
-		const org = metadata.getOrganization();
-		const repo = metadata.getName();
 
 		// Try common README filename variations (order matters - try most common first)
 		const readmeFilenames = [
@@ -1757,7 +1794,7 @@ class DocumentationReadmeComponent extends MarkdownComponent {
 			"README",
 		];
 
-		this.tryFetchReadme_(org, repo, commitSha, readmeFilenames, 0);
+		this.tryFetchReadme_(ref.org, ref.repo, ref.commitSha, readmeFilenames, 0);
 	}
 
 	/**
@@ -1896,26 +1933,14 @@ class DocumentationReadmeComponent extends MarkdownComponent {
 	 * @private
 	 */
 	rewriteReadmeLinks_() {
-		const metadata = this.moduleVersion_.getRepositoryMetadata();
-		if (!metadata || metadata.getType() !== RepositoryType.GITHUB) {
+		const ref = this.getGithubRef_();
+		if (!ref) {
 			return;
 		}
 
-		// Get commit SHA
-		let commitSha = this.moduleVersion_.getSource()?.getCommitSha();
-		if (!commitSha) {
-			const latestVersion = getLatestModuleVersion(this.module_);
-			commitSha = latestVersion?.getSource()?.getCommitSha();
-			if (!commitSha) {
-				return;
-			}
-		}
-
-		const org = metadata.getOrganization();
-		const repo = metadata.getName();
-		const githubBase = `https://github.com/${org}/${repo}`;
-		const githubBlobBase = `${githubBase}/blob/${commitSha}`;
-		const githubRawBase = `https://raw.githubusercontent.com/${org}/${repo}/${commitSha}`;
+		const githubBase = `https://github.com/${ref.org}/${ref.repo}`;
+		const githubBlobBase = `${githubBase}/blob/${ref.commitSha}`;
+		const githubRawBase = `https://raw.githubusercontent.com/${ref.org}/${ref.repo}/${ref.commitSha}`;
 
 		const rootEl = this.getElement();
 		if (!rootEl) return;
