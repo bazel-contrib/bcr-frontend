@@ -7,7 +7,9 @@ load(
     "ModuleDependencyCycleInfo",
     "ModuleMetadataInfo",
     "ModuleRegistryInfo",
+    "RouteInfo",
 )
+load("//rules:route_info.bzl", "route")
 
 def _write_repos_json_action(ctx, deps):
     output = ctx.actions.declare_file(ctx.label.name + ".repos.json")
@@ -565,6 +567,72 @@ def _compile_sitemap_action(ctx, registry_pb, bazel_flag_db_pb):
 
     return output
 
+_STATIC_TOP_LEVEL_ROUTES = [
+    route(loc = "/", priority = 1.0, changefreq = "daily"),
+    route(loc = "/modules", priority = 0.9, changefreq = "daily"),
+    route(loc = "/bazel", priority = 0.9, changefreq = "weekly"),
+    route(loc = "/bazel/versions", priority = 0.9, changefreq = "weekly"),
+    route(loc = "/bazel/versions/versions", priority = 0.9, changefreq = "weekly"),
+    route(loc = "/bazel/flags", priority = 0.9, changefreq = "weekly"),
+    route(loc = "/bazel/flags/list", priority = 0.9, changefreq = "weekly"),
+    route(loc = "/bazel/flags/list/categories", priority = 0.9, changefreq = "weekly"),
+    route(loc = "/bazel/flags/list/tags", priority = 0.9, changefreq = "weekly"),
+    route(loc = "/targets", priority = 0.7, changefreq = "weekly"),
+]
+
+def _route_to_dict(r):
+    """Converts a route struct into a plain dict for json.encode.
+
+    Starlark structs don't serialize directly via json.encode, so we flatten
+    each route into a dict immediately before writing the routes manifest.
+    """
+    return {
+        "loc": r.loc,
+        "lastmod": r.lastmod,
+        "priority": r.priority,
+        "changefreq": r.changefreq,
+    }
+
+def _compile_sitemap_index_action(ctx):
+    """Produces sitemap.xml.gz + sitemapindex.xml from aggregated RouteInfo.
+
+    Aggregates RouteInfo across all module dependencies, writes the merged
+    routes manifest, and runs cmd/sitemapindexcompiler. Lands alongside the
+    existing sitemap.xml from _compile_sitemap_action — the two pipelines
+    coexist during the migration.
+    """
+    transitive_routes = [dep[RouteInfo].routes for dep in ctx.attr.deps if RouteInfo in dep]
+    all_routes = depset(
+        direct = _STATIC_TOP_LEVEL_ROUTES,
+        transitive = transitive_routes,
+    )
+
+    routes_json = ctx.actions.declare_file("routes.json")
+    ctx.actions.write(
+        routes_json,
+        json.encode([_route_to_dict(r) for r in all_routes.to_list()]),
+    )
+
+    sitemap_gz = ctx.actions.declare_file("sitemap.xml.gz")
+    sitemap_index = ctx.actions.declare_file("sitemapindex.xml")
+
+    args = ctx.actions.args()
+    args.add("--routes_file", routes_json)
+    args.add("--base_url", ctx.attr.registry_url)
+    args.add("--sitemap_output", sitemap_gz)
+    args.add("--sitemapindex_output", sitemap_index)
+    args.add("--sitemap_url", ctx.attr.registry_url + "/sitemap.xml.gz")
+
+    ctx.actions.run(
+        executable = ctx.executable._sitemapindexcompiler,
+        arguments = [args],
+        inputs = [routes_json],
+        outputs = [sitemap_gz, sitemap_index],
+        mnemonic = "CompileSitemapIndex",
+        progress_message = "Compiling sitemap index",
+    )
+    return sitemap_gz, sitemap_index, routes_json
+
 def _write_robots_txt_action(ctx):
     output = ctx.actions.declare_file("robots.txt")
 
@@ -639,6 +707,7 @@ def _module_registry_impl(ctx):
     bazel_help = _compile_bazel_help_registry_action(ctx, bazel_versions)
     bazel_flag_db = _compile_bazel_flag_db_action(ctx, bazel_help)
     sitemap_xml = _compile_sitemap_action(ctx, registry_pb, bazel_flag_db)
+    sitemap_gz, sitemap_index, routes_json = _compile_sitemap_index_action(ctx)
     prerender_urls = _write_prerender_urls_action(ctx, deps)
 
     # Per-module-version output groups.
@@ -657,6 +726,9 @@ def _module_registry_impl(ctx):
             languages_json = [languages_json],
             colors_css = [colors_css],
             sitemap_xml = [sitemap_xml],
+            sitemap_gz = [sitemap_gz],
+            sitemapindex_xml = [sitemap_index],
+            routes_json = [routes_json],
             prerender_urls = [prerender_urls],
             robots_txt = [robots_txt],
             registry_pb = [registry_pb],
@@ -713,6 +785,11 @@ module_registry = rule(
         ),
         "_sitemapcompiler": attr.label(
             default = "//cmd/sitemapcompiler",
+            executable = True,
+            cfg = "exec",
+        ),
+        "_sitemapindexcompiler": attr.label(
+            default = "//cmd/sitemapindexcompiler",
             executable = True,
             cfg = "exec",
         ),

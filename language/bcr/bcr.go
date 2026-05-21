@@ -118,7 +118,7 @@ func (ext *bcrExtension) RegisterFlags(fs *flag.FlagSet, cmd string, c *config.C
 	fs.StringVar(&ext.registryURL,
 		"registry-url", "", "base URL for the deployed registry")
 	fs.StringVar(&ext.registrySourceURL,
-		"registry-source-url", "https://bcr.stack.build/registry.pb.gz", "URL to fetch backup registry data from (for repository metadata fallback)")
+		"registry-source-url", "https://registry-preview.bazel.build/registry.pb.gz", "URL to fetch backup registry data from (for repository metadata fallback)")
 	fs.StringVar(&ext.resourceStatusSetFile,
 		"resource-status-set-file", "", "path to resource-status.json file containing cached http statuses for the registry URLs (helpful for development)")
 	fs.StringVar(&ext.repositoryMetadataSetFile,

@@ -54,11 +54,19 @@ ModuleSourceInfo = provider(
         "strip_prefix": "str: Directory prefix to strip from the archive",
         "patch_strip": "int: Number of leading path components to strip from patches",
         "patches": "dict[str, str]: Mapping of patch filename to integrity hash",
+        "overlay": "dict[str, str]: Mapping of overlay filename to integrity hash",
         "source_json": "File: The source.json file",
         "docs_url": "str: Documentation archive URL (empty string if not set)",
         "docs_url_status_code": "int: HTTP status code of the docs URL",
         "docs_url_status_message": "str: HTTP status message of the docs URL",
         "commit_sha": "str: Git commit SHA for the source URL (resolved from tags/releases)",
+    },
+)
+
+RouteInfo = provider(
+    doc = "Sitemap-relevant route data emitted by every rule that owns one or more SPA URLs. Used by module_registry to build sitemap.xml.gz + sitemapindex.xml.",
+    fields = {
+        "routes": "depset[struct]: each element is struct(loc, lastmod, priority, changefreq) with loc a fully-qualified URL (or a path beginning with '/'; resolved against the base URL by the compiler), lastmod a YYYY-MM-DD string or '', priority a float in [0,1] or 0.0, changefreq one of 'daily'/'weekly'/'monthly'/'' (empty = omit)",
     },
 )
 

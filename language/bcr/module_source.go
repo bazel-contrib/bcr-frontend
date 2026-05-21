@@ -52,6 +52,9 @@ func makeModuleSourceRule(module *bzpb.ModuleVersion, source *bzpb.ModuleSource,
 	if len(source.Patches) > 0 {
 		r.SetAttr("patches", source.Patches)
 	}
+	if len(source.Overlay) > 0 {
+		r.SetAttr("overlay", source.Overlay)
+	}
 	if sourceJsonFile != "" {
 		r.SetAttr("source_json", sourceJsonFile)
 	}

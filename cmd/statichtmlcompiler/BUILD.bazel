@@ -5,7 +5,11 @@ go_library(
     srcs = ["main.go"],
     importpath = "github.com/bazel-contrib/bcr-frontend/cmd/statichtmlcompiler",
     visibility = ["//visibility:private"],
-    deps = ["@com_github_chromedp_chromedp//:chromedp"],
+    deps = [
+        "@com_github_chromedp_cdproto//network",
+        "@com_github_chromedp_cdproto//page",
+        "@com_github_chromedp_chromedp//:chromedp",
+    ],
 )
 
 go_binary(

@@ -14,6 +14,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/chromedp/cdproto/network"
+	"github.com/chromedp/cdproto/page"
 	"github.com/chromedp/chromedp"
 )
 
@@ -39,10 +41,96 @@ type Config struct {
 	Concurrency   int
 	SingleContext bool
 	SettleDelay   time.Duration
+	// Tab-pool / leak-control options.
+	ChromedpPool int
+	TabMaxPages  int
+	ReadySignal  bool
+	// Resource blocking via CDP Network.SetBlockedURLs. Comma-separated
+	// keyword list: images, fonts, media, all. Empty disables blocking.
+	BlockResources string
 	// Performance options
 	DisableImages bool
 	DisableCSS    bool
 	DisableJS     bool
+	// Mirror log output to this file as it's written. Bazel buffers an
+	// action's stderr until completion; this lets a user tail -f a known
+	// path to watch shard progress in real time.
+	ProgressLog string
+	// Per-URL render line is noisy for batches of 1000+. Default off:
+	// stderr stays quiet (Bazel flushes it all at action-end), and the
+	// per-URL line is written to ProgressLog if set. Flip to true to
+	// also emit it to stderr.
+	Verbose bool
+	// On a per-render failure (chromedp error, timeout, or otherwise),
+	// retry up to this many times with a fresh tab. The default of 1
+	// covers transient errors (tab/renderer crash, occasional CDP race)
+	// without masking systemic bugs.
+	Retries int
+	// Pre-warm every pool tab against the SPA's root URL with this max
+	// concurrency before processing any real URLs. Serializes the cold-start
+	// REGISTRY_DATA parse so a 16-way simultaneous parse doesn't push tabs
+	// past --timeout. 0 disables warmup.
+	WarmupConcurrency int
+	// Open file handle for ProgressLog (populated by run() — not a flag).
+	// Per-URL render lines go to this file unconditionally so tail -f
+	// remains useful even when --verbose is off.
+	progressFile *os.File
+}
+
+// logURL emits a per-URL progress line. By default (Verbose=false) it only
+// reaches the progress-log file (when set) so stderr — which Bazel buffers
+// and dumps at action-end — stays free of thousands of lines. With
+// Verbose=true the line also goes to stderr via the standard log.
+func logURL(cfg Config, format string, args ...any) {
+	if cfg.Verbose {
+		log.Printf(format, args...)
+		return
+	}
+	if cfg.progressFile != nil {
+		fmt.Fprintf(cfg.progressFile, "statichtmlcompiler: "+format+"\n", args...)
+	}
+}
+
+// blockedURLPatternsForCfg expands the comma-separated --block_resources
+// keywords into wildcard URL patterns suitable for CDP
+// Network.setBlockedURLs. `--disable_images=true` also implies blocking
+// image patterns (back-compat for the previously-dead flag).
+func blockedURLPatternsForCfg(cfg Config) []string {
+	kinds := map[string]bool{}
+	if cfg.DisableImages {
+		kinds["images"] = true
+	}
+	for _, k := range strings.Split(cfg.BlockResources, ",") {
+		k = strings.TrimSpace(strings.ToLower(k))
+		if k == "" || k == "none" {
+			continue
+		}
+		if k == "all" {
+			kinds["images"] = true
+			kinds["fonts"] = true
+			kinds["media"] = true
+			continue
+		}
+		kinds[k] = true
+	}
+	var patterns []string
+	if kinds["images"] {
+		patterns = append(patterns,
+			"*.png", "*.jpg", "*.jpeg", "*.gif", "*.svg",
+			"*.webp", "*.ico", "*.avif",
+		)
+	}
+	if kinds["fonts"] {
+		patterns = append(patterns,
+			"*.woff", "*.woff2", "*.ttf", "*.otf", "*.eot",
+		)
+	}
+	if kinds["media"] {
+		patterns = append(patterns,
+			"*.mp4", "*.webm", "*.m4a", "*.mp3", "*.ogg",
+		)
+	}
+	return patterns
 }
 
 func main() {
@@ -61,6 +149,21 @@ func run(args []string) error {
 		return fmt.Errorf("failed to parse args: %w", err)
 	}
 
+	// If a progress-log path was provided, fan summary log output to that
+	// file in addition to stderr. Per-URL render lines (which can be 1000+
+	// for a full BCR build) go to the file unconditionally via logURL;
+	// they reach stderr only when --verbose is on.
+	if cfg.ProgressLog != "" {
+		f, err := os.OpenFile(cfg.ProgressLog, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0644)
+		if err != nil {
+			return fmt.Errorf("open progress_log %q: %w", cfg.ProgressLog, err)
+		}
+		defer f.Close()
+		cfg.progressFile = f
+		log.SetOutput(io.MultiWriter(os.Stderr, f))
+		log.Printf("Progress log: %s", cfg.ProgressLog)
+	}
+
 	if len(cfg.URLs) == 0 {
 		return fmt.Errorf("at least one --url is required")
 	}
@@ -74,10 +177,12 @@ func run(args []string) error {
 		return processSingleURL(cfg, cfg.URLs[0], cfg.OutputFiles[0])
 	}
 
-	// Batch with shared chromedp tab(s) — each worker keeps one tab and
-	// navigates SPA-style via pushState+popstate. Much faster for SPA routes.
-	if cfg.SingleContext && cfg.UseChromedp {
-		return processBatchSingleContext(cfg)
+	// Batch mode with a chromedp tab pool inside one Chrome process. Each
+	// tab is reused for multiple URLs via SPA-style pushState; tabs are
+	// recycled after --tab_max_pages renders to keep memory bounded.
+	// Triggered by --chromedp_pool>1 OR the legacy --single_context flag.
+	if cfg.UseChromedp && (cfg.ChromedpPool > 1 || cfg.SingleContext) {
+		return processBatchPool(cfg)
 	}
 
 	// Batch mode (one chromedp tab per URL)
@@ -239,122 +344,443 @@ func processBatch(cfg Config) error {
 	return nil
 }
 
-// processBatchSingleContext renders all URLs across N workers, each holding
-// one chromedp tab. The first URL in each worker is a full Navigate (the SPA
-// loads and parses REGISTRY_DATA once); subsequent URLs are dispatched as
-// SPA navigations via history.pushState + popstate, avoiding page reloads.
+// tab is a single chromedp browser tab — the unit of work the pool hands out.
+// pageCount tracks pages rendered since the tab was created; the pool
+// recycles a tab once it crosses cfg.TabMaxPages to keep JS heap from
+// drifting upward across thousands of SPA navigations.
+type tab struct {
+	ctx          context.Context
+	cancel       context.CancelFunc
+	pageCount    int
+	hasNavigated bool
+}
+
+// pool holds N reusable chromedp tabs under a single Chrome process
+// (allocCtx). Workers acquire/release tabs through a buffered channel;
+// `sem` limits the total in-flight tab count to ChromedpPool so we don't
+// outgrow the cap during the lazy ramp-up.
+type pool struct {
+	cfg              Config
+	allocCtx         context.Context
+	blockedPatterns  []string
+	idle             chan *tab
+	sem              chan struct{}
+	workerID         atomicCounter
+}
+
+type atomicCounter struct {
+	mu sync.Mutex
+	n  int
+}
+
+func (c *atomicCounter) next() int {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.n++
+	return c.n - 1
+}
+
+func newPool(cfg Config) (*pool, context.CancelFunc) {
+	opts := buildChromedpOpts(cfg)
+	allocCtx, allocCancel := chromedp.NewExecAllocator(context.Background(), opts...)
+	return &pool{
+		cfg:             cfg,
+		allocCtx:        allocCtx,
+		blockedPatterns: blockedURLPatternsForCfg(cfg),
+		idle:            make(chan *tab, cfg.ChromedpPool),
+		sem:             make(chan struct{}, cfg.ChromedpPool),
+	}, allocCancel
+}
+
+func (p *pool) newTab() (*tab, error) {
+	tabCtx, tabCancel := chromedp.NewContext(p.allocCtx)
+
+	// Per-tab setup: enable Network domain so SetBlockedURLs takes effect,
+	// install the resource block list, and pre-arm the prerender-ready
+	// reset script for every freshly-loaded document.
+	setup := chromedp.Tasks{
+		network.Enable(),
+	}
+	if len(p.blockedPatterns) > 0 {
+		setup = append(setup, network.SetBlockedURLs(p.blockedPatterns))
+	}
+	setup = append(setup, chromedp.ActionFunc(func(ctx context.Context) error {
+		_, err := page.AddScriptToEvaluateOnNewDocument(
+			`window.__bcrPrerenderReady = false;`,
+		).Do(ctx)
+		return err
+	}))
+
+	if err := chromedp.Run(tabCtx, setup); err != nil {
+		tabCancel()
+		return nil, fmt.Errorf("tab setup: %w", err)
+	}
+	return &tab{ctx: tabCtx, cancel: tabCancel}, nil
+}
+
+// acquire blocks until either an idle tab is available or a new tab can be
+// minted (subject to the pool's capacity sem). The returned tab must be
+// passed back through release() or discard() — never just dropped.
+func (p *pool) acquire(ctx context.Context) (*tab, error) {
+	select {
+	case t := <-p.idle:
+		return t, nil
+	default:
+	}
+	// Idle queue empty — try to mint a new tab under the capacity sem.
+	select {
+	case p.sem <- struct{}{}:
+		t, err := p.newTab()
+		if err != nil {
+			<-p.sem
+			return nil, err
+		}
+		return t, nil
+	case t := <-p.idle:
+		return t, nil
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	}
+}
+
+// release returns a healthy tab to the idle pool — or, if its pageCount has
+// crossed TabMaxPages, disposes it and frees the capacity slot so the next
+// acquire() will mint a fresh tab. This is the leak-control mechanism that
+// keeps the warm-tab approach safe for long batch runs.
+func (p *pool) release(t *tab) {
+	if t.pageCount >= p.cfg.TabMaxPages {
+		t.cancel()
+		<-p.sem
+		return
+	}
+	select {
+	case p.idle <- t:
+	default:
+		// Pool over-full (shouldn't happen with the sem in place) — drop.
+		t.cancel()
+		<-p.sem
+	}
+}
+
+// discard disposes a tab outright — used when a render fails and the tab
+// may be in an inconsistent state. Freeing the sem slot lets a replacement
+// be minted on the next acquire().
+func (p *pool) discard(t *tab) {
+	t.cancel()
+	<-p.sem
+}
+
+// warmup mints all p.cfg.ChromedpPool tabs and navigates each to warmURL
+// with at most `concurrency` parses in flight. Warm tabs go straight into
+// p.idle ready for SPA-style pushState navigation on real URLs.
 //
-// Requires: cfg.UseChromedp = true, len(cfg.URLs) >= 1.
-func processBatchSingleContext(cfg Config) error {
-	workers := cfg.Concurrency
-	if workers < 1 {
-		workers = 1
+// The point isn't to skip REGISTRY_DATA — every tab still parses it — but
+// to deconflict the parse. Under 16-way contention, what should be a ~1.5s
+// parse can blow past the per-render --timeout (30s+ tail observed). With
+// concurrency=4 here, each tab pays close to the solo cost.
+func (p *pool) warmup(warmURL string, concurrency int) error {
+	if concurrency < 1 {
+		concurrency = 1
 	}
-	if workers > len(cfg.URLs) {
-		workers = len(cfg.URLs)
+	if concurrency > p.cfg.ChromedpPool {
+		concurrency = p.cfg.ChromedpPool
 	}
-	chunkSize := (len(cfg.URLs) + workers - 1) / workers
-
-	log.Printf("Single-context batch: %d URLs, %d workers, ~%d URLs/worker", len(cfg.URLs), workers, chunkSize)
-
-	var wg sync.WaitGroup
-	errChan := make(chan error, len(cfg.URLs))
+	log.Printf("Warmup: minting %d tabs against %s (concurrency=%d)", p.cfg.ChromedpPool, warmURL, concurrency)
 	startedAt := time.Now()
 
-	for w := 0; w < workers; w++ {
-		startIdx := w * chunkSize
-		endIdx := startIdx + chunkSize
-		if endIdx > len(cfg.URLs) {
-			endIdx = len(cfg.URLs)
-		}
-		if startIdx >= endIdx {
-			break
-		}
+	gate := make(chan struct{}, concurrency)
+	var wg sync.WaitGroup
+	errCh := make(chan error, p.cfg.ChromedpPool)
 
+	for i := 0; i < p.cfg.ChromedpPool; i++ {
 		wg.Add(1)
-		go func(workerID, start, end int) {
+		go func(i int) {
 			defer wg.Done()
-			if err := runWorkerSingleContext(cfg, workerID, start, end); err != nil {
-				errChan <- err
+			gate <- struct{}{}
+			defer func() { <-gate }()
+
+			p.sem <- struct{}{}
+			t, err := p.newTab()
+			if err != nil {
+				<-p.sem
+				errCh <- fmt.Errorf("warmup tab %d: %w", i, err)
+				return
 			}
-		}(w, startIdx, endIdx)
-	}
 
+			var timedOut atomicBool
+			timer := time.AfterFunc(p.cfg.Timeout, func() {
+				timedOut.set(true)
+				t.cancel()
+			})
+			runErr := chromedp.Run(t.ctx, chromedp.Tasks{
+				chromedp.Navigate(warmURL),
+				waitForReady(p.cfg),
+			})
+			timer.Stop()
+
+			if runErr != nil {
+				p.discard(t)
+				if timedOut.get() {
+					errCh <- fmt.Errorf("warmup tab %d: timeout after %v: %w", i, p.cfg.Timeout, runErr)
+				} else {
+					errCh <- fmt.Errorf("warmup tab %d: %w", i, runErr)
+				}
+				return
+			}
+			t.hasNavigated = true
+			t.pageCount++
+			p.idle <- t
+		}(i)
+	}
 	wg.Wait()
-	close(errChan)
+	close(errCh)
 
-	var errors []error
-	for err := range errChan {
-		errors = append(errors, err)
+	var errs []error
+	for err := range errCh {
+		errs = append(errs, err)
 	}
-	if len(errors) > 0 {
-		return fmt.Errorf("encountered %d errors: %v", len(errors), errors[0])
+	if len(errs) > 0 {
+		return fmt.Errorf("warmup: %d errors: %v", len(errs), errs[0])
 	}
-
-	log.Printf("Single-context batch: rendered %d URLs in %v", len(cfg.URLs), time.Since(startedAt))
+	log.Printf("Warmup: %d tabs ready in %v", p.cfg.ChromedpPool, time.Since(startedAt))
 	return nil
 }
 
-func runWorkerSingleContext(cfg Config, workerID, start, end int) error {
-	opts := buildChromedpOpts(cfg)
-	allocCtx, allocCancel := chromedp.NewExecAllocator(context.Background(), opts...)
-	defer allocCancel()
+// warmupURLFor returns the SPA root URL (scheme://host/) derived from a
+// real target URL. Used as the pre-warm destination so each tab parses
+// REGISTRY_DATA once on a benign route before serving real requests.
+func warmupURLFor(targetURL string) string {
+	u, err := url.Parse(targetURL)
+	if err != nil || u.Host == "" {
+		return ""
+	}
+	return fmt.Sprintf("%s://%s/", u.Scheme, u.Host)
+}
 
-	// One chromedp tab for the whole worker. Running multiple chromedp.Run
-	// calls against the same context is the supported pattern; wrapping each
-	// Run in context.WithTimeout(chromeCtx, ...) is NOT — chromedp associates
-	// session state with the deepest chromedp.Context in the chain, and
-	// canceling the timeout context propagates "context canceled" back into
-	// chromedp's Target loop on subsequent calls.
-	chromeCtx, chromeCancel := chromedp.NewContext(allocCtx)
-	defer chromeCancel()
-
-	for i := start; i < end; i++ {
-		targetURL := cfg.URLs[i]
-		outputFile := cfg.OutputFiles[i]
-
-		// First URL per worker: full Navigate (loads SPA, parses 2.7MB
-		// REGISTRY_DATA once). Subsequent URLs: history.pushState +
-		// popstate triggers the SPA's history listener and routes
-		// without a page reload.
-		var html string
-		var tasks chromedp.Tasks
-		if i == start {
-			tasks = chromedp.Tasks{
-				chromedp.Navigate(targetURL),
-				chromedp.WaitReady("body"),
-				chromedp.Sleep(cfg.SettleDelay),
-				prerenderMetaAction(targetURL),
-				chromedp.OuterHTML("html", &html),
-			}
-		} else {
-			js := fmt.Sprintf(
-				`window.history.pushState({}, '', %q); window.dispatchEvent(new PopStateEvent('popstate', {state: {}}));`,
-				targetURL,
-			)
-			tasks = chromedp.Tasks{
-				chromedp.Evaluate(js, nil),
-				chromedp.Sleep(cfg.SettleDelay),
-				prerenderMetaAction(targetURL),
-				chromedp.OuterHTML("html", &html),
-			}
+func (p *pool) drain() {
+	for {
+		select {
+		case t := <-p.idle:
+			t.cancel()
+		default:
+			return
 		}
+	}
+}
 
-		stepStart := time.Now()
-		if err := chromedp.Run(chromeCtx, tasks); err != nil {
-			return fmt.Errorf("worker %d: failed on %s: %w", workerID, targetURL, err)
-		}
-
-		// outputFile may be a comma-separated list of paths; fan out the
-		// single rendered HTML to each (and mkdir each).
-		if err := writeRenderedHTML(outputFile, []byte(html)); err != nil {
-			return fmt.Errorf("worker %d: failed to write %s: %w", workerID, outputFile, err)
-		}
-
-		log.Printf("[w%d %d/%d] %s -> %s (%d bytes, %v)", workerID, i-start+1, end-start, targetURL, outputFile, len(html), time.Since(stepStart))
+// processBatchPool renders every URL via a fixed-size pool of reusable
+// chromedp tabs inside a single Chrome process. Each tab is reused via
+// SPA-style pushState navigation and recycled after TabMaxPages renders
+// to bound memory.
+//
+// Requires: cfg.UseChromedp = true, len(cfg.URLs) >= 1.
+func processBatchPool(cfg Config) error {
+	if cfg.ChromedpPool < 1 {
+		cfg.ChromedpPool = 1
+	}
+	if cfg.ChromedpPool > len(cfg.URLs) {
+		cfg.ChromedpPool = len(cfg.URLs)
+	}
+	if cfg.TabMaxPages < 1 {
+		cfg.TabMaxPages = 1
 	}
 
+	log.Printf("Pool batch: %d URLs, %d tabs, recycle every %d pages, ready_signal=%v, block=%v",
+		len(cfg.URLs), cfg.ChromedpPool, cfg.TabMaxPages, cfg.ReadySignal, cfg.BlockResources)
+
+	p, allocCancel := newPool(cfg)
+	defer allocCancel()
+	defer p.drain()
+
+	if cfg.WarmupConcurrency > 0 {
+		warmURL := warmupURLFor(cfg.URLs[0])
+		if warmURL != "" {
+			if err := p.warmup(warmURL, cfg.WarmupConcurrency); err != nil {
+				return fmt.Errorf("pool warmup: %w", err)
+			}
+		}
+	}
+
+	urlCh := make(chan int, len(cfg.URLs))
+	for i := range cfg.URLs {
+		urlCh <- i
+	}
+	close(urlCh)
+
+	var wg sync.WaitGroup
+	errCh := make(chan error, len(cfg.URLs))
+	startedAt := time.Now()
+	total := len(cfg.URLs)
+	var done atomicCounter
+
+	for w := 0; w < cfg.ChromedpPool; w++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			workerID := p.workerID.next()
+			for idx := range urlCh {
+				if err := renderOne(p, cfg, workerID, idx, total, &done); err != nil {
+					errCh <- err
+				}
+			}
+		}()
+	}
+	wg.Wait()
+	close(errCh)
+
+	var errs []error
+	for err := range errCh {
+		errs = append(errs, err)
+	}
+	if len(errs) > 0 {
+		return fmt.Errorf("encountered %d errors: %v", len(errs), errs[0])
+	}
+
+	log.Printf("Pool batch: rendered %d URLs in %v", total, time.Since(startedAt))
 	return nil
+}
+
+func renderOne(p *pool, cfg Config, workerID, idx, total int, done *atomicCounter) error {
+	targetURL := cfg.URLs[idx]
+	outputFile := cfg.OutputFiles[idx]
+
+	// One attempt + up to cfg.Retries retry attempts. Retry path acquires
+	// a fresh tab — a render failure usually means the previous tab is in
+	// a broken state (and discard() ensures it's tossed).
+	stepStart := time.Now()
+	var html string
+	var lastErr error
+	attempts := cfg.Retries + 1
+	if attempts < 1 {
+		attempts = 1
+	}
+	for attempt := 0; attempt < attempts; attempt++ {
+		t, err := p.acquire(context.Background())
+		if err != nil {
+			return fmt.Errorf("worker %d: acquire tab: %w", workerID, err)
+		}
+
+		html = ""
+		tasks := buildRenderTasks(t, cfg, targetURL, &html)
+
+		// Per-render timeout via time.AfterFunc → tab.cancel(). We can't
+		// wrap chromedp.Run in context.WithTimeout(t.ctx, …) because
+		// canceling a child of the chromedp Context propagates back into
+		// chromedp's Target loop and poisons subsequent calls. Killing the
+		// tab outright is fine: on error we discard it anyway.
+		var timedOut atomicBool
+		timer := time.AfterFunc(cfg.Timeout, func() {
+			timedOut.set(true)
+			t.cancel()
+		})
+
+		runErr := chromedp.Run(t.ctx, tasks)
+		timer.Stop()
+
+		if runErr == nil {
+			t.pageCount++
+			t.hasNavigated = true
+			p.release(t)
+			break
+		}
+
+		// Tab is in a bad state — discard.
+		p.discard(t)
+		if timedOut.get() {
+			lastErr = fmt.Errorf("render timeout after %v on %s: %w", cfg.Timeout, targetURL, runErr)
+		} else {
+			lastErr = fmt.Errorf("render %s: %w", targetURL, runErr)
+		}
+		if attempt < attempts-1 {
+			logURL(cfg, "[w%d retry %d/%d] %s: %v", workerID, attempt+1, attempts-1, targetURL, lastErr)
+			continue
+		}
+		return fmt.Errorf("worker %d: %w", workerID, lastErr)
+	}
+
+	if err := writeRenderedHTML(outputFile, []byte(html)); err != nil {
+		return fmt.Errorf("worker %d: write %s: %w", workerID, outputFile, err)
+	}
+	n := done.next() + 1
+	logURL(cfg, "[w%d %d/%d] %s -> %s (%d bytes, %v)",
+		workerID, n, total, targetURL, outputFile, len(html), time.Since(stepStart))
+	return nil
+}
+
+// atomicBool is a tiny goroutine-safe bool — used by renderOne to flag the
+// time.AfterFunc timeout path so the error message can say "timeout" rather
+// than just "context canceled".
+type atomicBool struct {
+	mu sync.Mutex
+	b  bool
+}
+
+func (a *atomicBool) set(v bool) {
+	a.mu.Lock()
+	a.b = v
+	a.mu.Unlock()
+}
+
+func (a *atomicBool) get() bool {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return a.b
+}
+
+func buildRenderTasks(t *tab, cfg Config, targetURL string, html *string) chromedp.Tasks {
+	if !t.hasNavigated {
+		return chromedp.Tasks{
+			chromedp.Navigate(targetURL),
+			waitForReady(cfg),
+			prerenderMetaAction(targetURL),
+			chromedp.OuterHTML("html", html),
+		}
+	}
+	// SPA-style navigation on a warm tab: reset the ready flag, then
+	// pushState + dispatch popstate so the router catches the change.
+	js := fmt.Sprintf(
+		`window.__bcrPrerenderReady = false; window.history.pushState({}, '', %q); window.dispatchEvent(new PopStateEvent('popstate', {state: {}}));`,
+		targetURL,
+	)
+	return chromedp.Tasks{
+		chromedp.Evaluate(js, nil),
+		waitForReady(cfg),
+		prerenderMetaAction(targetURL),
+		chromedp.OuterHTML("html", html),
+	}
+}
+
+// waitForReady polls window.__bcrPrerenderReady when the signal is enabled
+// (initial Navigate: the SPA flips this at the end of main()). Falls back
+// to a fixed cfg.SettleDelay sleep when the signal is disabled or the
+// poll times out — the timeout case is expected for SPA pushState
+// navigations, since the SPA's router doesn't currently re-emit the flag.
+func waitForReady(cfg Config) chromedp.Action {
+	return chromedp.ActionFunc(func(ctx context.Context) error {
+		if !cfg.ReadySignal {
+			return chromedp.Sleep(cfg.SettleDelay).Do(ctx)
+		}
+		deadline := time.Now().Add(cfg.SettleDelay)
+		ticker := time.NewTicker(20 * time.Millisecond)
+		defer ticker.Stop()
+		for {
+			var ready bool
+			if err := chromedp.Evaluate(`!!window.__bcrPrerenderReady`, &ready).Do(ctx); err != nil {
+				return err
+			}
+			if ready {
+				return nil
+			}
+			if time.Now().After(deadline) {
+				return nil
+			}
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-ticker.C:
+			}
+		}
+	})
 }
 
 func fetchWithHTTP(cfg Config, targetURL string) ([]byte, error) {
@@ -480,9 +906,17 @@ func parseFlags(args []string) (cfg Config, err error) {
 	fs.IntVar(&settleMs, "settle_ms", 300, "milliseconds to wait after each navigation/route change before capturing HTML")
 	fs.StringVar(&cfg.WaitReady, "wait_ready", "", "CSS selector to wait for (e.g., 'body', '.content')")
 	fs.StringVar(&cfg.WaitVisible, "wait_visible", "", "CSS selector to wait until visible")
-	fs.BoolVar(&cfg.DisableImages, "disable_images", true, "disable image loading for faster rendering")
+	fs.BoolVar(&cfg.DisableImages, "disable_images", true, "block image-resource fetches via CDP (equivalent to --block_resources=images)")
 	fs.BoolVar(&cfg.DisableCSS, "disable_css", false, "disable CSS loading (not recommended for SPAs)")
 	fs.BoolVar(&cfg.DisableJS, "disable_js", false, "disable JavaScript (not recommended for SPAs)")
+	fs.IntVar(&cfg.ChromedpPool, "chromedp_pool", 16, "number of reusable chromedp tabs in the pool (one Chrome process serves all tabs)")
+	fs.IntVar(&cfg.TabMaxPages, "tab_max_pages", 50, "recycle a tab after it has rendered this many pages (keeps JS heap bounded across long batches)")
+	fs.BoolVar(&cfg.ReadySignal, "ready_signal", true, "poll window.__bcrPrerenderReady after navigation; falls back to --settle_ms cap when the SPA hasn't (yet) emitted")
+	fs.StringVar(&cfg.BlockResources, "block_resources", "images,fonts,media", "comma-separated CDP request-block categories: images, fonts, media, all, none")
+	fs.StringVar(&cfg.ProgressLog, "progress_log", "", "mirror log output to this file path; useful with `tail -f` to watch a long shard mid-action since Bazel buffers stderr. Per-URL render lines are written to this file regardless of --verbose")
+	fs.BoolVar(&cfg.Verbose, "verbose", false, "also emit the per-URL render line to stderr (Bazel will dump it all at action-end). Default off keeps the final stderr quiet; the line still reaches --progress_log when set")
+	fs.IntVar(&cfg.Retries, "retries", 1, "retry a failed render up to N times with a fresh tab. Covers transient chromedp errors (tab/renderer crash, CDP race, per-render timeout) without masking systemic bugs")
+	fs.IntVar(&cfg.WarmupConcurrency, "warmup_concurrency", 4, "pre-warm all pool tabs against the SPA root before processing real URLs, with at most this many in-flight REGISTRY_DATA parses. Avoids the cold-start contention spike that times out the first batch under high pool sizes. 0 disables warmup")
 	fs.Usage = func() {
 		fmt.Fprintf(flag.CommandLine.Output(), "usage: statichtmlcompiler [options]\n\nExamples:\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  Single URL:\n")
