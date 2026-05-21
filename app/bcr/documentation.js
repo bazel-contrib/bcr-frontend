@@ -74,6 +74,7 @@ const {
 	valueInfoComponent,
 } = goog.require("soy.bcrfrontend.app");
 const {
+	computeTopPrimaryLanguages,
 	computeTotalBazelVersions,
 	computeTotalSymbols,
 	createDocumentationMap,
@@ -313,6 +314,7 @@ class DocsMapSelectNav extends SelectNav {
 				totalModuleVersions: totalModuleVersions,
 				totalMaintainers: maintainers.size,
 				totalSymbols: computeTotalSymbols(this.registry_),
+				topPrimaryLanguages: computeTopPrimaryLanguages(this.registry_, 10),
 				totalBazelVersions: computeTotalBazelVersions(this.registry_),
 				uiCommitSha: uiCommitSha,
 			}),

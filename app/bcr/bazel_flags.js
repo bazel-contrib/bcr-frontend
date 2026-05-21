@@ -12,6 +12,7 @@ const { SelectNav } = goog.require("bcrfrontend.SelectNav");
 const { formatMarkdownAll } = goog.require("bcrfrontend.markdown");
 const { getApplication } = goog.require("bcrfrontend.common");
 const {
+	computeTopPrimaryLanguages,
 	computeTotalBazelVersions,
 	computeTotalSymbols,
 	createMaintainersMap,
@@ -232,6 +233,7 @@ class BazelFlagsListSelectNav extends SelectNav {
 				totalModuleVersions: totalModuleVersions,
 				totalMaintainers: maintainers.size,
 				totalSymbols: computeTotalSymbols(this.registry_),
+				topPrimaryLanguages: computeTopPrimaryLanguages(this.registry_, 10),
 				totalBazelVersions: computeTotalBazelVersions(this.registry_),
 				uiCommitSha: uiCommitSha,
 			}),
@@ -649,6 +651,7 @@ class BazelFlagsByTagComponent extends Component {
 					totalModuleVersions: totalModuleVersions,
 					totalMaintainers: maintainers.size,
 					totalSymbols: computeTotalSymbols(this.registry_),
+					topPrimaryLanguages: computeTopPrimaryLanguages(this.registry_, 10),
 					totalBazelVersions: computeTotalBazelVersions(this.registry_),
 					uiCommitSha: uiCommitSha,
 				});
@@ -728,6 +731,7 @@ class BazelFlagsByCommandComponent extends Component {
 						totalModuleVersions: totalModuleVersions,
 						totalMaintainers: maintainers.size,
 						totalSymbols: computeTotalSymbols(this.registry_),
+						topPrimaryLanguages: computeTopPrimaryLanguages(this.registry_, 10),
 						totalBazelVersions: computeTotalBazelVersions(this.registry_),
 						uiCommitSha: uiCommitSha,
 					});
@@ -750,6 +754,7 @@ class BazelFlagsByCommandComponent extends Component {
 					totalModuleVersions: totalModuleVersions,
 					totalMaintainers: maintainers.size,
 					totalSymbols: computeTotalSymbols(this.registry_),
+					topPrimaryLanguages: computeTopPrimaryLanguages(this.registry_, 10),
 					totalBazelVersions: computeTotalBazelVersions(this.registry_),
 					uiCommitSha: uiCommitSha,
 				});
@@ -835,6 +840,7 @@ class BazelFlagsByCategoryComponent extends Component {
 					totalModuleVersions: totalModuleVersions,
 					totalMaintainers: maintainers.size,
 					totalSymbols: computeTotalSymbols(this.registry_),
+					topPrimaryLanguages: computeTopPrimaryLanguages(this.registry_, 10),
 					totalBazelVersions: computeTotalBazelVersions(this.registry_),
 					uiCommitSha: uiCommitSha,
 				});
@@ -988,6 +994,7 @@ class BazelFlagDetailComponent extends Component {
 			totalModuleVersions: totalModuleVersions,
 			totalMaintainers: maintainers.size,
 			totalSymbols: computeTotalSymbols(this.registry_),
+			topPrimaryLanguages: computeTopPrimaryLanguages(this.registry_, 10),
 			totalBazelVersions: computeTotalBazelVersions(this.registry_),
 			uiCommitSha: uiCommitSha,
 		});

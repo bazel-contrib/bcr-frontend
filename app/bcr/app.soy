@@ -314,6 +314,7 @@ import {
   {@param totalMaintainers: int}
   {@param totalSymbols: int}
   {@param totalBazelVersions: int}
+  {@param topPrimaryLanguages: list<[name: string, sanitizedName: string, count: int, percentage: number]>}
   {@param uiCommitSha: string}
 <div class="px-2">
   <h2 class="h2 d-flex flex-items-center mb-2">
@@ -325,14 +326,9 @@ import {
   </p>
 
   <a class="Link--primary d-flex flex-items-center mb-2" href="/modules">
-    <span class="color-fg-muted">Modules</span>
+    <span class="color-fg-muted">Modules (Versions)</span>
     <span class="dotted-leader"></span>
-    <span class="text-bold">{$totalModules}</span>
-  </a>
-  <a class="Link--primary d-flex flex-items-center mb-2" href="/modules">
-    <span class="color-fg-muted">Module Versions</span>
-    <span class="dotted-leader"></span>
-    <span class="text-bold">{$totalModuleVersions}</span>
+    <span class="text-bold">{$totalModules} ({$totalModuleVersions})</span>
   </a>
   <a class="Link--primary d-flex flex-items-center mb-2" href="/maintainers">
     <span class="color-fg-muted">Maintainers</span>
@@ -355,7 +351,12 @@ import {
     <span class="text-bold js-bazel-flags-count">914</span>
   </a>
 
-  <div class="mt-4">
+  <div class="mt-4 pt-3 border-top">
+    {bcrSidePanePrimaryLanguages(languages: $topPrimaryLanguages)}
+  </div>
+
+  <div class="mt-4 pt-3 border-top">
+    {sectionHeader(title: 'Links')}
     <a class="Link--muted d-flex flex-items-center mb-2"
        href="https://github.com/bazelbuild/bazel"
        target="_blank" rel="noopener noreferrer">
@@ -453,6 +454,40 @@ import {
 </div>
 {/template}
 
+/**
+ * Registry-wide "Primary Language" mini-breakdown rendered inside
+ * bcrSidePane: stacked color bar over the top-N languages followed by a list
+ * with colored dot + name + percentage. Each row links to the existing
+ * language-filtered module list at /modules/list/all/<Name>.
+ *
+ * Empty data renders nothing so the caller's border-top doesn't create an
+ * orphaned separator on tiny registries.
+ */
+{template bcrSidePanePrimaryLanguages visibility="private"}
+  {@param languages: list<[name: string, sanitizedName: string, count: int, percentage: number]>}
+  {if length($languages) > 0}
+    {sectionHeader(title: 'Primary Language')}
+    <div class="mb-2" style="display: flex; height: 8px; overflow: hidden; border-radius: 6px;">
+      {for $lang in $languages}
+        {if $lang.percentage > 0}
+          <span style="width: {$lang.percentage}%;
+                       background-color: var(--lang-{$lang.sanitizedName}-bg, #ccc);"
+                title="{$lang.name}: {$lang.percentage}%">{sp}</span>
+        {/if}
+      {/for}
+    </div>
+    <div class="mb-2">
+      {for $lang in $languages}
+        <div class="d-flex flex-items-center text-small">
+          <span class="mr-2">{octiconDotFill16(fill: 'var(--lang-' + $lang.sanitizedName + '-bg, currentColor)')}</span>
+          <a class="Link--primary" href="{modulesUrl()}/list/all/{$lang.sanitizedName}">{$lang.name}</a>
+          <span class="ml-2 color-fg-muted">{$lang.percentage}% ({$lang.count})</span>
+        </div>
+      {/for}
+    </div>
+  {/if}
+{/template}
+
 
 {template homeOverviewSelectNav}
   {@param registry: Registry}
@@ -461,6 +496,7 @@ import {
   {@param totalMaintainers: int}
   {@param totalSymbols: int}
   {@param totalBazelVersions: int}
+  {@param topPrimaryLanguages: list<[name: string, sanitizedName: string, count: int, percentage: number]>}
   {@param uiCommitSha: string}
 <div class="PageLayout PageLayout--panePos-start PageLayout--hasPaneDivider PageLayout--responsive-stackRegions PageLayout--responsive-panePos-start mt-3">
   <div class="PageLayout-columns">
@@ -472,6 +508,7 @@ import {
         {param totalModuleVersions: $totalModuleVersions /}
         {param totalMaintainers: $totalMaintainers /}
         {param totalSymbols: $totalSymbols /}
+        {param topPrimaryLanguages: $topPrimaryLanguages /}
         {param totalBazelVersions: $totalBazelVersions /}
         {param uiCommitSha: $uiCommitSha /}
       {/call}
@@ -621,6 +658,7 @@ import {
   {@param totalMaintainers: int}
   {@param totalSymbols: int}
   {@param totalBazelVersions: int}
+  {@param topPrimaryLanguages: list<[name: string, sanitizedName: string, count: int, percentage: number]>}
   {@param uiCommitSha: string}
 <div class="PageLayout PageLayout--panePos-start PageLayout--hasPaneDivider PageLayout--responsive-stackRegions PageLayout--responsive-panePos-start mt-3">
   <div class="PageLayout-columns">
@@ -632,6 +670,7 @@ import {
         {param totalModuleVersions: $totalModuleVersions /}
         {param totalMaintainers: $totalMaintainers /}
         {param totalSymbols: $totalSymbols /}
+        {param topPrimaryLanguages: $topPrimaryLanguages /}
         {param totalBazelVersions: $totalBazelVersions /}
         {param uiCommitSha: $uiCommitSha /}
       {/call}
@@ -664,6 +703,7 @@ import {
   {@param totalMaintainers: int}
   {@param totalSymbols: int}
   {@param totalBazelVersions: int}
+  {@param topPrimaryLanguages: list<[name: string, sanitizedName: string, count: int, percentage: number]>}
   {@param uiCommitSha: string}
   {let $commit: $moduleVersion.getCommit() /}
   {let $hasUser: $commit?.getGithubUser() /}
@@ -677,6 +717,7 @@ import {
         {param totalModuleVersions: $totalModuleVersions /}
         {param totalMaintainers: $totalMaintainers /}
         {param totalSymbols: $totalSymbols /}
+        {param topPrimaryLanguages: $topPrimaryLanguages /}
         {param totalBazelVersions: $totalBazelVersions /}
         {param uiCommitSha: $uiCommitSha /}
       {/call}
@@ -777,6 +818,7 @@ import {
   {@param totalMaintainers: int}
   {@param totalSymbols: int}
   {@param totalBazelVersions: int}
+  {@param topPrimaryLanguages: list<[name: string, sanitizedName: string, count: int, percentage: number]>}
   {@param uiCommitSha: string}
 <div class="PageLayout PageLayout--panePos-start PageLayout--hasPaneDivider PageLayout--responsive-stackRegions PageLayout--responsive-panePos-start mt-3">
   <div class="PageLayout-columns">
@@ -788,6 +830,7 @@ import {
         {param totalModuleVersions: $totalModuleVersions /}
         {param totalMaintainers: $totalMaintainers /}
         {param totalSymbols: $totalSymbols /}
+        {param topPrimaryLanguages: $topPrimaryLanguages /}
         {param totalBazelVersions: $totalBazelVersions /}
         {param uiCommitSha: $uiCommitSha /}
       {/call}
@@ -924,6 +967,7 @@ import {
   {@param totalMaintainers: int}
   {@param totalSymbols: int}
   {@param totalBazelVersions: int}
+  {@param topPrimaryLanguages: list<[name: string, sanitizedName: string, count: int, percentage: number]>}
   {@param uiCommitSha: string}
 <div class="PageLayout PageLayout--panePos-start PageLayout--hasPaneDivider PageLayout--responsive-stackRegions PageLayout--responsive-panePos-start mt-3">
   <div class="PageLayout-columns">
@@ -935,6 +979,7 @@ import {
         {param totalModuleVersions: $totalModuleVersions /}
         {param totalMaintainers: $totalMaintainers /}
         {param totalSymbols: $totalSymbols /}
+        {param topPrimaryLanguages: $topPrimaryLanguages /}
         {param totalBazelVersions: $totalBazelVersions /}
         {param uiCommitSha: $uiCommitSha /}
       {/call}
@@ -973,6 +1018,7 @@ import {
   {@param totalMaintainers: int}
   {@param totalSymbols: int}
   {@param totalBazelVersions: int}
+  {@param topPrimaryLanguages: list<[name: string, sanitizedName: string, count: int, percentage: number]>}
   {@param uiCommitSha: string}
 <div class="PageLayout PageLayout--panePos-start PageLayout--hasPaneDivider PageLayout--responsive-stackRegions PageLayout--responsive-panePos-start mt-3">
 <div class="PageLayout-columns">
@@ -984,6 +1030,7 @@ import {
       {param totalModuleVersions: $totalModuleVersions /}
       {param totalMaintainers: $totalMaintainers /}
       {param totalSymbols: $totalSymbols /}
+      {param topPrimaryLanguages: $topPrimaryLanguages /}
       {param totalBazelVersions: $totalBazelVersions /}
       {param uiCommitSha: $uiCommitSha /}
     {/call}
@@ -1200,6 +1247,7 @@ import {
   {@param totalMaintainers: int}
   {@param totalSymbols: int}
   {@param totalBazelVersions: int}
+  {@param topPrimaryLanguages: list<[name: string, sanitizedName: string, count: int, percentage: number]>}
   {@param uiCommitSha: string}
 <div class="PageLayout PageLayout--panePos-start PageLayout--hasPaneDivider PageLayout--responsive-stackRegions PageLayout--responsive-panePos-start mt-3">
   <div class="PageLayout-columns">
@@ -1211,6 +1259,7 @@ import {
         {param totalModuleVersions: $totalModuleVersions /}
         {param totalMaintainers: $totalMaintainers /}
         {param totalSymbols: $totalSymbols /}
+        {param topPrimaryLanguages: $topPrimaryLanguages /}
         {param totalBazelVersions: $totalBazelVersions /}
         {param uiCommitSha: $uiCommitSha /}
       {/call}
@@ -3021,6 +3070,7 @@ import {
   {@param totalMaintainers: int}
   {@param totalSymbols: int}
   {@param totalBazelVersions: int}
+  {@param topPrimaryLanguages: list<[name: string, sanitizedName: string, count: int, percentage: number]>}
   {@param uiCommitSha: string}
 <div class="PageLayout PageLayout--panePos-start PageLayout--hasPaneDivider PageLayout--responsive-stackRegions PageLayout--responsive-panePos-start mt-3">
   <div class="PageLayout-columns">
@@ -3032,6 +3082,7 @@ import {
         {param totalModuleVersions: $totalModuleVersions /}
         {param totalMaintainers: $totalMaintainers /}
         {param totalSymbols: $totalSymbols /}
+        {param topPrimaryLanguages: $topPrimaryLanguages /}
         {param totalBazelVersions: $totalBazelVersions /}
         {param uiCommitSha: $uiCommitSha /}
       {/call}

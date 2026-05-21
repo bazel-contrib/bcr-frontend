@@ -17,6 +17,7 @@ const { getApplication } = goog.require("bcrfrontend.common");
 const { formatRelativeShort } = goog.require("bcrfrontend.format");
 const { commitSha: uiCommitSha } = goog.require("bcrfrontend.uiVersion");
 const {
+	computeTopPrimaryLanguages,
 	computeTotalBazelVersions,
 	computeTotalSymbols,
 	createMaintainersMap,
@@ -147,6 +148,7 @@ class MaintainersMapSelectNav extends SelectNav {
 				totalModuleVersions: totalModuleVersions,
 				totalMaintainers: this.maintainers_.size,
 				totalSymbols: computeTotalSymbols(this.registry_),
+				topPrimaryLanguages: computeTopPrimaryLanguages(this.registry_, 10),
 				totalBazelVersions: computeTotalBazelVersions(this.registry_),
 				uiCommitSha: uiCommitSha,
 			}),
