@@ -11,6 +11,7 @@ load(
     "ModuleSourceInfo",
     "ModuleVersionInfo",
 )
+load("//rules:route_info.bzl", "route", "route_info")
 
 def _compile_action(ctx, source, deps, attestations, presubmit, commit):
     # Declare output file for compiled proto
@@ -108,6 +109,8 @@ def _module_version_impl(ctx):
     compilation = _compile_action(ctx, source, deps, attestations, presubmit, commit)
     outputs = [compilation.module]
 
+    routes = _build_routes(ctx.attr.module_name, ctx.attr.version, source, attestations, presubmit, commit)
+
     return [
         DefaultInfo(
             files = depset(outputs),
@@ -134,7 +137,43 @@ def _module_version_impl(ctx):
             source = source,
             version = ctx.attr.version,
         ),
+        route_info(own = routes),
     ]
+
+def _build_routes(name, version, source, attestations, presubmit, commit):
+    """Builds the SPA route list for this module-version.
+
+    Pure-Starlark — only routes derivable from the existing providers are
+    emitted. Per-package and per-symbol drill-downs live in the legacy sitemap
+    pipeline.
+    """
+    base = "/modules/%s/%s" % (name, version)
+    lastmod = commit.date if commit and commit.date else ""
+    # Trim a possible ISO 8601 time component to a bare YYYY-MM-DD.
+    if lastmod and len(lastmod) >= 10 and lastmod[4] == "-" and lastmod[7] == "-":
+        lastmod = lastmod[:10]
+    else:
+        lastmod = ""
+
+    routes = [route(loc = base, lastmod = lastmod, priority = 0.7, changefreq = "monthly")]
+
+    if attestations and attestations.urls and len(attestations.urls) > 0:
+        routes.append(route(loc = base + "/attestations", lastmod = lastmod, priority = 0.6, changefreq = "monthly"))
+
+    if presubmit and presubmit.presubmit_yml:
+        routes.append(route(loc = base + "/testing", lastmod = lastmod, priority = 0.6, changefreq = "monthly"))
+
+    if source and source.patches and len(source.patches) > 0:
+        routes.append(route(loc = base + "/patches", lastmod = lastmod, priority = 0.6, changefreq = "monthly"))
+        for filename in source.patches.keys():
+            routes.append(route(loc = base + "/patches/" + filename, lastmod = lastmod, priority = 0.5, changefreq = "monthly"))
+
+    if source and source.overlay and len(source.overlay) > 0:
+        routes.append(route(loc = base + "/overlay", lastmod = lastmod, priority = 0.6, changefreq = "monthly"))
+        for filename in source.overlay.keys():
+            routes.append(route(loc = base + "/overlay/" + filename, lastmod = lastmod, priority = 0.5, changefreq = "monthly"))
+
+    return routes
 
 module_version = rule(
     doc = "Defines complete information about a specific module version.",

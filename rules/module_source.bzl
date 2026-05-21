@@ -12,6 +12,7 @@ def _module_source_impl(ctx):
             strip_prefix = ctx.attr.strip_prefix,
             patch_strip = ctx.attr.patch_strip,
             patches = ctx.attr.patches,
+            overlay = ctx.attr.overlay,
             source_json = ctx.file.source_json,
             docs_url = ctx.attr.docs_url,
             docs_url_status_code = ctx.attr.docs_url_status_code,
@@ -45,6 +46,9 @@ module_source = rule(
         ),
         "patches": attr.string_dict(
             doc = "dict[str, str]: Mapping of patch filename to integrity hash",
+        ),
+        "overlay": attr.string_dict(
+            doc = "dict[str, str]: Mapping of overlay filename to integrity hash",
         ),
         "docs_url": attr.string(
             doc = "str: Documentation archive URL (empty string if not set)",

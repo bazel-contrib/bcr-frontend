@@ -1,0 +1,14 @@
+load("@rules_go//go:def.bzl", "go_binary", "go_library")
+
+go_library(
+    name = "sitemapindexcompiler_lib",
+    srcs = ["sitemapindexcompiler.go"],
+    importpath = "github.com/bazel-contrib/bcr-frontend/cmd/sitemapindexcompiler",
+    visibility = ["//visibility:private"],
+)
+
+go_binary(
+    name = "sitemapindexcompiler",
+    embed = [":sitemapindexcompiler_lib"],
+    visibility = ["//visibility:public"],
+)

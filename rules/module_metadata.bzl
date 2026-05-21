@@ -1,6 +1,12 @@
 """Provides the module_metadata rule."""
 
-load("//rules:providers.bzl", "ModuleMaintainerInfo", "ModuleMetadataInfo", "ModuleVersionInfo", "RepositoryMetadataInfo")
+load("//rules:providers.bzl", "ModuleMaintainerInfo", "ModuleMetadataInfo", "ModuleVersionInfo", "RepositoryMetadataInfo", "RouteInfo")
+load("//rules:route_info.bzl", "route", "route_info")
+
+# Suppress buildifier "loaded symbol unused" warnings — RouteInfo is reached
+# via the provider lookup on ctx.attr.deps below; route/route_info are used
+# in the impl to produce the module-level RouteInfo.
+# @unused
 
 def _make_maintainer(maintainer):
     return {
@@ -65,6 +71,15 @@ def _module_metadata_impl(ctx):
     proto_out = _compile_action(ctx, repository_metadata, versions)
     metadata_json = _metadata_json_action(ctx, deps, maintainers)
 
+    # Module landing page plus the transitive routes from all attached
+    # module_version targets.
+    version_routes = [dep[RouteInfo] for dep in ctx.attr.deps if RouteInfo in dep]
+    own_routes = [route(
+        loc = "/modules/%s" % ctx.label.name,
+        priority = 0.8,
+        changefreq = "weekly",
+    )]
+
     return [
         DefaultInfo(files = depset([proto_out])),
         ModuleMetadataInfo(
@@ -81,6 +96,7 @@ def _module_metadata_impl(ctx):
             build_bazel = ctx.file.build_bazel if ctx.file.build_bazel else None,
             proto = proto_out,
         ),
+        route_info(own = own_routes, transitive = version_routes),
         OutputGroupInfo(
             metadata_json = depset([metadata_json]),
         ),

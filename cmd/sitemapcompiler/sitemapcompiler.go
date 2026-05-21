@@ -8,6 +8,8 @@ import (
 	"net/url"
 	"os"
 	"path"
+	"sort"
+	"strings"
 	"time"
 
 	bhpb "github.com/bazel-contrib/bcr-frontend/build/stack/bazel/help/v1"
@@ -28,6 +30,56 @@ type URL struct {
 	LastMod    string  `xml:"lastmod,omitempty"`
 	ChangeFreq string  `xml:"changefreq,omitempty"`
 	Priority   float64 `xml:"priority,omitempty"`
+}
+
+// versionLastMod returns the version's commit date as YYYY-MM-DD, or "" if
+// the date is missing or unparseable. Used as the <lastmod> for every
+// per-version URL emitted into the sitemap.
+func versionLastMod(version *bzpb.ModuleVersion) string {
+	if version == nil || version.Commit == nil || version.Commit.Date == "" {
+		return ""
+	}
+	t, err := time.Parse(time.RFC3339, version.Commit.Date)
+	if err != nil {
+		return ""
+	}
+	return t.Format("2006-01-02")
+}
+
+// safeURLPath %-escapes each `/`-separated segment of a path component while
+// preserving slashes as path separators. Used for overlay/patch/package
+// drill-down URLs where the underlying string may contain characters Bazel
+// permits but URLs reserve (most filenames are clean; treat this as defense
+// in depth).
+func safeURLPath(p string) string {
+	parts := strings.Split(p, "/")
+	for i, seg := range parts {
+		parts[i] = url.PathEscape(seg)
+	}
+	return strings.Join(parts, "/")
+}
+
+// stripRepoPrefix mirrors the JS-side helper in app/bcr/packages.soy: strips
+// a leading "@@<repo>//" or "@<repo>//" off a Bazel package label so the
+// remainder is suitable for use in a URL path. Empty result (root package)
+// is returned as "" — the caller decides whether to emit a URL for it.
+func stripRepoPrefix(name string) string {
+	idx := strings.Index(name, "//")
+	if idx < 0 {
+		return name
+	}
+	return name[idx+2:]
+}
+
+// loadLabelURLKey mirrors loadLabelToUrlKey in app/bcr/starlark.js: encodes a
+// load-symbol coordinate into the URL form used by the /targets view's Trie
+// router. Empty `pkg` collapses out so `@swig//:swig.bzl%swig_library`
+// becomes `@swig/swig.bzl/swig_library`.
+func loadLabelURLKey(repo, pkg, file, symbol string) string {
+	if pkg != "" {
+		return fmt.Sprintf("@%s/%s/%s/%s", repo, pkg, file, symbol)
+	}
+	return fmt.Sprintf("@%s/%s/%s", repo, file, symbol)
 }
 
 type Config struct {
@@ -128,14 +180,31 @@ func generateSitemap(registry *bzpb.Registry, flagDb *bhpb.BazelFlagDb, baseURL 
 		Priority:   0.9,
 	})
 
-	// Add Bazel core index pages.
-	for _, p := range []string{"/bazel", "/bazel/versions", "/bazel/flags", "/bazel/flags/list"} {
+	// Add Bazel core index pages + the SPA's sub-tab landing routes under
+	// /bazel/versions and /bazel/flags/list (BazelOverviewSelectNav,
+	// BazelFlagsListSelectNav in app/bcr/bazel*.js).
+	for _, p := range []string{
+		"/bazel",
+		"/bazel/versions",
+		"/bazel/versions/versions",
+		"/bazel/flags",
+		"/bazel/flags/list",
+		"/bazel/flags/list/categories",
+		"/bazel/flags/list/tags",
+	} {
 		sitemap.URLs = append(sitemap.URLs, URL{
 			Loc:        baseURL + p,
 			ChangeFreq: "weekly",
 			Priority:   0.9,
 		})
 	}
+
+	// Add registry-wide Targets landing page.
+	sitemap.URLs = append(sitemap.URLs, URL{
+		Loc:        baseURL + "/targets",
+		ChangeFreq: "weekly",
+		Priority:   0.7,
+	})
 
 	// Add per-version Bazel pages from the bazel_tools pseudo-module.
 	for _, module := range registry.Modules {
@@ -146,17 +215,12 @@ func generateSitemap(registry *bzpb.Registry, flagDb *bhpb.BazelFlagDb, baseURL 
 			if version.Version == "" {
 				continue
 			}
-			u := URL{
+			sitemap.URLs = append(sitemap.URLs, URL{
 				Loc:        fmt.Sprintf("%s/bazel/%s", baseURL, version.Version),
 				ChangeFreq: "monthly",
 				Priority:   0.7,
-			}
-			if version.Commit != nil && version.Commit.Date != "" {
-				if t, err := time.Parse(time.RFC3339, version.Commit.Date); err == nil {
-					u.LastMod = t.Format("2006-01-02")
-				}
-			}
-			sitemap.URLs = append(sitemap.URLs, u)
+				LastMod:    versionLastMod(version),
+			})
 		}
 		break
 	}
@@ -212,6 +276,10 @@ func generateSitemap(registry *bzpb.Registry, flagDb *bhpb.BazelFlagDb, baseURL 
 		}
 	}
 
+	// Collect unique /targets/<urlKey> values across the whole registry while
+	// iterating the per-module loop below; emit the deduped set at the end.
+	targetURLKeys := make(map[string]struct{})
+
 	// Iterate through all modules
 	for _, module := range registry.Modules {
 		if module.Name == "" {
@@ -219,12 +287,11 @@ func generateSitemap(registry *bzpb.Registry, flagDb *bhpb.BazelFlagDb, baseURL 
 		}
 
 		// Add module page
-		moduleURL := URL{
+		sitemap.URLs = append(sitemap.URLs, URL{
 			Loc:        fmt.Sprintf("%s/modules/%s", baseURL, module.Name),
 			ChangeFreq: "weekly",
 			Priority:   0.8,
-		}
-		sitemap.URLs = append(sitemap.URLs, moduleURL)
+		})
 
 		// Iterate through all module versions
 		for _, version := range module.Versions {
@@ -232,67 +299,165 @@ func generateSitemap(registry *bzpb.Registry, flagDb *bhpb.BazelFlagDb, baseURL 
 				continue
 			}
 
-			versionURL := URL{
-				Loc:        fmt.Sprintf("%s/modules/%s/%s", baseURL, module.Name, version.Version),
+			lastMod := versionLastMod(version)
+			versionBase := fmt.Sprintf("%s/modules/%s/%s", baseURL, module.Name, version.Version)
+
+			// Bare module-version URL — Overview is the default tab there,
+			// so no separate /overview emission is needed.
+			sitemap.URLs = append(sitemap.URLs, URL{
+				Loc:        versionBase,
 				ChangeFreq: "monthly",
 				Priority:   0.7,
-			}
+				LastMod:    lastMod,
+			})
 
-			// Add lastmod if we have commit date
-			if version.Commit != nil && version.Commit.Date != "" {
-				// Parse and format the date if it's valid
-				if t, err := time.Parse(time.RFC3339, version.Commit.Date); err == nil {
-					versionURL.LastMod = t.Format("2006-01-02")
-				}
-			}
-
-			sitemap.URLs = append(sitemap.URLs, versionURL)
-
-			// Add documentation file and symbol URLs
+			// Documentation file + symbol URLs (no separate /docs landing —
+			// these per-file URLs cover the SPA's drill-down surface).
 			if version.Source != nil && version.Source.Documentation != nil {
 				for _, file := range version.Source.Documentation.File {
 					if file.Label == nil {
 						continue
 					}
-
-					// Construct file path from label components
 					filePath := path.Join(file.Label.Pkg, file.Label.Name)
-
-					// Add URL for the documentation file
-					fileURL := URL{
-						Loc:        fmt.Sprintf("%s/modules/%s/%s/docs/%s", baseURL, module.Name, version.Version, filePath),
+					fileLoc := fmt.Sprintf("%s/docs/%s", versionBase, filePath)
+					sitemap.URLs = append(sitemap.URLs, URL{
+						Loc:        fileLoc,
 						ChangeFreq: "monthly",
 						Priority:   0.6,
-					}
-
-					// Add lastmod if we have commit date
-					if version.Commit != nil && version.Commit.Date != "" {
-						if t, err := time.Parse(time.RFC3339, version.Commit.Date); err == nil {
-							fileURL.LastMod = t.Format("2006-01-02")
-						}
-					}
-
-					sitemap.URLs = append(sitemap.URLs, fileURL)
-
-					// Add URLs for each symbol in the file
+						LastMod:    lastMod,
+					})
 					for _, sym := range file.Symbol {
-						symbolURL := URL{
-							Loc:        fmt.Sprintf("%s/%s", fileURL.Loc, sym.Name),
+						sitemap.URLs = append(sitemap.URLs, URL{
+							Loc:        fmt.Sprintf("%s/%s", fileLoc, sym.Name),
 							ChangeFreq: "monthly",
 							Priority:   0.5,
-						}
-
-						// Add lastmod if we have commit date
-						if version.Commit != nil && version.Commit.Date != "" {
-							if t, err := time.Parse(time.RFC3339, version.Commit.Date); err == nil {
-								symbolURL.LastMod = t.Format("2006-01-02")
-							}
-						}
-
-						sitemap.URLs = append(sitemap.URLs, symbolURL)
+							LastMod:    lastMod,
+						})
 					}
 				}
 			}
+
+			// Packages tab + per-package drill-down. Also harvests the
+			// per-rule-kind load coordinates that feed /targets/<urlKey>.
+			if version.Source != nil && version.Source.Packages != nil &&
+				len(version.Source.Packages.Package) > 0 {
+				sitemap.URLs = append(sitemap.URLs, URL{
+					Loc:        fmt.Sprintf("%s/packages", versionBase),
+					ChangeFreq: "monthly",
+					Priority:   0.6,
+					LastMod:    lastMod,
+				})
+				for _, pkg := range version.Source.Packages.Package {
+					pkgPath := stripRepoPrefix(pkg.Name)
+					if pkgPath != "" {
+						sitemap.URLs = append(sitemap.URLs, URL{
+							Loc:        fmt.Sprintf("%s/packages/%s", versionBase, safeURLPath(pkgPath)),
+							ChangeFreq: "monthly",
+							Priority:   0.5,
+							LastMod:    lastMod,
+						})
+					}
+					// Harvest urlKeys: for each target's rule kind, find the
+					// load statement whose alias (To, falling back to From)
+					// matches that kind, and encode the load coordinate.
+					for _, target := range pkg.Target {
+						if target.Rule == "" {
+							continue
+						}
+						for _, ls := range pkg.Load {
+							if ls.Label == nil {
+								continue
+							}
+							for _, sym := range ls.Symbol {
+								local := sym.To
+								if local == "" {
+									local = sym.From
+								}
+								if local != target.Rule {
+									continue
+								}
+								key := loadLabelURLKey(ls.Label.Repo, ls.Label.Pkg, ls.Label.Name, sym.From)
+								if key != "" {
+									targetURLKeys[key] = struct{}{}
+								}
+							}
+						}
+					}
+				}
+			}
+
+			// Attestations tab — only when attestations.json had entries.
+			if version.Attestations != nil && len(version.Attestations.Attestations) > 0 {
+				sitemap.URLs = append(sitemap.URLs, URL{
+					Loc:        fmt.Sprintf("%s/attestations", versionBase),
+					ChangeFreq: "monthly",
+					Priority:   0.6,
+					LastMod:    lastMod,
+				})
+			}
+
+			// Overlay tab + per-file drill-down (the Trie-routed file viewer).
+			if version.Source != nil && len(version.Source.Overlay) > 0 {
+				sitemap.URLs = append(sitemap.URLs, URL{
+					Loc:        fmt.Sprintf("%s/overlay", versionBase),
+					ChangeFreq: "monthly",
+					Priority:   0.6,
+					LastMod:    lastMod,
+				})
+				for filename := range version.Source.Overlay {
+					sitemap.URLs = append(sitemap.URLs, URL{
+						Loc:        fmt.Sprintf("%s/overlay/%s", versionBase, safeURLPath(filename)),
+						ChangeFreq: "monthly",
+						Priority:   0.5,
+						LastMod:    lastMod,
+					})
+				}
+			}
+
+			// Patches tab + per-file drill-down.
+			if version.Source != nil && len(version.Source.Patches) > 0 {
+				sitemap.URLs = append(sitemap.URLs, URL{
+					Loc:        fmt.Sprintf("%s/patches", versionBase),
+					ChangeFreq: "monthly",
+					Priority:   0.6,
+					LastMod:    lastMod,
+				})
+				for filename := range version.Source.Patches {
+					sitemap.URLs = append(sitemap.URLs, URL{
+						Loc:        fmt.Sprintf("%s/patches/%s", versionBase, safeURLPath(filename)),
+						ChangeFreq: "monthly",
+						Priority:   0.5,
+						LastMod:    lastMod,
+					})
+				}
+			}
+
+			// Testing tab — only when a presubmit configuration is attached.
+			if version.Presubmit != nil {
+				sitemap.URLs = append(sitemap.URLs, URL{
+					Loc:        fmt.Sprintf("%s/testing", versionBase),
+					ChangeFreq: "monthly",
+					Priority:   0.6,
+					LastMod:    lastMod,
+				})
+			}
+		}
+	}
+
+	// Emit /targets/<urlKey> for every unique rule-kind load coordinate
+	// harvested above. Sorted so the sitemap diff is stable across runs.
+	if len(targetURLKeys) > 0 {
+		keys := make([]string, 0, len(targetURLKeys))
+		for k := range targetURLKeys {
+			keys = append(keys, k)
+		}
+		sort.Strings(keys)
+		for _, k := range keys {
+			sitemap.URLs = append(sitemap.URLs, URL{
+				Loc:        fmt.Sprintf("%s/targets/%s", baseURL, safeURLPath(k)),
+				ChangeFreq: "weekly",
+				Priority:   0.5,
+			})
 		}
 	}
 
