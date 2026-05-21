@@ -12,6 +12,7 @@ and compiler tool defaults are baked in as private attrs; callers usually
 just need to supply `tarball` and (for prerender_pages) `url_list`.
 """
 
+load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 load("@rules_browsers//browsers:named_files_info.bzl", "NamedFilesInfo")
 
 _DEFAULT_CHROMIUM = "@rules_browsers//browsers/chromium:chromium"
@@ -240,10 +241,10 @@ def _prerender_pages_impl(ctx):
             shard_total = n,
             timeout = ctx.attr.timeout_seconds,
             settle_ms = ctx.attr.settle_ms,
-            pool = ctx.attr.pool_size,
-            tab_max_pages = ctx.attr.tab_max_pages,
+            pool = ctx.attr.pool_size[BuildSettingInfo].value,
+            tab_max_pages = ctx.attr.tab_max_pages[BuildSettingInfo].value,
             retries = ctx.attr.retries,
-            warmup_concurrency = ctx.attr.warmup_concurrency,
+            warmup_concurrency = ctx.attr.warmup_concurrency[BuildSettingInfo].value,
         )
         ctx.actions.run_shell(
             outputs = [shard_out],
@@ -317,21 +318,23 @@ prerender_pages = rule(
                   "in well under the cap. The cap is the fallback for routes that fail " +
                   "to settle.",
         ),
-        "pool_size": attr.int(
-            default = 8,
-            doc = "Number of reusable chromedp tabs per shard. One Chrome process hosts all " +
-                  "tabs; each tab is reused for many SPA-pushState renders. Default 8 keeps " +
-                  "memory headroom; at 16 the combined V8 heaps + accumulated SPA state can " +
-                  "OOM mid-batch on smaller machines.",
+        "pool_size": attr.label(
+            default = "//app/bcr:prerender_pool_size",
+            providers = [BuildSettingInfo],
+            doc = "Label of an int_flag for the number of reusable chromedp tabs per " +
+                  "shard. One Chrome process hosts all tabs; each tab is reused for many " +
+                  "SPA-pushState renders. Default flag value is 8 (tuned for 16GB/10-CPU); " +
+                  "CI raises it via --//app/bcr:prerender_pool_size=24 (see .bazelrc " +
+                  "build:ci).",
         ),
-        "tab_max_pages": attr.int(
-            default = 27,
-            doc = "Recycle each tab after this many renders. Keeps JS heap bounded across " +
-                  "long batches — the previous warm-tab attempt was abandoned because the " +
-                  "SPA's per-route state accumulated without bound; this bounds it. Default " +
-                  "25 balances heap ceiling against per-recycle Navigate cost: too aggressive " +
-                  "(10) and the extra Navigates dominate; too lax (50 at pool_size=16) and " +
-                  "the combined heaps OOM the machine.",
+        "tab_max_pages": attr.label(
+            default = "//app/bcr:prerender_tab_max_pages",
+            providers = [BuildSettingInfo],
+            doc = "Label of an int_flag for per-tab render budget before recycling. " +
+                  "Bounds JS heap drift across long batches. Default flag value 27 " +
+                  "balances heap ceiling against per-recycle Navigate cost: too aggressive " +
+                  "(10) and extra Navigates dominate; too lax (50 at pool_size=16) and " +
+                  "combined heaps OOM smaller machines.",
         ),
         "retries": attr.int(
             default = 1,
@@ -341,16 +344,16 @@ prerender_pages = rule(
                   "almost all of them. Increase if you see a particular module " +
                   "consistently failing once but rendering fine on a second try.",
         ),
-        "warmup_concurrency": attr.int(
-            default = 4,
-            doc = "Pre-warm every pool tab against the SPA root before processing real " +
-                  "URLs, with at most this many REGISTRY_DATA parses in flight. " +
-                  "Without warmup, all pool_size tabs Navigate simultaneously on cold " +
-                  "start and the 16-way concurrent ~2.7MB protobuf parse contends hard " +
-                  "enough to push tabs past --timeout_seconds (observed: 30s+ tail, " +
-                  "11 timeouts clustered in the first batch). Serializing the parse to " +
-                  "4-way concurrency lets each tab pay close to the ~1.5s solo cost. " +
-                  "Set to 0 to disable warmup.",
+        "warmup_concurrency": attr.label(
+            default = "//app/bcr:prerender_warmup_concurrency",
+            providers = [BuildSettingInfo],
+            doc = "Label of an int_flag for max in-flight cold-start REGISTRY_DATA parses " +
+                  "during pool warmup. Without warmup, all pool_size tabs Navigate " +
+                  "simultaneously on cold start and the N-way concurrent ~2.7MB protobuf " +
+                  "parse contends hard enough to push tabs past --timeout_seconds " +
+                  "(observed: 30s+ tail, timeouts clustered in the first batch). " +
+                  "Serializing the parse to 4-way concurrency lets each tab pay close to " +
+                  "the ~1.5s solo cost. Set the flag to 0 to disable warmup.",
         ),
     }, **_TOOL_ATTRS),
 )

@@ -280,22 +280,22 @@ func (ext *bcrExtension) prepareBzlRepositories() rankedModuleVersionMap {
 
 // addOverlayBzlRepositories appends rankedVersion entries backed by a local
 // path into the BCR submodule for module-versions whose upstream source repo
-// does NOT advertise Starlark but whose overlay directory contains .bzl
-// files. Uses the on-disk submodule (no network) — the alternative of
-// fetching the BCR archive from GitHub once per module-version exhausts the
-// rate limit.
+// does NOT advertise Starlark but whose overlay directory contains
+// Starlark-evaluable content (.bzl files OR BUILD/BUILD.bazel/MODULE.bazel).
+// Uses the on-disk submodule (no network) — the alternative of fetching the
+// BCR archive from GitHub once per module-version exhausts the rate limit.
 func (ext *bcrExtension) addOverlayBzlRepositories(versions rankedModuleVersionMap) {
-	if len(ext.overlayBzlByID) == 0 {
+	if len(ext.overlayStarlarkByID) == 0 {
 		return
 	}
 	if ext.registryRoot == "" {
-		log.Printf("warning: %d overlay-bzl modules detected but registry root unavailable; skipping overlay docs", len(ext.overlayBzlByID))
+		log.Printf("warning: %d overlay-starlark modules detected but registry root unavailable; skipping overlay docs", len(ext.overlayStarlarkByID))
 		return
 	}
 
 	added := 0
 	replaced := 0
-	for id := range ext.overlayBzlByID {
+	for id := range ext.overlayStarlarkByID {
 		name := id.name()
 		ver := id.version()
 
@@ -338,7 +338,7 @@ func (ext *bcrExtension) addOverlayBzlRepositories(versions rankedModuleVersionM
 		added++
 	}
 	if added > 0 || replaced > 0 {
-		log.Printf("Overlay-bzl starlark_repository entries: %d added, %d replaced (modules with no upstream Starlark)", added, replaced)
+		log.Printf("Overlay-starlark starlark_repository entries: %d added, %d replaced (modules with no upstream Starlark)", added, replaced)
 	}
 }
 
@@ -377,7 +377,7 @@ func (ext *bcrExtension) rankBzlRepositoryVersionsForModule(id moduleID, deps mo
 		// Generate docs if the module's upstream repo advertises Starlark, OR
 		// (as a fallback) if the BCR overlay for this version carries .bzl files.
 		if !hasStarlarkLanguage(moduleMetadataProtoRule.Rule(), ext.repositoriesMetadataByID) &&
-			!ext.overlayBzlByID[id] {
+			!ext.overlayStarlarkByID[id] {
 			continue
 		}
 

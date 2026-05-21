@@ -1,4 +1,4 @@
-load("@bazel_skylib//rules:common_settings.bzl", "string_flag")
+load("@bazel_skylib//rules:common_settings.bzl", "int_flag", "string_flag")
 load("@rules_tsickle//rules:defs.bzl", "closure_ts_compile")
 load(
     "@stackb_rules_closure//closure:defs.bzl",
@@ -50,6 +50,28 @@ string_flag(
         "off",
         "on",
     ],
+    visibility = ["//visibility:public"],
+)
+
+# Prerender tab-pool sizing. Defaults are tuned for the local dev box
+# (16GB RAM / 10 CPU on Apple Silicon, where pool_size>8 OOMs mid-batch).
+# CI runners with more headroom (e.g. 96GB / 32 CPU) should set higher
+# values via `--config=ci` in .bazelrc — see the build:ci block there.
+int_flag(
+    name = "prerender_pool_size",
+    build_setting_default = 8,
+    visibility = ["//visibility:public"],
+)
+
+int_flag(
+    name = "prerender_tab_max_pages",
+    build_setting_default = 27,
+    visibility = ["//visibility:public"],
+)
+
+int_flag(
+    name = "prerender_warmup_concurrency",
+    build_setting_default = 4,
     visibility = ["//visibility:public"],
 )
 

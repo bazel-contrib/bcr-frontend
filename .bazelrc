@@ -15,3 +15,11 @@ build --tool_java_runtime_version=21
 # for malformed docs URL archives that contain no content.  Consider putting
 # this under a transistion.
 common --noincompatible_disallow_empty_glob
+
+# CI prerender tuning. Local defaults assume 16GB RAM / 10 CPU; CI runners
+# typically have ~96GB / 32 CPU and can sustain a much bigger tab pool
+# without OOM or steady-state CPU contention. Pass `--config=ci` on CI
+# build invocations (e.g. in .github/workflows/*) to apply.
+build:ci --//app/bcr:prerender_pool_size=24
+build:ci --//app/bcr:prerender_tab_max_pages=50
+build:ci --//app/bcr:prerender_warmup_concurrency=8
