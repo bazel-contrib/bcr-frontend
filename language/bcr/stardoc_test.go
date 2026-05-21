@@ -44,7 +44,7 @@ func TestMakeOverlayBzlRepository(t *testing.T) {
 	}
 }
 
-func TestScanForOverlayBzlFiles(t *testing.T) {
+func TestScanForOverlayStarlark(t *testing.T) {
 	tests := []struct {
 		name         string
 		modulesRoot  string
@@ -67,7 +67,28 @@ func TestScanForOverlayBzlFiles(t *testing.T) {
 			wantIDs:      []moduleID{newModuleID("libxcrypt", "4.4.36")},
 		},
 		{
-			name:         "no .bzl files in overlay subdir",
+			name:         "BUILD.bazel-only overlay (header-only upstream)",
+			modulesRoot:  "modules",
+			rel:          "modules/safeint/3.0.28/overlay",
+			regularFiles: []string{"BUILD.bazel", "MODULE.bazel"},
+			wantIDs:      []moduleID{newModuleID("safeint", "3.0.28")},
+		},
+		{
+			name:         "MODULE.bazel-only overlay",
+			modulesRoot:  "modules",
+			rel:          "modules/foo/1.0/overlay",
+			regularFiles: []string{"MODULE.bazel"},
+			wantIDs:      []moduleID{newModuleID("foo", "1.0")},
+		},
+		{
+			name:         "BUILD (no extension) in overlay",
+			modulesRoot:  "modules",
+			rel:          "modules/bar/2.0/overlay",
+			regularFiles: []string{"BUILD"},
+			wantIDs:      []moduleID{newModuleID("bar", "2.0")},
+		},
+		{
+			name:         "no starlark files in overlay subdir",
 			modulesRoot:  "modules",
 			rel:          "modules/foo/1.0/overlay/data",
 			regularFiles: []string{"README.md"},
@@ -98,19 +119,19 @@ func TestScanForOverlayBzlFiles(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			ext := &bcrExtension{
-				modulesRoot:    tt.modulesRoot,
-				overlayBzlByID: make(map[moduleID]bool),
+				modulesRoot:         tt.modulesRoot,
+				overlayStarlarkByID: make(map[moduleID]bool),
 			}
-			ext.scanForOverlayBzlFiles(language.GenerateArgs{
+			ext.scanForOverlayStarlark(language.GenerateArgs{
 				Rel:          tt.rel,
 				RegularFiles: tt.regularFiles,
 			})
-			if len(ext.overlayBzlByID) != len(tt.wantIDs) {
-				t.Fatalf("overlayBzlByID size = %d, want %d (got %v)", len(ext.overlayBzlByID), len(tt.wantIDs), ext.overlayBzlByID)
+			if len(ext.overlayStarlarkByID) != len(tt.wantIDs) {
+				t.Fatalf("overlayStarlarkByID size = %d, want %d (got %v)", len(ext.overlayStarlarkByID), len(tt.wantIDs), ext.overlayStarlarkByID)
 			}
 			for _, id := range tt.wantIDs {
-				if !ext.overlayBzlByID[id] {
-					t.Errorf("expected overlayBzlByID[%s] to be true", id)
+				if !ext.overlayStarlarkByID[id] {
+					t.Errorf("expected overlayStarlarkByID[%s] to be true", id)
 				}
 			}
 		})
@@ -151,7 +172,7 @@ func TestAddOverlayBzlRepositories_OverlayOnlyModule(t *testing.T) {
 	metaRule, repoMeta := fakeNonStarlarkMetadataRule()
 
 	ext := &bcrExtension{
-		overlayBzlByID:           map[moduleID]bool{newModuleID("colordiff", "1.0.22"): true},
+		overlayStarlarkByID:           map[moduleID]bool{newModuleID("colordiff", "1.0.22"): true},
 		moduleMetadataRules:      map[moduleName]*protoRule[*bzpb.ModuleMetadata]{"colordiff": metaRule},
 		repositoriesMetadataByID: repoMeta,
 		registryRoot:             "data/bazel-central-registry",
@@ -198,7 +219,7 @@ func TestAddOverlayBzlRepositories_ReplacesSourceURLEntry(t *testing.T) {
 	}
 
 	ext := &bcrExtension{
-		overlayBzlByID:           map[moduleID]bool{newModuleID("colordiff", "1.0.22"): true},
+		overlayStarlarkByID:           map[moduleID]bool{newModuleID("colordiff", "1.0.22"): true},
 		moduleMetadataRules:      map[moduleName]*protoRule[*bzpb.ModuleMetadata]{"colordiff": metaRule},
 		repositoriesMetadataByID: repoMeta,
 		registryRoot:             "data/bazel-central-registry",
@@ -239,7 +260,7 @@ func TestAddOverlayBzlRepositories_SkipsWhenUpstreamHasStarlark(t *testing.T) {
 	}
 
 	ext := &bcrExtension{
-		overlayBzlByID:           map[moduleID]bool{newModuleID("rules_foo", "1.0"): true},
+		overlayStarlarkByID:           map[moduleID]bool{newModuleID("rules_foo", "1.0"): true},
 		moduleMetadataRules:      map[moduleName]*protoRule[*bzpb.ModuleMetadata]{"rules_foo": metaRule},
 		repositoriesMetadataByID: repoMeta,
 		registryRoot:             "data/bazel-central-registry",
@@ -261,7 +282,7 @@ func TestAddOverlayBzlRepositories_NoRegistryRootSkips(t *testing.T) {
 	// rules with empty path attrs.
 	metaRule, repoMeta := fakeNonStarlarkMetadataRule()
 	ext := &bcrExtension{
-		overlayBzlByID:           map[moduleID]bool{newModuleID("colordiff", "1.0.22"): true},
+		overlayStarlarkByID:           map[moduleID]bool{newModuleID("colordiff", "1.0.22"): true},
 		moduleMetadataRules:      map[moduleName]*protoRule[*bzpb.ModuleMetadata]{"colordiff": metaRule},
 		repositoriesMetadataByID: repoMeta,
 		// registryRoot intentionally empty

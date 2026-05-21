@@ -127,6 +127,7 @@ jobs:
           --bazelrc=.github/workflows/ci.bazelrc
           --bazelrc=.bazelrc
           run
+          --config=ci
           --//app/bcr:release_type=production
           --//app/bcr:prerender_modules=on
           //app/bcr:ghpages
