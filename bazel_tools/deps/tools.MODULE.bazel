@@ -13,12 +13,12 @@ use_repo(multitool, "multitool")
 http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
 # Branch: master
-# Commit: 427cd04c0c95613318b7eadf5da46e056b062d79
-# Date: 2025-11-10 19:24:07 +0000 UTC
-# URL: https://github.com/ozh/github-colors/commit/427cd04c0c95613318b7eadf5da46e056b062d79
+# Commit: b7b9413c19c392605d663775636ad20aa69adc14
+# Date: 2026-05-18 20:42:20 +0000 UTC
+# URL: https://github.com/ozh/github-colors/commit/b7b9413c19c392605d663775636ad20aa69adc14
 #
 # update colours
-# Size: 25068 (25 kB)
+# Size: 25670 (26 kB)
 http_archive(
     name = "com_github_ozh_github_colors",
     build_file_content = """
@@ -28,9 +28,9 @@ filegroup(
     visibility = ["//visibility:public"],    
 )
 """,
-    sha256 = "719fb2723dac3ed23ccd2f4e97c29dc1878778f727bc33973a41908d82bbccbb",
-    strip_prefix = "github-colors-427cd04c0c95613318b7eadf5da46e056b062d79",
-    urls = ["https://github.com/ozh/github-colors/archive/427cd04c0c95613318b7eadf5da46e056b062d79.tar.gz"],
+    sha256 = "a1b0d7acdac46de22ca92c4df513721c3671b5cb6d278b3e392e661dd1c9454d",
+    strip_prefix = "github-colors-b7b9413c19c392605d663775636ad20aa69adc14",
+    urls = ["https://github.com/ozh/github-colors/archive/b7b9413c19c392605d663775636ad20aa69adc14.tar.gz"],
 )
 
 # -------------------------------------------------------------------
