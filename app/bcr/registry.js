@@ -17,6 +17,23 @@ const Presubmit = goog.require("proto.build.stack.bazel.registry.v1.Presubmit");
 const Registry = goog.require("proto.build.stack.bazel.registry.v1.Registry");
 const strings = goog.require("goog.string");
 
+/**
+ * Sanitize a language name for use as a CSS identifier. Inlined from
+ * language.js (which lives in the :app library and can't be imported here
+ * without creating a registry→app dependency cycle). Must stay in sync with
+ * sanitizeLanguageName in language.js.
+ *
+ * @param {string} name
+ * @returns {string}
+ */
+function sanitizeLanguageName(name) {
+	let sanitized = name
+		.replace(/ /g, "-")
+		.replace(/\+/g, "plus")
+		.replace(/#/g, "sharp");
+	return sanitized.replace(/[^a-zA-Z0-9\-_]/g, "");
+}
+
 // Cache the reverse dependency index globally (tied to registry commit)
 let cachedReverseDepsIndex = null;
 let cachedReverseDepsCommit = null;
@@ -278,6 +295,67 @@ function computeTotalBazelVersions(registry) {
 	return 0;
 }
 exports.computeTotalBazelVersions = computeTotalBazelVersions;
+
+/** @type {?{commit: string, langs: !Array<{name: string, sanitizedName: string, count: number, percentage: number}>}} */
+let cachedTopPrimaryLanguages = null;
+
+/**
+ * Computes a registry-wide "Primary Language" distribution: for each module's
+ * latest version, take getRepositoryMetadata().getPrimaryLanguage() and tally
+ * counts. Returns the top `limit` entries sorted descending by share, with
+ * percentages relative to the count of modules that had a primary language
+ * (modules with empty/unknown language are excluded from both numerator and
+ * denominator). Cached per registry commit since the registry-wide sweep is
+ * O(modules) and the data doesn't change post-fetch.
+ *
+ * @param {!Registry} registry
+ * @param {number} limit
+ * @returns {!Array<{name: string, sanitizedName: string, count: number, percentage: number}>}
+ */
+function computeTopPrimaryLanguages(registry, limit) {
+	const commit = registry.getCommitSha();
+	if (
+		cachedTopPrimaryLanguages &&
+		cachedTopPrimaryLanguages.commit === commit
+	) {
+		return cachedTopPrimaryLanguages.langs.slice(0, limit);
+	}
+
+	/** @type {!Map<string, number>} */
+	const counts = new Map();
+	let tallied = 0;
+	for (const m of registry.getModulesList()) {
+		const latest = getLatestModuleVersion(m);
+		const lang = latest?.getRepositoryMetadata()?.getPrimaryLanguage();
+		if (!lang) continue;
+		counts.set(lang, (counts.get(lang) || 0) + 1);
+		tallied++;
+	}
+
+	/** @type {!Array<{name: string, sanitizedName: string, count: number, percentage: number}>} */
+	const all = [];
+	if (tallied > 0) {
+		counts.forEach(
+			/**
+			 * @param {number} n
+			 * @param {string} name
+			 */
+			(n, name) => {
+				all.push({
+					name,
+					sanitizedName: sanitizeLanguageName(name),
+					count: n,
+					percentage: Math.round((n * 1000) / tallied) / 10,
+				});
+			},
+		);
+		all.sort((a, b) => b.count - a.count);
+	}
+
+	cachedTopPrimaryLanguages = { commit, langs: all };
+	return all.slice(0, limit);
+}
+exports.computeTopPrimaryLanguages = computeTopPrimaryLanguages;
 
 /**
  * Updates the count span inside a rendered bcrSidePane with the latest

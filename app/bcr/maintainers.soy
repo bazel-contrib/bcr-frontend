@@ -31,6 +31,7 @@ import {
   {@param totalMaintainers: int}
   {@param totalSymbols: int}
   {@param totalBazelVersions: int}
+  {@param topPrimaryLanguages: list<[name: string, sanitizedName: string, count: int, percentage: number]>}
   {@param uiCommitSha: string}
 <div class="PageLayout PageLayout--panePos-start PageLayout--hasPaneDivider PageLayout--responsive-stackRegions PageLayout--responsive-panePos-start mt-3">
   <div class="PageLayout-columns">
@@ -42,6 +43,7 @@ import {
         {param totalModuleVersions: $totalModuleVersions /}
         {param totalMaintainers: $totalMaintainers /}
         {param totalSymbols: $totalSymbols /}
+        {param topPrimaryLanguages: $topPrimaryLanguages /}
         {param totalBazelVersions: $totalBazelVersions /}
         {param uiCommitSha: $uiCommitSha /}
       {/call}

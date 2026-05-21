@@ -12,6 +12,7 @@ const { ContentSelect } = goog.require("bcrfrontend.ContentSelect");
 const { SelectNav } = goog.require("bcrfrontend.SelectNav");
 const { formatRelativeShort } = goog.require("bcrfrontend.format");
 const {
+	computeTopPrimaryLanguages,
 	computeTotalBazelVersions,
 	computeTotalSymbols,
 	createMaintainersMap,
@@ -201,6 +202,7 @@ class BazelOverviewSelectNav extends SelectNav {
 				totalModuleVersions: totalModuleVersions,
 				totalMaintainers: maintainers.size,
 				totalSymbols: computeTotalSymbols(this.registry_),
+				topPrimaryLanguages: computeTopPrimaryLanguages(this.registry_, 10),
 				totalBazelVersions: computeTotalBazelVersions(this.registry_),
 				uiCommitSha: uiCommitSha,
 			}),
@@ -301,6 +303,7 @@ class BazelVersionDetailComponent extends Component {
 				totalModuleVersions: totalModuleVersions,
 				totalMaintainers: maintainers.size,
 				totalSymbols: computeTotalSymbols(this.registry_),
+				topPrimaryLanguages: computeTopPrimaryLanguages(this.registry_, 10),
 				totalBazelVersions: computeTotalBazelVersions(this.registry_),
 				uiCommitSha: uiCommitSha,
 			}),

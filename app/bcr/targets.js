@@ -9,6 +9,7 @@ const { ContentSelect } = goog.require("bcrfrontend.ContentSelect");
 const { getApplication } = goog.require("bcrfrontend.common");
 const { parseLoadUrlKey } = goog.require("bcrfrontend.starlark");
 const {
+	computeTopPrimaryLanguages,
 	computeTotalBazelVersions,
 	computeTotalSymbols,
 	createMaintainersMap,
@@ -90,6 +91,7 @@ class TargetsSelect extends ContentSelect {
 				totalModuleVersions,
 				totalMaintainers: createMaintainersMap(this.registry_).size,
 				totalSymbols: computeTotalSymbols(this.registry_),
+				topPrimaryLanguages: computeTopPrimaryLanguages(this.registry_, 10),
 				totalBazelVersions: computeTotalBazelVersions(this.registry_),
 				uiCommitSha: uiCommitSha,
 			}),
