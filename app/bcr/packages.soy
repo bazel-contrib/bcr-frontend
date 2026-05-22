@@ -20,6 +20,7 @@ import {
   sectionHeader
 } from 'app/bcr/registry.soy';
 import {
+  moduleUrl,
   moduleVersionPackagesUrl
 } from 'app/bcr/uri.soy';
 
@@ -349,10 +350,12 @@ ROOT
 {/template}
 
 {template targetInfoComponent}
-  {@param? moduleVersion: ModuleVersion}
+  {@param moduleVersion: ModuleVersion}
   {@param? pkg: Package}
   {@param target: Target}
   {@param displayName: string}
+  {@param repo: string}
+  {@param pkgPath: string}
   {@param exampleCode: string}
   {@param attributes: list<[name: string, valueText: string]>}
   {@param styleBg: string}
@@ -360,7 +363,7 @@ ROOT
   {@param sourceUrl: string}
   {@param sourceLine: int}
 <div>
-  <div class="d-flex flex-items-center flex-wrap mb-3" style="gap: 8px;">
+  <div class="d-flex flex-items-center flex-wrap" style="gap: 8px;">
     {ruleKindChip(rule: $target.getRule(), bg: $styleBg, fg: $styleFg)}
     <h2 class="text-bold" style="margin: 0;">{$displayName}</h2>
     {if $sourceUrl}
@@ -376,7 +379,12 @@ ROOT
       </a>
     {/if}
   </div>
-  <div class="Box Box--condensed">
+  {bazelTargetLabel(
+      moduleVersion: $moduleVersion,
+      repo: $repo,
+      pkgPath: $pkgPath,
+      name: $displayName)}
+  <div class="Box Box--condensed mt-3">
     <div class="Box-header">
       <div class="d-flex flex-justify-between flex-items-center">
         <div class="Box-title">BUILD call</div>
@@ -400,4 +408,27 @@ ROOT
     </div>
   {/if}
 </div>
+{/template}
+
+/**
+ * Three-segment hyperlinked Bazel label: `@<repo>//<pkg>:<name>`.
+ *   @<repo>  → moduleUrl                (module home, defaults to latest version)
+ *   //<pkg>  → moduleVersionPackagesUrl + /<pkg-path>
+ *   :<name>  → same URL + /<name>       (self on the target detail page)
+ *
+ * pkgPath uses the existing ROOT sentinel from stripRepoPrefix (so the root
+ * package renders as just "//"); the trie router accepts ROOT unchanged.
+ */
+{template bazelTargetLabel kind="html<div>"}
+  {@param moduleVersion: ModuleVersion}
+  {@param repo: string}
+  {@param pkgPath: string}
+  {@param name: string}
+  {let $pkgsBaseUrl: moduleVersionPackagesUrl(name: $moduleVersion.getName(), version: $moduleVersion.getVersion()) /}
+  {let $pkgUrl: $pkgsBaseUrl + '/' + $pkgPath /}
+  {let $selfUrl: $pkgUrl + '/' + $name /}
+  {let $displayPkg: $pkgPath == 'ROOT' ? '' : $pkgPath /}
+  <div class="color-fg-muted text-small text-mono">
+    <a class="Link--secondary" href="{moduleUrl(name: $moduleVersion.getName())}">@{$repo}</a>//<a class="Link--secondary" href="{$pkgUrl}">{$displayPkg}</a>:<a class="Link--secondary" href="{$selfUrl}">{$name}</a>
+  </div>
 {/template}
