@@ -716,12 +716,20 @@ class TargetInfoComponent extends Component {
 
 		const displayName = this.target_.getName() || this.target_.getRule();
 
+		const pkgFullName = this.pkg_.getName();
+		const sepIdx = pkgFullName.indexOf("//");
+		const repo =
+			sepIdx === -1 ? "" : pkgFullName.substring(0, sepIdx).replace(/^@+/, "");
+		const pkgPath = stripRepoPrefix(pkgFullName);
+
 		this.setElementInternal(
 			soy.renderAsElement(targetInfoComponent, {
 				moduleVersion: this.moduleVersion_,
 				pkg: this.pkg_,
 				target: this.target_,
 				displayName,
+				repo,
+				pkgPath,
 				exampleCode,
 				attributes,
 				styleBg: style.bg,
