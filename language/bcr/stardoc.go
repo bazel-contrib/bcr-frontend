@@ -189,12 +189,21 @@ func (ext *bcrExtension) handleSourceUrlStatus(url string, moduleIDs []moduleID,
 	source := moduleSourceProtoRule.Proto()
 	lbl := makeBzlRepositoryModulesLabel(module.Name, module.Version)
 	pkgLbl := makeBzlRepositoryPackagesLabel(module.Name, module.Version)
-	rule := makeBzlRepository(lbl, module, source)
+	// If BCR declares overlay files for this module-version, the upstream
+	// tarball is insufficient (overlay typically supplies BUILD/MODULE/.bzl
+	// files missing from upstream). Point at the on-disk overlay directly via
+	// .local — we avoid downloading the upstream archive at all in that case.
+	var bzlRule *rule.Rule
+	if len(source.Overlay) > 0 && ext.registryRoot != "" {
+		bzlRule = makeOverlayBzlRepository(lbl, module.Name, module.Version, ext.registryRoot)
+	} else {
+		bzlRule = makeBzlRepository(lbl, module, source)
+	}
 	name := moduleName(module.Name)
 	version := moduleVersion(module.Version)
 	versions[name] = append(versions[name], &rankedVersion{
 		version:                    version,
-		bzlRepositoryRule:          rule,
+		bzlRepositoryRule:          bzlRule,
 		bzlRepositoryLabel:         lbl,
 		bzlRepositoryPackagesLabel: pkgLbl,
 	})
@@ -273,73 +282,7 @@ func (ext *bcrExtension) prepareBzlRepositories() rankedModuleVersionMap {
 			})
 	}
 
-	ext.addOverlayBzlRepositories(versions)
-
 	return versions
-}
-
-// addOverlayBzlRepositories appends rankedVersion entries backed by a local
-// path into the BCR submodule for module-versions whose upstream source repo
-// does NOT advertise Starlark but whose overlay directory contains
-// Starlark-evaluable content (.bzl files OR BUILD/BUILD.bazel/MODULE.bazel).
-// Uses the on-disk submodule (no network) — the alternative of fetching the
-// BCR archive from GitHub once per module-version exhausts the rate limit.
-func (ext *bcrExtension) addOverlayBzlRepositories(versions rankedModuleVersionMap) {
-	if len(ext.overlayStarlarkByID) == 0 {
-		return
-	}
-	if ext.registryRoot == "" {
-		log.Printf("warning: %d overlay-starlark modules detected but registry root unavailable; skipping overlay docs", len(ext.overlayStarlarkByID))
-		return
-	}
-
-	added := 0
-	replaced := 0
-	for id := range ext.overlayStarlarkByID {
-		name := id.name()
-		ver := id.version()
-
-		// Skip if upstream repo already advertises Starlark — overlay is
-		// fallback only.
-		if metaRule, ok := ext.moduleMetadataRules[name]; ok &&
-			hasStarlarkLanguage(metaRule.Rule(), ext.repositoriesMetadataByID) {
-			continue
-		}
-
-		lbl := makeBzlRepositoryModulesLabel(string(name), string(ver))
-		pkgLbl := makeBzlRepositoryPackagesLabel(string(name), string(ver))
-		r := makeOverlayBzlRepository(lbl, string(name), string(ver), ext.registryRoot)
-
-		// If a source-URL-backed entry for this version exists, replace its
-		// underlying rule: the upstream tarball has no .bzl content so its
-		// rule can't produce docs. The overlay archive is the only viable
-		// source for stardoc.
-		replacedThis := false
-		for _, v := range versions[name] {
-			if v.version == ver {
-				v.bzlRepositoryRule = r
-				v.bzlRepositoryLabel = lbl
-				v.bzlRepositoryPackagesLabel = pkgLbl
-				replaced++
-				replacedThis = true
-				break
-			}
-		}
-		if replacedThis {
-			continue
-		}
-
-		versions[name] = append(versions[name], &rankedVersion{
-			version:                    ver,
-			bzlRepositoryRule:          r,
-			bzlRepositoryLabel:         lbl,
-			bzlRepositoryPackagesLabel: pkgLbl,
-		})
-		added++
-	}
-	if added > 0 || replaced > 0 {
-		log.Printf("Overlay-starlark starlark_repository entries: %d added, %d replaced (modules with no upstream Starlark)", added, replaced)
-	}
 }
 
 func (ext *bcrExtension) rankBzlRepositoryVersions(perModuleVersionMvs mvs, bzlRepositories rankedModuleVersionMap) {
@@ -375,9 +318,12 @@ func (ext *bcrExtension) rankBzlRepositoryVersionsForModule(id moduleID, deps mo
 			return
 		}
 		// Generate docs if the module's upstream repo advertises Starlark, OR
-		// (as a fallback) if the BCR overlay for this version carries .bzl files.
-		if !hasStarlarkLanguage(moduleMetadataProtoRule.Rule(), ext.repositoriesMetadataByID) &&
-			!ext.overlayStarlarkByID[id] {
+		// (as a fallback) if BCR declares overlay files for this version
+		// (which typically supply BUILD/MODULE/.bzl content missing upstream).
+		sourceProtoRule, hasSource := ext.moduleSourceRules[id]
+		hasOverlay := hasSource && len(sourceProtoRule.Proto().Overlay) > 0
+		if !isStarlarkCandidate(moduleMetadataProtoRule.Rule(), ext.repositoriesMetadataByID) &&
+			!hasOverlay {
 			continue
 		}
 
@@ -978,27 +924,39 @@ func selectVersion(rule *protoRule[*bzpb.ModuleVersion], version moduleVersion, 
 	return choose(fallback)
 }
 
-func hasStarlarkLanguage(moduleMetadataRule *rule.Rule, repositoryMetadataByID map[repositoryID]*bzpb.RepositoryMetadata) bool {
-	// Get the repository field
+// isStarlarkCandidate returns true when the module's upstream repository is
+// a plausible Starlark candidate. Concretely, that means at least one of:
+//
+//   - some listed repository has "Starlark" in its Languages map, OR
+//   - none of the listed repositories has a populated Languages map (so we
+//     have no evidence one way or the other — typically because the repo
+//     isn't on GitHub and we never fetched language stats).
+//
+// Only repos with a populated Languages map that does NOT contain "Starlark"
+// constitute a negative signal. This keeps non-GitHub-hosted modules
+// (e.g. GitLab tarballs like rules_tar 1.0.1) in the candidate set instead
+// of silently dropping them.
+func isStarlarkCandidate(moduleMetadataRule *rule.Rule, repositoryMetadataByID map[repositoryID]*bzpb.RepositoryMetadata) bool {
 	repositories := moduleMetadataRule.AttrStrings("repository")
 	if len(repositories) == 0 {
 		return false
 	}
 
-	// Check if the repositoriy has Starlark in its languages
+	sawPopulatedLanguages := false
 	for _, repo := range repositories {
 		canonicalName := normalizeRepositoryID(repo)
 		repoMetadata, exists := repositoryMetadataByID[canonicalName]
 		if !exists {
 			continue
 		}
-		if repoMetadata.Languages == nil {
+		if len(repoMetadata.Languages) == 0 {
 			continue
 		}
+		sawPopulatedLanguages = true
 		if _, hasLang := repoMetadata.Languages["Starlark"]; hasLang {
 			return true
 		}
 	}
 
-	return false
+	return !sawPopulatedLanguages
 }

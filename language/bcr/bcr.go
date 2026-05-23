@@ -52,7 +52,6 @@ func NewLanguage() language.Language {
 		moduleSourceRules:        make(map[moduleID]*protoRule[*bzpb.ModuleSource]),
 		bazelReleasesByVersion:   make(map[string]*bzpb.BazelRelease),
 		prAuthorsByPR:            make(map[int]*bzpb.PRAuthor),
-		overlayStarlarkByID:           make(map[moduleID]bool),
 	}
 }
 
@@ -95,7 +94,6 @@ type bcrExtension struct {
 	docsModuleFilter          string                                          // comma-separated module name prefixes to limit doc generation
 	docsSiteRepo              string                                          // URL of site repo to check for existing docs
 	existingDocs              map[moduleID]bool                               // module versions with docs already on site repo
-	overlayStarlarkByID       map[moduleID]bool                               // module versions whose BCR overlay contains Starlark-evaluable files (.bzl, BUILD, BUILD.bazel, MODULE.bazel)
 	bcrCommitSHA              string                                          // committed SHA of the bazel-central-registry submodule
 	bcrRepositoryURL          string                                          // remote URL of the bazel-central-registry submodule
 	fetchAttestations         bool                                            // whether to emit http_file rules for .intoto.jsonl bundles
@@ -320,8 +318,6 @@ func (ext *bcrExtension) GenerateRules(args language.GenerateArgs) language.Gene
 
 	// log.Println("visiting:", args.Rel, args.RegularFiles)
 
-	ext.scanForOverlayStarlark(args)
-
 	var rules []*rule.Rule
 
 	// Generate repository metadata in the registry root package
@@ -524,51 +520,4 @@ func (ext *bcrExtension) GenerateRules(args language.GenerateArgs) language.Gene
 
 func inOverlayDir(rel string) bool {
 	return strings.Contains(rel, "/overlay")
-}
-
-// scanForOverlayStarlark records, for each module-version whose BCR overlay
-// directory (or any of its descendants) contains Starlark-evaluable content
-// — .bzl files, BUILD/BUILD.bazel, or MODULE.bazel — that the module version
-// has overlay starlark. Used later as a fallback signal to generate
-// documentation AND scan packages when the upstream source repo doesn't
-// advertise Starlark.
-//
-// BUILD/MODULE matching matters for header-only / single-BUILD upstreams
-// (e.g. safeint) where BCR overlays only a BUILD.bazel + MODULE.bazel
-// onto the upstream tarball — no .bzl files exist, but the constellate
-// package compiler still needs to see the overlay BUILD for /packages to
-// have any content.
-func (ext *bcrExtension) scanForOverlayStarlark(args language.GenerateArgs) {
-	if ext.modulesRoot == "" || !strings.HasPrefix(args.Rel, ext.modulesRoot+"/") {
-		return
-	}
-	rest, ok := strings.CutPrefix(args.Rel, ext.modulesRoot+"/")
-	if !ok {
-		return
-	}
-	parts := strings.Split(rest, "/")
-	// Expect <name>/<version>/overlay[/...]
-	if len(parts) < 3 || parts[2] != "overlay" {
-		return
-	}
-	for _, f := range args.RegularFiles {
-		if isOverlayStarlarkFile(f) {
-			ext.overlayStarlarkByID[newModuleID(parts[0], parts[1])] = true
-			return
-		}
-	}
-}
-
-// isOverlayStarlarkFile returns true for files the constellate evaluator can
-// consume as Starlark input from a BCR overlay directory: any .bzl, plus the
-// well-known BUILD-class file basenames.
-func isOverlayStarlarkFile(name string) bool {
-	if strings.HasSuffix(name, ".bzl") {
-		return true
-	}
-	switch filepath.Base(name) {
-	case "BUILD", "BUILD.bazel", "MODULE.bazel":
-		return true
-	}
-	return false
 }
