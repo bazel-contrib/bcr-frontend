@@ -719,6 +719,9 @@ def _module_registry_impl(ctx):
         if p.output != None:
             per_mv_output_groups[p.mv.id.replace("@", "-") + ".packageinfo"] = depset([p.output])
 
+    # for k in per_mv_output_groups.keys():
+    #     print("output_group: %s" % k)
+
     return [
         DefaultInfo(files = depset([registry_pb])),
         OutputGroupInfo(

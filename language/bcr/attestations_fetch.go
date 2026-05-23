@@ -28,10 +28,10 @@ const (
 // the same URL (rare in practice — URLs encode filename and version), so we
 // dedupe by URL here.
 type attestationFetch struct {
-	url       string                // canonical URL (the map key)
-	integrity string                // SRI-style integrity from attestations.json (e.g. "sha256-<base64>")
-	filename  string                // attestation entry filename (e.g. "source.json"); used as the http_file's downloaded_file_path stem
-	refs      []attestationRuleRef  // module_attestations rules referencing this URL — used to back-propagate dead-URL status
+	url       string               // canonical URL (the map key)
+	integrity string               // SRI-style integrity from attestations.json (e.g. "sha256-<base64>")
+	filename  string               // attestation entry filename (e.g. "source.json"); used as the http_file's downloaded_file_path stem
+	refs      []attestationRuleRef // module_attestations rules referencing this URL — used to back-propagate dead-URL status
 }
 
 // attestationRuleRef binds one module_attestations rule to one attestation

@@ -380,7 +380,7 @@ import {
   {let $rekorUrl: $payload.getRekorLogUrl() /}
   {let $subjectSha: $payload.getSubjectSha256() /}
 
-  <div class="Box-row py-2" id="attestation-{$filename}"
+  <div class="Box-row p-3" id="attestation-{$filename}"
        style="display: grid; grid-template-columns: 20px max-content 1fr; column-gap: 12px; row-gap: 8px; align-items: start;">
     {call attestationDetailRow_}
       {param icon kind="html"}{octiconVerified16(fill: 'var(--color-accent-fg)')}{/param}
