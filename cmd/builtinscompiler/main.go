@@ -92,9 +92,9 @@ func reshape(b *builtinpb.Builtins) *sympb.ModuleVersionSymbols {
 		Source: sympb.SymbolSource_BEST_EFFORT,
 	}
 
-	// Index Types by name so the globals reshape can detect "namespace
-	// globals" (e.g. java_common) — Values whose type matches their name
-	// and which have a corresponding Type carrying the actual fields.
+	// Index Types by name so the globals reshape can detect "module globals"
+	// (e.g. java_common) — Values whose type matches their name and which
+	// have a corresponding Type carrying the actual fields.
 	typeByName := make(map[string]*builtinpb.Type, len(b.Type))
 	for _, t := range b.Type {
 		if t != nil {
@@ -102,13 +102,29 @@ func reshape(b *builtinpb.Builtins) *sympb.ModuleVersionSymbols {
 		}
 	}
 
+	// Classify Types: module globals appear in both b.Type AND b.Global with
+	// type == name (you write `java_common.create_provider(...)` — the prefix
+	// is an identifier). Native types appear in b.Type only — you obtain
+	// `File`, `Label`, `list` instances from APIs, you don't write them as
+	// identifiers. The display_name on native-type fields gets angle-bracket
+	// decoration to surface the distinction in the UI.
+	moduleGlobalNames := make(map[string]bool)
+	for _, v := range b.Global {
+		if v != nil && v.Callable == nil && v.Type == v.Name && typeByName[v.Name] != nil {
+			moduleGlobalNames[v.Name] = true
+		}
+	}
+	isNativeType := func(name string) bool {
+		return typeByName[name] != nil && !moduleGlobalNames[name]
+	}
+
 	// Partition globals: a global whose name is "<prefix>.<rest>" where
-	// <prefix> matches a Type gets folded into that Type's namespace —
+	// <prefix> matches a Type gets folded into that Type's module —
 	// emitted as a Symbol in the Type's file AND as a StructField of the
 	// Type's struct Symbol in the globals file. Catches cases like
 	// java_common.BootClassPathInfo that the upstream proto records as a
 	// top-level global with a dotted name but conceptually lives inside
-	// the java_common namespace.
+	// the java_common module.
 	extraFieldsByType := make(map[string][]*builtinpb.Value)
 	topLevelGlobals := make([]*builtinpb.Value, 0, len(b.Global))
 	for _, v := range b.Global {
@@ -127,7 +143,7 @@ func reshape(b *builtinpb.Builtins) *sympb.ModuleVersionSymbols {
 		mvs.File = append(mvs.File, globals)
 	}
 	for _, t := range b.Type {
-		if f := buildTypeFile(t, extraFieldsByType[t.Name]); f != nil {
+		if f := buildTypeFile(t, extraFieldsByType[t.Name], isNativeType(t.Name)); f != nil {
 			mvs.File = append(mvs.File, f)
 		}
 	}
@@ -154,14 +170,16 @@ func buildGlobalsFile(globals []*builtinpb.Value, typeByName map[string]*builtin
 		Description: "Symbols available in every BUILD and .bzl file's global scope.",
 	}
 	for _, v := range globals {
-		if sym := valueToSymbol(v, v.Name, typeByName, extraFieldsByType); sym != nil {
+		// Top-level globals never get a display_name override — the
+		// undecorated name is already idiomatic (cc_library, glob, …).
+		if sym := valueToSymbol(v, v.Name, "", typeByName, extraFieldsByType); sym != nil {
 			f.Symbol = append(f.Symbol, sym)
 		}
 	}
 	return f
 }
 
-func buildTypeFile(t *builtinpb.Type, extras []*builtinpb.Value) *sympb.File {
+func buildTypeFile(t *builtinpb.Type, extras []*builtinpb.Value, isNative bool) *sympb.File {
 	if t == nil {
 		return nil
 	}
@@ -173,16 +191,26 @@ func buildTypeFile(t *builtinpb.Type, extras []*builtinpb.Value) *sympb.File {
 		// Qualify field names as "<type>.<name>" so they don't collide with
 		// global symbols of the same name (e.g. list.append vs. tuple.append).
 		qualified := t.Name + "." + v.Name
+		// Native-type fields get an angle-bracket-decorated display_name so
+		// the UI can visually flag that the prefix is a type, not a writable
+		// identifier. Module-global fields leave display_name empty — the
+		// undecorated `name` is already idiomatic.
+		displayName := ""
+		if isNative {
+			displayName = "<" + t.Name + ">." + v.Name
+		}
 		// Don't pass typeByName here — fields of a type don't get the
-		// namespace-struct treatment; only top-level globals do.
-		if sym := valueToSymbol(v, qualified, nil, nil); sym != nil {
+		// module-struct treatment; only top-level globals do.
+		if sym := valueToSymbol(v, qualified, displayName, nil, nil); sym != nil {
 			f.Symbol = append(f.Symbol, sym)
 		}
 	}
 	// Globals whose dotted name slotted under this Type — emit a Symbol per
 	// entry so navigation from the struct field's qualified_name resolves.
+	// These are module-flavored (java_common.BootClassPathInfo), so no
+	// display_name decoration.
 	for _, v := range extras {
-		if sym := valueToSymbol(v, v.Name, nil, nil); sym != nil {
+		if sym := valueToSymbol(v, v.Name, "", nil, nil); sym != nil {
 			f.Symbol = append(f.Symbol, sym)
 		}
 	}
@@ -222,12 +250,13 @@ var buildOnlyNonRules = map[string]bool{
 // Builtins.type list. Their StructField entries cross-reference the
 // per-field symbols already emitted into that Type's synthetic file.
 //
-// `name` is the display name for the symbol (may be qualified, e.g.
-// "list.append" when the value is a field of a type). `typeByName` is the
-// Type lookup map; pass nil to suppress the namespace-struct branch.
-// `extraFieldsByType` carries dotted-name globals folded into each Type's
-// namespace; pass nil to suppress.
-func valueToSymbol(v *builtinpb.Value, name string, typeByName map[string]*builtinpb.Type, extraFieldsByType map[string][]*builtinpb.Value) *sympb.Symbol {
+// `name` is the canonical/qualified name (used in URLs and links).
+// `displayName` is an optional decorated label used for visible UI surfaces
+// (sidebar rows, headings). Empty string means "no decoration" — the UI
+// falls back to `name`. `typeByName` is the Type lookup map; pass nil to
+// suppress the module-struct branch. `extraFieldsByType` carries dotted-name
+// globals folded into each Type's module; pass nil to suppress.
+func valueToSymbol(v *builtinpb.Value, name, displayName string, typeByName map[string]*builtinpb.Type, extraFieldsByType map[string][]*builtinpb.Value) *sympb.Symbol {
 	if v == nil {
 		return nil
 	}
@@ -237,6 +266,7 @@ func valueToSymbol(v *builtinpb.Value, name string, typeByName map[string]*built
 			return &sympb.Symbol{
 				Type:        sympb.SymbolType_SYMBOL_TYPE_STRUCT,
 				Name:        name,
+				DisplayName: displayName,
 				Description: description,
 				Info: &sympb.Symbol_Struct{
 					Struct: &slpb.Struct{
@@ -253,6 +283,7 @@ func valueToSymbol(v *builtinpb.Value, name string, typeByName map[string]*built
 			return &sympb.Symbol{
 				Type:        sympb.SymbolType_SYMBOL_TYPE_RULE,
 				Name:        name,
+				DisplayName: displayName,
 				Description: description,
 				Info: &sympb.Symbol_Rule{
 					Rule: &slpb.Rule{
@@ -269,6 +300,7 @@ func valueToSymbol(v *builtinpb.Value, name string, typeByName map[string]*built
 		return &sympb.Symbol{
 			Type:        sympb.SymbolType_SYMBOL_TYPE_FUNCTION,
 			Name:        name,
+			DisplayName: displayName,
 			Description: description,
 			Info: &sympb.Symbol_Func{
 				Func: &slpb.Function{
@@ -285,6 +317,7 @@ func valueToSymbol(v *builtinpb.Value, name string, typeByName map[string]*built
 	return &sympb.Symbol{
 		Type:        sympb.SymbolType_SYMBOL_TYPE_VALUE,
 		Name:        name,
+		DisplayName: displayName,
 		Description: description,
 		Info: &sympb.Symbol_Value{
 			Value: valueForNonCallable(v.Type),
@@ -340,18 +373,15 @@ func valueForNonCallable(typeName string) *slpb.Value {
 
 // returnInfo packages a Callable.return_type into a FunctionReturnInfo.
 // FunctionReturnInfo has no dedicated type field, so we format the type
-// name as "Return Type: `<type>`" inside doc_string — visible in the
-// rendered docs without requiring a proto change. The "Return Type" phrasing
-// (vs. "Returns") avoids collision with docstrings that already start with
-// "Returns ..."; the backticks around the type trigger markdown inline-code
-// rendering downstream. Returns nil if the type name is empty so the
+// name as `<type>`" inside doc_string — visible in the
+// rendered docs without requiring a proto change. Returns nil if the type name is empty so the
 // frontend can omit the section entirely.
 func returnInfo(returnType string) *sdpb.FunctionReturnInfo {
 	if returnType == "" {
 		return nil
 	}
 	return &sdpb.FunctionReturnInfo{
-		DocString: "Return Type: `" + returnType + "`",
+		DocString: "`" + returnType + "`",
 	}
 }
 
@@ -416,9 +446,9 @@ func paramRole(p *builtinpb.Param) sdpb.FunctionParamRole {
 func decorateDoc(ctx builtinpb.ApiContext, doc string) string {
 	switch ctx {
 	case builtinpb.ApiContext_BZL:
-		return prefixTag("[.bzl only]", doc)
+		return prefixTag("[`.bzl` only]", doc)
 	case builtinpb.ApiContext_BUILD:
-		return prefixTag("[BUILD only]", doc)
+		return prefixTag("[`BUILD` only]", doc)
 	default:
 		return doc
 	}
