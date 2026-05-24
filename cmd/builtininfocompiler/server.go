@@ -1,0 +1,177 @@
+package main
+
+import (
+	"context"
+	"fmt"
+	"log"
+	"net"
+	"os"
+	"os/exec"
+	"strings"
+	"time"
+
+	slpb "github.com/bazel-contrib/bcr-frontend/build/stack/starlark/v1beta1"
+
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
+)
+
+// Mirrors cmd/bzlcompiler/server.go — same gRPC + Java server lifecycle,
+// stripped of persistent-worker handling. This tool is one-shot: spin up
+// constellate, call BuiltinInfo once, write the reshaped output, exit.
+
+type serverResources struct {
+	cmd     *exec.Cmd
+	port    int
+	logFile *os.File
+	conn    *grpc.ClientConn
+}
+
+func initializeServer(javaInterpreter, serverJar string, port int, logFilePrefix string, logger *log.Logger) (*serverResources, func(), error) {
+	var resources serverResources
+
+	if port == 0 {
+		port = mustGetFreePort(logger)
+		cmd, logFile, err := startServerProcess(javaInterpreter, serverJar, port, logFilePrefix, logger)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to start server process: %w", err)
+		}
+		resources.cmd = cmd
+		resources.logFile = logFile
+	}
+
+	conn, err := grpc.NewClient(
+		fmt.Sprintf("localhost:%d", port),
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+	)
+
+	cleanup := func() {
+		if resources.cmd != nil && resources.cmd.Process != nil {
+			logger.Println("Shutting down server process...")
+			if err := resources.cmd.Process.Kill(); err != nil {
+				logger.Printf("Error killing server process: %v", err)
+			}
+		}
+		if resources.logFile != nil {
+			resources.logFile.Close()
+		}
+		if conn != nil {
+			conn.Close()
+		}
+	}
+
+	if err != nil {
+		cleanup()
+		return nil, nil, fmt.Errorf("failed to create gRPC client: %w", err)
+	}
+
+	client := slpb.NewStarlarkClient(conn)
+	resources.conn = conn
+
+	if err := waitForServer(client, 30*time.Second, logger); err != nil {
+		cleanup()
+		return nil, nil, fmt.Errorf("server failed to start: %w", err)
+	}
+
+	return &resources, cleanup, nil
+}
+
+func startServerProcess(javaInterpreter, serverJar string, port int, logFilePrefix string, logger *log.Logger) (*exec.Cmd, *os.File, error) {
+	serverLogPath := logFilePrefix + ".server.log"
+	if serverLogPath == "" || serverLogPath == ".server.log" {
+		serverLogPath = "builtininfocompiler.server.log"
+	}
+	serverLogFile, err := os.OpenFile(serverLogPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to create server log file: %v", err)
+	}
+
+	cmd := exec.Command(
+		javaInterpreter,
+		"-jar",
+		serverJar,
+		fmt.Sprintf("--listen_port=%d", port),
+	)
+	cmd.Stdout = serverLogFile
+	cmd.Stderr = serverLogFile
+
+	logger.Printf("Starting server: %s -jar %s --listen_port=%d", javaInterpreter, serverJar, port)
+	logger.Printf("Server logs: %s", serverLogPath)
+
+	if err := cmd.Start(); err != nil {
+		serverLogFile.Close()
+		return nil, nil, fmt.Errorf("failed to start server: %v", err)
+	}
+
+	go func() {
+		if err := cmd.Wait(); err != nil {
+			logger.Printf("Server process exited with error: %v", err)
+			logger.Printf("Check server logs at: %s", serverLogPath)
+		} else {
+			logger.Printf("Server process exited cleanly")
+		}
+	}()
+
+	return cmd, serverLogFile, nil
+}
+
+func waitForServer(client slpb.StarlarkClient, timeout time.Duration, logger *log.Logger) error {
+	deadline := time.Now().Add(timeout)
+	ticker := time.NewTicker(200 * time.Millisecond)
+	defer ticker.Stop()
+
+	logger.Println("Waiting for server to be ready...")
+	attempts := 0
+
+	for time.Now().Before(deadline) {
+		<-ticker.C
+		attempts++
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		_, err := client.Ping(ctx, &slpb.PingRequest{})
+		cancel()
+
+		if err == nil {
+			logger.Printf("Server ready after %d attempts", attempts)
+			return nil
+		}
+
+		errStr := err.Error()
+		isConnError := strings.Contains(errStr, "connection refused") ||
+			strings.Contains(errStr, "connection reset") ||
+			strings.Contains(errStr, "connect: no route to host") ||
+			strings.Contains(errStr, "dial tcp") && strings.Contains(errStr, "connect:")
+
+		if !isConnError {
+			logger.Printf("Server responding after %d attempts (with error, but that's ok)", attempts)
+			return nil
+		}
+
+		if attempts%10 == 0 {
+			logger.Printf("Still waiting for server... (attempt %d)", attempts)
+		}
+	}
+
+	return fmt.Errorf("server did not start within %v after %d attempts", timeout, attempts)
+}
+
+func mustGetFreePort(logger *log.Logger) int {
+	port, err := getFreePort()
+	if err != nil {
+		log.Panicf("Unable to determine free port: %v", err)
+	}
+	return port
+}
+
+func getFreePort() (int, error) {
+	addr, err := net.ResolveTCPAddr("tcp", "localhost:0")
+	if err != nil {
+		return 0, err
+	}
+
+	l, err := net.ListenTCP("tcp", addr)
+	if err != nil {
+		return 0, err
+	}
+	defer l.Close()
+	return l.Addr().(*net.TCPAddr).Port, nil
+}

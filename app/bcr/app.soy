@@ -2218,25 +2218,14 @@ import {
 
   {if $sym.getValue()}
     {let $value: $sym.getValue() /}
-    {if $value.getType()}
-      <div class="Box Box--condensed mt-3">
-        <div class="Box-header">
-          <h3 class="Box-title">Type</h3>
-        </div>
-        <div class="Box-row">
-          <code class="text-mono">{$value.getType()}</code>
-        </div>
+    <div class="Box Box--condensed mt-3">
+      <div class="Box-header">
+        <h3 class="Box-title">Value</h3>
       </div>
-    {else}
-      <div class="Box Box--condensed mt-3">
-        <div class="Box-header">
-          <h3 class="Box-title">Value</h3>
-        </div>
-        <div class="Box-row">
-          <pre class="{css('shiki')}"><code class="language-python">{$sym.getName()} = {call renderValueAsCode}{param value: $value /}{/call}</code></pre>
-        </div>
+      <div class="Box-row">
+        <pre class="{css('shiki')}"><code class="language-python">{$sym.getName()} = {call renderValueAsCode}{param value: $value /}{/call}</code></pre>
       </div>
-    {/if}
+    </div>
 
     {if $value.getMacro()}
       {let $receivers: $value.getMacro().getKwargsReceiverList() /}

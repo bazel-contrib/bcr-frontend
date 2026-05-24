@@ -280,6 +280,9 @@ func valueToSymbol(v *builtinpb.Value, name, displayName string, typeByName map[
 	}
 	if v.Callable != nil {
 		if v.ApiContext == builtinpb.ApiContext_BUILD && !buildOnlyNonRules[v.Name] {
+			if name == "objc_library" {
+				log.Printf("builtin callable %s: %+v", name, v)
+			}
 			return &sympb.Symbol{
 				Type:        sympb.SymbolType_SYMBOL_TYPE_RULE,
 				Name:        name,
@@ -363,12 +366,8 @@ func typeFieldsToStructFields(t *builtinpb.Type, extras []*builtinpb.Value) []*s
 // "dict[string, Label]") into a Value's oneof so the frontend can render
 // it as a type chip. Empty types produce an empty Value (oneof unset).
 func valueForNonCallable(typeName string) *slpb.Value {
-	if typeName == "" {
-		return &slpb.Value{}
-	}
-	return &slpb.Value{
-		Value: &slpb.Value_Type{Type: typeName},
-	}
+	_ = typeName
+	return &slpb.Value{}
 }
 
 // returnInfo packages a Callable.return_type into a FunctionReturnInfo.

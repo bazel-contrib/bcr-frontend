@@ -189,10 +189,9 @@ func (ext *bcrExtension) handleSourceUrlStatus(url string, moduleIDs []moduleID,
 	for _, id := range moduleIDs {
 		moduleSourceProtoRule := ext.moduleSourceRules[id]
 		module := moduleSourceProtoRule.Rule().PrivateAttr(moduleVersionPrivateAttr).(*bzpb.ModuleVersion)
-		// @_builtins docs come from a Bazel-produced builtin.Builtins snapshot
-		// (reshaped at module_registry compile time, see cmd/builtinscompiler),
-		// not from extracting the upstream Bazel source tarball. Skip emitting
-		// a bzl_src / pkg_src — none would have anything useful to point at.
+		// @_builtins docs come from a single RPC call to constellate
+		// (cmd/builtininfocompiler), not from extracting the upstream
+		// Bazel source tarball. Skip emitting bzl_src/pkg_src.
 		if module.Name == bazelBuiltinsName {
 			continue
 		}

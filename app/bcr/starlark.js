@@ -903,7 +903,7 @@ exports.valueToStarlark = valueToStarlark;
  * @returns {string}
  */
 function generateTargetCall(pkg, target) {
-	const ruleName = target.getRule();
+	const ruleName = target.getKind();
 	const builder = new StarlarkCallBuilder(ruleName);
 
 	for (const attr of target.getAttributeList()) {

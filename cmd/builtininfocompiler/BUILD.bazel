@@ -1,0 +1,29 @@
+load("@rules_go//go:def.bzl", "go_binary", "go_library")
+
+go_library(
+    name = "builtininfocompiler_lib",
+    srcs = [
+        "main.go",
+        "reshape.go",
+        "server.go",
+    ],
+    importpath = "github.com/bazel-contrib/bcr-frontend/cmd/builtininfocompiler",
+    visibility = ["//visibility:private"],
+    deps = [
+        "//build/stack/bazel/symbol/v1:symbol",
+        "//build/stack/starlark/v1beta1",
+        "//builtin",
+        "//pkg/paramsfile",
+        "//pkg/protoutil",
+        "//stardoc_output",
+        "@com_github_johanneskaufmann_html_to_markdown//:html-to-markdown",
+        "@org_golang_google_grpc//:grpc",
+        "@org_golang_google_grpc//credentials/insecure",
+    ],
+)
+
+go_binary(
+    name = "builtininfocompiler",
+    embed = [":builtininfocompiler_lib"],
+    visibility = ["//visibility:public"],
+)

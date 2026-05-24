@@ -58,6 +58,12 @@ func main() {
 
 	log.Printf("Loaded %d files from %s (total: %s)", len(files), tarballPath, formatBytes(totalSize))
 	for path, content := range files {
+		// if strings.HasSuffix(path, "documentationinfo.pb.gz") {
+		// 	continue
+		// }
+		// if strings.HasSuffix(path, "packageinfo.pb.gz") {
+		// 	continue
+		// }
 		log.Printf("  - %s (%s)", path, formatBytes(len(content)))
 	}
 
