@@ -158,6 +158,14 @@ message Value {
         bool bool = 4;
         MacroFunction macro = 5;
         ValueList list = 6;
+        // type carries the type name of a non-callable Starlark value when no
+        // concrete value can be represented in the oneof above. Used by the
+        // @_builtins pseudo-module reshape to surface fields like
+        // `native.existing_rules` or `cc_common.do_not_use_tools_cannot_be_manipulated_directly`
+        // whose upstream proto records a type ("string", "dict[string, Label]", …)
+        // but no scalar value. The frontend renders this as a type chip on the
+        // symbol header.
+        string type = 7;
     };
 }
 

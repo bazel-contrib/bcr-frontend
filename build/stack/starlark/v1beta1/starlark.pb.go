@@ -988,6 +988,7 @@ type Value struct {
 	//	*Value_Bool
 	//	*Value_Macro
 	//	*Value_List
+	//	*Value_Type
 	Value         isValue_Value `protobuf_oneof:"value"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -1082,6 +1083,15 @@ func (x *Value) GetList() *ValueList {
 	return nil
 }
 
+func (x *Value) GetType() string {
+	if x != nil {
+		if x, ok := x.Value.(*Value_Type); ok {
+			return x.Type
+		}
+	}
+	return ""
+}
+
 type isValue_Value interface {
 	isValue_Value()
 }
@@ -1106,6 +1116,10 @@ type Value_List struct {
 	List *ValueList `protobuf:"bytes,6,opt,name=list,proto3,oneof"`
 }
 
+type Value_Type struct {
+	Type string `protobuf:"bytes,7,opt,name=type,proto3,oneof"`
+}
+
 func (*Value_String_) isValue_Value() {}
 
 func (*Value_Int) isValue_Value() {}
@@ -1115,6 +1129,8 @@ func (*Value_Bool) isValue_Value() {}
 func (*Value_Macro) isValue_Value() {}
 
 func (*Value_List) isValue_Value() {}
+
+func (*Value_Type) isValue_Value() {}
 
 type ValueList struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -2252,14 +2268,15 @@ const file_build_stack_starlark_v1beta1_starlark_proto_rawDesc = "" +
 	"\x10forwards_name_to\x18\x06 \x03(\tR\x0eforwardsNameTo\"\x90\x01\n" +
 	"\rFunctionParam\x125\n" +
 	"\x04info\x18\x01 \x01(\v2!.stardoc_output.FunctionParamInfoR\x04info\x12H\n" +
-	"\blocation\x18\x02 \x01(\v2,.build.stack.starlark.v1beta1.SymbolLocationR\blocation\"\xa2\x02\n" +
+	"\blocation\x18\x02 \x01(\v2,.build.stack.starlark.v1beta1.SymbolLocationR\blocation\"\xb8\x02\n" +
 	"\x05Value\x12H\n" +
 	"\blocation\x18\x01 \x01(\v2,.build.stack.starlark.v1beta1.SymbolLocationR\blocation\x12\x18\n" +
 	"\x06string\x18\x02 \x01(\tH\x00R\x06string\x12\x12\n" +
 	"\x03int\x18\x03 \x01(\x03H\x00R\x03int\x12\x14\n" +
 	"\x04bool\x18\x04 \x01(\bH\x00R\x04bool\x12C\n" +
 	"\x05macro\x18\x05 \x01(\v2+.build.stack.starlark.v1beta1.MacroFunctionH\x00R\x05macro\x12=\n" +
-	"\x04list\x18\x06 \x01(\v2'.build.stack.starlark.v1beta1.ValueListH\x00R\x04listB\a\n" +
+	"\x04list\x18\x06 \x01(\v2'.build.stack.starlark.v1beta1.ValueListH\x00R\x04list\x12\x14\n" +
+	"\x04type\x18\a \x01(\tH\x00R\x04typeB\a\n" +
 	"\x05value\"F\n" +
 	"\tValueList\x129\n" +
 	"\x05value\x18\x01 \x03(\v2#.build.stack.starlark.v1beta1.ValueR\x05value\"8\n" +
@@ -2519,6 +2536,7 @@ func file_build_stack_starlark_v1beta1_starlark_proto_init() {
 		(*Value_Bool)(nil),
 		(*Value_Macro)(nil),
 		(*Value_List)(nil),
+		(*Value_Type)(nil),
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{

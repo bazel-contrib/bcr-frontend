@@ -78,6 +78,7 @@ gazelle(
         "--blacklisted_url=https://github.com/mathematic-inc/rules_mjml/releases/download/v0.2.3/rules_mjml-v0.2.3.tar.gz",
         "--blacklisted_url=https://github.com/mathematic-inc/rules_mjml/releases/download/v0.2.5/rules_mjml-v0.2.5.tar.gz",
         "--blacklisted_url=https://github.com/mathematic-inc/rules_mjml/releases/download/v0.2.4/rules_mjml-v0.2.4.tar.gz",
+        "--blacklisted_url=https://github.com/bazel-contrib/bazel_features/releases/download/v1.47.1/bazel_features-v1.47.1.docs.tar.gz",
         "--exclude=.cache",  # exists in CI?
         "--exclude=$HOME",  # exists in CI?
         "--exclude=modules",

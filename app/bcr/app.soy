@@ -1338,7 +1338,7 @@ import {
 <div class="PageLayout PageLayout--panePos-end PageLayout--hasPaneDivider PageLayout--responsive-stackRegions">
 <div class="PageLayout-columns">
   <div class="PageLayout-content">
-    {if $moduleVersion.getName() == 'bazel_tools'}
+    {if $moduleVersion.getName() == 'bazel_tools' || $moduleVersion.getName() == '_builtins'}
       {call moduleVersionPseudoModuleNotice}
         {param moduleVersion: $moduleVersion /}
       {/call}
@@ -2217,14 +2217,25 @@ import {
 
   {if $sym.getValue()}
     {let $value: $sym.getValue() /}
-    <div class="Box Box--condensed mt-3">
-      <div class="Box-header">
-        <h3 class="Box-title">Value</h3>
+    {if $value.getType()}
+      <div class="Box Box--condensed mt-3">
+        <div class="Box-header">
+          <h3 class="Box-title">Type</h3>
+        </div>
+        <div class="Box-row">
+          <code class="text-mono">{$value.getType()}</code>
+        </div>
       </div>
-      <div class="Box-row">
-        <pre class="{css('shiki')}"><code class="language-python">{$sym.getName()} = {call renderValueAsCode}{param value: $value /}{/call}</code></pre>
+    {else}
+      <div class="Box Box--condensed mt-3">
+        <div class="Box-header">
+          <h3 class="Box-title">Value</h3>
+        </div>
+        <div class="Box-row">
+          <pre class="{css('shiki')}"><code class="language-python">{$sym.getName()} = {call renderValueAsCode}{param value: $value /}{/call}</code></pre>
+        </div>
       </div>
-    </div>
+    {/if}
 
     {if $value.getMacro()}
       {let $receivers: $value.getMacro().getKwargsReceiverList() /}
@@ -3122,7 +3133,7 @@ import {
   <div class="Box-row">
     <div class="blankslate">
       <div class="blankslate-icon mb-3 color-fg-muted">{octiconBook24()}</div>
-      <div class="blankslate-heading">No documentation available</div>
+      <div class="blankslate-heading">No Starlark API Available</div>
       {if $detail}<p>{$detail}</p>{/if}
       {if $latestVersionUrl && $latestVersion}
         <p class="mt-2">
@@ -3188,7 +3199,7 @@ import {
   {@param navSymbolGroups: list<[type: SymbolType, typeName: string, items: list<[file: File, sym: Symbol]>]>}
   {@param? extractionStats: [success: int, total: int, pct: number, pctText: string]}
 <div>
-  {sectionHeader(title: 'Stardoc')}
+  {sectionHeader(title: 'Starlark API Documentation')}
   {if $info}
     <div class="f4 color-fg-muted">
       <span class="mr-1">{documentationSourceOcticon(source: $info.getSource())}</span>

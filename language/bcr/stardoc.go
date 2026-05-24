@@ -161,7 +161,10 @@ func (ext *bcrExtension) prepareBinaryprotoRepositories() []*rule.Rule {
 }
 
 // handleSourceUrlStatus processes a source URL status and updates the repos map
-// and rules
+// and rules. A single URL can be shared by multiple module-versions (e.g. the
+// bazel_tools and _builtins pseudo-modules both point at the same Bazel
+// release tarball but route gazelle to different roots inside it), so we emit
+// one rankedVersion per moduleID — not just one for the last seen.
 func (ext *bcrExtension) handleSourceUrlStatus(url string, moduleIDs []moduleID, status netutil.URLStatus, versions rankedModuleVersionMap, cached bool) {
 	// Store status in the map for future caching
 	ext.resourceStatusByUrl[url] = &bzpb.ResourceStatus{
@@ -170,10 +173,8 @@ func (ext *bcrExtension) handleSourceUrlStatus(url string, moduleIDs []moduleID,
 		Message: status.Message,
 	}
 
-	var moduleSourceProtoRule *protoRule[*bzpb.ModuleSource]
 	for _, id := range moduleIDs {
-		moduleSourceProtoRule = ext.moduleSourceRules[id]
-		updateModuleSourceRuleUrlStatus(moduleSourceProtoRule.Rule(), status)
+		updateModuleSourceRuleUrlStatus(ext.moduleSourceRules[id].Rule(), status)
 	}
 
 	if !status.Exists() {
@@ -185,28 +186,39 @@ func (ext *bcrExtension) handleSourceUrlStatus(url string, moduleIDs []moduleID,
 		return
 	}
 
-	module := moduleSourceProtoRule.Rule().PrivateAttr(moduleVersionPrivateAttr).(*bzpb.ModuleVersion)
-	source := moduleSourceProtoRule.Proto()
-	lbl := makeBzlRepositoryModulesLabel(module.Name, module.Version)
-	pkgLbl := makeBzlRepositoryPackagesLabel(module.Name, module.Version)
-	// If BCR declares overlay files for this module-version, the upstream
-	// tarball is insufficient (overlay typically supplies BUILD/MODULE/.bzl
-	// files missing from upstream). Point at the on-disk overlay directly via
-	// .local — we avoid downloading the upstream archive at all in that case.
-	var bzlRule *rule.Rule
-	if len(source.Overlay) > 0 && ext.registryRoot != "" {
-		bzlRule = makeOverlayBzlRepository(lbl, module.Name, module.Version, ext.registryRoot)
-	} else {
-		bzlRule = makeBzlRepository(lbl, module, source)
+	for _, id := range moduleIDs {
+		moduleSourceProtoRule := ext.moduleSourceRules[id]
+		module := moduleSourceProtoRule.Rule().PrivateAttr(moduleVersionPrivateAttr).(*bzpb.ModuleVersion)
+		// @_builtins docs come from a Bazel-produced builtin.Builtins snapshot
+		// (reshaped at module_registry compile time, see cmd/builtinscompiler),
+		// not from extracting the upstream Bazel source tarball. Skip emitting
+		// a bzl_src / pkg_src — none would have anything useful to point at.
+		if module.Name == bazelBuiltinsName {
+			continue
+		}
+		source := moduleSourceProtoRule.Proto()
+		lbl := makeBzlRepositoryModulesLabel(module.Name, module.Version)
+		pkgLbl := makeBzlRepositoryPackagesLabel(module.Name, module.Version)
+		// If BCR declares overlay files for this module-version, the upstream
+		// tarball is insufficient (overlay typically supplies BUILD/MODULE/.bzl
+		// files missing from upstream). Point at the on-disk overlay directly
+		// via .local — we avoid downloading the upstream archive at all in that
+		// case.
+		var bzlRule *rule.Rule
+		if len(source.Overlay) > 0 && ext.registryRoot != "" {
+			bzlRule = makeOverlayBzlRepository(lbl, module.Name, module.Version, ext.registryRoot)
+		} else {
+			bzlRule = makeBzlRepository(lbl, module, source)
+		}
+		name := moduleName(module.Name)
+		version := moduleVersion(module.Version)
+		versions[name] = append(versions[name], &rankedVersion{
+			version:                    version,
+			bzlRepositoryRule:          bzlRule,
+			bzlRepositoryLabel:         lbl,
+			bzlRepositoryPackagesLabel: pkgLbl,
+		})
 	}
-	name := moduleName(module.Name)
-	version := moduleVersion(module.Version)
-	versions[name] = append(versions[name], &rankedVersion{
-		version:                    version,
-		bzlRepositoryRule:          bzlRule,
-		bzlRepositoryLabel:         lbl,
-		bzlRepositoryPackagesLabel: pkgLbl,
-	})
 }
 
 func (ext *bcrExtension) prepareBzlRepositories() rankedModuleVersionMap {

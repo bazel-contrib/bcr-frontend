@@ -484,7 +484,33 @@ def _compile_packages(ctx, deps):
                 results.append(struct(mv = mv, output = None))
     return results
 
-def _compile_documentation_for_module_version(ctx, mv, all_mv_by_id):
+def _compile_builtins_symbols(ctx):
+    """Reshape the committed builtin.Builtins snapshot into a
+    ModuleVersionSymbols .pb that can be replicated across every
+    _builtins/<v> module-version. The (name, version) fields are stamped
+    per-MV by moduleregistrysymbolscompiler downstream.
+    """
+    output = ctx.actions.declare_file("_builtins.symbols.pb")
+    args = ctx.actions.args()
+    args.add("--builtins_file", ctx.file._builtins_pb)
+    args.add("--output_file", output)
+    ctx.actions.run(
+        executable = ctx.executable._builtinscompiler,
+        arguments = [args],
+        inputs = [ctx.file._builtins_pb],
+        outputs = [output],
+        mnemonic = "CompileBuiltinsSymbols",
+    )
+    return output
+
+def _compile_documentation_for_module_version(ctx, mv, all_mv_by_id, builtins_symbols):
+    # The @_builtins pseudo-module has no upstream Starlark source to
+    # extract; its symbols come from a Bazel-produced builtin.Builtins
+    # snapshot pre-reshaped into ModuleVersionSymbols shape. The same
+    # snapshot fans out across every _builtins/<v>.
+    if mv.name == "_builtins":
+        return struct(mv = mv, output = builtins_symbols)
+
     # if the module_source has published / "offical" docs, use those
     # (assuming the doc link isn't broken).
     if len(mv.published_docs) > 0 and _status_code_exists(mv.source.docs_url_status_code):
@@ -500,10 +526,10 @@ def _compile_documentation_for_module_version(ctx, mv, all_mv_by_id):
     # instead of attempting a guaranteed-404 per-version fetch.
     return struct(mv = mv, output = None)
 
-def _compile_documentation_for_module(ctx, module, all_mv_by_id):
+def _compile_documentation_for_module(ctx, module, all_mv_by_id, builtins_symbols):
     results = []
     for mv in module.deps:
-        result = _compile_documentation_for_module_version(ctx, mv, all_mv_by_id)
+        result = _compile_documentation_for_module_version(ctx, mv, all_mv_by_id, builtins_symbols)
         if result:
             results.append(result)
     return results
@@ -514,9 +540,12 @@ def _compile_documentation(ctx, deps):
         for mv in m.deps:
             all_mv_by_id[mv.id] = mv
 
+    # Reshape the Bazel builtins snapshot once; reused for every _builtins/<v>.
+    builtins_symbols = _compile_builtins_symbols(ctx)
+
     results = []
     for module in deps:
-        results.extend(_compile_documentation_for_module(ctx, module, all_mv_by_id))
+        results.extend(_compile_documentation_for_module(ctx, module, all_mv_by_id, builtins_symbols))
     return results
 
 def _compile_colors_action(ctx, colors_json, languages_json):
@@ -820,6 +849,15 @@ module_registry = rule(
             default = "//cmd/moduleregistrysymbolscompiler",
             executable = True,
             cfg = "exec",
+        ),
+        "_builtinscompiler": attr.label(
+            default = "//cmd/builtinscompiler",
+            executable = True,
+            cfg = "exec",
+        ),
+        "_builtins_pb": attr.label(
+            default = "//cmd/builtinscompiler:builtin.pb",
+            allow_single_file = True,
         ),
         "_moduleregistrypackagescompiler": attr.label(
             default = "//cmd/moduleregistrypackagescompiler",

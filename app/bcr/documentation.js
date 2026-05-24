@@ -712,7 +712,13 @@ class FileSelect extends ContentSelect {
 	 * @param {!Route} route
 	 */
 	goHere(route) {
-		this.select(TabName.SOURCE, route.add(TabName.SOURCE));
+		// Synthetic pseudo-module files (e.g. @_builtins's "globals", "cpp")
+		// have no upstream source to fetch — the BzlFileSourceComponent would
+		// 404. Land on the symbol list instead. Heuristic: files whose label
+		// name doesn't end in .bzl aren't real source files.
+		const labelName = this.file_.getLabel()?.getName() || "";
+		const tab = labelName.endsWith(".bzl") ? TabName.SOURCE : TabName.LIST;
+		this.select(tab, route.add(tab));
 	}
 
 	/**

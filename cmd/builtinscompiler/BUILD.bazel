@@ -1,0 +1,29 @@
+load("@rules_go//go:def.bzl", "go_binary", "go_library")
+
+go_library(
+    name = "builtinscompiler_lib",
+    srcs = ["main.go"],
+    importpath = "github.com/bazel-contrib/bcr-frontend/cmd/builtinscompiler",
+    visibility = ["//visibility:private"],
+    deps = [
+        "//build/stack/bazel/symbol/v1:symbol",
+        "//build/stack/starlark/v1beta1",
+        "//builtin",
+        "//pkg/protoutil",
+        "//stardoc_output",
+    ],
+)
+
+go_binary(
+    name = "builtinscompiler",
+    embed = [":builtinscompiler_lib"],
+    visibility = ["//visibility:public"],
+)
+
+# The committed Bazel builtins snapshot, replicated across every _builtins/<v>
+# pseudo-module-version by the module_registry rule until per-release dumps
+# land.
+exports_files(
+    ["builtin.pb"],
+    visibility = ["//visibility:public"],
+)
