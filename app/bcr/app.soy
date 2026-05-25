@@ -2366,7 +2366,7 @@ import {
   {@param moduleVersion: ModuleVersion}
   {@param file: File}
   {@param sym: Symbol}
-  {@param fieldEntries: list<[field: StructField, resolved: Symbol|null]>}
+  {@param fieldEntries: list<[field: StructField, resolvedFile: File|null, resolvedSym: Symbol|null]>}
 <div style="min-width: 0">
   {call symbolInfoHeader}
     {param moduleVersion: $moduleVersion /}
@@ -2376,14 +2376,13 @@ import {
   {/call}
 
   {if length($fieldEntries) > 0}
-    {structFieldListBox(file: $file, entries: $fieldEntries, title: 'Fields')}
+    {structFieldListBox(entries: $fieldEntries, title: 'Fields')}
   {/if}
 </div>
 {/template}
 
 {template structFieldListBox visibility="private"}
-  {@param file: File}
-  {@param entries: list<[field: StructField, resolved: Symbol|null]>}
+  {@param entries: list<[field: StructField, resolvedFile: File|null, resolvedSym: Symbol|null]>}
   {@param title: string}
 <div class="Box Box--condensed mt-3">
   <div class="Box-header">
@@ -2391,36 +2390,36 @@ import {
   </div>
   <div>
     {for $entry in $entries}
-      {structFieldListItem(file: $file, field: $entry.field, resolved: $entry.resolved)}
+      {structFieldListItem(field: $entry.field, resolvedFile: $entry.resolvedFile, resolvedSym: $entry.resolvedSym)}
     {/for}
   </div>
 </div>
 {/template}
 
 {template structFieldListItem visibility="private"}
-  {@param file: File}
   {@param field: StructField}
-  {@param resolved: Symbol|null}
+  {@param resolvedFile: File|null}
+  {@param resolvedSym: Symbol|null}
+  {let $name: $field.getName() /}
   {let $target: $field.getTargetSymbol() /}
   {let $qualified: $field.getQualifiedName() /}
-<div class="Box-row d-flex flex-items-start">
-  <div class="flex-auto">
-    <div class="d-flex flex-items-center flex-wrap" style="gap: 6px;">
-      <span class="text-semibold text-mono">{$field.getName()}</span>
-      {if $target}
-        <span class="color-fg-muted">{sp}→{sp}</span>
-        <code class="color-fg-muted">{$target}</code>
+  {let $showAlias: $target != '' && $target != $name /}
+  {let $showQualified: $qualified != '' && $qualified != $name /}
+<div class="Box-row">
+  <div class="d-flex flex-items-center flex-wrap" style="gap: 6px; row-gap: 4px;">
+    <code>{$name}</code>
+    {if $showAlias}
+      <span class="text-small color-fg-muted">aliases <code class="color-fg-muted">{$target}</code></span>
+    {/if}
+    {if $showQualified}
+      {if $resolvedFile && $resolvedSym}
+        <a class="ml-auto" href="{symbolInfoUrl(file: $resolvedFile, sym: $resolvedSym)}"
+           style="color: var({symbolColor(type: $resolvedSym.getType())})"><code style="color: inherit;">{$qualified}</code></a>
+        {symbolTypeChip(type: $resolvedSym.getType())}
+      {else}
+        <code class="ml-auto color-fg-muted">{$qualified}</code>
       {/if}
-      {if $resolved && $qualified}
-        <a class="text-mono" href="{symbolInfoUrl(file: $file, sym: $resolved)}"
-           style="color: var({symbolColor(type: $resolved.getType())})">
-          {$qualified}
-        </a>
-        {symbolTypeChip(type: $resolved.getType())}
-      {elseif $qualified && $qualified != $field.getName()}
-        <span class="text-mono color-fg-muted">{$qualified}</span>
-      {/if}
-    </div>
+    {/if}
   </div>
 </div>
 {/template}
@@ -2429,6 +2428,13 @@ import {
   {@param type: int}
   <span class="Label" style="background-color: var({symbolColor(type: $type)}); color: var(--color-fg-on-emphasis); font-size: 10px;">
     {symbolTypeName(type: $type)}
+  </span>
+{/template}
+
+{template attrTypeChip visibility="private"}
+  {@param type: int}
+  <span class="Label" style="background-color: var({attrColor(type: $type)}); color: var(--color-fg-on-emphasis); font-size: 10px;">
+    {attrName(type: $type)}
   </span>
 {/template}
 
@@ -2565,17 +2571,15 @@ import {
 
 {template fieldListItem}
   {@param field: ProviderFieldInfo}
-<div class="Box-row d-flex flex-items-start">
-  <div class="flex-auto">
-    <div class="d-flex flex-items-center">
-      <span class="text-semibold text-mono">{$field.getName()}</span>
-    </div>
-    {if $field.getDocString()}
-      <div class="{css('marked')} markdown-body text-light mt-3">
-        {$field.getDocString()}
-      </div>
-    {/if}
+<div class="Box-row">
+  <div class="d-flex flex-items-center flex-wrap" style="gap: 6px; row-gap: 4px;">
+    <code>{$field.getName()}</code>
   </div>
+  {if $field.getDocString()}
+    <div class="{css('marked')} markdown-body text-light mt-2">
+      {$field.getDocString()}
+    </div>
+  {/if}
 </div>
 {/template}
 
@@ -2596,36 +2600,34 @@ import {
 
 {template parameterListItem}
   {@param param: FunctionParamInfo}
-<div class="Box-row d-flex flex-items-start">
-  <div class="flex-auto">
-    <div class="d-flex flex-items-center">
-      <span class="text-semibold text-mono">
-      {if $param.getRole() == 4 /* FunctionParamRole.PARAM_ROLE_VARARGS */}
-        *{$param.getName()}
-      {elseif $param.getRole() == 5 /* FunctionParamRole.PARAM_ROLE_KWARGS */}
-        **{$param.getName()}
-      {else}
-        {$param.getName()}
-      {/if}
-      {if $param.getDefaultValue()}
-        {sp}={sp}<span class="" style="color: var(--color-prettylights-syntax-markup-inserted-text)" title="default value">{$param.getDefaultValue()}</span>
-      {/if}
-      </span>
-      {if $param.getMandatory()}
-        <span class="Label Label--danger ml-2">required</span>
-      {/if}
-      {if $param.getRole() == 2 /* FunctionParamRole.PARAM_ROLE_POSITIONAL_ONLY */}
-        <span class="Label Label--secondary ml-2">positional-only</span>
-      {elseif $param.getRole() == 3 /* FunctionParamRole.PARAM_ROLE_KEYWORD_ONLY */}
-        <span class="Label Label--secondary ml-2">keyword-only</span>
-      {/if}
-    </div>
-    {if $param.getDocString()}
-      <div class="{css('marked')} markdown-body text-light mt-3">
-        {$param.getDocString()}
-      </div>
+<div class="Box-row">
+  <div class="d-flex flex-items-center flex-wrap" style="gap: 6px; row-gap: 4px;">
+    <code>
+    {if $param.getRole() == 4 /* FunctionParamRole.PARAM_ROLE_VARARGS */}
+      *{$param.getName()}
+    {elseif $param.getRole() == 5 /* FunctionParamRole.PARAM_ROLE_KWARGS */}
+      **{$param.getName()}
+    {else}
+      {$param.getName()}
+    {/if}
+    {if $param.getDefaultValue()}
+      {sp}={sp}<span style="color: var(--color-prettylights-syntax-markup-inserted-text)" title="default value">{$param.getDefaultValue()}</span>
+    {/if}
+    </code>
+    {if $param.getMandatory()}
+      <span class="Label Label--danger">required</span>
+    {/if}
+    {if $param.getRole() == 2 /* FunctionParamRole.PARAM_ROLE_POSITIONAL_ONLY */}
+      <span class="Label Label--secondary">positional-only</span>
+    {elseif $param.getRole() == 3 /* FunctionParamRole.PARAM_ROLE_KEYWORD_ONLY */}
+      <span class="Label Label--secondary">keyword-only</span>
     {/if}
   </div>
+  {if $param.getDocString()}
+    <div class="{css('marked')} markdown-body text-light mt-2">
+      {$param.getDocString()}
+    </div>
+  {/if}
 </div>
 {/template}
 
@@ -2673,7 +2675,7 @@ import {
   {@param attr: AttributeInfo}
 <div class="Box-row">
   <div class="d-flex flex-items-center flex-wrap" style="gap: 6px; row-gap: 4px;">
-    <span class="text-bold">{$attr.getName()}</span>
+    <code>{$attr.getName()}</code>
     {if $attr.getMandatory()}
       <span class="Label Label--danger">required</span>
     {/if}
@@ -2697,8 +2699,11 @@ import {
       </span>
     {/if}
     {if $attr.getType()}
-      <span class="Label{if length($attr.getProviderNameGroupList()) == 0} ml-auto{/if}"
-            style="background-color: var({attrColor(type: $attr.getType())}); color: var(--color-fg-on-emphasis)">{attrName(type: $attr.getType())}</span>
+      {if length($attr.getProviderNameGroupList()) == 0}
+        <span class="ml-auto">{attrTypeChip(type: $attr.getType())}</span>
+      {else}
+        {attrTypeChip(type: $attr.getType())}
+      {/if}
     {/if}
   </div>
   {if $attr.getDocString()}
