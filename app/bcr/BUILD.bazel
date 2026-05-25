@@ -9,6 +9,7 @@ load(
     "closure_js_template_library",
     "closure_js_test",
 )
+load("//rules:css_purge.bzl", "css_purge")
 load("//rules:deploy.bzl", "cloudflare_deploy")
 load("//rules:ghpages.bzl", "ghpages_deploy")
 load("//rules:octicons_closure_template_compile.bzl", "octicons_closure_template_compile")
@@ -388,6 +389,24 @@ genrule(
     cmd = "cat $(SRCS) > $@",
 )
 
+# Tree-shaken primer.css. cmd/cssusage scans the SPA's source + compiled
+# JS for class-name tokens; cmd/csspurge filters the vendor CSS to only
+# rules whose selectors reference at least one used class. Reduces a
+# ~1.3 MB vendor blob to a small fraction of itself. Dynamic class names
+# constructed at runtime (e.g. `mt-${n}`) need to be listed in
+# primer_safelist.txt — start it empty and add entries as visual
+# regressions surface.
+css_purge(
+    name = "primer_purged_css",
+    src = "primer.css",
+    safelist = "primer_safelist.txt",
+    scan_sources = glob([
+        "*.soy",
+        "*.js",
+        "*.html",
+    ]) + [":bcr.js"],
+)
+
 # Common attributes for both the prerendered and unprerendered release targets.
 # Note: :registrylite_pb is consumed by releasecompiler via the `registry_file`
 # attribute (which gzips + base64-encodes it into the .b64.js script tag and
@@ -405,7 +424,7 @@ RELEASE_SRCS = [
 
 RELEASE_HASHED_SRCS = [
     ":bcr.css",
-    "primer.css",
+    ":primer_purged_css",
     ":bcr.js",
 ]
 

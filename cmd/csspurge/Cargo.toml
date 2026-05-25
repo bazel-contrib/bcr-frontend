@@ -1,0 +1,13 @@
+[package]
+name = "csspurge"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+clap = { version = "4", features = ["derive"] }
+lightningcss = "=1.0.0-alpha.71"
+parcel_selectors = "0.28"
+
+[[bin]]
+name = "csspurge"
+path = "src/main.rs"
