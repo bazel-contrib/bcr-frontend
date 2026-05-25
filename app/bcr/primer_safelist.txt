@@ -1,0 +1,4 @@
+# Primer CSS class names to keep regardless of whether static scanning of
+# project source files finds them. Used for dynamically-constructed class
+# names (e.g. `mt-${n}`, computed Label color tokens). One per line; `#`
+# lines are comments.
