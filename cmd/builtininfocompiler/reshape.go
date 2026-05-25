@@ -9,11 +9,12 @@ package main
 //     java, objc, proto, python, shell). Each carries fully-typed
 //     RuleInfo.attribute entries that the upstream builtin.pb proto lacks.
 //
-//  2. Walk Builtins.global / Builtins.type and emit Symbols, applying the
-//     same classification + display_name decoration the standalone
-//     cmd/builtinscompiler does. While emitting each Rule symbol's
-//     attribute list, opportunistically enrich each AttributeInfo from the
-//     lookup built in step (1).
+//  2. Walk Builtins.global / Builtins.type and emit Symbols, classifying
+//     native types vs. module globals (java_common, cc_common, native, …),
+//     decorating native-type member display names with angle brackets,
+//     and promoting BUILD-only callables (cc_binary, filegroup, …) to RULE
+//     symbols. While emitting each Rule's attribute list, opportunistically
+//     enrich each AttributeInfo from the lookup built in step (1).
 //
 // Per-attribute enrichment (rather than wholesale Symbol.Info swap) keeps
 // the builtins-side attribute list complete: complex native rules whose
@@ -188,7 +189,8 @@ func (r *reshaper) buildTypeFile(t *builtinpb.Type, extras []*builtinpb.Value, i
 
 // buildOnlyNonRules names BUILD-only callables that are NOT rules — they
 // look like rules to the upstream proto but are conceptually helper
-// functions. Kept in sync with cmd/builtinscompiler/main.go.
+// functions. Keep this list aligned with the BUILD-only callable set in
+// Bazel's builtin.pb when new names get added.
 var buildOnlyNonRules = map[string]bool{
 	"glob":                   true,
 	"module_name":            true,
@@ -200,9 +202,10 @@ var buildOnlyNonRules = map[string]bool{
 	"subpackages":            true,
 }
 
-// valueToSymbol mirrors cmd/builtinscompiler's classification logic and
-// additionally enriches Rule attributes from the ModuleInfo-derived
-// lookup.
+// valueToSymbol classifies a builtin.Value (STRUCT for namespace modules,
+// RULE for BUILD-only callables, FUNCTION for the rest, VALUE for non-
+// callables) and enriches the emitted Rule attributes from the ModuleInfo-
+// derived lookup.
 func (r *reshaper) valueToSymbol(v *builtinpb.Value, name, displayName string, allowStructBranch bool) *sympb.Symbol {
 	if v == nil {
 		return nil

@@ -13,12 +13,10 @@
 //     carrying full RuleInfo + AttributeInfo for the Starlark-defined
 //     rules in one language module.
 //
-// This tool subsumes both the old cmd/builtinscompiler (which reshaped a
-// committed builtin.pb from disk) and cmd/builtinsmerger (which combined
-// the thin reshape with a separate bzl_src extraction). Doing both passes
-// in one process avoids the I/O round-trips and lets us merge per-
-// attribute (preserving the complete builtins-side attribute list while
-// adding type info from the language ModuleInfos).
+// Reshape + enrichment happen in one pass: the complete-but-thin
+// attribute list from builtin.Builtins is preserved verbatim and
+// individual attributes get their AttributeType + rich doc backfilled
+// from the matching ModuleInfo entry when one exists.
 package main
 
 import (
