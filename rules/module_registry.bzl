@@ -484,7 +484,48 @@ def _compile_packages(ctx, deps):
                 results.append(struct(mv = mv, output = None))
     return results
 
-def _compile_documentation_for_module_version(ctx, mv, all_mv_by_id):
+def _compile_builtin_info(ctx):
+    """Call constellate's BuiltinInfo RPC and reshape the response into a ModuleVersionSymbols .pb for @_builtins.
+
+    The RPC returns both Bazel's complete-but-thin builtin.Builtins proto
+    and six rich language-module ModuleInfo protos (cpp, java, objc,
+    proto, python, shell). The tool reshapes the builtins payload into
+    symbol form AND enriches each Rule's attribute list with stardoc
+    AttributeType + docstring info from the matching ModuleInfo entries.
+    The result fans out across every _builtins/<v> module-version downstream
+    (moduleregistrysymbolscompiler stamps the name+version per-call).
+    """
+    output = ctx.actions.declare_file("_builtins.symbols.pb")
+    java_runtime = ctx.attr._java_runtime[java_common.JavaRuntimeInfo]
+    java_executable = java_runtime.java_executable_exec_path
+    args = ctx.actions.args()
+    args.use_param_file("@%s", use_always = True)
+    args.set_param_file_format("multiline")
+    args.add("--output_file", output)
+    args.add("--java_interpreter_file", java_executable)
+    args.add("--server_jar_file", ctx.file._starlarkserverjar)
+    args.add("--log_file", ctx.label.name + ".builtininfo")
+    # args.add("--port", 3524)
+
+    ctx.actions.run(
+        executable = ctx.executable._builtininfocompiler,
+        arguments = [args],
+        inputs = depset([ctx.file._starlarkserverjar]),
+        outputs = [output],
+        mnemonic = "CompileBuiltinInfo",
+        tools = java_runtime.files.to_list(),
+    )
+    return output
+
+def _compile_documentation_for_module_version(ctx, mv, all_mv_by_id, builtins_symbols):
+    # The @_builtins pseudo-module's documentation comes from a single
+    # action that calls constellate's BuiltinInfo RPC and reshapes the
+    # response (complete builtins + rich rule attribute info from the six
+    # language ModuleInfos) into ModuleVersionSymbols. See
+    # _compile_builtin_info above.
+    if mv.name == "_builtins":
+        return struct(mv = mv, output = builtins_symbols)
+
     # if the module_source has published / "offical" docs, use those
     # (assuming the doc link isn't broken).
     if len(mv.published_docs) > 0 and _status_code_exists(mv.source.docs_url_status_code):
@@ -500,10 +541,10 @@ def _compile_documentation_for_module_version(ctx, mv, all_mv_by_id):
     # instead of attempting a guaranteed-404 per-version fetch.
     return struct(mv = mv, output = None)
 
-def _compile_documentation_for_module(ctx, module, all_mv_by_id):
+def _compile_documentation_for_module(ctx, module, all_mv_by_id, builtins_symbols):
     results = []
     for mv in module.deps:
-        result = _compile_documentation_for_module_version(ctx, mv, all_mv_by_id)
+        result = _compile_documentation_for_module_version(ctx, mv, all_mv_by_id, builtins_symbols)
         if result:
             results.append(result)
     return results
@@ -514,9 +555,12 @@ def _compile_documentation(ctx, deps):
         for mv in m.deps:
             all_mv_by_id[mv.id] = mv
 
+    # Reshape the Bazel builtins snapshot once; reused for every _builtins/<v>.
+    builtins_symbols = _compile_builtin_info(ctx)
+
     results = []
     for module in deps:
-        results.extend(_compile_documentation_for_module(ctx, module, all_mv_by_id))
+        results.extend(_compile_documentation_for_module(ctx, module, all_mv_by_id, builtins_symbols))
     return results
 
 def _compile_colors_action(ctx, colors_json, languages_json):
@@ -818,6 +862,11 @@ module_registry = rule(
         ),
         "_moduleregistrysymbolscompiler": attr.label(
             default = "//cmd/moduleregistrysymbolscompiler",
+            executable = True,
+            cfg = "exec",
+        ),
+        "_builtininfocompiler": attr.label(
+            default = "//cmd/builtininfocompiler",
             executable = True,
             cfg = "exec",
         ),

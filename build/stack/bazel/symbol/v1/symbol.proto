@@ -44,6 +44,18 @@ message Symbol {
         build.stack.starlark.v1beta1.LoadStmt load = 14;
         build.stack.starlark.v1beta1.Struct struct = 15;
     }
+    // Optional decorated display string for visible UI surfaces (sidebar
+    // rows, search results, headings). When set, UIs that render the
+    // symbol's label-as-text should prefer this over `name`. URL paths,
+    // link targets, and qualified-name lookups continue to use `name` — so
+    // `name` stays the canonical identifier while `display_name` carries
+    // visual decoration that wouldn't survive URL/identifier round-trips.
+    //
+    // Used by the builtins reshape to wrap native-type names in angle
+    // brackets, e.g. `name = "File.basename"` carries
+    // `display_name = "<File>.basename"` to signal that File is a Bazel
+    // native type rather than an identifier-style module global.
+    string display_name = 16;
 }
 
 // Symbols for a single .bzl file

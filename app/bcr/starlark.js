@@ -201,7 +201,8 @@ function generateProviderExample(moduleVersion, file, sym) {
 	}
 
 	const providerName = sym.getName();
-	const lines = [generateLoadStatement(moduleVersion, file, providerName), ""];
+	const loadStmt = generateLoadStatement(moduleVersion, file, providerName);
+	const lines = loadStmt ? [loadStmt, ""] : [];
 
 	// Provider instantiation
 	const fields = provider.getInfo().getFieldInfoList();
@@ -246,10 +247,9 @@ function generateRepositoryRuleExample(moduleVersion, file, sym) {
 		builder.addKeyword(attr.getName(), value, isRequired);
 	});
 
-	return (
-		generateLoadStatement(moduleVersion, file, ruleName) +
-		"\n\n" +
-		builder.build()
+	return joinExampleWithLoad(
+		generateLoadStatement(moduleVersion, file, ruleName),
+		builder.build(),
 	);
 }
 exports.generateRepositoryRuleExample = generateRepositoryRuleExample;
@@ -268,7 +268,8 @@ function generateAspectExample(moduleVersion, file, sym) {
 	}
 
 	const aspectName = sym.getName();
-	const lines = [generateLoadStatement(moduleVersion, file, aspectName), ""];
+	const loadStmt = generateLoadStatement(moduleVersion, file, aspectName);
+	const lines = loadStmt ? [loadStmt, ""] : [];
 
 	// Aspect usage (typically used in a rule's aspects parameter)
 	lines.push("# Example: Apply aspect to a target");
@@ -324,6 +325,13 @@ function generateLoadStatement(moduleVersion, file, symbolName) {
 	if (!label) {
 		return "";
 	}
+	// Synthetic pseudo-module files (e.g. @_builtins's "globals", "cpp",
+	// "java") aren't real .bzl files and shouldn't pretend to be loadable.
+	// The builtinscompiler reshape deliberately omits the .bzl suffix on
+	// those labels — gate the load snippet on the suffix.
+	if (!label.getName().endsWith(".bzl")) {
+		return "";
+	}
 
 	const parent = findParentStructName(file, symbolName);
 	const loadName = parent || symbolName;
@@ -334,6 +342,19 @@ function generateLoadStatement(moduleVersion, file, symbolName) {
 
 	const loadPath = formatLabel(loadLabel);
 	return `load("${loadPath}", "${loadName}")`;
+}
+
+/**
+ * Concatenate a load statement with the example body. If the load statement
+ * is empty (e.g. for synthetic pseudo-module files where load() doesn't
+ * apply), returns just the body — avoids a misleading blank-line prefix.
+ *
+ * @param {string} loadStatement
+ * @param {string} body
+ * @returns {string}
+ */
+function joinExampleWithLoad(loadStatement, body) {
+	return loadStatement ? `${loadStatement}\n\n${body}` : body;
 }
 
 /**
@@ -361,10 +382,9 @@ function generateRuleExample(moduleVersion, file, sym) {
 		builder.addKeyword(attr.getName(), value, isRequired);
 	});
 
-	return (
-		generateLoadStatement(moduleVersion, file, ruleName) +
-		"\n\n" +
-		builder.build()
+	return joinExampleWithLoad(
+		generateLoadStatement(moduleVersion, file, ruleName),
+		builder.build(),
 	);
 }
 exports.generateRuleExample = generateRuleExample;
@@ -437,10 +457,9 @@ function generateFunctionExample(moduleVersion, file, sym) {
 		}
 	});
 
-	return (
-		generateLoadStatement(moduleVersion, file, funcName) +
-		"\n\n" +
-		builder.build()
+	return joinExampleWithLoad(
+		generateLoadStatement(moduleVersion, file, funcName),
+		builder.build(),
 	);
 }
 exports.generateFunctionExample = generateFunctionExample;
@@ -470,10 +489,9 @@ function generateMacroExample(moduleVersion, file, sym) {
 		builder.addKeyword(attr.getName(), value, isRequired);
 	});
 
-	return (
-		generateLoadStatement(moduleVersion, file, macroName) +
-		"\n\n" +
-		builder.build()
+	return joinExampleWithLoad(
+		generateLoadStatement(moduleVersion, file, macroName),
+		builder.build(),
 	);
 }
 exports.generateMacroExample = generateMacroExample;
@@ -506,10 +524,9 @@ function generateRuleMacroExample(moduleVersion, file, sym) {
 		});
 	}
 
-	return (
-		generateLoadStatement(moduleVersion, file, macroName) +
-		"\n\n" +
-		builder.build()
+	return joinExampleWithLoad(
+		generateLoadStatement(moduleVersion, file, macroName),
+		builder.build(),
 	);
 }
 exports.generateRuleMacroExample = generateRuleMacroExample;
@@ -531,7 +548,8 @@ function generateModuleExtensionExample(moduleVersion, file, sym) {
 	const extName = sym.getName();
 	const tagClasses = ext.getInfo().getTagClassList();
 
-	const lines = [generateLoadStatement(moduleVersion, file, extName), ""];
+	const loadStmt = generateLoadStatement(moduleVersion, file, extName);
+	const lines = loadStmt ? [loadStmt, ""] : [];
 
 	// Module extension usage in MODULE.bazel
 	lines.push("# In MODULE.bazel:");
@@ -885,7 +903,7 @@ exports.valueToStarlark = valueToStarlark;
  * @returns {string}
  */
 function generateTargetCall(pkg, target) {
-	const ruleName = target.getRule();
+	const ruleName = target.getKind();
 	const builder = new StarlarkCallBuilder(ruleName);
 
 	for (const attr of target.getAttributeList()) {

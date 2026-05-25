@@ -361,7 +361,7 @@ func generateSitemap(registry *bzpb.Registry, flagDb *bhpb.BazelFlagDb, baseURL 
 					// load statement whose alias (To, falling back to From)
 					// matches that kind, and encode the load coordinate.
 					for _, target := range pkg.Target {
-						if target.Rule == "" {
+						if target.Kind == "" {
 							continue
 						}
 						for _, ls := range pkg.Load {
@@ -373,7 +373,7 @@ func generateSitemap(registry *bzpb.Registry, flagDb *bhpb.BazelFlagDb, baseURL 
 								if local == "" {
 									local = sym.From
 								}
-								if local != target.Rule {
+								if local != target.Kind {
 									continue
 								}
 								key := loadLabelURLKey(ls.Label.Repo, ls.Label.Pkg, ls.Label.Name, sym.From)

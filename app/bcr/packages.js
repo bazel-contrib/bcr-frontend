@@ -183,7 +183,7 @@ function buildNavTargetGroups(packages) {
 		const pkgPath = stripRepoPrefix(pkg.getName());
 		const loads = pkg.getLoadList();
 		for (const target of pkg.getTargetList()) {
-			const ruleKind = target.getRule();
+			const ruleKind = target.getKind();
 			if (!ruleKind) continue;
 			let group = byKind.get(ruleKind);
 			if (!group) {
@@ -475,7 +475,7 @@ class ModuleVersionPackagesListComponent extends Component {
 			/** @type {!Map<string, number>} */
 			const byKind = new Map();
 			for (const t of pkg.getTargetList()) {
-				const k = t.getRule();
+				const k = t.getKind();
 				if (!k) continue;
 				byKind.set(k, (byKind.get(k) || 0) + 1);
 			}
@@ -594,7 +594,7 @@ class PackageSelect extends ContentSelect {
 			// Match by name, or by rule kind when the target is nameless
 			// (e.g. exports_files). Mirror the fallback used when generating
 			// the row hrefs.
-			const key = target.getName() || target.getRule();
+			const key = target.getName() || target.getKind();
 			if (key === name) {
 				this.addTab(
 					name,
@@ -642,14 +642,14 @@ class PackageListComponent extends Component {
 	/** @override */
 	createDom() {
 		const targets = this.pkg_.getTargetList().map((t) => {
-			const style = ruleKindStyle(t.getRule());
+			const style = ruleKindStyle(t.getKind());
 			// Rule calls like exports_files() omit the name attribute. Fall
 			// back to the rule kind so the row is at least addressable; two
 			// nameless calls of the same kind in one package will collide on
 			// the route but that's an authoring edge case.
 			return {
-				name: t.getName() || t.getRule(),
-				rule: t.getRule(),
+				name: t.getName() || t.getKind(),
+				rule: t.getKind(),
 				styleBg: style.bg,
 				styleFg: style.fg,
 			};
@@ -703,7 +703,7 @@ class TargetInfoComponent extends Component {
 			valueText: valueToStarlark(attr.getValue(), ""),
 		}));
 
-		const style = ruleKindStyle(this.target_.getRule());
+		const style = ruleKindStyle(this.target_.getKind());
 
 		const registry = getApplication(this).getRegistry();
 		const sourceUrl = computeSourceUrl(
@@ -714,7 +714,7 @@ class TargetInfoComponent extends Component {
 		);
 		const sourceLine = this.target_.getLocation()?.getStart()?.getLine() || 0;
 
-		const displayName = this.target_.getName() || this.target_.getRule();
+		const displayName = this.target_.getName() || this.target_.getKind();
 
 		const pkgFullName = this.pkg_.getName();
 		const sepIdx = pkgFullName.indexOf("//");

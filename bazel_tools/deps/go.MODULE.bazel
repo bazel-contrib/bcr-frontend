@@ -19,6 +19,7 @@ use_repo(
     "com_github_chromedp_chromedp",
     "com_github_dominikbraun_graph",
     "com_github_google_go_github_v66",
+    "com_github_johanneskaufmann_html_to_markdown",
     "com_github_junkblocker_codesearch",
     "com_github_samthor_sre2",
     "com_github_schollz_progressbar_v3",

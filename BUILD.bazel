@@ -95,6 +95,7 @@ proto_compile_assets(
         "//build/stack/bazel/symbol/v1:sympb_go_compiled_sources",
         "//build/stack/livegrep/v1:livegrep_go_compiled_sources",
         "//build/stack/starlark/v1beta1:v1beta1_go_compiled_sources",
+        "//builtin:builtin_go_compiled_sources",
         "//stardoc_output:stardoc_output_go_compiled_sources",
     ],
 )

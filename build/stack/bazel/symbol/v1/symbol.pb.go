@@ -166,6 +166,7 @@ type Symbol struct {
 	//	*Symbol_Load
 	//	*Symbol_Struct
 	Info          isSymbol_Info `protobuf_oneof:"info"`
+	DisplayName   string        `protobuf:"bytes,16,opt,name=display_name,json=displayName,proto3" json:"display_name,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -325,6 +326,13 @@ func (x *Symbol) GetStruct() *v1beta1.Struct {
 		}
 	}
 	return nil
+}
+
+func (x *Symbol) GetDisplayName() string {
+	if x != nil {
+		return x.DisplayName
+	}
+	return ""
 }
 
 type isSymbol_Info interface {
@@ -797,7 +805,7 @@ var File_build_stack_bazel_symbol_v1_symbol_proto protoreflect.FileDescriptor
 
 const file_build_stack_bazel_symbol_v1_symbol_proto_rawDesc = "" +
 	"\n" +
-	"(build/stack/bazel/symbol/v1/symbol.proto\x12\x1bbuild.stack.bazel.symbol.v1\x1a+build/stack/starlark/v1beta1/starlark.proto\"\xf8\x06\n" +
+	"(build/stack/bazel/symbol/v1/symbol.proto\x12\x1bbuild.stack.bazel.symbol.v1\x1a+build/stack/starlark/v1beta1/starlark.proto\"\x9b\a\n" +
 	"\x06Symbol\x12;\n" +
 	"\x04type\x18\x01 \x01(\x0e2'.build.stack.bazel.symbol.v1.SymbolTypeR\x04type\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12 \n" +
@@ -814,7 +822,8 @@ const file_build_stack_bazel_symbol_v1_symbol_proto_rawDesc = "" +
 	"rule_macro\x18\f \x01(\v2'.build.stack.starlark.v1beta1.RuleMacroH\x00R\truleMacro\x12;\n" +
 	"\x05value\x18\r \x01(\v2#.build.stack.starlark.v1beta1.ValueH\x00R\x05value\x12<\n" +
 	"\x04load\x18\x0e \x01(\v2&.build.stack.starlark.v1beta1.LoadStmtH\x00R\x04load\x12>\n" +
-	"\x06struct\x18\x0f \x01(\v2$.build.stack.starlark.v1beta1.StructH\x00R\x06structB\x06\n" +
+	"\x06struct\x18\x0f \x01(\v2$.build.stack.starlark.v1beta1.StructH\x00R\x06struct\x12!\n" +
+	"\fdisplay_name\x18\x10 \x01(\tR\vdisplayNameB\x06\n" +
 	"\x04info\"\xb6\x01\n" +
 	"\x04File\x129\n" +
 	"\x05label\x18\x01 \x01(\v2#.build.stack.starlark.v1beta1.LabelR\x05label\x12;\n" +

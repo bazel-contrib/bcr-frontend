@@ -21,6 +21,7 @@ const _ = grpc.SupportPackageIsVersion9
 const (
 	Starlark_ModuleInfo_FullMethodName  = "/build.stack.starlark.v1beta1.Starlark/ModuleInfo"
 	Starlark_PackageInfo_FullMethodName = "/build.stack.starlark.v1beta1.Starlark/PackageInfo"
+	Starlark_BuiltinInfo_FullMethodName = "/build.stack.starlark.v1beta1.Starlark/BuiltinInfo"
 	Starlark_Ping_FullMethodName        = "/build.stack.starlark.v1beta1.Starlark/Ping"
 )
 
@@ -30,6 +31,7 @@ const (
 type StarlarkClient interface {
 	ModuleInfo(ctx context.Context, in *ModuleInfoRequest, opts ...grpc.CallOption) (*Module, error)
 	PackageInfo(ctx context.Context, in *PackageInfoRequest, opts ...grpc.CallOption) (*Package, error)
+	BuiltinInfo(ctx context.Context, in *BuiltinInfoRequest, opts ...grpc.CallOption) (*BuiltinInfoResponse, error)
 	Ping(ctx context.Context, in *PingRequest, opts ...grpc.CallOption) (*PingResponse, error)
 }
 
@@ -61,6 +63,16 @@ func (c *starlarkClient) PackageInfo(ctx context.Context, in *PackageInfoRequest
 	return out, nil
 }
 
+func (c *starlarkClient) BuiltinInfo(ctx context.Context, in *BuiltinInfoRequest, opts ...grpc.CallOption) (*BuiltinInfoResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(BuiltinInfoResponse)
+	err := c.cc.Invoke(ctx, Starlark_BuiltinInfo_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *starlarkClient) Ping(ctx context.Context, in *PingRequest, opts ...grpc.CallOption) (*PingResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(PingResponse)
@@ -77,6 +89,7 @@ func (c *starlarkClient) Ping(ctx context.Context, in *PingRequest, opts ...grpc
 type StarlarkServer interface {
 	ModuleInfo(context.Context, *ModuleInfoRequest) (*Module, error)
 	PackageInfo(context.Context, *PackageInfoRequest) (*Package, error)
+	BuiltinInfo(context.Context, *BuiltinInfoRequest) (*BuiltinInfoResponse, error)
 	Ping(context.Context, *PingRequest) (*PingResponse, error)
 	mustEmbedUnimplementedStarlarkServer()
 }
@@ -93,6 +106,9 @@ func (UnimplementedStarlarkServer) ModuleInfo(context.Context, *ModuleInfoReques
 }
 func (UnimplementedStarlarkServer) PackageInfo(context.Context, *PackageInfoRequest) (*Package, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method PackageInfo not implemented")
+}
+func (UnimplementedStarlarkServer) BuiltinInfo(context.Context, *BuiltinInfoRequest) (*BuiltinInfoResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method BuiltinInfo not implemented")
 }
 func (UnimplementedStarlarkServer) Ping(context.Context, *PingRequest) (*PingResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Ping not implemented")
@@ -154,6 +170,24 @@ func _Starlark_PackageInfo_Handler(srv interface{}, ctx context.Context, dec fun
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Starlark_BuiltinInfo_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(BuiltinInfoRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(StarlarkServer).BuiltinInfo(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Starlark_BuiltinInfo_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(StarlarkServer).BuiltinInfo(ctx, req.(*BuiltinInfoRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _Starlark_Ping_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(PingRequest)
 	if err := dec(in); err != nil {
@@ -186,6 +220,10 @@ var Starlark_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "PackageInfo",
 			Handler:    _Starlark_PackageInfo_Handler,
+		},
+		{
+			MethodName: "BuiltinInfo",
+			Handler:    _Starlark_BuiltinInfo_Handler,
 		},
 		{
 			MethodName: "Ping",

@@ -77,7 +77,6 @@ go_test(
     embed = [":bcr"],
     deps = [
         "//build/stack/bazel/registry/v1:registry",
-        "@bazel_gazelle//language",
         "@bazel_gazelle//rule",
     ],
 )

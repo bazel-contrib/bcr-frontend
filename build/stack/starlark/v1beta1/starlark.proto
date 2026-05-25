@@ -4,6 +4,7 @@ syntax = "proto3";
 // and services for querying them.
 package build.stack.starlark.v1beta1;
 
+import "builtin/builtin.proto";
 import "stardoc_output/stardoc_output.proto";
 
 option java_package = "build.stack.starlark.v1beta1";
@@ -158,11 +159,42 @@ message Value {
         bool bool = 4;
         MacroFunction macro = 5;
         ValueList list = 6;
+        // Unresolved call expression — e.g., glob(["*.bzl"]), select({...}),
+        // existing_rule("x"). Captured structurally since AST-only mode can't
+        // execute the call.
+        ValueCall call = 7;
+        // Dict literal — e.g., the argument to select(...).
+        ValueDict dict = 8;
     };
 }
 
 message ValueList {
     repeated Value value = 1;
+}
+
+// ValueCall represents an unresolved call expression captured from a BUILD
+// file's AST. Used when an attribute value is something like glob(["*.bzl"])
+// or select({"//x:a": ["a"]}) that AST-only extraction cannot evaluate.
+message ValueCall {
+    // The callee identifier name (e.g., "glob", "select").
+    string function_name = 1;
+    // Positional arguments in order. Args that don't statically resolve
+    // are omitted from this list (a child whose expressionToValue returned
+    // null is skipped rather than represented by a placeholder).
+    repeated Value positional = 2;
+    // Keyword arguments in source order. Reuses TargetAttribute since the
+    // shape (name + value + location) matches.
+    repeated TargetAttribute kwarg = 3;
+}
+
+// ValueDict represents a dict literal. Order is preserved.
+message ValueDict {
+    repeated DictEntry entry = 1;
+}
+
+message DictEntry {
+    Value key = 1;
+    Value value = 2;
 }
 
 message MacroFunction {
@@ -265,8 +297,11 @@ message Package {
 // Target is a single rule/macro invocation at the top level of a BUILD file —
 // for example, `cc_library(name = "foo", srcs = [...])`.
 message Target {
-    // The rule class invoked — "cc_library", "genrule", or a user macro name.
-    string rule = 1;
+    // The callable invoked — "cc_library", "genrule", or a user macro name.
+    // Called "kind" rather than "rule" since the callable may actually be
+    // either a Starlark rule(...) result or a user-defined macro; AST-only
+    // extraction cannot distinguish.
+    string kind = 1;
     // The target's "name" attribute.
     string name = 2;
     // Where the call appears in source.
@@ -332,6 +367,29 @@ message ModuleInfoRequest {
     string module_content = 7;
 }
 
+// BuiltinInfoRequest is intentionally empty in v1. Future fields could add
+// ApiContext filtering (BZL-only / BUILD-only) or per-module gating.
+message BuiltinInfoRequest { }
+
+// BuiltinInfoResponse carries Bazel's bundled API catalog in two complementary
+// forms — see the BuiltinInfo RPC docs below.
+message BuiltinInfoResponse {
+    // Verbatim content of bazel-bin/.../builtin.pb produced by
+    // //src/main/java/com/google/devtools/build/lib:gen_api_proto.
+    // Provides all built-in Starlark types, top-level globals, and native
+    // rules (lossy on attribute detail — only attribute names + isMandatory).
+    builtin.Builtins builtins = 1;
+    // The six stardoc_output.ModuleInfo protos produced by
+    // //src/main/starlark/docgen:gen_be_{cpp,java,objc,proto,python,shell}
+    // _stardoc_proto. Each carries full RuleInfo / AttributeInfo for the
+    // Starlark-defined rules in one language module.
+    repeated stardoc_output.ModuleInfo module_info = 2;
+    // Parallel to module_info — a short label naming each ModuleInfo's
+    // source ("cpp", "java", "objc", "proto", "python", "shell"). Same order,
+    // same length as module_info.
+    repeated string module_info_source = 3;
+}
+
 message PingRequest { }
 
 message PingResponse { }
@@ -343,6 +401,9 @@ service Starlark {
     rpc ModuleInfo(ModuleInfoRequest) returns (Module) {}
     // PackageInfo extracts target/macro/load info from a BUILD or BUILD.bazel file.
     rpc PackageInfo(PackageInfoRequest) returns (Package) {}
+    // BuiltinInfo returns Bazel's bundled API catalog: built-in Starlark
+    // types, top-level globals, native rules, and language-module rules.
+    rpc BuiltinInfo(BuiltinInfoRequest) returns (BuiltinInfoResponse) {}
     // Ping allows connectivity checks
     rpc Ping(PingRequest) returns (PingResponse) {}
 }

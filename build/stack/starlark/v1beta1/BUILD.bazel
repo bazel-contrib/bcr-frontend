@@ -14,6 +14,7 @@ go_library(
     importpath = "github.com/bazel-contrib/bcr-frontend/build/stack/starlark/v1beta1",
     visibility = ["//visibility:public"],
     deps = [
+        "//builtin",
         "//stardoc_output",
         "@org_golang_google_grpc//:grpc",
         "@org_golang_google_grpc//codes",
@@ -27,7 +28,10 @@ proto_library(
     name = "v1beta1_proto",
     srcs = ["starlark.proto"],
     visibility = ["//visibility:public"],
-    deps = ["//stardoc_output:stardoc_output_proto"],
+    deps = [
+        "//builtin:builtin_proto",
+        "//stardoc_output:stardoc_output_proto",
+    ],
 )
 
 proto_compiled_sources(
@@ -60,7 +64,10 @@ closure_jspb_library(
     srcs = [":v1beta1_js_proto"],
     internal_descriptors = [":v1beta1_proto"],
     visibility = ["//visibility:public"],
-    deps = ["//stardoc_output:stardoc_output_js"],
+    deps = [
+        "//builtin:builtin_js",
+        "//stardoc_output:stardoc_output_js",
+    ],
 )
 
 proto_compile(
@@ -68,6 +75,7 @@ proto_compile(
     options = {
         "//bazel_tools/rust:protoc-gen-prost": [
             "extern_path=.stardoc_output=::stardoc_output_rs::stardoc_output",
+            "extern_path=.builtin=::builtin_rs::builtin",
         ],
     },
     outputs = [
@@ -86,5 +94,8 @@ proto_rust_library(
     srcs = [":v1beta1_proto_rs"],
     pkg = "build.stack.starlark.v1beta1",
     visibility = ["//visibility:public"],
-    deps = ["//stardoc_output:stardoc_output_rs"],
+    deps = [
+        "//builtin:builtin_rs",
+        "//stardoc_output:stardoc_output_rs",
+    ],
 )

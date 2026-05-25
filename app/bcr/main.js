@@ -291,7 +291,7 @@ function buildRuleUsageIndex(registry) {
 				const loads = pkg.getLoadList();
 				if (loads.length === 0) continue;
 				for (const target of pkg.getTargetList()) {
-					const ruleKind = target.getRule();
+					const ruleKind = target.getKind();
 					if (!ruleKind) continue;
 					// Find the LoadStmt whose effective local name matches.
 					let matchedLabel = null;
