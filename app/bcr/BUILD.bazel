@@ -389,9 +389,13 @@ genrule(
 )
 
 # Common attributes for both the prerendered and unprerendered release targets.
+# Note: :registrylite_pb is consumed by releasecompiler via the `registry_file`
+# attribute (which gzips + base64-encodes it into the .b64.js script tag and
+# emits registry.pb.gz alongside). It must NOT appear here — listing it as a
+# raw src would copy the uncompressed registrylite.pb into the tarball as
+# dead weight.
 RELEASE_SRCS = [
     "favicon.png",
-    ":registrylite_pb",
     ":robots_txt",
     ":sitemap_xml",
 ] + select({

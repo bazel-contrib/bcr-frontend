@@ -523,8 +523,16 @@ def _compile_documentation_for_module_version(ctx, mv, all_mv_by_id, builtins_sy
     # response (complete builtins + rich rule attribute info from the six
     # language ModuleInfos) into ModuleVersionSymbols. See
     # _compile_builtin_info above.
+    #
+    # The payload is a single Bazel snapshot, so attaching it to every
+    # _builtins/<v> would duplicate ~MB of bytes per version in
+    # symbols.pb.gz with no information gain. Emit for the latest
+    # version only; older _builtins/<v> entries fall through to the
+    # standard empty-doc stub (handled via --empty= in the aggregator).
     if mv.name == "_builtins":
-        return struct(mv = mv, output = builtins_symbols)
+        if mv.is_latest_version:
+            return struct(mv = mv, output = builtins_symbols)
+        return struct(mv = mv, output = None)
 
     # if the module_source has published / "offical" docs, use those
     # (assuming the doc link isn't broken).
@@ -781,8 +789,12 @@ def _module_registry_impl(ctx):
             registry_pb = [registry_pb],
             registrylite_pb = [registrylite_pb],
             codesearch_index = [codesearch_index],
-            doc_results = depset([d.output for d in doc_results if d.output != None]),
-            docs = depset([r.output for r in doc_results if r.output != None]),
+            # The @_builtins output is a single shared file (not per-MV),
+            # is already aggregated into symbols.pb, and lives at a non-
+            # versioned path that would land in the release tarball as
+            # `modules/_builtins.symbols.pb` — pure dead weight. Filter it.
+            doc_results = depset([d.output for d in doc_results if d.output != None and d.mv.name != "_builtins"]),
+            docs = depset([r.output for r in doc_results if r.output != None and r.mv.name != "_builtins"]),
             symbols_pb = depset([symbols_pb]),
             packages_pb = depset([packages_pb]),
             pkg_results = depset([r.output for r in pkg_results if r.output != None]),
