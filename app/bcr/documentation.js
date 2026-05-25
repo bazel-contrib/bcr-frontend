@@ -466,9 +466,15 @@ class ModuleVersionSymbolsSelect extends ContentSelect {
 		/** @const @private @type {!Trie<!File>}*/
 		this.fileTrie_ = new Trie();
 
+		/** @const @private @type {!Map<string, {file: !File, sym: !Symbol}>} */
+		this.symbolIndex_ = new Map();
+
 		if (symbols) {
 			for (const file of symbols.getFileList()) {
 				this.addFile(file);
+				for (const sym of file.getSymbolList()) {
+					this.symbolIndex_.set(sym.getName(), { file, sym });
+				}
 			}
 		}
 	}
@@ -638,6 +644,7 @@ class ModuleVersionSymbolsSelect extends ContentSelect {
 								this.module_,
 								this.moduleVersion_,
 								file,
+								this.symbolIndex_,
 								this.dom_,
 							),
 						);
@@ -660,9 +667,10 @@ class FileSelect extends ContentSelect {
 	 * @param {!Module} module
 	 * @param {!ModuleVersion} moduleVersion
 	 * @param {!File} file
+	 * @param {!Map<string, {file: !File, sym: !Symbol}>} symbolIndex
 	 * @param {?dom.DomHelper=} opt_domHelper
 	 */
-	constructor(module, moduleVersion, file, opt_domHelper) {
+	constructor(module, moduleVersion, file, symbolIndex, opt_domHelper) {
 		super(opt_domHelper);
 
 		/** @private @const */
@@ -673,6 +681,9 @@ class FileSelect extends ContentSelect {
 
 		/** @private @const */
 		this.file_ = file;
+
+		/** @private @const @type {!Map<string, {file: !File, sym: !Symbol}>} */
+		this.symbolIndex_ = symbolIndex;
 	}
 
 	/**
@@ -799,6 +810,7 @@ class FileSelect extends ContentSelect {
 					this.moduleVersion_,
 					this.file_,
 					sym,
+					this.symbolIndex_,
 					this.dom_,
 				);
 			case SymbolType.SYMBOL_TYPE_ASPECT:
@@ -1048,10 +1060,14 @@ class StructInfoComponent extends SymbolComponent {
 	 * @param {!ModuleVersion} moduleVersion
 	 * @param {!File} file
 	 * @param {!Symbol} sym
+	 * @param {!Map<string, {file: !File, sym: !Symbol}>} symbolIndex
 	 * @param {?dom.DomHelper=} opt_domHelper
 	 */
-	constructor(moduleVersion, file, sym, opt_domHelper) {
+	constructor(moduleVersion, file, sym, symbolIndex, opt_domHelper) {
 		super(moduleVersion, file, sym, opt_domHelper);
+
+		/** @private @const @type {!Map<string, {file: !File, sym: !Symbol}>} */
+		this.symbolIndex_ = symbolIndex;
 	}
 
 	/**
@@ -1062,36 +1078,21 @@ class StructInfoComponent extends SymbolComponent {
 		const struct = this.sym_.getStruct();
 		/** @type {!Array<!StructField>} */
 		const fields = struct ? struct.getFieldList() : [];
-		const symbols = this.file_.getSymbolList();
 
-		/** @type {!Array<{field: !StructField, resolved: ?Symbol}>} */
+		/** @type {!Array<{field: !StructField, resolvedFile: ?File, resolvedSym: ?Symbol}>} */
 		const fieldEntries = [];
 		for (const field of fields) {
 			const qualified = field.getQualifiedName();
-			const target = field.getTargetSymbol();
-			/** @type {?Symbol} */
+			/** @type {?{file: !File, sym: !Symbol}} */
 			let resolved = null;
-			// Prefer the qualified-name symbol (e.g. "asserts.expect_failure")
-			// so the link goes to the public, user-facing function.
 			if (qualified) {
-				for (const s of symbols) {
-					if (s.getName() === qualified) {
-						resolved = s;
-						break;
-					}
-				}
+				resolved = this.symbolIndex_.get(qualified) || null;
 			}
-			// Fall back to target_symbol (covers value targets like SOME_CONST
-			// and private-only references when no qualified entry exists).
-			if (!resolved && target) {
-				for (const s of symbols) {
-					if (s.getName() === target) {
-						resolved = s;
-						break;
-					}
-				}
-			}
-			fieldEntries.push({ field, resolved });
+			fieldEntries.push({
+				field,
+				resolvedFile: resolved ? resolved.file : null,
+				resolvedSym: resolved ? resolved.sym : null,
+			});
 		}
 
 		this.setElementInternal(
