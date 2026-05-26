@@ -329,3 +329,21 @@ pre code {
 	border-bottom: 1px dotted var(--color-border-muted);
 	margin: 0 0.5em;
 }
+
+/* ========================================
+ * Bazel Versions Tree (semver grouping)
+ * ======================================== */
+
+.bazel-major-summary {
+	cursor: pointer;
+	list-style: none;
+}
+
+.bazel-major-summary::-webkit-details-marker {
+	display: none;
+}
+
+.bazel-major-summary::marker {
+	display: none;
+	content: "";
+}
