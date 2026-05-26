@@ -668,7 +668,7 @@ import {
         {let $depCount: length($data.directDeps) /}
         {let $percentage: $totalDeps > 0 ? round(($depCount * 100) / $totalDeps) : 0 /}
 
-        <tr class="{if ($currentVersion === $version)}Box-row-link{/if}">
+        <tr>
           <td title="{$version}; compatibility level {$data.compat}" colspan="2" class="py-1" style="background: linear-gradient(to right, var(--color-accent-muted) {$percentage}%, transparent {$percentage}%);">
             <div style="display: flex; align-items: center;">
               <span style="position: relative; padding-right: 0.5em;" data-version="{$version}">

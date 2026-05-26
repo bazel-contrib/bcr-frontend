@@ -24,7 +24,7 @@ const {
 	bazelOverviewSelectNav,
 	bazelSelect,
 	bazelVersionDetail,
-	homeRecentTimeline,
+	bazelVersionsTree,
 } = goog.require("soy.bcrfrontend.app");
 const { commitSha: uiCommitSha } = goog.require("bcrfrontend.uiVersion");
 const { BazelFlagsByCommandComponent, BazelFlagsSelect } = goog.require(
@@ -258,8 +258,8 @@ class BazelVersionsComponent extends Component {
 	 */
 	createDom() {
 		this.setElementInternal(
-			soy.renderAsElement(homeRecentTimeline, {
-				recentlyUpdated: computeBazelVersions(this.registry_),
+			soy.renderAsElement(bazelVersionsTree, {
+				majors: computeBazelVersionsTree(this.registry_),
 			}),
 		);
 	}
@@ -334,42 +334,197 @@ function findBazelToolsModule(registry) {
 }
 
 /**
- * Every bazel_tools version with a commit date, newest first. Shaped for the
- * shared homeRecentTimeline template (linkUrl points to /bazel/<version>).
+ * Splits "8.7.0rc2" into numeric major/minor/patch plus the pre-release tail
+ * decomposed as (prePrefix, preNum). Returns null when the version doesn't
+ * match the expected X.Y.Z[suffix] shape.
+ *
+ * @param {string} v
+ * @returns {?{major: number, minor: number, patch: number, pre: string, prePrefix: string, preNum: number}}
+ */
+function parseBazelSemver(v) {
+	const m = /^(\d+)\.(\d+)\.(\d+)(.*)$/.exec(v);
+	if (!m) return null;
+	const pre = m[4];
+	let prePrefix = pre;
+	let preNum = 0;
+	const preMatch = /^([a-zA-Z]+)(\d+)$/.exec(pre);
+	if (preMatch) {
+		prePrefix = preMatch[1];
+		preNum = +preMatch[2];
+	}
+	return {
+		major: +m[1],
+		minor: +m[2],
+		patch: +m[3],
+		pre,
+		prePrefix,
+		preNum,
+	};
+}
+
+/**
+ * @param {!ModuleVersion} v
+ * @returns {!{moduleVersion: !ModuleVersion, commitDate: string, linkUrl: string, pullRequestUrl: string}}
+ */
+function makeBazelVersionRow(v) {
+	const pr = v.getCommit().getPullRequest();
+	return {
+		moduleVersion: v,
+		commitDate: formatRelativeShort(v.getCommit().getDate()),
+		linkUrl: `/bazel/${v.getVersion()}`,
+		pullRequestUrl: pr ? `https://github.com/bazelbuild/bazel/pull/${pr}` : "",
+	};
+}
+
+/**
+ * @typedef {{moduleVersion: !ModuleVersion, commitDate: string, linkUrl: string, pullRequestUrl: string}}
+ */
+let BazelVersionRow;
+
+/**
+ * @typedef {{prePrefix: string, preNum: number}}
+ */
+let PreParts;
+
+/**
+ * Internal patch bucket — one per X.Y.Z identifier, accumulates the final
+ * release and all pre-releases observed.
+ *
+ * @typedef {{
+ *   major: number,
+ *   minor: number,
+ *   patch: number,
+ *   final: ?BazelVersionRow,
+ *   prereleases: !Array<!BazelVersionRow>,
+ *   preParts: !Array<!PreParts>
+ * }}
+ */
+let PatchBucket;
+
+/**
+ * @typedef {{patch: number, final: ?BazelVersionRow, prereleases: !Array<!BazelVersionRow>}}
+ */
+let PatchOutput;
+
+/**
+ * @typedef {{minor: number, count: number, patches: !Array<!PatchOutput>}}
+ */
+let MinorOutput;
+
+/**
+ * @typedef {{major: number, count: number, isLatest: boolean, minors: !Array<!MinorOutput>}}
+ */
+let MajorOutput;
+
+/**
+ * Buckets every bazel_tools version with a commit date into a semver tree:
+ * major → minor → patch → {final, prereleases}. Each level is sorted
+ * descending so the latest releases appear first. The highest major is
+ * marked isLatest so the template can default-expand it.
  *
  * @param {!Registry} registry
- * @returns {!Array<!{moduleVersion: !ModuleVersion, commitDate: string, isNew: boolean, linkUrl: string, pullRequestUrl: string, displayName: string}>}
+ * @returns {!Array<!MajorOutput>}
  */
-function computeBazelVersions(registry) {
+function computeBazelVersionsTree(registry) {
 	const bazelTools = findBazelToolsModule(registry);
 	if (!bazelTools) return [];
 
-	/** @type {!Array<!ModuleVersion>} */
-	const versions = [];
+	/** @type {!Map<string, !PatchBucket>} */
+	const patchMap = new Map();
+
 	for (const v of bazelTools.getVersionsList()) {
 		const commit = v.getCommit();
-		if (commit && commit.getDate()) {
-			versions.push(v);
+		if (!commit || !commit.getDate()) continue;
+		const parts = parseBazelSemver(v.getVersion());
+		if (!parts) continue;
+
+		const key = parts.major + "." + parts.minor + "." + parts.patch;
+		let bucket = patchMap.get(key);
+		if (!bucket) {
+			bucket = {
+				major: parts.major,
+				minor: parts.minor,
+				patch: parts.patch,
+				final: null,
+				prereleases: [],
+				preParts: [],
+			};
+			patchMap.set(key, bucket);
+		}
+
+		const row = makeBazelVersionRow(v);
+		if (parts.pre === "") {
+			bucket.final = row;
+		} else {
+			bucket.prereleases.push(row);
+			bucket.preParts.push({
+				prePrefix: parts.prePrefix,
+				preNum: parts.preNum,
+			});
 		}
 	}
 
-	versions.sort((a, b) => {
-		return (
-			new Date(b.getCommit().getDate()) - new Date(a.getCommit().getDate())
-		);
+	/** @type {!Array<!PatchBucket>} */
+	const buckets = Array.from(patchMap.values());
+
+	// Sort prereleases inside each bucket: prePrefix asc, preNum desc.
+	for (const bucket of buckets) {
+		/** @type {!Array<!{row: !BazelVersionRow, parts: !PreParts}>} */
+		const indexed = bucket.prereleases.map((row, i) => ({
+			row,
+			parts: bucket.preParts[i],
+		}));
+		indexed.sort((a, b) => {
+			if (a.parts.prePrefix !== b.parts.prePrefix) {
+				return a.parts.prePrefix < b.parts.prePrefix ? -1 : 1;
+			}
+			return b.parts.preNum - a.parts.preNum;
+		});
+		bucket.prereleases = indexed.map((x) => x.row);
+	}
+
+	// Sort all buckets by (major desc, minor desc, patch desc).
+	buckets.sort((a, b) => {
+		if (a.major !== b.major) return b.major - a.major;
+		if (a.minor !== b.minor) return b.minor - a.minor;
+		return b.patch - a.patch;
 	});
 
-	return versions.map((v) => {
-		const pr = v.getCommit().getPullRequest();
-		return {
-			moduleVersion: v,
-			commitDate: formatRelativeShort(v.getCommit().getDate()),
-			isNew: false,
-			linkUrl: `/bazel/${v.getVersion()}`,
-			pullRequestUrl: pr
-				? `https://github.com/bazelbuild/bazel/pull/${pr}`
-				: "",
-			displayName: "bazel",
-		};
-	});
+	// Group consecutive buckets sharing the same major/minor.
+	/** @type {!Array<!MajorOutput>} */
+	const majors = [];
+	/** @type {?MajorOutput} */
+	let curMajor = null;
+	/** @type {?MinorOutput} */
+	let curMinor = null;
+	for (const bucket of buckets) {
+		const leafCount = (bucket.final ? 1 : 0) + bucket.prereleases.length;
+		if (curMajor === null || curMajor.major !== bucket.major) {
+			curMajor = {
+				major: bucket.major,
+				count: 0,
+				isLatest: false,
+				minors: [],
+			};
+			majors.push(curMajor);
+			curMinor = null;
+		}
+		if (curMinor === null || curMinor.minor !== bucket.minor) {
+			curMinor = { minor: bucket.minor, count: 0, patches: [] };
+			curMajor.minors.push(curMinor);
+		}
+		curMinor.patches.push({
+			patch: bucket.patch,
+			final: bucket.final,
+			prereleases: bucket.prereleases,
+		});
+		curMinor.count += leafCount;
+		curMajor.count += leafCount;
+	}
+
+	if (majors.length > 0) {
+		majors[0].isLatest = true;
+	}
+
+	return majors;
 }

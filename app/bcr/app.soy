@@ -643,6 +643,132 @@ import {
 {/template}
 
 
+{template bazelVersionsTree}
+  {@param majors: list<[
+    major: int,
+    count: int,
+    isLatest: bool,
+    minors: list<[
+      minor: int,
+      count: int,
+      patches: list<[
+        patch: int,
+        final: [moduleVersion: ModuleVersion, commitDate: string,
+                linkUrl: string, pullRequestUrl: string]|null,
+        prereleases: list<[moduleVersion: ModuleVersion, commitDate: string,
+                           linkUrl: string, pullRequestUrl: string]>
+      ]>
+    ]>
+  ]>}
+  {if length($majors) == 0}
+    <div class="color-fg-muted p-3">No Bazel releases found</div>
+  {else}
+    <div class="treeview-root treeview-compact" role="tree">
+      {for $maj, $majIdx in $majors}
+        {let $isLastMajor: $majIdx == length($majors) - 1 /}
+        <details{if $maj.isLatest} open{/if} class="treeview-item bazel-major-details" role="treeitem">
+          <summary class="treeview-item-row d-flex flex-items-center bazel-major-summary" style="padding: 0.25rem 0;">
+            <span class="color-fg-muted" style="margin-right: 0.25rem; font-family: monospace; user-select: none; flex-shrink: 0;">
+              {if $isLastMajor}└─{else}├─{/if}
+            </span>
+            <span class="text-bold flex-shrink-0">Bazel {$maj.major}</span>
+            <span class="ml-1 text-small color-fg-muted">{counterLabel(count: $maj.count)}</span>
+          </summary>
+          <div class="treeview-children" role="group">
+            {for $min, $minIdx in $maj.minors}
+              {let $isLastMinor: $minIdx == length($maj.minors) - 1 /}
+              {bazelMinorGroup(
+                major: $maj.major, minor: $min, isLastMinor: $isLastMinor)}
+            {/for}
+          </div>
+        </details>
+      {/for}
+    </div>
+  {/if}
+{/template}
+
+{template bazelMinorGroup visibility="private"}
+  {@param major: int}
+  {@param minor: [
+    minor: int,
+    count: int,
+    patches: list<[
+      patch: int,
+      final: [moduleVersion: ModuleVersion, commitDate: string,
+              linkUrl: string, pullRequestUrl: string]|null,
+      prereleases: list<[moduleVersion: ModuleVersion, commitDate: string,
+                         linkUrl: string, pullRequestUrl: string]>
+    ]>
+  ]}
+  {@param isLastMinor: bool}
+  <div class="treeview-item" role="treeitem">
+    <div class="treeview-item-row d-flex flex-items-center" style="padding: 0.10rem 0; margin-left: 1.2rem;">
+      <span class="color-fg-muted" style="margin-right: 0.25rem; font-family: monospace; user-select: none; flex-shrink: 0;">
+        {if $isLastMinor}└─{else}├─{/if}
+      </span>
+      <span class="text-bold flex-shrink-0">{$major}.{$minor.minor}</span>
+      <span class="ml-1 text-small color-fg-muted">{counterLabel(count: $minor.count)}</span>
+    </div>
+    <div class="treeview-children" role="group">
+      {for $pg, $pgIdx in $minor.patches}
+        {let $isLastPatch: $pgIdx == length($minor.patches) - 1 /}
+        {bazelPatchGroup(patch: $pg, isLastPatch: $isLastPatch)}
+      {/for}
+    </div>
+  </div>
+{/template}
+
+{template bazelPatchGroup visibility="private"}
+  {@param patch: [
+    patch: int,
+    final: [moduleVersion: ModuleVersion, commitDate: string,
+            linkUrl: string, pullRequestUrl: string]|null,
+    prereleases: list<[moduleVersion: ModuleVersion, commitDate: string,
+                       linkUrl: string, pullRequestUrl: string]>
+  ]}
+  {@param isLastPatch: bool}
+  {let $hasPrereleases: length($patch.prereleases) > 0 /}
+  <div class="treeview-item" role="treeitem">
+    {if $patch.final}
+      {bazelVersionRow(
+        row: $patch.final,
+        isLast: $isLastPatch && !$hasPrereleases,
+        indentRem: 2.4)}
+    {/if}
+    {if $hasPrereleases}
+      <div class="treeview-children" role="group">
+        {for $rc, $rcIdx in $patch.prereleases}
+          {let $isLastRc: $rcIdx == length($patch.prereleases) - 1 /}
+          {bazelVersionRow(row: $rc, isLast: $isLastRc, indentRem: 3.6)}
+        {/for}
+      </div>
+    {/if}
+  </div>
+{/template}
+
+{template bazelVersionRow visibility="private"}
+  {@param row: [moduleVersion: ModuleVersion, commitDate: string,
+                linkUrl: string, pullRequestUrl: string]}
+  {@param isLast: bool}
+  {@param indentRem: number}
+  {let $commit: $row.moduleVersion.getCommit() /}
+  <div class="treeview-item-row d-flex flex-items-center" style="margin-left: {$indentRem}rem;">
+    <span class="color-fg-muted" style="margin-right: 0.25rem; font-family: monospace; user-select: none; flex-shrink: 0;">
+      {if $isLast}└─{else}├─{/if}
+    </span>
+    <a class="text-mono Link--primary flex-shrink-0" href="{$row.linkUrl}">
+      {$row.moduleVersion.getVersion()}
+    </a>
+    <span class="dotted-leader"></span>
+    <span class="color-fg-muted f6 no-wrap">{$row.commitDate}</span>
+    {if $commit?.getPullRequest()}
+      <a class="Link--muted f6 ml-2 flex-shrink-0" href="{$row.pullRequestUrl}">
+        #{$commit?.getPullRequest()}
+      </a>
+    {/if}
+  </div>
+{/template}
+
 {template bazelSelect}
 <div>
   <div class="{css('content')}">
