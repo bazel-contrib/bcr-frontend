@@ -247,7 +247,7 @@ function buildNavTargetGroups(packages) {
  * @param {!Registry} registry
  * @param {!ModuleVersion} moduleVersion
  * @param {!Package} pkg
- * @param {!Target} target
+ * @param {?Target=} target
  * @returns {string}
  */
 function computeSourceUrl(registry, moduleVersion, pkg, target) {
@@ -260,7 +260,7 @@ function computeSourceUrl(registry, moduleVersion, pkg, target) {
 			.pop()
 			?.replace(/\.package$/, "") || "BUILD.bazel";
 	const relPath = relPkg ? `${relPkg}/${buildBase}` : buildBase;
-	const line = target.getLocation()?.getStart()?.getLine() || 0;
+	const line = target?.getLocation()?.getStart()?.getLine() || 0;
 	const lineFrag = line ? `#L${line}` : "";
 
 	// Prefer BCR overlay if the file is overlay-served. source.json may carry
@@ -655,11 +655,19 @@ class PackageListComponent extends Component {
 			};
 		});
 
+		const registry = getApplication(this).getRegistry();
+		const sourceUrl = computeSourceUrl(
+			registry,
+			this.moduleVersion_,
+			this.pkg_,
+		);
+
 		this.setElementInternal(
 			soy.renderAsElement(packageListComponent, {
 				moduleVersion: this.moduleVersion_,
 				pkg: this.pkg_,
 				targets,
+				sourceUrl,
 			}),
 		);
 	}
