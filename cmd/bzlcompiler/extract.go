@@ -2,8 +2,10 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"path/filepath"
+	"strings"
 	"time"
 
 	sympb "github.com/bazel-contrib/bcr-frontend/build/stack/bazel/symbol/v1"
@@ -11,12 +13,22 @@ import (
 	"github.com/bazel-contrib/bcr-frontend/pkg/stardoc"
 )
 
+var errConstellateUnavailable = errors.New("constellate server unavailable")
+
+func isConnectionError(err error) bool {
+	s := err.Error()
+	return strings.Contains(s, "connection refused") ||
+		strings.Contains(s, "connection reset") ||
+		strings.Contains(s, "connect: no route to host") ||
+		(strings.Contains(s, "dial tcp") && strings.Contains(s, "connect:"))
+}
+
 func extractModuleVersionSymbols(cfg *config, bzlFileByPath map[string]*bzlFile, filesToExtract []string) (*sympb.ModuleVersionSymbols, error) {
 	result := &sympb.ModuleVersionSymbols{
 		Source: sympb.SymbolSource_BEST_EFFORT,
 	}
 
-	var errors int
+	var errCount int
 	for _, filePath := range filesToExtract {
 		bzlFile, found := bzlFileByPath[filePath]
 		if !found {
@@ -33,13 +45,16 @@ func extractModuleVersionSymbols(cfg *config, bzlFileByPath map[string]*bzlFile,
 
 		module, err := extractModule(cfg, bzlFile)
 		if err != nil {
+			if errors.Is(err, errConstellateUnavailable) {
+				return nil, err
+			}
 			file.Error = err.Error()
-			if cfg.ErrorLimit > 0 && errors > cfg.ErrorLimit {
+			if cfg.ErrorLimit > 0 && errCount > cfg.ErrorLimit {
 				cfg.Logger.Panicf("🔴 failed to extract %+v: %v", bzlFile, err)
 			} else {
 				cfg.Logger.Printf("🔴 failed to extract %+v: %v", bzlFile, err)
 			}
-			errors++
+			errCount++
 		} else {
 			stardoc.ModuleToFile(file, module)
 			// cfg.Logger.Printf("🟢 successfully extracted %s", bzlFile.Label)
@@ -51,7 +66,7 @@ func extractModuleVersionSymbols(cfg *config, bzlFileByPath map[string]*bzlFile,
 
 	// Report success rate
 	total := len(cfg.FilesToExtract)
-	success := total - errors
+	success := total - errCount
 	pct := float64(success) / float64(total) * 100.0
 	cfg.Logger.Printf("Extraction: %d/%d %.1f%%", success, total, pct)
 
@@ -75,6 +90,9 @@ func extractModule(cfg *config, file *bzlFile) (*slpb.Module, error) {
 	if err != nil {
 		// Strip absolute path prefix from error messages
 		cleanErr := cleanErrorMessage(err, cfg.Cwd)
+		if isConnectionError(err) {
+			return nil, fmt.Errorf("%w: %v", errConstellateUnavailable, cleanErr)
+		}
 		return nil, fmt.Errorf("ModuleInfo request error: %v", cleanErr)
 	}
 

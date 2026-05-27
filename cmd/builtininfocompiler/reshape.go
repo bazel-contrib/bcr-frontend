@@ -394,6 +394,9 @@ func typeFieldsToStructFields(t *builtinpb.Type, extras []*builtinpb.Value) []*s
 		if f == nil {
 			continue
 		}
+		if f.GetName() == "" {
+			log.Panicf("typeFieldsToStructFields: empty field name in type %q: %+v", t.GetName(), f)
+		}
 		out = append(out, &slpb.StructField{
 			Name:          f.GetName(),
 			TargetSymbol:  f.GetName(),
@@ -404,7 +407,13 @@ func typeFieldsToStructFields(t *builtinpb.Type, extras []*builtinpb.Value) []*s
 		if e == nil {
 			continue
 		}
+		if e.GetName() == "" {
+			log.Panicf("typeFieldsToStructFields: empty extra name under type %q: %+v", t.GetName(), e)
+		}
 		_, suffix, _ := splitNamespacePrefix(e.GetName())
+		if suffix == "" {
+			log.Panicf("typeFieldsToStructFields: empty suffix after splitting extra name %q under type %q: %+v", e.GetName(), t.GetName(), e)
+		}
 		out = append(out, &slpb.StructField{
 			Name:          suffix,
 			TargetSymbol:  suffix,

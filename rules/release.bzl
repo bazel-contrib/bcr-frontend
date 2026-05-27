@@ -4,7 +4,7 @@ def _write_executable_action(ctx, archive_file):
     ctx.actions.write(
         output = ctx.outputs.executable,
         content = """
-{server} {archive_file}
+{server} "$@" {archive_file}
 """.format(
             server = ctx.executable._releaseserver.short_path,
             archive_file = archive_file.short_path,
