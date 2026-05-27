@@ -673,9 +673,9 @@ import {
             <div style="display: flex; align-items: center;">
               <span style="position: relative; padding-right: 0.5em;" data-version="{$version}">
                 {if $currentVersion === $version}
-                  <span class="text-bold">{$version|truncate:18}</span>
+                  <span class="text-bold f4">{$version|truncate:18}</span>
                 {else}
-                  <a class="Box-row-link" href="{moduleVersionUrl(name: $moduleName, version: $version)}"
+                  <a class="Box-row-link f5" href="{moduleVersionUrl(name: $moduleName, version: $version)}"
                       {if $yanked.get($version)}style="text-decoration: line-through; color: var(--color-fg-muted);"{/if}
                   >{$version|truncate:18}</a>
                 {/if}

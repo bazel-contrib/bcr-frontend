@@ -2,8 +2,10 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"path/filepath"
+	"strings"
 	"time"
 
 	sympb "github.com/bazel-contrib/bcr-frontend/build/stack/bazel/symbol/v1"
@@ -11,12 +13,22 @@ import (
 	"github.com/bazel-contrib/bcr-frontend/pkg/stardoc"
 )
 
+var errConstellateUnavailable = errors.New("constellate server unavailable")
+
+func isConnectionError(err error) bool {
+	s := err.Error()
+	return strings.Contains(s, "connection refused") ||
+		strings.Contains(s, "connection reset") ||
+		strings.Contains(s, "connect: no route to host") ||
+		(strings.Contains(s, "dial tcp") && strings.Contains(s, "connect:"))
+}
+
 func extractModuleVersionPackages(cfg *config, packageFileByPath map[string]*packageFile, filesToExtract []string) (*sympb.ModuleVersionPackages, error) {
 	result := &sympb.ModuleVersionPackages{
 		Source: sympb.SymbolSource_BEST_EFFORT,
 	}
 
-	var errors int
+	var errCount int
 	for _, filePath := range filesToExtract {
 		pkgFile, found := packageFileByPath[filePath]
 		if !found {
@@ -25,15 +37,15 @@ func extractModuleVersionPackages(cfg *config, packageFileByPath map[string]*pac
 
 		pkg, err := extractPackage(cfg, pkgFile)
 		if err != nil {
-			if cfg.ErrorLimit > 0 && errors > cfg.ErrorLimit {
+			if errors.Is(err, errConstellateUnavailable) {
+				return nil, err
+			}
+			if cfg.ErrorLimit > 0 && errCount > cfg.ErrorLimit {
 				cfg.Logger.Panicf("🔴 failed to extract %+v: %v", pkgFile, err)
 			} else {
 				cfg.Logger.Printf("🔴 failed to extract %+v: %v", pkgFile, err)
 			}
-			errors++
-			// Preserve a stub entry so the registry-side aggregation still has
-			// something to attribute to this file (mirrors bzlcompiler's
-			// behavior of appending a sympb.File with .Error set).
+			errCount++
 			result.Package = append(result.Package, &slpb.Package{
 				Filename: filePath,
 				Error:    []string{err.Error()},
@@ -44,7 +56,7 @@ func extractModuleVersionPackages(cfg *config, packageFileByPath map[string]*pac
 	}
 
 	total := len(cfg.FilesToExtract)
-	success := total - errors
+	success := total - errCount
 	pct := float64(success) / float64(total) * 100.0
 	cfg.Logger.Printf("Extraction: %d/%d %.1f%%", success, total, pct)
 
@@ -67,6 +79,9 @@ func extractPackage(cfg *config, file *packageFile) (*slpb.Package, error) {
 	})
 	if err != nil {
 		cleanErr := cleanErrorMessage(err, cfg.Cwd)
+		if isConnectionError(err) {
+			return nil, fmt.Errorf("%w: %v", errConstellateUnavailable, cleanErr)
+		}
 		return nil, fmt.Errorf("PackageInfo request error: %v", cleanErr)
 	}
 
