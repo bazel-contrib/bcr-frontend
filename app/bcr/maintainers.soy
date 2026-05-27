@@ -29,6 +29,7 @@ import {
   {@param totalModules: int}
   {@param totalModuleVersions: int}
   {@param totalMaintainers: int}
+  {@param totalContributors: int}
   {@param totalSymbols: int}
   {@param totalBazelVersions: int}
   {@param topPrimaryLanguages: list<[name: string, sanitizedName: string, count: int, percentage: number]>}
@@ -42,6 +43,7 @@ import {
         {param totalModules: $totalModules /}
         {param totalModuleVersions: $totalModuleVersions /}
         {param totalMaintainers: $totalMaintainers /}
+        {param totalContributors: $totalContributors /}
         {param totalSymbols: $totalSymbols /}
         {param topPrimaryLanguages: $topPrimaryLanguages /}
         {param totalBazelVersions: $totalBazelVersions /}
@@ -77,11 +79,13 @@ import {
       <div class="PageLayout-wrapper">
         <div class="PageLayout-columns">
           <div class="PageLayout-content">
-            {call maintainerModuleVersionTable}
-              {param moduleVersions: $moduleVersions /}
-            {/call}
+            {if length($moduleVersions) > 0}
+              {call maintainerModuleVersionTable}
+                {param moduleVersions: $moduleVersions /}
+              {/call}
 
-            {sectionDivider()}
+              {sectionDivider()}
+            {/if}
 
             {sectionHeader(title: 'Module Commit Activity')}
             <div class="ml-2">

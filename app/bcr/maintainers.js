@@ -20,8 +20,10 @@ const {
 	computeTopPrimaryLanguages,
 	computeTotalBazelVersions,
 	computeTotalSymbols,
+	createContributorsMap,
 	createMaintainersMap,
 	createModuleMap,
+	createPeopleMap,
 	maintainerModuleVersions,
 	refreshBcrSidePaneSymbols,
 } = goog.require("bcrfrontend.registry");
@@ -60,6 +62,9 @@ class MaintainersSelect extends ContentSelect {
 
 		/** @private @const @type {!Map<string,!Maintainer>} */
 		this.maintainers_ = createMaintainersMap(registry);
+
+		/** @private @const @type {!Map<string,!Maintainer>} */
+		this.contributors_ = createContributorsMap(registry);
 	}
 
 	/**
@@ -89,6 +94,7 @@ class MaintainersSelect extends ContentSelect {
 				new MaintainersMapSelectNav(
 					this.registry_,
 					this.maintainers_,
+					this.contributors_,
 					this.dom_,
 				),
 			);
@@ -96,18 +102,17 @@ class MaintainersSelect extends ContentSelect {
 			return;
 		}
 
-		const maintainer = this.maintainers_.get(name);
-		if (maintainer) {
+		const person = this.maintainers_.get(name) || this.contributors_.get(name);
+		if (person) {
 			this.addTab(
 				name,
-				new MaintainerComponent(this.registry_, name, maintainer),
+				new MaintainerComponent(this.registry_, name, person),
 			);
 			this.select(name, route);
 			return;
 		} else {
 			console.warn(
-				`failed to get maintainer for ${name}`,
-				this.maintainers_.keys(),
+				`failed to get maintainer/contributor for ${name}`,
 			);
 		}
 
@@ -120,9 +125,10 @@ class MaintainersMapSelectNav extends SelectNav {
 	/**
 	 * @param {!Registry} registry
 	 * @param {!Map<string,!Maintainer>} maintainers
+	 * @param {!Map<string,!Maintainer>} contributors
 	 * @param {?dom.DomHelper=} opt_domHelper
 	 */
-	constructor(registry, maintainers, opt_domHelper) {
+	constructor(registry, maintainers, contributors, opt_domHelper) {
 		super(opt_domHelper);
 
 		/** @private @const @type {!Registry} */
@@ -130,6 +136,12 @@ class MaintainersMapSelectNav extends SelectNav {
 
 		/** @private @const @type {!Map<string,!Maintainer>} */
 		this.maintainers_ = maintainers;
+
+		/** @private @const @type {!Map<string,!Maintainer>} */
+		this.contributors_ = contributors;
+
+		/** @private @const @type {!Map<string,!Maintainer>} */
+		this.people_ = createPeopleMap(registry);
 	}
 
 	/**
@@ -147,6 +159,7 @@ class MaintainersMapSelectNav extends SelectNav {
 				totalModules: modules.size,
 				totalModuleVersions: totalModuleVersions,
 				totalMaintainers: this.maintainers_.size,
+				totalContributors: this.contributors_.size,
 				totalSymbols: computeTotalSymbols(this.registry_),
 				topPrimaryLanguages: computeTopPrimaryLanguages(this.registry_, 10),
 				totalBazelVersions: computeTotalBazelVersions(this.registry_),
@@ -183,12 +196,13 @@ class MaintainersMapSelectNav extends SelectNav {
 	}
 
 	enterAllTab() {
-		this.addNavTab(
+		this.addNavTabLazy(
 			MaintainersListTabName.ALL,
 			"All",
-			"List of all Maintainers",
-			this.maintainers_.size,
-			new MaintainersMapComponent(this.maintainers_, this.dom_),
+			"List of all Maintainers and Contributors",
+			this.people_.size,
+			`${this.getPathUrl()}/${MaintainersListTabName.ALL}`,
+			() => new MaintainersMapComponent(this.people_, this.dom_),
 		);
 	}
 

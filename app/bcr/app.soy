@@ -312,6 +312,7 @@ import {
   {@param totalModules: int}
   {@param totalModuleVersions: int}
   {@param totalMaintainers: int}
+  {@param? totalContributors: int}
   {@param totalSymbols: int}
   {@param totalBazelVersions: int}
   {@param topPrimaryLanguages: list<[name: string, sanitizedName: string, count: int, percentage: number]>}
@@ -330,11 +331,16 @@ import {
     <span class="dotted-leader"></span>
     <span class="text-bold">{$totalModules} ({$totalModuleVersions})</span>
   </a>
-  <a class="Link--primary d-flex flex-items-center mb-2" href="/maintainers">
-    <span class="color-fg-muted">Maintainers</span>
+  <span class="d-flex flex-items-center mb-2">
+    <a class="Link--primary color-fg-muted" href="/maintainers">Maintainers</a>
+    {if $totalContributors}
+      <span class="color-fg-muted ml-1">{sp}(</span>
+      <a class="Link--primary color-fg-muted" href="/maintainers">Contributors</a>
+      <span class="color-fg-muted">)</span>
+    {/if}
     <span class="dotted-leader"></span>
-    <span class="text-bold">{$totalMaintainers}</span>
-  </a>
+    <span class="text-bold">{$totalMaintainers}{if $totalContributors}{sp}({$totalContributors}){/if}</span>
+  </span>
   <a class="Link--primary d-flex flex-items-center mb-2" href="/docs">
     <span class="color-fg-muted">Documented Symbols</span>
     <span class="dotted-leader"></span>
@@ -547,13 +553,13 @@ import {
   <a href="{githubUserUrl(name: $safeName)}"
      title="{$title ?? '@' + $safeName}"
      class="TimelineItem-badge timeline-avatar-badge">
-    <img class="avatar circle" width="{$size}" height="{$size}"
+    <img class="avatar circle" loading="lazy" decoding="async" width="{$size}" height="{$size}"
          src="{githubAvatarUrl(name: $safeName)}"
          alt="@{$safeName}">
   </a>
 {else}
   <div class="TimelineItem-badge timeline-avatar-badge">
-    <img class="avatar circle" width="{$size}" height="{$size}"
+    <img class="avatar circle" loading="lazy" decoding="async" width="{$size}" height="{$size}"
          src="{githubAvatarUrl(name: '')}"
          alt="bazelbuild">
   </div>
