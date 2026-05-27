@@ -328,16 +328,11 @@ func (ext *bcrExtension) rankBzlRepositoryVersionsForModule(id moduleID, deps mo
 		if !exists {
 			return
 		}
-		// Generate docs if the module's upstream repo advertises Starlark, OR
-		// (as a fallback) if BCR declares overlay files for this version
-		// (which typically supply BUILD/MODULE/.bzl content missing upstream).
-		sourceProtoRule, hasSource := ext.moduleSourceRules[id]
-		hasOverlay := hasSource && len(sourceProtoRule.Proto().Overlay) > 0
-		if !isStarlarkCandidate(moduleMetadataProtoRule.Rule(), ext.repositoriesMetadataByID) &&
-			!hasOverlay {
-			continue
-		}
-
+		// Being registered in BCR is itself sufficient evidence that the
+		// module publishes Starlark content. We used to gate on GitHub's
+		// repo-level Languages map, but that produced false negatives for
+		// modules published from monorepos whose dominant code is something
+		// else (e.g. bazel_ci_rules, published from a CI-infra repo).
 		metadata := moduleMetadataProtoRule.Proto()
 
 		if moduleName == rootModuleName && version == rootModuleVersion {
@@ -935,39 +930,3 @@ func selectVersion(rule *protoRule[*bzpb.ModuleVersion], version moduleVersion, 
 	return choose(fallback)
 }
 
-// isStarlarkCandidate returns true when the module's upstream repository is
-// a plausible Starlark candidate. Concretely, that means at least one of:
-//
-//   - some listed repository has "Starlark" in its Languages map, OR
-//   - none of the listed repositories has a populated Languages map (so we
-//     have no evidence one way or the other — typically because the repo
-//     isn't on GitHub and we never fetched language stats).
-//
-// Only repos with a populated Languages map that does NOT contain "Starlark"
-// constitute a negative signal. This keeps non-GitHub-hosted modules
-// (e.g. GitLab tarballs like rules_tar 1.0.1) in the candidate set instead
-// of silently dropping them.
-func isStarlarkCandidate(moduleMetadataRule *rule.Rule, repositoryMetadataByID map[repositoryID]*bzpb.RepositoryMetadata) bool {
-	repositories := moduleMetadataRule.AttrStrings("repository")
-	if len(repositories) == 0 {
-		return false
-	}
-
-	sawPopulatedLanguages := false
-	for _, repo := range repositories {
-		canonicalName := normalizeRepositoryID(repo)
-		repoMetadata, exists := repositoryMetadataByID[canonicalName]
-		if !exists {
-			continue
-		}
-		if len(repoMetadata.Languages) == 0 {
-			continue
-		}
-		sawPopulatedLanguages = true
-		if _, hasLang := repoMetadata.Languages["Starlark"]; hasLang {
-			return true
-		}
-	}
-
-	return !sawPopulatedLanguages
-}

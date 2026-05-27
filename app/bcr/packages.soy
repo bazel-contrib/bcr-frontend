@@ -317,14 +317,24 @@ ROOT
   {@param moduleVersion: ModuleVersion}
   {@param pkg: Package}
   {@param targets: list<[name: string, rule: string, styleBg: string, styleFg: string]>}
+  {@param? sourceUrl: string}
   {let $pkgPath: stripRepoPrefix(name: $pkg.getName()) /}
 <div>
   <div class="Box Box--condensed mt-3">
-    <div class="Box-header">
-      <div class="Box-title">
+    <div class="Box-header d-flex flex-items-center">
+      <div class="Box-title flex-auto">
         <span class="text-bold">{displayPkgPath(path: $pkgPath)}</span>
         <span class="color-fg-muted text-small ml-2">{counterLabel(count: length($targets))}</span>
       </div>
+      {if $sourceUrl}
+        <a class="btn btn-sm btn-octicon d-inline-flex flex-items-center"
+            href="{$sourceUrl}"
+            target="_blank"
+            rel="noopener noreferrer"
+            title="View source on GitHub">
+          {octiconMarkGithub16()}
+        </a>
+      {/if}
     </div>
     {if length($targets) > 0}
       {for $row in $targets}

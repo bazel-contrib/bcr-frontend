@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	bzpb "github.com/bazel-contrib/bcr-frontend/build/stack/bazel/registry/v1"
-	"github.com/bazelbuild/bazel-gazelle/rule"
 )
 
 func TestMakeOverlayBzlRepository(t *testing.T) {
@@ -73,86 +72,3 @@ func TestMakeBzlRepository(t *testing.T) {
 	}
 }
 
-func TestIsStarlarkCandidate(t *testing.T) {
-	const repoID = "github:bazelbuild/example"
-	tests := []struct {
-		name         string
-		repositories []string
-		repoMeta     map[repositoryID]*bzpb.RepositoryMetadata
-		want         bool
-	}{
-		{
-			name:         "some repo has Starlark",
-			repositories: []string{"github:bazelbuild/example"},
-			repoMeta: map[repositoryID]*bzpb.RepositoryMetadata{
-				repoID: {Languages: map[string]int32{"Starlark": 1000}},
-			},
-			want: true,
-		},
-		{
-			name:         "all repos lack metadata entirely",
-			repositories: []string{"gitlab:arm/rules_tar"},
-			repoMeta:     map[repositoryID]*bzpb.RepositoryMetadata{},
-			want:         true,
-		},
-		{
-			name:         "all repos have nil Languages",
-			repositories: []string{"github:bazelbuild/example"},
-			repoMeta: map[repositoryID]*bzpb.RepositoryMetadata{
-				repoID: {Languages: nil},
-			},
-			want: true,
-		},
-		{
-			name:         "all repos have empty Languages map",
-			repositories: []string{"github:bazelbuild/example"},
-			repoMeta: map[repositoryID]*bzpb.RepositoryMetadata{
-				repoID: {Languages: map[string]int32{}},
-			},
-			want: true,
-		},
-		{
-			name:         "populated Languages without Starlark is a negative signal",
-			repositories: []string{"github:bazelbuild/example"},
-			repoMeta: map[repositoryID]*bzpb.RepositoryMetadata{
-				repoID: {Languages: map[string]int32{"C": 1000}},
-			},
-			want: false,
-		},
-		{
-			name:         "mixed: one negative signal still rejects",
-			repositories: []string{"github:bazelbuild/example", "gitlab:arm/rules_tar"},
-			repoMeta: map[repositoryID]*bzpb.RepositoryMetadata{
-				repoID: {Languages: map[string]int32{"C": 1000}},
-				// gitlab repo has no metadata entry — by itself a non-signal,
-				// but the github entry's populated non-Starlark map wins.
-			},
-			want: false,
-		},
-		{
-			name:         "mixed: Starlark in any populated map still wins",
-			repositories: []string{"github:bazelbuild/example", "gitlab:arm/rules_tar"},
-			repoMeta: map[repositoryID]*bzpb.RepositoryMetadata{
-				repoID: {Languages: map[string]int32{"Starlark": 500, "Go": 500}},
-			},
-			want: true,
-		},
-		{
-			name:         "no repository entries",
-			repositories: nil,
-			repoMeta:     map[repositoryID]*bzpb.RepositoryMetadata{},
-			want:         false,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			r := rule.NewRule(moduleMetadataKind, "metadata")
-			if tt.repositories != nil {
-				r.SetAttr("repository", tt.repositories)
-			}
-			if got := isStarlarkCandidate(r, tt.repoMeta); got != tt.want {
-				t.Errorf("isStarlarkCandidate = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
