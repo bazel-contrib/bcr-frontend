@@ -117,10 +117,10 @@ import {
   githubRawUrl,
   githubRepoUrlFromModuleVersion,
   githubSourceUrl,
-  githubUserUrl,
   bazelPullRequestUrl,
   labelUri,
   loadLabelUrl,
+  maintainerByGithubUrl,
   moduleLabelDocsUri,
   modulesUrl,
   moduleVersionDocsUrl,
@@ -558,7 +558,7 @@ import {
     {/if}
   </div>
 {elseif $safeName}
-  <a href="{githubUserUrl(name: $safeName)}"
+  <a href="{maintainerByGithubUrl(name: $safeName)}"
      title="{$title ?? '@' + $safeName}"
      class="TimelineItem-badge timeline-avatar-badge">
     <img class="avatar circle" loading="lazy" decoding="async" width="{$size}" height="{$size}"
@@ -585,7 +585,7 @@ import {
     {if $isBot}
       <span class="{$class}">{$displayName ?? $safeName}</span>
     {else}
-      <a class="{$class}" href="{githubUserUrl(name: $safeName)}">
+      <a class="{$class}" href="{maintainerByGithubUrl(name: $safeName)}">
         {$displayName ?? $safeName}
       </a>
     {/if}

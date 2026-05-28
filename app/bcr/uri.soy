@@ -64,6 +64,11 @@ import {
   {/if}
 {/template}
 
+{template maintainerByGithubUrl kind="uri"}
+  {@param name: string}
+  {maintainersUrl()}/{$name}
+{/template}
+
 {template githubAvatarUrl kind="uri"}
   {@param name: string}
   {if $name}
