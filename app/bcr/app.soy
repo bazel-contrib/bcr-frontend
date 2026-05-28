@@ -167,8 +167,13 @@ import {
     <a href="/home">{logo()}</a>
   </div>
   <div class="Header-item Header-item--full">
-    <form class="FormControl col-12 width-full" style="margin-block-end: 0">
-      <input class="form-control input-hide-webkit-autofill border" type="text" placeholder="Search..." style="background-color: var(--button-default-bgColor-rest, var(--color-btn-bg));"/>
+    <form class="d-flex flex-items-stretch width-full" style="margin-block-end: 0">
+      <input class="form-control input-hide-webkit-autofill flex-auto" type="text" placeholder="Search..." style="background-color: var(--button-default-bgColor-rest, var(--color-btn-bg)); border-top-right-radius: 0; border-bottom-right-radius: 0; border-right: 0;"/>
+      <div class="BtnGroup flex-shrink-0" role="group" aria-label="Search scope">
+        <button type="button" class="btn BtnGroup-item selected" data-searchscope="all" aria-pressed="true" style="border-top-left-radius: 0; border-bottom-left-radius: 0;">All</button>
+        <button type="button" class="btn BtnGroup-item" data-searchscope="modules" aria-pressed="false">Modules</button>
+        <button type="button" class="btn BtnGroup-item" data-searchscope="symbols" aria-pressed="false">Symbols</button>
+      </div>
     </form>
   </div>
 </div>
@@ -337,7 +342,7 @@ import {
     <span class="text-bold">{$totalPeople ?? $totalMaintainers}</span>
   </a>
   <a class="Link--primary d-flex flex-items-center mb-2" href="/docs">
-    <span class="color-fg-muted">Documented Symbols</span>
+    <span class="color-fg-muted">Symbols</span>
     <span class="dotted-leader"></span>
     <span class="text-bold js-symbols-count">{$totalSymbols}</span>
   </a>
@@ -421,13 +426,19 @@ import {
       {kbd(key: '~')}
     </a>
     <a class="Link--primary d-flex flex-items-center mb-2"
-      href="javascript:void(0)" data-searchprovider="modules">
-      <span class="color-fg-muted">Module Search</span>
+      href="javascript:void(0)" data-searchscope="all">
+      <span class="color-fg-muted">Search (all)</span>
       <span class="dotted-leader"></span>
       {kbd(key: '/')}
     </a>
     <a class="Link--primary d-flex flex-items-center mb-2"
-      href="javascript:void(0)" data-searchprovider="symbols">
+      href="javascript:void(0)" data-searchscope="modules">
+      <span class="color-fg-muted">Module Search</span>
+      <span class="dotted-leader"></span>
+      {kbd(key: '\'')}
+    </a>
+    <a class="Link--primary d-flex flex-items-center mb-2"
+      href="javascript:void(0)" data-searchscope="symbols">
       <span class="color-fg-muted">Symbol Search</span>
       <span class="dotted-leader"></span>
       {kbd(key: '.')}
@@ -3288,13 +3299,17 @@ import {
   {@param module: Module}
   {@param? lang: string}
   {@param? description: string}
+  {@param? kind: string}
   <div class="d-flex flex-items-center">
     {octiconSquareFill16(class: 'mr-2', fill: 'var(--lang-' + $lang + '-bg)')}
     <span class="text-semibold">{$module.getName()}</span>
     {if $description}
-      <span class="ml-auto text-small overflow-x-hidden" style="color: var(--color-fg-muted)">
+      <span class="ml-2 text-small overflow-x-hidden" style="color: var(--color-fg-muted)">
         {$description|truncate:96}
       </span>
+    {/if}
+    {if $kind}
+      <span class="ml-auto Label Label--secondary" style="font-size: 10px;">{$kind}</span>
     {/if}
   </div>
 {/template}
@@ -3304,6 +3319,7 @@ import {
   {@param sym: Symbol}
   {@param? label: Label}
   {@param? description: string}
+  {@param? kind: string}
   <div class="d-flex flex-items-center">
     <span style="color: var({symbolColor(type: $sym.getType())})">
       {let $name: symbolTypeName(type: $sym.getType()) /}
@@ -3314,9 +3330,12 @@ import {
       <span class="color-fg-muted text-small ml-2">{renderLabel(label: $label)}</span>
     {/if}
     {if $description}
-      <span class="ml-auto text-small overflow-x-hidden" style="color: var(--color-fg-muted)">
+      <span class="ml-2 text-small overflow-x-hidden" style="color: var(--color-fg-muted)">
         {$description|truncate:96}
       </span>
+    {/if}
+    {if $kind}
+      <span class="ml-auto Label Label--secondary" style="font-size: 10px;">{$kind}</span>
     {/if}
   </div>
 {/template}

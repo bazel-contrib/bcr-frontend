@@ -380,5 +380,15 @@ class SearchComponent extends EventTarget {
 	getValue() {
 		return this.inputEl_.value || "";
 	}
+
+	/**
+	 * Override the input's placeholder text. Callers use this to reflect
+	 * UI state (e.g. search scope) that doesn't naturally fit the
+	 * provider's static `desc` field.
+	 * @param {string} text
+	 */
+	setPlaceholder(text) {
+		this.inputEl_.placeholder = text;
+	}
 }
 exports.SearchComponent = SearchComponent;

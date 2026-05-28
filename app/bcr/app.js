@@ -15,11 +15,9 @@ const { App, Component, Route, RouteEvent, RouteEventType } =
 	goog.require("stack.ui");
 const { Application, SearchProvider } = goog.requireType("bcrfrontend.common");
 const { BodySelect } = goog.require("bcrfrontend.body");
-const { DocumentationSearchHandler } = goog.require(
-	"bcrfrontend.documentation_search",
-);
 const { MVS } = goog.require("bcrfrontend.mvs");
-const { ModuleSearchHandler } = goog.require("bcrfrontend.module_search");
+const { SCOPE_ALL, SCOPE_MODULES, SCOPE_SYMBOLS, UnifiedSearchHandler } =
+	goog.require("bcrfrontend.unified_search");
 const { SearchComponent } = goog.require("bcrfrontend.search");
 const { copyToClipboard } = goog.require("bcrfrontend.clipboard");
 const { createMaintainersMap, createModuleMap } = goog.require(
@@ -75,11 +73,9 @@ class RegistryApp extends App {
 		/** @private @type {!BodySelect} */
 		this.body_ = new BodySelect(this.registry_, opt_domHelper);
 
-		/** @const @private @type {!ModuleSearchHandler} */
-		this.moduleSearchHandler_ = new ModuleSearchHandler(this.registry_);
-
-		/** @const @private @type {!DocumentationSearchHandler} */
-		this.documentationSearchHandler_ = new DocumentationSearchHandler(
+		/** @const @private @type {!UnifiedSearchHandler} */
+		this.unifiedSearchHandler_ = new UnifiedSearchHandler(
+			this.registry_,
 			this.registryWithSymbols_,
 		);
 
@@ -218,13 +214,18 @@ class RegistryApp extends App {
 		);
 
 		this.search_.addSearchProvider(
-			this.moduleSearchHandler_.getSearchProvider(),
-		);
-		this.search_.addSearchProvider(
-			this.documentationSearchHandler_.getSearchProvider(),
+			this.unifiedSearchHandler_.getSearchProvider(),
 		);
 
-		this.search_.setCurrentSearchProviderByName("modules");
+		this.search_.setCurrentSearchProviderByName("all");
+		this.syncScopePillsDom_();
+	}
+
+	/**
+	 * @return {!UnifiedSearchHandler}
+	 */
+	getUnifiedSearchHandler() {
+		return this.unifiedSearchHandler_;
 	}
 
 	/**
@@ -252,34 +253,28 @@ class RegistryApp extends App {
 					this.blurSearchBox(e);
 					break;
 				case events.KeyCodes.SLASH:
-					// If input is empty, switch to module search
 					if (inputValue.length === 0) {
-						this.focusSearchBox(
-							e,
-							this.moduleSearchHandler_.getSearchProvider(),
-						);
+						this.setSearchScope_(SCOPE_ALL, e);
+					}
+					break;
+				case events.KeyCodes.SINGLE_QUOTE:
+					if (inputValue.length === 0) {
+						this.setSearchScope_(SCOPE_MODULES, e);
 					}
 					break;
 				case events.KeyCodes.PERIOD:
-					// If input is empty, switch to documentation search
 					if (inputValue.length === 0) {
-						this.focusSearchBox(
-							e,
-							this.documentationSearchHandler_.getSearchProvider(),
-						);
+						this.setSearchScope_(SCOPE_SYMBOLS, e);
 					}
 					break;
 			}
 			return;
 		}
 
-		// CMD-P (Mac) or CTRL-P (Windows/Linux) to focus documentation search
+		// CMD/CTRL+P focuses the search with symbols scope (legacy alias).
 		if (e.keyCode === events.KeyCodes.P && (e.metaKey || e.ctrlKey)) {
 			if (this.getKbd().isEnabled()) {
-				this.focusSearchBox(
-					e,
-					this.documentationSearchHandler_.getSearchProvider(),
-				);
+				this.focusSearchWithScope_(SCOPE_SYMBOLS, e);
 			}
 			return;
 		}
@@ -287,15 +282,17 @@ class RegistryApp extends App {
 		switch (e.keyCode) {
 			case events.KeyCodes.SLASH:
 				if (this.getKbd().isEnabled()) {
-					this.focusSearchBox(e, this.moduleSearchHandler_.getSearchProvider());
+					this.focusSearchWithScope_(SCOPE_ALL, e);
+				}
+				break;
+			case events.KeyCodes.SINGLE_QUOTE:
+				if (this.getKbd().isEnabled()) {
+					this.focusSearchWithScope_(SCOPE_MODULES, e);
 				}
 				break;
 			case events.KeyCodes.PERIOD:
 				if (this.getKbd().isEnabled()) {
-					this.focusSearchBox(
-						e,
-						this.documentationSearchHandler_.getSearchProvider(),
-					);
+					this.focusSearchWithScope_(SCOPE_SYMBOLS, e);
 				}
 				break;
 			case events.KeyCodes.COMMA:
@@ -344,6 +341,57 @@ class RegistryApp extends App {
 		if (opt_e) {
 			opt_e.preventDefault();
 			opt_e.stopPropagation();
+		}
+	}
+
+	/**
+	 * @private
+	 * @param {string} scope
+	 * @param {!events.BrowserEvent=} opt_e
+	 */
+	setSearchScope_(scope, opt_e) {
+		this.unifiedSearchHandler_.setScope(scope);
+		this.syncScopePillsDom_();
+		if (opt_e) {
+			opt_e.preventDefault();
+			opt_e.stopPropagation();
+		}
+	}
+
+	/**
+	 * @private
+	 * @param {string} scope
+	 * @param {!events.BrowserEvent=} opt_e
+	 */
+	focusSearchWithScope_(scope, opt_e) {
+		this.unifiedSearchHandler_.setScope(scope);
+		this.syncScopePillsDom_();
+		this.search_.focus();
+		if (opt_e) {
+			opt_e.preventDefault();
+			opt_e.stopPropagation();
+		}
+	}
+
+	/**
+	 * Toggle the .selected class on the BtnGroup pills to reflect the
+	 * unified handler's current scope, and update the input placeholder
+	 * to signal what's being searched.
+	 * @private
+	 */
+	syncScopePillsDom_() {
+		const scope = this.unifiedSearchHandler_.getScope();
+		const root = this.getElementStrict();
+		const pills = root.querySelectorAll("[data-searchscope]");
+		for (const pill of pills) {
+			const v = dataset.get(/** @type {!Element} */ (pill), "searchscope");
+			pill.classList.toggle("selected", v === scope);
+			pill.setAttribute("aria-pressed", v === scope ? "true" : "false");
+		}
+		if (this.search_) {
+			this.search_.setPlaceholder(
+				this.unifiedSearchHandler_.placeholderForScope(scope),
+			);
 		}
 	}
 
@@ -450,9 +498,9 @@ class RegistryApp extends App {
 					this.toastSuccess(`copied: ${clippy}`);
 					return true;
 				}
-				const searchprovider = dataset.get(node, "searchprovider");
-				if (searchprovider) {
-					this.search_.focusSearchProviderByName(searchprovider);
+				const searchscope = dataset.get(node, "searchscope");
+				if (searchscope) {
+					this.focusSearchWithScope_(searchscope);
 					return true;
 				}
 				const action = dataset.get(node, "action");

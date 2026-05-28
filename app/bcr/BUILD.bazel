@@ -271,7 +271,6 @@ closure_js_library(
         "contentcomponent.js",
         "contentselect.js",
         "documentation.js",
-        "documentation_search.js",
         "format.js",
         "githubsourcefile.js",
         "home.js",
@@ -279,7 +278,6 @@ closure_js_library(
         "main.js",
         "maintainers.js",
         "markdown.js",
-        "module_search.js",
         "modules.js",
         "mvs_tree.js",
         "packages.js",
@@ -291,6 +289,7 @@ closure_js_library(
         "syntax.js",
         "targets.js",
         "treeview.js",
+        "unified_search.js",
         ":shiki",
     ],
     deps = [
