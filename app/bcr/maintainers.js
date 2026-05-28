@@ -104,16 +104,11 @@ class MaintainersSelect extends ContentSelect {
 
 		const person = this.maintainers_.get(name) || this.contributors_.get(name);
 		if (person) {
-			this.addTab(
-				name,
-				new MaintainerComponent(this.registry_, name, person),
-			);
+			this.addTab(name, new MaintainerComponent(this.registry_, name, person));
 			this.select(name, route);
 			return;
 		} else {
-			console.warn(
-				`failed to get maintainer/contributor for ${name}`,
-			);
+			console.warn(`failed to get maintainer/contributor for ${name}`);
 		}
 
 		super.selectFail(name, route);
@@ -159,7 +154,7 @@ class MaintainersMapSelectNav extends SelectNav {
 				totalModules: modules.size,
 				totalModuleVersions: totalModuleVersions,
 				totalMaintainers: this.maintainers_.size,
-				totalContributors: this.contributors_.size,
+				totalPeople: this.people_.size,
 				totalSymbols: computeTotalSymbols(this.registry_),
 				topPrimaryLanguages: computeTopPrimaryLanguages(this.registry_, 10),
 				totalBazelVersions: computeTotalBazelVersions(this.registry_),

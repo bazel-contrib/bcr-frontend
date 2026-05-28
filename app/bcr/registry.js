@@ -182,6 +182,15 @@ function createPeopleMap(registry) {
 exports.createPeopleMap = createPeopleMap;
 
 /**
+ * @param {!Registry} registry
+ * @returns {number}
+ */
+function computeTotalPeople(registry) {
+	return createPeopleMap(registry).size;
+}
+exports.computeTotalPeople = computeTotalPeople;
+
+/**
  * Builds a mapping of module versions that have documentation.
  *
  * @param {!Registry} registry

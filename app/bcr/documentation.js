@@ -76,6 +76,7 @@ const {
 const {
 	computeTopPrimaryLanguages,
 	computeTotalBazelVersions,
+	computeTotalPeople,
 	computeTotalSymbols,
 	createDocumentationMap,
 	createMaintainersMap,
@@ -313,6 +314,7 @@ class DocsMapSelectNav extends SelectNav {
 				totalModules: modules.size,
 				totalModuleVersions: totalModuleVersions,
 				totalMaintainers: maintainers.size,
+				totalPeople: computeTotalPeople(this.registry_),
 				totalSymbols: computeTotalSymbols(this.registry_),
 				topPrimaryLanguages: computeTopPrimaryLanguages(this.registry_, 10),
 				totalBazelVersions: computeTotalBazelVersions(this.registry_),
