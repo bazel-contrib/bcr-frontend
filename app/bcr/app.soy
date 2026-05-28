@@ -2085,8 +2085,10 @@ import {
 
 
 {template renderValueAsCode kind="text"}
-  {@param value: Value}
-  {if $value.getString()}
+  {@param? value: Value}
+  {if !$value}
+    {sp}
+  {elseif $value.getString()}
     "{$value.getString()}"
   {elseif $value.getInt()}
     {$value.getInt()}
@@ -2108,6 +2110,34 @@ import {
         {'    '}{call renderValueAsCode}{param value: $item /}{/call}{if $index < length($items) - 1},{/if}{\n}
       {/for}
       ]
+    {/if}
+  {elseif $value.getCall()}
+    {let $call: $value.getCall() /}
+    {let $positional: $call.getPositionalList() /}
+    {let $kwargs: $call.getKwargList() /}
+    {let $total: length($positional) + length($kwargs) /}
+    {if $total == 0}
+      {$call.getFunctionName()}()
+    {else}
+      {$call.getFunctionName()}({\n}
+      {for $arg, $index in $positional}
+        {'    '}{call renderValueAsCode}{param value: $arg /}{/call}{if $index < $total - 1},{/if}{\n}
+      {/for}
+      {for $kw, $kidx in $kwargs}
+        {'    '}{$kw.getName()} = {call renderValueAsCode}{param value: $kw.getValue() /}{/call}{if length($positional) + $kidx < $total - 1},{/if}{\n}
+      {/for}
+      )
+    {/if}
+  {elseif $value.getDict()}
+    {let $entries: $value.getDict().getEntryList() /}
+    {if length($entries) == 0}
+      {lb}{rb}
+    {else}
+      {lb}{\n}
+      {for $entry, $index in $entries}
+        {'    '}{call renderValueAsCode}{param value: $entry.getKey() /}{/call}: {call renderValueAsCode}{param value: $entry.getValue() /}{/call}{if $index < length($entries) - 1},{/if}{\n}
+      {/for}
+      {rb}
     {/if}
   {else}
     # unknown

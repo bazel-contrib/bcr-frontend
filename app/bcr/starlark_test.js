@@ -5,6 +5,7 @@ const Aspect = goog.require("proto.build.stack.starlark.v1beta1.Aspect");
 const AspectInfo = goog.require("proto.stardoc_output.AspectInfo");
 const AttributeInfo = goog.require("proto.stardoc_output.AttributeInfo");
 const AttributeType = goog.require("proto.stardoc_output.AttributeType");
+const DictEntry = goog.require("proto.build.stack.starlark.v1beta1.DictEntry");
 const File = goog.require("proto.build.stack.bazel.symbol.v1.File");
 const Function = goog.require("proto.build.stack.starlark.v1beta1.Function");
 const FunctionParamInfo = goog.require(
@@ -48,6 +49,13 @@ const StarlarkFunctionInfo = goog.require(
 	"proto.stardoc_output.StarlarkFunctionInfo",
 );
 const Symbol = goog.require("proto.build.stack.bazel.symbol.v1.Symbol");
+const TargetAttribute = goog.require(
+	"proto.build.stack.starlark.v1beta1.TargetAttribute",
+);
+const Value = goog.require("proto.build.stack.starlark.v1beta1.Value");
+const ValueCall = goog.require("proto.build.stack.starlark.v1beta1.ValueCall");
+const ValueDict = goog.require("proto.build.stack.starlark.v1beta1.ValueDict");
+const ValueList = goog.require("proto.build.stack.starlark.v1beta1.ValueList");
 const jsunit = goog.require("goog.testing.jsunit");
 const starlark = goog.require("bcrfrontend.starlark");
 const testSuite = goog.require("goog.testing.testSuite");
@@ -62,7 +70,77 @@ const {
 	getAttributeExampleValue,
 	getFieldExampleValue,
 	getParameterExampleValue,
+	valueToStarlark,
 } = goog.require("bcrfrontend.starlark");
+
+/**
+ * @param {string} s
+ * @return {!Value}
+ */
+function vStr(s) {
+	const v = new Value();
+	v.setString(s);
+	return v;
+}
+
+/**
+ * @param {!Array<!Value>} items
+ * @return {!Value}
+ */
+function vList(items) {
+	const list = new ValueList();
+	list.setValueList(items);
+	const v = new Value();
+	v.setList(list);
+	return v;
+}
+
+/**
+ * @param {string} name
+ * @param {!Array<!Value>=} positional
+ * @param {!Array<!TargetAttribute>=} kwargs
+ * @return {!Value}
+ */
+function vCall(name, positional = [], kwargs = []) {
+	const call = new ValueCall();
+	call.setFunctionName(name);
+	call.setPositionalList(positional);
+	call.setKwargList(kwargs);
+	const v = new Value();
+	v.setCall(call);
+	return v;
+}
+
+/**
+ * @param {!Array<!Array<!Value>>} pairs
+ * @return {!Value}
+ */
+function vDict(pairs) {
+	const dict = new ValueDict();
+	dict.setEntryList(
+		pairs.map(([k, v]) => {
+			const e = new DictEntry();
+			e.setKey(k);
+			e.setValue(v);
+			return e;
+		}),
+	);
+	const v = new Value();
+	v.setDict(dict);
+	return v;
+}
+
+/**
+ * @param {string} name
+ * @param {!Value} value
+ * @return {!TargetAttribute}
+ */
+function kwarg(name, value) {
+	const a = new TargetAttribute();
+	a.setName(name);
+	a.setValue(value);
+	return a;
+}
 
 testSuite({
 	teardown: () => {},
@@ -758,6 +836,105 @@ testSuite({
 			"\n" +
 			'go_sdk.download(version = "")';
 		assertEquals(expected, result);
+	},
+
+	// ========== valueToStarlark Tests ==========
+
+	testValueToStarlark_nullIsNone: () => {
+		assertEquals("None", valueToStarlark(null));
+	},
+
+	testValueToStarlark_stringQuoted: () => {
+		assertEquals('"hello"', valueToStarlark(vStr("hello")));
+	},
+
+	testValueToStarlark_emptyList: () => {
+		assertEquals("[]", valueToStarlark(vList([])));
+	},
+
+	testValueToStarlark_singletonList: () => {
+		assertEquals('["a"]', valueToStarlark(vList([vStr("a")])));
+	},
+
+	testValueToStarlark_callEmptyArgs: () => {
+		assertEquals("existing_rule()", valueToStarlark(vCall("existing_rule")));
+	},
+
+	testValueToStarlark_callSinglePositionalList: () => {
+		assertEquals(
+			'glob(["*.cc"])',
+			valueToStarlark(vCall("glob", [vList([vStr("*.cc")])])),
+		);
+	},
+
+	testValueToStarlark_callPositionalAndKwarg: () => {
+		const got = valueToStarlark(
+			vCall(
+				"glob",
+				[vList([vStr("*.cc")])],
+				[kwarg("exclude", vList([vStr("*_test.cc")]))],
+			),
+			"",
+		);
+		const expected =
+			"glob(\n" + '    ["*.cc"],\n' + '    exclude = ["*_test.cc"],\n' + ")";
+		assertEquals(expected, got);
+	},
+
+	testValueToStarlark_callSingleKwargInline: () => {
+		const got = valueToStarlark(
+			vCall("foo", [], [kwarg("name", vStr("x"))]),
+			"",
+		);
+		assertEquals('foo(name = "x")', got);
+	},
+
+	testValueToStarlark_emptyDict: () => {
+		assertEquals("{}", valueToStarlark(vDict([])));
+	},
+
+	testValueToStarlark_dictMultiline: () => {
+		const got = valueToStarlark(
+			vDict([
+				[vStr("//cpu:x86"), vList([vStr("a.cc")])],
+				[vStr("//conditions:default"), vList([])],
+			]),
+			"",
+		);
+		const expected =
+			"{\n" +
+			'    "//cpu:x86": ["a.cc"],\n' +
+			'    "//conditions:default": [],\n' +
+			"}";
+		assertEquals(expected, got);
+	},
+
+	testValueToStarlark_selectWrappingDict: () => {
+		const got = valueToStarlark(
+			vCall("select", [
+				vDict([
+					[vStr("//cpu:x86"), vList([vStr("a.cc")])],
+					[vStr("//conditions:default"), vList([])],
+				]),
+			]),
+			"",
+		);
+		const expected =
+			"select({\n" +
+			'    "//cpu:x86": ["a.cc"],\n' +
+			'    "//conditions:default": [],\n' +
+			"})";
+		assertEquals(expected, got);
+	},
+
+	testValueToStarlark_exportsFilesMultiElementList: () => {
+		const got = valueToStarlark(
+			vCall("exports_files", [vList([vStr("LICENSE"), vStr("NOTICE")])]),
+			"",
+		);
+		const expected =
+			"exports_files([\n" + '    "LICENSE",\n' + '    "NOTICE",\n' + "])";
+		assertEquals(expected, got);
 	},
 });
 
