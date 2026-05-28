@@ -1,13 +1,13 @@
 module github.com/bazel-contrib/bcr-frontend
 
-go 1.25.0
+go 1.26
 
 require (
 	github.com/JohannesKaufmann/html-to-markdown v1.6.0
 	github.com/bazelbuild/bazel-gazelle v0.47.0
 	github.com/bazelbuild/bazelisk v1.27.0
 	github.com/bazelbuild/buildtools v0.0.0-20260319080235-05d2ebe49b0f
-	github.com/chromedp/cdproto v0.0.0-20250724212937-08a3db8b4327
+	github.com/chromedp/cdproto v0.0.0-20260427013145-5737772c319b
 	github.com/chromedp/chromedp v0.14.2
 	github.com/dominikbraun/graph v0.23.0
 	github.com/google/go-github/v66 v66.0.0
@@ -31,7 +31,7 @@ require (
 	github.com/andybalholm/cascadia v1.3.2 // indirect
 	github.com/bgentry/go-netrc v0.0.0-20140422174119-9fd32a8b3d3d // indirect
 	github.com/chromedp/sysutil v1.1.0 // indirect
-	github.com/go-json-experiment/json v0.0.0-20250725192818-e39067aee2d2 // indirect
+	github.com/go-json-experiment/json v0.0.0-20260214004413-d219187c3433 // indirect
 	github.com/gobwas/httphead v0.1.0 // indirect
 	github.com/gobwas/pool v0.2.1 // indirect
 	github.com/gobwas/ws v1.4.0 // indirect
