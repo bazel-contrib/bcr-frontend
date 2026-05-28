@@ -32,9 +32,7 @@ import {
   {@param attr: [name: string, valueText: string]}
 <div class="Box-row d-flex flex-items-start">
   <span class="text-mono text-bold mr-3" style="min-width: 160px;">{$attr.name}</span>
-  <span class="color-fg-muted text-small text-mono" style="overflow-wrap: anywhere;">
-    {$attr.valueText}
-  </span>
+  <pre class="color-fg-muted text-small text-mono m-0" style="white-space: pre-wrap; overflow-wrap: anywhere; flex: 1; background: transparent; border: 0; padding: 0;">{$attr.valueText}</pre>
 </div>
 {/template}
 

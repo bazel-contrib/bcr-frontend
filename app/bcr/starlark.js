@@ -2,6 +2,9 @@ goog.module("bcrfrontend.starlark");
 
 const AttributeInfo = goog.require("proto.stardoc_output.AttributeInfo");
 const AttributeType = goog.require("proto.stardoc_output.AttributeType");
+const DictEntry = goog.requireType(
+	"proto.build.stack.starlark.v1beta1.DictEntry",
+);
 const File = goog.require("proto.build.stack.bazel.symbol.v1.File");
 const FunctionParamInfo = goog.require(
 	"proto.stardoc_output.FunctionParamInfo",
@@ -887,6 +890,56 @@ function valueToStarlark(value, indent = "    ") {
 		}
 		case Value.ValueCase.MACRO:
 			return "# <macro>";
+		case Value.ValueCase.CALL: {
+			const call = value.getCall();
+			if (!call) return "# <complex expr>";
+			const name = call.getFunctionName();
+			const positionals = call.getPositionalList();
+			const kwargs = call.getKwargList();
+			const total = positionals.length + kwargs.length;
+			if (total === 0) {
+				return `${name}()`;
+			}
+			if (total === 1) {
+				const arg =
+					positionals.length === 1
+						? valueToStarlark(positionals[0], indent)
+						: `${kwargs[0].getName()} = ${valueToStarlark(kwargs[0].getValue(), indent)}`;
+				return `${name}(${arg})`;
+			}
+			const inner = indent + "    ";
+			/** @type {!Array<string>} */
+			const parts = [];
+			for (const p of positionals) {
+				parts.push(`${inner}${valueToStarlark(p, inner)}`);
+			}
+			for (const kw of kwargs) {
+				const v = kw.getValue();
+				parts.push(`${inner}${kw.getName()} = ${valueToStarlark(v, inner)}`);
+			}
+			return `${name}(\n${parts.join(",\n")},\n${indent})`;
+		}
+		case Value.ValueCase.DICT: {
+			const dict = value.getDict();
+			if (!dict) return "# <complex expr>";
+			const entries = dict.getEntryList();
+			if (entries.length === 0) {
+				return "{}";
+			}
+			const inner = indent + "    ";
+			const lines = entries.map(
+				/**
+				 * @param {!DictEntry} e
+				 * @return {string}
+				 */
+				(e) => {
+					const k = valueToStarlark(e.getKey(), inner);
+					const v = valueToStarlark(e.getValue(), inner);
+					return `${inner}${k}: ${v}`;
+				},
+			);
+			return `{\n${lines.join(",\n")},\n${indent}}`;
+		}
 		default:
 			return "# <complex expr>";
 	}
