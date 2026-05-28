@@ -123,12 +123,21 @@ import {
 {template moduleVersionPseudoModuleNotice}
   {@param moduleVersion: ModuleVersion}
   <div class="flash flash-warn mb-3">
-    <strong>@{$moduleVersion.getName()} is a built-in Bazel repository, not a publishable module.</strong>
-    {sp}It's available to every Bazel build automatically, so you should never
-    declare a <span class="text-mono">bazel_dep</span> for it in
-    {sp}<span class="text-mono">MODULE.bazel</span>. It's listed in the registry only
-    so that <span class="text-mono">load("@{$moduleVersion.getName()}//...")</span>
-    references in other modules' documentation can resolve.
+    {if $moduleVersion.getName() == '_builtins'}
+      <strong>@_builtins isn't a real repository — it's a placeholder name for a Bazel-internal concept.</strong>
+      {sp}Bazel exposes its built-in Starlark globals, rules, and providers under this synthetic prefix
+      so that documentation tooling (including this site) has a stable label to attach them to.
+      There is nothing to depend on, nothing to download, and no
+      {sp}<span class="text-mono">bazel_dep</span> to declare —
+      the symbols are simply available in every Bazel build.
+    {else}
+      <strong>@{$moduleVersion.getName()} is a built-in Bazel repository, not a publishable module.</strong>
+      {sp}It's available to every Bazel build automatically, so you should never
+      declare a <span class="text-mono">bazel_dep</span> for it in
+      {sp}<span class="text-mono">MODULE.bazel</span>. It's listed in the registry only
+      so that <span class="text-mono">load("@{$moduleVersion.getName()}//...")</span>
+      references in other modules' documentation can resolve.
+    {/if}
   </div>
 {/template}
 
