@@ -1002,7 +1002,7 @@ import {
   {@param maintainer: Maintainer}
   {@param? size: int}
   <a class="d-inline-block" href="{maintainerUrl(maintainer: $maintainer)}" title="{$maintainer.getName() || '@' + $maintainer.getGithub()}">
-    <img class="avatar circle" width="{$size ? $size : 48}" height="{$size ? $size : 48}" src="{githubAvatarUrl(name: $maintainer.getGithub())}" alt="@{$maintainer.getGithub()}">
+    <img class="avatar circle" loading="lazy" decoding="async" width="{$size ? $size : 48}" height="{$size ? $size : 48}" src="{githubAvatarUrl(name: $maintainer.getGithub())}" alt="@{$maintainer.getGithub()}">
   </a>
 {/template}
 

@@ -13,6 +13,7 @@ const { getApplication } = goog.require("bcrfrontend.common");
 const {
 	computeTopPrimaryLanguages,
 	computeTotalBazelVersions,
+	computeTotalPeople,
 	computeTotalSymbols,
 	createMaintainersMap,
 	createModuleMap,
@@ -121,6 +122,7 @@ class HomeOverviewSelectNav extends SelectNav {
 				totalModules: modules.size,
 				totalModuleVersions: totalModuleVersions,
 				totalMaintainers: maintainers.size,
+				totalPeople: computeTotalPeople(this.registry_),
 				totalSymbols: computeTotalSymbols(this.registry_),
 				topPrimaryLanguages: computeTopPrimaryLanguages(this.registry_, 10),
 				totalBazelVersions: computeTotalBazelVersions(this.registry_),

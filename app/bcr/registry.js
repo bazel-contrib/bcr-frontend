@@ -113,6 +113,84 @@ function createMaintainersMap(registry) {
 exports.createMaintainersMap = createMaintainersMap;
 
 /**
+ * Mirrors the bot heuristic in commitAuthorAvatarLink (app.soy): names
+ * containing "[bot]" or equal to "publish-to-bcr-bot" are automation, not
+ * humans. Used to exclude them from the contributors set.
+ *
+ * @param {string} name
+ * @returns {boolean}
+ */
+function isBotName(name) {
+	return name.indexOf("[bot]") >= 0 || name === "publish-to-bcr-bot";
+}
+exports.isBotName = isBotName;
+
+/**
+ * Builds a mapping of contributors — GitHub users who authored at least one
+ * PR commit on any module version — keyed by github username. Bots are
+ * filtered out. Returns synthesized Maintainer protos (only `github` and
+ * `name` set) so the same templates / detail component work unchanged.
+ *
+ * @param {!Registry} registry
+ * @returns {!Map<string,!Maintainer>}
+ */
+function createContributorsMap(registry) {
+	const result = new Map();
+	registry.getModulesList().forEach((module) => {
+		module.getVersionsList().forEach((version) => {
+			const commit = version.getCommit();
+			if (!commit) return;
+			const githubUser = commit.getGithubUser();
+			if (!githubUser) return;
+			if (isBotName(githubUser)) return;
+			if (result.has(githubUser)) return;
+			const m = new Maintainer();
+			m.setGithub(githubUser);
+			const displayName = commit.getGithubName();
+			if (displayName) m.setName(displayName);
+			result.set(githubUser, m);
+		});
+	});
+	return result;
+}
+exports.createContributorsMap = createContributorsMap;
+
+/**
+ * @param {!Registry} registry
+ * @returns {number}
+ */
+function computeTotalContributors(registry) {
+	return createContributorsMap(registry).size;
+}
+exports.computeTotalContributors = computeTotalContributors;
+
+/**
+ * Union of maintainers and contributors keyed by github username. Maintainer
+ * entries win on overlap because they carry richer fields (email,
+ * github_user_id, do_not_notify) — contributors are synthesized stubs.
+ *
+ * @param {!Registry} registry
+ * @returns {!Map<string,!Maintainer>}
+ */
+function createPeopleMap(registry) {
+	const result = createContributorsMap(registry);
+	createMaintainersMap(registry).forEach((m, key) => {
+		result.set(key, m);
+	});
+	return result;
+}
+exports.createPeopleMap = createPeopleMap;
+
+/**
+ * @param {!Registry} registry
+ * @returns {number}
+ */
+function computeTotalPeople(registry) {
+	return createPeopleMap(registry).size;
+}
+exports.computeTotalPeople = computeTotalPeople;
+
+/**
  * Builds a mapping of module versions that have documentation.
  *
  * @param {!Registry} registry

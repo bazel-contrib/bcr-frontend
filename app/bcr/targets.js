@@ -11,6 +11,7 @@ const { parseLoadUrlKey } = goog.require("bcrfrontend.starlark");
 const {
 	computeTopPrimaryLanguages,
 	computeTotalBazelVersions,
+	computeTotalPeople,
 	computeTotalSymbols,
 	createMaintainersMap,
 	createModuleMap,
@@ -90,6 +91,7 @@ class TargetsSelect extends ContentSelect {
 				totalModules: modules.size,
 				totalModuleVersions,
 				totalMaintainers: createMaintainersMap(this.registry_).size,
+				totalPeople: computeTotalPeople(this.registry_),
 				totalSymbols: computeTotalSymbols(this.registry_),
 				topPrimaryLanguages: computeTopPrimaryLanguages(this.registry_, 10),
 				totalBazelVersions: computeTotalBazelVersions(this.registry_),
