@@ -15,6 +15,11 @@ const { App, Component, Route, RouteEvent, RouteEventType } =
 	goog.require("stack.ui");
 const { Application, SearchProvider } = goog.requireType("bcrfrontend.common");
 const { BodySelect } = goog.require("bcrfrontend.body");
+const {
+	EVENT_CHANGE: REFRESH_EVENT_CHANGE,
+	RefreshController,
+	RefreshMode,
+} = goog.require("bcrfrontend.refresh");
 const { MVS } = goog.require("bcrfrontend.mvs");
 const { SCOPE_ALL, SCOPE_MODULES, SCOPE_SYMBOLS, UnifiedSearchHandler } =
 	goog.require("bcrfrontend.unified_search");
@@ -37,6 +42,7 @@ class RegistryApp extends App {
 	 * @param {!Promise<!Registry>} registryWithPackages
 	 * @param {!Promise<*>} ruleUsageIndex resolves to Map<urlKey, Array<TargetRef>>.
 	 * @param {function():!Promise<*>} bazelFlagDbLoader memoized lazy loader.
+	 * @param {!RefreshController} refreshController
 	 * @param {?dom.DomHelper=} opt_domHelper
 	 */
 	constructor(
@@ -45,6 +51,7 @@ class RegistryApp extends App {
 		registryWithPackages,
 		ruleUsageIndex,
 		bazelFlagDbLoader,
+		refreshController,
 		opt_domHelper,
 	) {
 		super(opt_domHelper);
@@ -63,6 +70,12 @@ class RegistryApp extends App {
 
 		/** @private @const @type {function():!Promise<*>} */
 		this.bazelFlagDbLoader_ = bazelFlagDbLoader;
+
+		/** @private @const @type {!RefreshController} */
+		this.refreshController_ = refreshController;
+
+		/** @private @type {?number} */
+		this.autoReloadTimerId_ = null;
 
 		/** @private @type {!Map<string,string>} */
 		this.options_ = new Map();
@@ -170,6 +183,7 @@ class RegistryApp extends App {
 		this.enterSearch();
 		this.enterKeys();
 		this.enterTopLevelClickEvents();
+		this.enterRefresh();
 	}
 
 	/**
@@ -226,6 +240,54 @@ class RegistryApp extends App {
 	 */
 	getUnifiedSearchHandler() {
 		return this.unifiedSearchHandler_;
+	}
+
+	/**
+	 * @return {!RefreshController}
+	 */
+	getRefreshController() {
+		return this.refreshController_;
+	}
+
+	/**
+	 * Wire the refresh poller: apply the persisted mode (default Notify)
+	 * and listen for CHANGE events so we can reveal the header indicator
+	 * (and, in Auto mode, schedule a window reload).
+	 */
+	enterRefresh() {
+		let mode = RefreshMode.NOTIFY;
+		try {
+			const stored = window.localStorage?.getItem("refresh-mode");
+			if (
+				stored === RefreshMode.OFF ||
+				stored === RefreshMode.NOTIFY ||
+				stored === RefreshMode.AUTO
+			) {
+				mode = stored;
+			}
+		} catch (/** @type {*} */ e) {}
+
+		this.getHandler().listen(
+			this.refreshController_,
+			REFRESH_EVENT_CHANGE,
+			this.handleRefreshChange,
+		);
+		this.refreshController_.setMode(mode);
+		document.documentElement.classList.add("bcr-refresh-available");
+	}
+
+	/**
+	 * @param {!events.Event} e
+	 */
+	handleRefreshChange(e) {
+		document.documentElement.classList.add("bcr-refresh-available");
+		if (this.refreshController_.getMode() === RefreshMode.AUTO) {
+			if (this.autoReloadTimerId_ === null) {
+				this.autoReloadTimerId_ = window.setTimeout(() => {
+					window.location.reload();
+				}, 3000);
+			}
+		}
 	}
 
 	/**
@@ -510,6 +572,10 @@ class RegistryApp extends App {
 				}
 				if (action === "prev-sibling") {
 					this.gotoSibling(-1);
+					return true;
+				}
+				if (action === "reload") {
+					window.location.reload();
 					return true;
 				}
 				if (node instanceof HTMLAnchorElement) {

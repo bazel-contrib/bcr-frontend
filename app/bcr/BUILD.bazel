@@ -282,6 +282,7 @@ closure_js_library(
         "mvs_tree.js",
         "packages.js",
         "presubmit.js",
+        "refresh.js",
         "search.js",
         "selectnav.js",
         "settings.js",

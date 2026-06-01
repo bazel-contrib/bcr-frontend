@@ -113,6 +113,19 @@ pre code {
 	}
 }
 
+/* The search input visually fuses with the scope BtnGroup on its right
+ * edge — clip the right border + radius so they share a single seam.
+ * The BtnGroup itself is hidden below md, so this fusion only applies
+ * once the pills are visible; below md the input keeps its natural
+ * full border so it doesn't look amputated. */
+@media (min-width: 768px) {
+	.search-scope-fused {
+		border-top-right-radius: 0;
+		border-bottom-right-radius: 0;
+		border-right: 0;
+	}
+}
+
 .btn-language {
 	color: var(--lang-fg) !important;
 	background-color: var(--lang-bg) !important;
@@ -279,6 +292,48 @@ pre code {
 	.skeleton-box {
 		outline: 1px solid transparent;
 		outline-offset: -1px;
+	}
+}
+
+/* ========================================
+ * Registry Data Refresh indicator
+ * ======================================== */
+
+/* Small octicon pinned to the upper-right of the Bazel logo. Hidden by
+ * default; revealed when RefreshController detects a backend change by
+ * toggling .bcr-refresh-available on <html>. Clicking the icon reloads. */
+.bcr-refresh-indicator {
+	position: absolute;
+	top: 6px;
+	left: -12px;
+	display: none;
+	background-color: var(--color-accent-emphasis, #0969da);
+	color: var(--color-fg-on-emphasis, #fff);
+	border-radius: 50%;
+	padding: 2px;
+	line-height: 0;
+	text-decoration: none;
+}
+
+html.bcr-refresh-available .bcr-refresh-indicator {
+	display: inline-flex;
+	animation: bcr-refresh-pulse 2s infinite;
+}
+
+@keyframes bcr-refresh-pulse {
+	0%,
+	100% {
+		transform: scale(1);
+	}
+
+	50% {
+		transform: scale(1.2);
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	html.bcr-refresh-available .bcr-refresh-indicator {
+		animation: none;
 	}
 }
 
