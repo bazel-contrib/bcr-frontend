@@ -5,7 +5,11 @@ go_library(
     srcs = ["releasecompiler.go"],
     importpath = "github.com/bazel-contrib/bcr-frontend/cmd/releasecompiler",
     visibility = ["//visibility:private"],
-    deps = ["//pkg/paramsfile"],
+    deps = [
+        "//build/stack/bazel/registry/v1:registry",
+        "//pkg/paramsfile",
+        "@org_golang_google_protobuf//proto",
+    ],
 )
 
 go_binary(

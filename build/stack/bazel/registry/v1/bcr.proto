@@ -25,6 +25,26 @@ message Registry {
     string commit_date = 7;
 }
 
+// RegistryManifest is a small always-fresh snapshot served at the release
+// tarball root. Clients poll it (default every 5 min) to detect when the
+// deployed bundle has changed — BCR data refresh (commit_sha advances) or
+// code redeploy (any asset_hash changes) — without re-fetching the multi-MB
+// registry/symbols/packages payloads.
+message RegistryManifest {
+    // BCR submodule commit fields, copied verbatim from the Registry proto
+    // baked into this release.
+    string commit_sha = 1;
+    // Git commit timestamp (ISO 8601), same source as Registry.commit_date.
+    string commit_date = 2;
+    // Git branch name (e.g. 'main').
+    string branch = 3;
+    // Map of asset basename (pre-hash) -> hashed filename. Includes every
+    // asset that releasecompiler content-hashed (bcr.js, bcr.css,
+    // symbols.pb.gz, packages.pb.gz, bazelflagdb.pb.gz, …). A change in
+    // any value signals a code-side redeploy.
+    map<string,string> asset_hashes = 4;
+}
+
 // Module represents a Bazel module and all its versions.
 message Module {
     // Module name (e.g., 'rules_go', 'protobuf')

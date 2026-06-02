@@ -13,6 +13,9 @@ const ModuleVersion = goog.require(
 const Registry = goog.require("proto.build.stack.bazel.registry.v1.Registry");
 const RegistryApp = goog.require("bcrfrontend.App");
 const base64 = goog.require("goog.crypt.base64");
+const { RefreshController, collectBootAssetHashes } = goog.require(
+	"bcrfrontend.refresh",
+);
 const { gzipDecode } = goog.require("bcrfrontend.common");
 const { loadLabelToUrlKey } = goog.require("bcrfrontend.starlark");
 
@@ -55,12 +58,19 @@ async function main(registryDataBase64) {
 		stale[i].remove();
 	}
 
+	const refreshController = new RefreshController({
+		manifestUrl: metaUrl("bcr:manifest-url"),
+		bootCommitSha: registry.getCommitSha() || "",
+		bootAssetHashes: collectBootAssetHashes(),
+	});
+
 	const app = new RegistryApp(
 		registry,
 		registryWithSymbols,
 		registryWithPackages,
 		ruleUsageIndex,
 		getBazelFlagDb,
+		refreshController,
 	);
 	app.render(document.body);
 	app.start();

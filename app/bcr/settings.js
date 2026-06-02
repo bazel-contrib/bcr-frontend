@@ -8,6 +8,8 @@ const events = goog.require("goog.events");
 const soy = goog.require("goog.soy");
 const { Component, Route } = goog.require("stack.ui");
 const { ContentSelect } = goog.require("bcrfrontend.ContentSelect");
+const { getApplication } = goog.require("bcrfrontend.common");
+const { RefreshController, RefreshMode } = goog.require("bcrfrontend.refresh");
 const { settingsAppearanceComponent, settingsSelect } = goog.require(
 	"soy.bcrfrontend.settings",
 );
@@ -18,6 +20,7 @@ const { settingsAppearanceComponent, settingsSelect } = goog.require(
 const LocalStorageKey = {
 	COLOR_MODE: "color-mode",
 	DISPLAY_MODE: "display-mode",
+	REFRESH_MODE: "refresh-mode",
 };
 
 /**
@@ -94,6 +97,9 @@ class SettingsAppearanceComponent extends Component {
 
 		/** @private @type {?HTMLSelectElement} */
 		this.displaySelectEl_ = null;
+
+		/** @private @type {?HTMLSelectElement} */
+		this.refreshSelectEl_ = null;
 	}
 
 	/**
@@ -111,6 +117,7 @@ class SettingsAppearanceComponent extends Component {
 
 		this.enterThemeSelect();
 		this.enterDisplaySelect();
+		this.enterRefreshSelect();
 	}
 
 	/**
@@ -119,6 +126,7 @@ class SettingsAppearanceComponent extends Component {
 	exitDocument() {
 		this.themeSelectEl_ = null;
 		this.displaySelectEl_ = null;
+		this.refreshSelectEl_ = null;
 		super.exitDocument();
 	}
 
@@ -184,6 +192,45 @@ class SettingsAppearanceComponent extends Component {
 		window.location.reload();
 	}
 
+	enterRefreshSelect() {
+		this.refreshSelectEl_ = /** @type {!HTMLSelectElement} */ (
+			this.getCssElement("refresh")
+		);
+
+		let refreshMode = this.getLocalStorageRefreshMode();
+		if (
+			refreshMode !== RefreshMode.OFF &&
+			refreshMode !== RefreshMode.NOTIFY &&
+			refreshMode !== RefreshMode.AUTO
+		) {
+			refreshMode = RefreshMode.NOTIFY;
+			this.setLocalStorageRefreshMode(refreshMode);
+		}
+		this.refreshSelectEl_.value = refreshMode;
+
+		this.getHandler().listen(
+			this.refreshSelectEl_,
+			events.EventType.CHANGE,
+			this.handleRefreshSelectChange,
+		);
+	}
+
+	/**
+	 * @param {!events.BrowserEvent=} e
+	 */
+	handleRefreshSelectChange(e) {
+		const refreshMode = this.refreshSelectEl_.value || RefreshMode.NOTIFY;
+		this.setLocalStorageRefreshMode(refreshMode);
+		// Notify the live controller — no page reload needed, this setting
+		// only controls the polling behavior, not anything rendered.
+		const controller = /** @type {?RefreshController} */ (
+			getApplication(this).getRefreshController()
+		);
+		if (controller) {
+			controller.setMode(refreshMode);
+		}
+	}
+
 	/**
 	 * @returns {string}
 	 */
@@ -234,6 +281,22 @@ class SettingsAppearanceComponent extends Component {
 	setLocalStorageDisplayMode(displayMode) {
 		if (window.localStorage) {
 			window.localStorage.setItem(LocalStorageKey.DISPLAY_MODE, displayMode);
+		}
+	}
+
+	/**
+	 * @returns {?string}
+	 */
+	getLocalStorageRefreshMode() {
+		return window.localStorage?.getItem(LocalStorageKey.REFRESH_MODE);
+	}
+
+	/**
+	 * @param {string} refreshMode
+	 */
+	setLocalStorageRefreshMode(refreshMode) {
+		if (window.localStorage) {
+			window.localStorage.setItem(LocalStorageKey.REFRESH_MODE, refreshMode);
 		}
 	}
 

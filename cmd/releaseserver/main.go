@@ -163,9 +163,10 @@ func (s *SPAServer) serveFile(w http.ResponseWriter, r *http.Request, path strin
 	w.Header().Set("Content-Type", contentType)
 
 	// Set caching headers
-	// For HTML files and raw protobufs that aren't hashed, don't cache (always fresh)
-	// For assets, cache for a long time (they should be content-hashed)
-	if strings.HasSuffix(path, ".html") || strings.HasSuffix(path, ".pb") {
+	// For HTML files, raw protobufs that aren't hashed, and the refresh
+	// manifest (always served from a fixed un-hashed path), don't cache.
+	// For assets, cache for a long time (they should be content-hashed).
+	if strings.HasSuffix(path, ".html") || strings.HasSuffix(path, ".pb") || path == "manifest.pb.gz" {
 		w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
 	} else {
 		// Assets are content-hashed, so cache aggressively

@@ -29,6 +29,7 @@ import {
     octiconSparkleFill16,
     octiconSquareFill16,
     octiconStarFill16,
+    octiconSync16,
     octiconTable16,
     octiconWorkflow16
 } from 'app/bcr/octicons.soy';
@@ -163,13 +164,18 @@ import {
 
 {template header}
 <div class="Header" style="background-color: unset">
-  <div class="Header-item" style="max-width: 54px">
+  <div class="Header-item" style="max-width: 54px; position: relative;">
     <a href="/home">{logo()}</a>
+    <a href="javascript:void(0)" data-action="reload"
+       class="bcr-refresh-indicator"
+       title="New registry data available — click to reload">
+      {octiconSync16()}
+    </a>
   </div>
   <div class="Header-item Header-item--full">
     <form class="d-flex flex-items-stretch width-full" style="margin-block-end: 0">
-      <input class="form-control input-hide-webkit-autofill flex-auto" type="text" placeholder="Search..." style="background-color: var(--button-default-bgColor-rest, var(--color-btn-bg)); border-top-right-radius: 0; border-bottom-right-radius: 0; border-right: 0;"/>
-      <div class="BtnGroup flex-shrink-0" role="group" aria-label="Search scope">
+      <input class="form-control input-hide-webkit-autofill flex-auto search-scope-fused" type="text" placeholder="Search..." style="background-color: var(--button-default-bgColor-rest, var(--color-btn-bg));"/>
+      <div class="BtnGroup flex-shrink-0 d-none d-md-inline-block" role="group" aria-label="Search scope">
         <button type="button" class="btn BtnGroup-item selected" data-searchscope="all" aria-pressed="true" style="border-top-left-radius: 0; border-bottom-left-radius: 0;">All</button>
         <button type="button" class="btn BtnGroup-item" data-searchscope="modules" aria-pressed="false">Modules</button>
         <button type="button" class="btn BtnGroup-item" data-searchscope="symbols" aria-pressed="false">Symbols</button>

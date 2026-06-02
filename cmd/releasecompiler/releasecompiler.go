@@ -15,7 +15,9 @@ import (
 	"path/filepath"
 	"strings"
 
+	bzpb "github.com/bazel-contrib/bcr-frontend/build/stack/bazel/registry/v1"
 	"github.com/bazel-contrib/bcr-frontend/pkg/paramsfile"
+	"google.golang.org/protobuf/proto"
 )
 
 const toolName = "releasecompiler"
@@ -119,6 +121,17 @@ func run(args []string) error {
 		log.Printf("Processed bazel flag db file: %s -> %s", asset.OriginalName, asset.HashedName)
 	}
 
+	// Emit manifest.pb.gz at the tarball root for the in-browser refresh
+	// poller. Must be appended AFTER every other asset's HashedName is
+	// finalized — the manifest records those hashes so clients can detect
+	// code redeploys without re-fetching the bundles themselves.
+	manifestAsset, err := buildManifestAsset(cfg.RegistryFile, assets)
+	if err != nil {
+		return fmt.Errorf("failed to build manifest: %v", err)
+	}
+	assets = append(assets, manifestAsset)
+	log.Printf("Processed manifest: %s (%d asset_hashes)", manifestAsset.OriginalName, len(assets)-1)
+
 	// Read and update index.html
 	indexContent, err := updateIndexHtml(cfg.IndexHtmlFile, assets)
 	if err != nil {
@@ -186,6 +199,55 @@ func processRegistryFile(registryPath string) ([]HashedAsset, error) {
 			HashedName:   gzOriginalName, // No hashing - keep original name
 			Content:      gzipContent,
 		},
+	}, nil
+}
+
+// buildManifestAsset reads the registry proto for commit metadata, collects
+// content-hashed asset names from `assets`, and returns a HashedAsset for
+// manifest.pb.gz at the tarball root (un-hashed name — clients fetch it by
+// fixed URL and the releaseserver/CDN serves it no-cache).
+func buildManifestAsset(registryPath string, assets []HashedAsset) (HashedAsset, error) {
+	registryBytes, err := os.ReadFile(registryPath)
+	if err != nil {
+		return HashedAsset{}, fmt.Errorf("read registry: %v", err)
+	}
+	registry := &bzpb.Registry{}
+	if err := proto.Unmarshal(registryBytes, registry); err != nil {
+		return HashedAsset{}, fmt.Errorf("unmarshal registry: %v", err)
+	}
+
+	manifest := &bzpb.RegistryManifest{
+		CommitSha:    registry.GetCommitSha(),
+		CommitDate:   registry.GetCommitDate(),
+		Branch:       registry.GetBranch(),
+		AssetHashes:  map[string]string{},
+	}
+	for _, a := range assets {
+		if a.OriginalName == a.HashedName {
+			continue // un-hashed assets are uninformative for change detection
+		}
+		manifest.AssetHashes[a.OriginalName] = a.HashedName
+	}
+
+	manifestBytes, err := proto.Marshal(manifest)
+	if err != nil {
+		return HashedAsset{}, fmt.Errorf("marshal manifest: %v", err)
+	}
+	var gzipBuf bytes.Buffer
+	gw := gzip.NewWriter(&gzipBuf)
+	if _, err := gw.Write(manifestBytes); err != nil {
+		return HashedAsset{}, fmt.Errorf("gzip manifest: %v", err)
+	}
+	if err := gw.Close(); err != nil {
+		return HashedAsset{}, fmt.Errorf("gzip close: %v", err)
+	}
+
+	const name = "manifest.pb.gz"
+	return HashedAsset{
+		OriginalPath: registryPath,
+		OriginalName: name,
+		HashedName:   name, // un-hashed: fixed URL the poller targets
+		Content:      gzipBuf.Bytes(),
 	}, nil
 }
 

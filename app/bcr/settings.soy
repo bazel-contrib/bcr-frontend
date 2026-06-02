@@ -56,5 +56,17 @@ import {
       <p class="FormControl-caption">Choose your display preference.</p>
     </div>
 
+    <div class="FormControl-spacingWrapper mt-3" style="max-width: 50%;">
+      <label class="FormControl-label">
+        Registry Data Refresh
+      </label>
+      <select class="form-select {css('refresh')}">
+        <option value="off">Off (no polling)</option>
+        <option value="notify">Notify when new data is available</option>
+        <option value="auto">Automatically reload on change</option>
+      </select>
+      <p class="FormControl-caption">When enabled, BCR checks every 5 minutes whether the deployed registry data or site code has been refreshed.</p>
+    </div>
+
   </div>
 {/template}

@@ -164,6 +164,74 @@ func (x *Registry) GetCommitDate() string {
 	return ""
 }
 
+type RegistryManifest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	CommitSha     string                 `protobuf:"bytes,1,opt,name=commit_sha,json=commitSha,proto3" json:"commit_sha,omitempty"`
+	CommitDate    string                 `protobuf:"bytes,2,opt,name=commit_date,json=commitDate,proto3" json:"commit_date,omitempty"`
+	Branch        string                 `protobuf:"bytes,3,opt,name=branch,proto3" json:"branch,omitempty"`
+	AssetHashes   map[string]string      `protobuf:"bytes,4,rep,name=asset_hashes,json=assetHashes,proto3" json:"asset_hashes,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RegistryManifest) Reset() {
+	*x = RegistryManifest{}
+	mi := &file_build_stack_bazel_registry_v1_bcr_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RegistryManifest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RegistryManifest) ProtoMessage() {}
+
+func (x *RegistryManifest) ProtoReflect() protoreflect.Message {
+	mi := &file_build_stack_bazel_registry_v1_bcr_proto_msgTypes[1]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RegistryManifest.ProtoReflect.Descriptor instead.
+func (*RegistryManifest) Descriptor() ([]byte, []int) {
+	return file_build_stack_bazel_registry_v1_bcr_proto_rawDescGZIP(), []int{1}
+}
+
+func (x *RegistryManifest) GetCommitSha() string {
+	if x != nil {
+		return x.CommitSha
+	}
+	return ""
+}
+
+func (x *RegistryManifest) GetCommitDate() string {
+	if x != nil {
+		return x.CommitDate
+	}
+	return ""
+}
+
+func (x *RegistryManifest) GetBranch() string {
+	if x != nil {
+		return x.Branch
+	}
+	return ""
+}
+
+func (x *RegistryManifest) GetAssetHashes() map[string]string {
+	if x != nil {
+		return x.AssetHashes
+	}
+	return nil
+}
+
 type Module struct {
 	state              protoimpl.MessageState `protogen:"open.v1"`
 	Name               string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
@@ -176,7 +244,7 @@ type Module struct {
 
 func (x *Module) Reset() {
 	*x = Module{}
-	mi := &file_build_stack_bazel_registry_v1_bcr_proto_msgTypes[1]
+	mi := &file_build_stack_bazel_registry_v1_bcr_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -188,7 +256,7 @@ func (x *Module) String() string {
 func (*Module) ProtoMessage() {}
 
 func (x *Module) ProtoReflect() protoreflect.Message {
-	mi := &file_build_stack_bazel_registry_v1_bcr_proto_msgTypes[1]
+	mi := &file_build_stack_bazel_registry_v1_bcr_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -201,7 +269,7 @@ func (x *Module) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Module.ProtoReflect.Descriptor instead.
 func (*Module) Descriptor() ([]byte, []int) {
-	return file_build_stack_bazel_registry_v1_bcr_proto_rawDescGZIP(), []int{1}
+	return file_build_stack_bazel_registry_v1_bcr_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *Module) GetName() string {
@@ -245,7 +313,7 @@ type Maintainer struct {
 
 func (x *Maintainer) Reset() {
 	*x = Maintainer{}
-	mi := &file_build_stack_bazel_registry_v1_bcr_proto_msgTypes[2]
+	mi := &file_build_stack_bazel_registry_v1_bcr_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -257,7 +325,7 @@ func (x *Maintainer) String() string {
 func (*Maintainer) ProtoMessage() {}
 
 func (x *Maintainer) ProtoReflect() protoreflect.Message {
-	mi := &file_build_stack_bazel_registry_v1_bcr_proto_msgTypes[2]
+	mi := &file_build_stack_bazel_registry_v1_bcr_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -270,7 +338,7 @@ func (x *Maintainer) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Maintainer.ProtoReflect.Descriptor instead.
 func (*Maintainer) Descriptor() ([]byte, []int) {
-	return file_build_stack_bazel_registry_v1_bcr_proto_rawDescGZIP(), []int{2}
+	return file_build_stack_bazel_registry_v1_bcr_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *Maintainer) GetEmail() string {
@@ -322,7 +390,7 @@ type ModuleMetadata struct {
 
 func (x *ModuleMetadata) Reset() {
 	*x = ModuleMetadata{}
-	mi := &file_build_stack_bazel_registry_v1_bcr_proto_msgTypes[3]
+	mi := &file_build_stack_bazel_registry_v1_bcr_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -334,7 +402,7 @@ func (x *ModuleMetadata) String() string {
 func (*ModuleMetadata) ProtoMessage() {}
 
 func (x *ModuleMetadata) ProtoReflect() protoreflect.Message {
-	mi := &file_build_stack_bazel_registry_v1_bcr_proto_msgTypes[3]
+	mi := &file_build_stack_bazel_registry_v1_bcr_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -347,7 +415,7 @@ func (x *ModuleMetadata) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ModuleMetadata.ProtoReflect.Descriptor instead.
 func (*ModuleMetadata) Descriptor() ([]byte, []int) {
-	return file_build_stack_bazel_registry_v1_bcr_proto_rawDescGZIP(), []int{3}
+	return file_build_stack_bazel_registry_v1_bcr_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *ModuleMetadata) GetHomepage() string {
@@ -408,7 +476,7 @@ type RepositoryMetadata struct {
 
 func (x *RepositoryMetadata) Reset() {
 	*x = RepositoryMetadata{}
-	mi := &file_build_stack_bazel_registry_v1_bcr_proto_msgTypes[4]
+	mi := &file_build_stack_bazel_registry_v1_bcr_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -420,7 +488,7 @@ func (x *RepositoryMetadata) String() string {
 func (*RepositoryMetadata) ProtoMessage() {}
 
 func (x *RepositoryMetadata) ProtoReflect() protoreflect.Message {
-	mi := &file_build_stack_bazel_registry_v1_bcr_proto_msgTypes[4]
+	mi := &file_build_stack_bazel_registry_v1_bcr_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -433,7 +501,7 @@ func (x *RepositoryMetadata) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RepositoryMetadata.ProtoReflect.Descriptor instead.
 func (*RepositoryMetadata) Descriptor() ([]byte, []int) {
-	return file_build_stack_bazel_registry_v1_bcr_proto_rawDescGZIP(), []int{4}
+	return file_build_stack_bazel_registry_v1_bcr_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *RepositoryMetadata) GetType() RepositoryType {
@@ -501,7 +569,7 @@ type RepositoryMetadataSet struct {
 
 func (x *RepositoryMetadataSet) Reset() {
 	*x = RepositoryMetadataSet{}
-	mi := &file_build_stack_bazel_registry_v1_bcr_proto_msgTypes[5]
+	mi := &file_build_stack_bazel_registry_v1_bcr_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -513,7 +581,7 @@ func (x *RepositoryMetadataSet) String() string {
 func (*RepositoryMetadataSet) ProtoMessage() {}
 
 func (x *RepositoryMetadataSet) ProtoReflect() protoreflect.Message {
-	mi := &file_build_stack_bazel_registry_v1_bcr_proto_msgTypes[5]
+	mi := &file_build_stack_bazel_registry_v1_bcr_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -526,7 +594,7 @@ func (x *RepositoryMetadataSet) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RepositoryMetadataSet.ProtoReflect.Descriptor instead.
 func (*RepositoryMetadataSet) Descriptor() ([]byte, []int) {
-	return file_build_stack_bazel_registry_v1_bcr_proto_rawDescGZIP(), []int{5}
+	return file_build_stack_bazel_registry_v1_bcr_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *RepositoryMetadataSet) GetRepositoryMetadata() []*RepositoryMetadata {
@@ -546,7 +614,7 @@ type BazelRepositoryMetadata struct {
 
 func (x *BazelRepositoryMetadata) Reset() {
 	*x = BazelRepositoryMetadata{}
-	mi := &file_build_stack_bazel_registry_v1_bcr_proto_msgTypes[6]
+	mi := &file_build_stack_bazel_registry_v1_bcr_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -558,7 +626,7 @@ func (x *BazelRepositoryMetadata) String() string {
 func (*BazelRepositoryMetadata) ProtoMessage() {}
 
 func (x *BazelRepositoryMetadata) ProtoReflect() protoreflect.Message {
-	mi := &file_build_stack_bazel_registry_v1_bcr_proto_msgTypes[6]
+	mi := &file_build_stack_bazel_registry_v1_bcr_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -571,7 +639,7 @@ func (x *BazelRepositoryMetadata) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BazelRepositoryMetadata.ProtoReflect.Descriptor instead.
 func (*BazelRepositoryMetadata) Descriptor() ([]byte, []int) {
-	return file_build_stack_bazel_registry_v1_bcr_proto_rawDescGZIP(), []int{6}
+	return file_build_stack_bazel_registry_v1_bcr_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *BazelRepositoryMetadata) GetRepositoryMetadata() *RepositoryMetadata {
@@ -599,7 +667,7 @@ type BazelRelease struct {
 
 func (x *BazelRelease) Reset() {
 	*x = BazelRelease{}
-	mi := &file_build_stack_bazel_registry_v1_bcr_proto_msgTypes[7]
+	mi := &file_build_stack_bazel_registry_v1_bcr_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -611,7 +679,7 @@ func (x *BazelRelease) String() string {
 func (*BazelRelease) ProtoMessage() {}
 
 func (x *BazelRelease) ProtoReflect() protoreflect.Message {
-	mi := &file_build_stack_bazel_registry_v1_bcr_proto_msgTypes[7]
+	mi := &file_build_stack_bazel_registry_v1_bcr_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -624,7 +692,7 @@ func (x *BazelRelease) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BazelRelease.ProtoReflect.Descriptor instead.
 func (*BazelRelease) Descriptor() ([]byte, []int) {
-	return file_build_stack_bazel_registry_v1_bcr_proto_rawDescGZIP(), []int{7}
+	return file_build_stack_bazel_registry_v1_bcr_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *BazelRelease) GetVersion() string {
@@ -657,7 +725,7 @@ type BazelReleaseSet struct {
 
 func (x *BazelReleaseSet) Reset() {
 	*x = BazelReleaseSet{}
-	mi := &file_build_stack_bazel_registry_v1_bcr_proto_msgTypes[8]
+	mi := &file_build_stack_bazel_registry_v1_bcr_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -669,7 +737,7 @@ func (x *BazelReleaseSet) String() string {
 func (*BazelReleaseSet) ProtoMessage() {}
 
 func (x *BazelReleaseSet) ProtoReflect() protoreflect.Message {
-	mi := &file_build_stack_bazel_registry_v1_bcr_proto_msgTypes[8]
+	mi := &file_build_stack_bazel_registry_v1_bcr_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -682,7 +750,7 @@ func (x *BazelReleaseSet) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BazelReleaseSet.ProtoReflect.Descriptor instead.
 func (*BazelReleaseSet) Descriptor() ([]byte, []int) {
-	return file_build_stack_bazel_registry_v1_bcr_proto_rawDescGZIP(), []int{8}
+	return file_build_stack_bazel_registry_v1_bcr_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *BazelReleaseSet) GetRelease() []*BazelRelease {
@@ -703,7 +771,7 @@ type ResourceStatus struct {
 
 func (x *ResourceStatus) Reset() {
 	*x = ResourceStatus{}
-	mi := &file_build_stack_bazel_registry_v1_bcr_proto_msgTypes[9]
+	mi := &file_build_stack_bazel_registry_v1_bcr_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -715,7 +783,7 @@ func (x *ResourceStatus) String() string {
 func (*ResourceStatus) ProtoMessage() {}
 
 func (x *ResourceStatus) ProtoReflect() protoreflect.Message {
-	mi := &file_build_stack_bazel_registry_v1_bcr_proto_msgTypes[9]
+	mi := &file_build_stack_bazel_registry_v1_bcr_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -728,7 +796,7 @@ func (x *ResourceStatus) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ResourceStatus.ProtoReflect.Descriptor instead.
 func (*ResourceStatus) Descriptor() ([]byte, []int) {
-	return file_build_stack_bazel_registry_v1_bcr_proto_rawDescGZIP(), []int{9}
+	return file_build_stack_bazel_registry_v1_bcr_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *ResourceStatus) GetUrl() string {
@@ -761,7 +829,7 @@ type ResourceStatusSet struct {
 
 func (x *ResourceStatusSet) Reset() {
 	*x = ResourceStatusSet{}
-	mi := &file_build_stack_bazel_registry_v1_bcr_proto_msgTypes[10]
+	mi := &file_build_stack_bazel_registry_v1_bcr_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -773,7 +841,7 @@ func (x *ResourceStatusSet) String() string {
 func (*ResourceStatusSet) ProtoMessage() {}
 
 func (x *ResourceStatusSet) ProtoReflect() protoreflect.Message {
-	mi := &file_build_stack_bazel_registry_v1_bcr_proto_msgTypes[10]
+	mi := &file_build_stack_bazel_registry_v1_bcr_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -786,7 +854,7 @@ func (x *ResourceStatusSet) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ResourceStatusSet.ProtoReflect.Descriptor instead.
 func (*ResourceStatusSet) Descriptor() ([]byte, []int) {
-	return file_build_stack_bazel_registry_v1_bcr_proto_rawDescGZIP(), []int{10}
+	return file_build_stack_bazel_registry_v1_bcr_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *ResourceStatusSet) GetStatus() []*ResourceStatus {
@@ -821,7 +889,7 @@ type ModuleSource struct {
 
 func (x *ModuleSource) Reset() {
 	*x = ModuleSource{}
-	mi := &file_build_stack_bazel_registry_v1_bcr_proto_msgTypes[11]
+	mi := &file_build_stack_bazel_registry_v1_bcr_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -833,7 +901,7 @@ func (x *ModuleSource) String() string {
 func (*ModuleSource) ProtoMessage() {}
 
 func (x *ModuleSource) ProtoReflect() protoreflect.Message {
-	mi := &file_build_stack_bazel_registry_v1_bcr_proto_msgTypes[11]
+	mi := &file_build_stack_bazel_registry_v1_bcr_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -846,7 +914,7 @@ func (x *ModuleSource) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ModuleSource.ProtoReflect.Descriptor instead.
 func (*ModuleSource) Descriptor() ([]byte, []int) {
-	return file_build_stack_bazel_registry_v1_bcr_proto_rawDescGZIP(), []int{11}
+	return file_build_stack_bazel_registry_v1_bcr_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *ModuleSource) GetUrl() string {
@@ -978,7 +1046,7 @@ type Attestations struct {
 
 func (x *Attestations) Reset() {
 	*x = Attestations{}
-	mi := &file_build_stack_bazel_registry_v1_bcr_proto_msgTypes[12]
+	mi := &file_build_stack_bazel_registry_v1_bcr_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -990,7 +1058,7 @@ func (x *Attestations) String() string {
 func (*Attestations) ProtoMessage() {}
 
 func (x *Attestations) ProtoReflect() protoreflect.Message {
-	mi := &file_build_stack_bazel_registry_v1_bcr_proto_msgTypes[12]
+	mi := &file_build_stack_bazel_registry_v1_bcr_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1003,7 +1071,7 @@ func (x *Attestations) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Attestations.ProtoReflect.Descriptor instead.
 func (*Attestations) Descriptor() ([]byte, []int) {
-	return file_build_stack_bazel_registry_v1_bcr_proto_rawDescGZIP(), []int{12}
+	return file_build_stack_bazel_registry_v1_bcr_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *Attestations) GetMediaType() string {
@@ -1042,7 +1110,7 @@ type ModuleVersion struct {
 
 func (x *ModuleVersion) Reset() {
 	*x = ModuleVersion{}
-	mi := &file_build_stack_bazel_registry_v1_bcr_proto_msgTypes[13]
+	mi := &file_build_stack_bazel_registry_v1_bcr_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1054,7 +1122,7 @@ func (x *ModuleVersion) String() string {
 func (*ModuleVersion) ProtoMessage() {}
 
 func (x *ModuleVersion) ProtoReflect() protoreflect.Message {
-	mi := &file_build_stack_bazel_registry_v1_bcr_proto_msgTypes[13]
+	mi := &file_build_stack_bazel_registry_v1_bcr_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1067,7 +1135,7 @@ func (x *ModuleVersion) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ModuleVersion.ProtoReflect.Descriptor instead.
 func (*ModuleVersion) Descriptor() ([]byte, []int) {
-	return file_build_stack_bazel_registry_v1_bcr_proto_rawDescGZIP(), []int{13}
+	return file_build_stack_bazel_registry_v1_bcr_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *ModuleVersion) GetName() string {
@@ -1182,7 +1250,7 @@ type ModuleCommit struct {
 
 func (x *ModuleCommit) Reset() {
 	*x = ModuleCommit{}
-	mi := &file_build_stack_bazel_registry_v1_bcr_proto_msgTypes[14]
+	mi := &file_build_stack_bazel_registry_v1_bcr_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1194,7 +1262,7 @@ func (x *ModuleCommit) String() string {
 func (*ModuleCommit) ProtoMessage() {}
 
 func (x *ModuleCommit) ProtoReflect() protoreflect.Message {
-	mi := &file_build_stack_bazel_registry_v1_bcr_proto_msgTypes[14]
+	mi := &file_build_stack_bazel_registry_v1_bcr_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1207,7 +1275,7 @@ func (x *ModuleCommit) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ModuleCommit.ProtoReflect.Descriptor instead.
 func (*ModuleCommit) Descriptor() ([]byte, []int) {
-	return file_build_stack_bazel_registry_v1_bcr_proto_rawDescGZIP(), []int{14}
+	return file_build_stack_bazel_registry_v1_bcr_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *ModuleCommit) GetSha1() string {
@@ -1264,7 +1332,7 @@ type PRAuthor struct {
 
 func (x *PRAuthor) Reset() {
 	*x = PRAuthor{}
-	mi := &file_build_stack_bazel_registry_v1_bcr_proto_msgTypes[15]
+	mi := &file_build_stack_bazel_registry_v1_bcr_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1276,7 +1344,7 @@ func (x *PRAuthor) String() string {
 func (*PRAuthor) ProtoMessage() {}
 
 func (x *PRAuthor) ProtoReflect() protoreflect.Message {
-	mi := &file_build_stack_bazel_registry_v1_bcr_proto_msgTypes[15]
+	mi := &file_build_stack_bazel_registry_v1_bcr_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1289,7 +1357,7 @@ func (x *PRAuthor) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PRAuthor.ProtoReflect.Descriptor instead.
 func (*PRAuthor) Descriptor() ([]byte, []int) {
-	return file_build_stack_bazel_registry_v1_bcr_proto_rawDescGZIP(), []int{15}
+	return file_build_stack_bazel_registry_v1_bcr_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *PRAuthor) GetPullRequest() int32 {
@@ -1329,7 +1397,7 @@ type PRAuthorSet struct {
 
 func (x *PRAuthorSet) Reset() {
 	*x = PRAuthorSet{}
-	mi := &file_build_stack_bazel_registry_v1_bcr_proto_msgTypes[16]
+	mi := &file_build_stack_bazel_registry_v1_bcr_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1341,7 +1409,7 @@ func (x *PRAuthorSet) String() string {
 func (*PRAuthorSet) ProtoMessage() {}
 
 func (x *PRAuthorSet) ProtoReflect() protoreflect.Message {
-	mi := &file_build_stack_bazel_registry_v1_bcr_proto_msgTypes[16]
+	mi := &file_build_stack_bazel_registry_v1_bcr_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1354,7 +1422,7 @@ func (x *PRAuthorSet) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PRAuthorSet.ProtoReflect.Descriptor instead.
 func (*PRAuthorSet) Descriptor() ([]byte, []int) {
-	return file_build_stack_bazel_registry_v1_bcr_proto_rawDescGZIP(), []int{16}
+	return file_build_stack_bazel_registry_v1_bcr_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *PRAuthorSet) GetAuthors() []*PRAuthor {
@@ -1381,7 +1449,7 @@ type ModuleDependencyOverride struct {
 
 func (x *ModuleDependencyOverride) Reset() {
 	*x = ModuleDependencyOverride{}
-	mi := &file_build_stack_bazel_registry_v1_bcr_proto_msgTypes[17]
+	mi := &file_build_stack_bazel_registry_v1_bcr_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1393,7 +1461,7 @@ func (x *ModuleDependencyOverride) String() string {
 func (*ModuleDependencyOverride) ProtoMessage() {}
 
 func (x *ModuleDependencyOverride) ProtoReflect() protoreflect.Message {
-	mi := &file_build_stack_bazel_registry_v1_bcr_proto_msgTypes[17]
+	mi := &file_build_stack_bazel_registry_v1_bcr_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1406,7 +1474,7 @@ func (x *ModuleDependencyOverride) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ModuleDependencyOverride.ProtoReflect.Descriptor instead.
 func (*ModuleDependencyOverride) Descriptor() ([]byte, []int) {
-	return file_build_stack_bazel_registry_v1_bcr_proto_rawDescGZIP(), []int{17}
+	return file_build_stack_bazel_registry_v1_bcr_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *ModuleDependencyOverride) GetModuleName() string {
@@ -1509,7 +1577,7 @@ type ModuleDependency struct {
 
 func (x *ModuleDependency) Reset() {
 	*x = ModuleDependency{}
-	mi := &file_build_stack_bazel_registry_v1_bcr_proto_msgTypes[18]
+	mi := &file_build_stack_bazel_registry_v1_bcr_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1521,7 +1589,7 @@ func (x *ModuleDependency) String() string {
 func (*ModuleDependency) ProtoMessage() {}
 
 func (x *ModuleDependency) ProtoReflect() protoreflect.Message {
-	mi := &file_build_stack_bazel_registry_v1_bcr_proto_msgTypes[18]
+	mi := &file_build_stack_bazel_registry_v1_bcr_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1534,7 +1602,7 @@ func (x *ModuleDependency) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ModuleDependency.ProtoReflect.Descriptor instead.
 func (*ModuleDependency) Descriptor() ([]byte, []int) {
-	return file_build_stack_bazel_registry_v1_bcr_proto_rawDescGZIP(), []int{18}
+	return file_build_stack_bazel_registry_v1_bcr_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *ModuleDependency) GetName() string {
@@ -1599,7 +1667,7 @@ type GitOverride struct {
 
 func (x *GitOverride) Reset() {
 	*x = GitOverride{}
-	mi := &file_build_stack_bazel_registry_v1_bcr_proto_msgTypes[19]
+	mi := &file_build_stack_bazel_registry_v1_bcr_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1611,7 +1679,7 @@ func (x *GitOverride) String() string {
 func (*GitOverride) ProtoMessage() {}
 
 func (x *GitOverride) ProtoReflect() protoreflect.Message {
-	mi := &file_build_stack_bazel_registry_v1_bcr_proto_msgTypes[19]
+	mi := &file_build_stack_bazel_registry_v1_bcr_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1624,7 +1692,7 @@ func (x *GitOverride) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GitOverride.ProtoReflect.Descriptor instead.
 func (*GitOverride) Descriptor() ([]byte, []int) {
-	return file_build_stack_bazel_registry_v1_bcr_proto_rawDescGZIP(), []int{19}
+	return file_build_stack_bazel_registry_v1_bcr_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *GitOverride) GetCommit() string {
@@ -1677,7 +1745,7 @@ type ArchiveOverride struct {
 
 func (x *ArchiveOverride) Reset() {
 	*x = ArchiveOverride{}
-	mi := &file_build_stack_bazel_registry_v1_bcr_proto_msgTypes[20]
+	mi := &file_build_stack_bazel_registry_v1_bcr_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1689,7 +1757,7 @@ func (x *ArchiveOverride) String() string {
 func (*ArchiveOverride) ProtoMessage() {}
 
 func (x *ArchiveOverride) ProtoReflect() protoreflect.Message {
-	mi := &file_build_stack_bazel_registry_v1_bcr_proto_msgTypes[20]
+	mi := &file_build_stack_bazel_registry_v1_bcr_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1702,7 +1770,7 @@ func (x *ArchiveOverride) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ArchiveOverride.ProtoReflect.Descriptor instead.
 func (*ArchiveOverride) Descriptor() ([]byte, []int) {
-	return file_build_stack_bazel_registry_v1_bcr_proto_rawDescGZIP(), []int{20}
+	return file_build_stack_bazel_registry_v1_bcr_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *ArchiveOverride) GetIntegrity() string {
@@ -1765,7 +1833,7 @@ type SingleVersionOverride struct {
 
 func (x *SingleVersionOverride) Reset() {
 	*x = SingleVersionOverride{}
-	mi := &file_build_stack_bazel_registry_v1_bcr_proto_msgTypes[21]
+	mi := &file_build_stack_bazel_registry_v1_bcr_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1777,7 +1845,7 @@ func (x *SingleVersionOverride) String() string {
 func (*SingleVersionOverride) ProtoMessage() {}
 
 func (x *SingleVersionOverride) ProtoReflect() protoreflect.Message {
-	mi := &file_build_stack_bazel_registry_v1_bcr_proto_msgTypes[21]
+	mi := &file_build_stack_bazel_registry_v1_bcr_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1790,7 +1858,7 @@ func (x *SingleVersionOverride) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SingleVersionOverride.ProtoReflect.Descriptor instead.
 func (*SingleVersionOverride) Descriptor() ([]byte, []int) {
-	return file_build_stack_bazel_registry_v1_bcr_proto_rawDescGZIP(), []int{21}
+	return file_build_stack_bazel_registry_v1_bcr_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *SingleVersionOverride) GetPatchStrip() int32 {
@@ -1823,7 +1891,7 @@ type LocalPathOverride struct {
 
 func (x *LocalPathOverride) Reset() {
 	*x = LocalPathOverride{}
-	mi := &file_build_stack_bazel_registry_v1_bcr_proto_msgTypes[22]
+	mi := &file_build_stack_bazel_registry_v1_bcr_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1835,7 +1903,7 @@ func (x *LocalPathOverride) String() string {
 func (*LocalPathOverride) ProtoMessage() {}
 
 func (x *LocalPathOverride) ProtoReflect() protoreflect.Message {
-	mi := &file_build_stack_bazel_registry_v1_bcr_proto_msgTypes[22]
+	mi := &file_build_stack_bazel_registry_v1_bcr_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1848,7 +1916,7 @@ func (x *LocalPathOverride) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LocalPathOverride.ProtoReflect.Descriptor instead.
 func (*LocalPathOverride) Descriptor() ([]byte, []int) {
-	return file_build_stack_bazel_registry_v1_bcr_proto_rawDescGZIP(), []int{22}
+	return file_build_stack_bazel_registry_v1_bcr_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *LocalPathOverride) GetPath() string {
@@ -1869,7 +1937,7 @@ type Presubmit struct {
 
 func (x *Presubmit) Reset() {
 	*x = Presubmit{}
-	mi := &file_build_stack_bazel_registry_v1_bcr_proto_msgTypes[23]
+	mi := &file_build_stack_bazel_registry_v1_bcr_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1881,7 +1949,7 @@ func (x *Presubmit) String() string {
 func (*Presubmit) ProtoMessage() {}
 
 func (x *Presubmit) ProtoReflect() protoreflect.Message {
-	mi := &file_build_stack_bazel_registry_v1_bcr_proto_msgTypes[23]
+	mi := &file_build_stack_bazel_registry_v1_bcr_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1894,7 +1962,7 @@ func (x *Presubmit) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Presubmit.ProtoReflect.Descriptor instead.
 func (*Presubmit) Descriptor() ([]byte, []int) {
-	return file_build_stack_bazel_registry_v1_bcr_proto_rawDescGZIP(), []int{23}
+	return file_build_stack_bazel_registry_v1_bcr_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *Presubmit) GetBcrTestModule() *Presubmit_BcrTestModule {
@@ -1933,7 +2001,7 @@ type DependencyTreeNode struct {
 
 func (x *DependencyTreeNode) Reset() {
 	*x = DependencyTreeNode{}
-	mi := &file_build_stack_bazel_registry_v1_bcr_proto_msgTypes[24]
+	mi := &file_build_stack_bazel_registry_v1_bcr_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1945,7 +2013,7 @@ func (x *DependencyTreeNode) String() string {
 func (*DependencyTreeNode) ProtoMessage() {}
 
 func (x *DependencyTreeNode) ProtoReflect() protoreflect.Message {
-	mi := &file_build_stack_bazel_registry_v1_bcr_proto_msgTypes[24]
+	mi := &file_build_stack_bazel_registry_v1_bcr_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1958,7 +2026,7 @@ func (x *DependencyTreeNode) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DependencyTreeNode.ProtoReflect.Descriptor instead.
 func (*DependencyTreeNode) Descriptor() ([]byte, []int) {
-	return file_build_stack_bazel_registry_v1_bcr_proto_rawDescGZIP(), []int{24}
+	return file_build_stack_bazel_registry_v1_bcr_proto_rawDescGZIP(), []int{25}
 }
 
 func (x *DependencyTreeNode) GetModuleVersion() *ModuleVersion {
@@ -2020,7 +2088,7 @@ type DependencyTree struct {
 
 func (x *DependencyTree) Reset() {
 	*x = DependencyTree{}
-	mi := &file_build_stack_bazel_registry_v1_bcr_proto_msgTypes[25]
+	mi := &file_build_stack_bazel_registry_v1_bcr_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2032,7 +2100,7 @@ func (x *DependencyTree) String() string {
 func (*DependencyTree) ProtoMessage() {}
 
 func (x *DependencyTree) ProtoReflect() protoreflect.Message {
-	mi := &file_build_stack_bazel_registry_v1_bcr_proto_msgTypes[25]
+	mi := &file_build_stack_bazel_registry_v1_bcr_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2045,7 +2113,7 @@ func (x *DependencyTree) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DependencyTree.ProtoReflect.Descriptor instead.
 func (*DependencyTree) Descriptor() ([]byte, []int) {
-	return file_build_stack_bazel_registry_v1_bcr_proto_rawDescGZIP(), []int{25}
+	return file_build_stack_bazel_registry_v1_bcr_proto_rawDescGZIP(), []int{26}
 }
 
 func (x *DependencyTree) GetModuleVersion() *ModuleVersion {
@@ -2073,7 +2141,7 @@ type Attestations_Attestation struct {
 
 func (x *Attestations_Attestation) Reset() {
 	*x = Attestations_Attestation{}
-	mi := &file_build_stack_bazel_registry_v1_bcr_proto_msgTypes[30]
+	mi := &file_build_stack_bazel_registry_v1_bcr_proto_msgTypes[32]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2085,7 +2153,7 @@ func (x *Attestations_Attestation) String() string {
 func (*Attestations_Attestation) ProtoMessage() {}
 
 func (x *Attestations_Attestation) ProtoReflect() protoreflect.Message {
-	mi := &file_build_stack_bazel_registry_v1_bcr_proto_msgTypes[30]
+	mi := &file_build_stack_bazel_registry_v1_bcr_proto_msgTypes[32]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2098,7 +2166,7 @@ func (x *Attestations_Attestation) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Attestations_Attestation.ProtoReflect.Descriptor instead.
 func (*Attestations_Attestation) Descriptor() ([]byte, []int) {
-	return file_build_stack_bazel_registry_v1_bcr_proto_rawDescGZIP(), []int{12, 0}
+	return file_build_stack_bazel_registry_v1_bcr_proto_rawDescGZIP(), []int{13, 0}
 }
 
 func (x *Attestations_Attestation) GetUrl() string {
@@ -2147,7 +2215,7 @@ type Attestations_AttestationPayload struct {
 
 func (x *Attestations_AttestationPayload) Reset() {
 	*x = Attestations_AttestationPayload{}
-	mi := &file_build_stack_bazel_registry_v1_bcr_proto_msgTypes[31]
+	mi := &file_build_stack_bazel_registry_v1_bcr_proto_msgTypes[33]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2159,7 +2227,7 @@ func (x *Attestations_AttestationPayload) String() string {
 func (*Attestations_AttestationPayload) ProtoMessage() {}
 
 func (x *Attestations_AttestationPayload) ProtoReflect() protoreflect.Message {
-	mi := &file_build_stack_bazel_registry_v1_bcr_proto_msgTypes[31]
+	mi := &file_build_stack_bazel_registry_v1_bcr_proto_msgTypes[33]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2172,7 +2240,7 @@ func (x *Attestations_AttestationPayload) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Attestations_AttestationPayload.ProtoReflect.Descriptor instead.
 func (*Attestations_AttestationPayload) Descriptor() ([]byte, []int) {
-	return file_build_stack_bazel_registry_v1_bcr_proto_rawDescGZIP(), []int{12, 1}
+	return file_build_stack_bazel_registry_v1_bcr_proto_rawDescGZIP(), []int{13, 1}
 }
 
 func (x *Attestations_AttestationPayload) GetSubjectName() string {
@@ -2305,7 +2373,7 @@ type Presubmit_BcrTestModule struct {
 
 func (x *Presubmit_BcrTestModule) Reset() {
 	*x = Presubmit_BcrTestModule{}
-	mi := &file_build_stack_bazel_registry_v1_bcr_proto_msgTypes[33]
+	mi := &file_build_stack_bazel_registry_v1_bcr_proto_msgTypes[35]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2317,7 +2385,7 @@ func (x *Presubmit_BcrTestModule) String() string {
 func (*Presubmit_BcrTestModule) ProtoMessage() {}
 
 func (x *Presubmit_BcrTestModule) ProtoReflect() protoreflect.Message {
-	mi := &file_build_stack_bazel_registry_v1_bcr_proto_msgTypes[33]
+	mi := &file_build_stack_bazel_registry_v1_bcr_proto_msgTypes[35]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2330,7 +2398,7 @@ func (x *Presubmit_BcrTestModule) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Presubmit_BcrTestModule.ProtoReflect.Descriptor instead.
 func (*Presubmit_BcrTestModule) Descriptor() ([]byte, []int) {
-	return file_build_stack_bazel_registry_v1_bcr_proto_rawDescGZIP(), []int{23, 0}
+	return file_build_stack_bazel_registry_v1_bcr_proto_rawDescGZIP(), []int{24, 0}
 }
 
 func (x *Presubmit_BcrTestModule) GetModulePath() string {
@@ -2364,7 +2432,7 @@ type Presubmit_PresubmitMatrix struct {
 
 func (x *Presubmit_PresubmitMatrix) Reset() {
 	*x = Presubmit_PresubmitMatrix{}
-	mi := &file_build_stack_bazel_registry_v1_bcr_proto_msgTypes[34]
+	mi := &file_build_stack_bazel_registry_v1_bcr_proto_msgTypes[36]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2376,7 +2444,7 @@ func (x *Presubmit_PresubmitMatrix) String() string {
 func (*Presubmit_PresubmitMatrix) ProtoMessage() {}
 
 func (x *Presubmit_PresubmitMatrix) ProtoReflect() protoreflect.Message {
-	mi := &file_build_stack_bazel_registry_v1_bcr_proto_msgTypes[34]
+	mi := &file_build_stack_bazel_registry_v1_bcr_proto_msgTypes[36]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2389,7 +2457,7 @@ func (x *Presubmit_PresubmitMatrix) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Presubmit_PresubmitMatrix.ProtoReflect.Descriptor instead.
 func (*Presubmit_PresubmitMatrix) Descriptor() ([]byte, []int) {
-	return file_build_stack_bazel_registry_v1_bcr_proto_rawDescGZIP(), []int{23, 1}
+	return file_build_stack_bazel_registry_v1_bcr_proto_rawDescGZIP(), []int{24, 1}
 }
 
 func (x *Presubmit_PresubmitMatrix) GetPlatform() []string {
@@ -2421,7 +2489,7 @@ type Presubmit_PresubmitTask struct {
 
 func (x *Presubmit_PresubmitTask) Reset() {
 	*x = Presubmit_PresubmitTask{}
-	mi := &file_build_stack_bazel_registry_v1_bcr_proto_msgTypes[35]
+	mi := &file_build_stack_bazel_registry_v1_bcr_proto_msgTypes[37]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2433,7 +2501,7 @@ func (x *Presubmit_PresubmitTask) String() string {
 func (*Presubmit_PresubmitTask) ProtoMessage() {}
 
 func (x *Presubmit_PresubmitTask) ProtoReflect() protoreflect.Message {
-	mi := &file_build_stack_bazel_registry_v1_bcr_proto_msgTypes[35]
+	mi := &file_build_stack_bazel_registry_v1_bcr_proto_msgTypes[37]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2446,7 +2514,7 @@ func (x *Presubmit_PresubmitTask) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Presubmit_PresubmitTask.ProtoReflect.Descriptor instead.
 func (*Presubmit_PresubmitTask) Descriptor() ([]byte, []int) {
-	return file_build_stack_bazel_registry_v1_bcr_proto_rawDescGZIP(), []int{23, 2}
+	return file_build_stack_bazel_registry_v1_bcr_proto_rawDescGZIP(), []int{24, 2}
 }
 
 func (x *Presubmit_PresubmitTask) GetName() string {
@@ -2512,7 +2580,17 @@ const file_build_stack_bazel_registry_v1_bcr_proto_rawDesc = "" +
 	"commit_sha\x18\x05 \x01(\tR\tcommitSha\x12%\n" +
 	"\x0ecommit_message\x18\x06 \x01(\tR\rcommitMessage\x12\x1f\n" +
 	"\vcommit_date\x18\a \x01(\tR\n" +
-	"commitDate\"\x95\x02\n" +
+	"commitDate\"\x8f\x02\n" +
+	"\x10RegistryManifest\x12\x1d\n" +
+	"\n" +
+	"commit_sha\x18\x01 \x01(\tR\tcommitSha\x12\x1f\n" +
+	"\vcommit_date\x18\x02 \x01(\tR\n" +
+	"commitDate\x12\x16\n" +
+	"\x06branch\x18\x03 \x01(\tR\x06branch\x12c\n" +
+	"\fasset_hashes\x18\x04 \x03(\v2@.build.stack.bazel.registry.v1.RegistryManifest.AssetHashesEntryR\vassetHashes\x1a>\n" +
+	"\x10AssetHashesEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\x95\x02\n" +
 	"\x06Module\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12I\n" +
 	"\bmetadata\x18\x02 \x01(\v2-.build.stack.bazel.registry.v1.ModuleMetadataR\bmetadata\x12H\n" +
@@ -2772,103 +2850,106 @@ func file_build_stack_bazel_registry_v1_bcr_proto_rawDescGZIP() []byte {
 }
 
 var file_build_stack_bazel_registry_v1_bcr_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_build_stack_bazel_registry_v1_bcr_proto_msgTypes = make([]protoimpl.MessageInfo, 38)
+var file_build_stack_bazel_registry_v1_bcr_proto_msgTypes = make([]protoimpl.MessageInfo, 40)
 var file_build_stack_bazel_registry_v1_bcr_proto_goTypes = []any{
 	(RepositoryType)(0),                     // 0: build.stack.bazel.registry.v1.RepositoryType
 	(*Registry)(nil),                        // 1: build.stack.bazel.registry.v1.Registry
-	(*Module)(nil),                          // 2: build.stack.bazel.registry.v1.Module
-	(*Maintainer)(nil),                      // 3: build.stack.bazel.registry.v1.Maintainer
-	(*ModuleMetadata)(nil),                  // 4: build.stack.bazel.registry.v1.ModuleMetadata
-	(*RepositoryMetadata)(nil),              // 5: build.stack.bazel.registry.v1.RepositoryMetadata
-	(*RepositoryMetadataSet)(nil),           // 6: build.stack.bazel.registry.v1.RepositoryMetadataSet
-	(*BazelRepositoryMetadata)(nil),         // 7: build.stack.bazel.registry.v1.BazelRepositoryMetadata
-	(*BazelRelease)(nil),                    // 8: build.stack.bazel.registry.v1.BazelRelease
-	(*BazelReleaseSet)(nil),                 // 9: build.stack.bazel.registry.v1.BazelReleaseSet
-	(*ResourceStatus)(nil),                  // 10: build.stack.bazel.registry.v1.ResourceStatus
-	(*ResourceStatusSet)(nil),               // 11: build.stack.bazel.registry.v1.ResourceStatusSet
-	(*ModuleSource)(nil),                    // 12: build.stack.bazel.registry.v1.ModuleSource
-	(*Attestations)(nil),                    // 13: build.stack.bazel.registry.v1.Attestations
-	(*ModuleVersion)(nil),                   // 14: build.stack.bazel.registry.v1.ModuleVersion
-	(*ModuleCommit)(nil),                    // 15: build.stack.bazel.registry.v1.ModuleCommit
-	(*PRAuthor)(nil),                        // 16: build.stack.bazel.registry.v1.PRAuthor
-	(*PRAuthorSet)(nil),                     // 17: build.stack.bazel.registry.v1.PRAuthorSet
-	(*ModuleDependencyOverride)(nil),        // 18: build.stack.bazel.registry.v1.ModuleDependencyOverride
-	(*ModuleDependency)(nil),                // 19: build.stack.bazel.registry.v1.ModuleDependency
-	(*GitOverride)(nil),                     // 20: build.stack.bazel.registry.v1.GitOverride
-	(*ArchiveOverride)(nil),                 // 21: build.stack.bazel.registry.v1.ArchiveOverride
-	(*SingleVersionOverride)(nil),           // 22: build.stack.bazel.registry.v1.SingleVersionOverride
-	(*LocalPathOverride)(nil),               // 23: build.stack.bazel.registry.v1.LocalPathOverride
-	(*Presubmit)(nil),                       // 24: build.stack.bazel.registry.v1.Presubmit
-	(*DependencyTreeNode)(nil),              // 25: build.stack.bazel.registry.v1.DependencyTreeNode
-	(*DependencyTree)(nil),                  // 26: build.stack.bazel.registry.v1.DependencyTree
-	nil,                                     // 27: build.stack.bazel.registry.v1.ModuleMetadata.YankedVersionsEntry
-	nil,                                     // 28: build.stack.bazel.registry.v1.RepositoryMetadata.LanguagesEntry
-	nil,                                     // 29: build.stack.bazel.registry.v1.ModuleSource.PatchesEntry
-	nil,                                     // 30: build.stack.bazel.registry.v1.ModuleSource.OverlayEntry
-	(*Attestations_Attestation)(nil),        // 31: build.stack.bazel.registry.v1.Attestations.Attestation
-	(*Attestations_AttestationPayload)(nil), // 32: build.stack.bazel.registry.v1.Attestations.AttestationPayload
-	nil,                                     // 33: build.stack.bazel.registry.v1.Attestations.AttestationsEntry
-	(*Presubmit_BcrTestModule)(nil),         // 34: build.stack.bazel.registry.v1.Presubmit.BcrTestModule
-	(*Presubmit_PresubmitMatrix)(nil),       // 35: build.stack.bazel.registry.v1.Presubmit.PresubmitMatrix
-	(*Presubmit_PresubmitTask)(nil),         // 36: build.stack.bazel.registry.v1.Presubmit.PresubmitTask
-	nil,                                     // 37: build.stack.bazel.registry.v1.Presubmit.TasksEntry
-	nil,                                     // 38: build.stack.bazel.registry.v1.Presubmit.BcrTestModule.TasksEntry
-	(*v1.ModuleVersionSymbols)(nil),         // 39: build.stack.bazel.symbol.v1.ModuleVersionSymbols
-	(*v1.ModuleVersionPackages)(nil),        // 40: build.stack.bazel.symbol.v1.ModuleVersionPackages
+	(*RegistryManifest)(nil),                // 2: build.stack.bazel.registry.v1.RegistryManifest
+	(*Module)(nil),                          // 3: build.stack.bazel.registry.v1.Module
+	(*Maintainer)(nil),                      // 4: build.stack.bazel.registry.v1.Maintainer
+	(*ModuleMetadata)(nil),                  // 5: build.stack.bazel.registry.v1.ModuleMetadata
+	(*RepositoryMetadata)(nil),              // 6: build.stack.bazel.registry.v1.RepositoryMetadata
+	(*RepositoryMetadataSet)(nil),           // 7: build.stack.bazel.registry.v1.RepositoryMetadataSet
+	(*BazelRepositoryMetadata)(nil),         // 8: build.stack.bazel.registry.v1.BazelRepositoryMetadata
+	(*BazelRelease)(nil),                    // 9: build.stack.bazel.registry.v1.BazelRelease
+	(*BazelReleaseSet)(nil),                 // 10: build.stack.bazel.registry.v1.BazelReleaseSet
+	(*ResourceStatus)(nil),                  // 11: build.stack.bazel.registry.v1.ResourceStatus
+	(*ResourceStatusSet)(nil),               // 12: build.stack.bazel.registry.v1.ResourceStatusSet
+	(*ModuleSource)(nil),                    // 13: build.stack.bazel.registry.v1.ModuleSource
+	(*Attestations)(nil),                    // 14: build.stack.bazel.registry.v1.Attestations
+	(*ModuleVersion)(nil),                   // 15: build.stack.bazel.registry.v1.ModuleVersion
+	(*ModuleCommit)(nil),                    // 16: build.stack.bazel.registry.v1.ModuleCommit
+	(*PRAuthor)(nil),                        // 17: build.stack.bazel.registry.v1.PRAuthor
+	(*PRAuthorSet)(nil),                     // 18: build.stack.bazel.registry.v1.PRAuthorSet
+	(*ModuleDependencyOverride)(nil),        // 19: build.stack.bazel.registry.v1.ModuleDependencyOverride
+	(*ModuleDependency)(nil),                // 20: build.stack.bazel.registry.v1.ModuleDependency
+	(*GitOverride)(nil),                     // 21: build.stack.bazel.registry.v1.GitOverride
+	(*ArchiveOverride)(nil),                 // 22: build.stack.bazel.registry.v1.ArchiveOverride
+	(*SingleVersionOverride)(nil),           // 23: build.stack.bazel.registry.v1.SingleVersionOverride
+	(*LocalPathOverride)(nil),               // 24: build.stack.bazel.registry.v1.LocalPathOverride
+	(*Presubmit)(nil),                       // 25: build.stack.bazel.registry.v1.Presubmit
+	(*DependencyTreeNode)(nil),              // 26: build.stack.bazel.registry.v1.DependencyTreeNode
+	(*DependencyTree)(nil),                  // 27: build.stack.bazel.registry.v1.DependencyTree
+	nil,                                     // 28: build.stack.bazel.registry.v1.RegistryManifest.AssetHashesEntry
+	nil,                                     // 29: build.stack.bazel.registry.v1.ModuleMetadata.YankedVersionsEntry
+	nil,                                     // 30: build.stack.bazel.registry.v1.RepositoryMetadata.LanguagesEntry
+	nil,                                     // 31: build.stack.bazel.registry.v1.ModuleSource.PatchesEntry
+	nil,                                     // 32: build.stack.bazel.registry.v1.ModuleSource.OverlayEntry
+	(*Attestations_Attestation)(nil),        // 33: build.stack.bazel.registry.v1.Attestations.Attestation
+	(*Attestations_AttestationPayload)(nil), // 34: build.stack.bazel.registry.v1.Attestations.AttestationPayload
+	nil,                                     // 35: build.stack.bazel.registry.v1.Attestations.AttestationsEntry
+	(*Presubmit_BcrTestModule)(nil),         // 36: build.stack.bazel.registry.v1.Presubmit.BcrTestModule
+	(*Presubmit_PresubmitMatrix)(nil),       // 37: build.stack.bazel.registry.v1.Presubmit.PresubmitMatrix
+	(*Presubmit_PresubmitTask)(nil),         // 38: build.stack.bazel.registry.v1.Presubmit.PresubmitTask
+	nil,                                     // 39: build.stack.bazel.registry.v1.Presubmit.TasksEntry
+	nil,                                     // 40: build.stack.bazel.registry.v1.Presubmit.BcrTestModule.TasksEntry
+	(*v1.ModuleVersionSymbols)(nil),         // 41: build.stack.bazel.symbol.v1.ModuleVersionSymbols
+	(*v1.ModuleVersionPackages)(nil),        // 42: build.stack.bazel.symbol.v1.ModuleVersionPackages
 }
 var file_build_stack_bazel_registry_v1_bcr_proto_depIdxs = []int32{
-	2,  // 0: build.stack.bazel.registry.v1.Registry.modules:type_name -> build.stack.bazel.registry.v1.Module
-	4,  // 1: build.stack.bazel.registry.v1.Module.metadata:type_name -> build.stack.bazel.registry.v1.ModuleMetadata
-	14, // 2: build.stack.bazel.registry.v1.Module.versions:type_name -> build.stack.bazel.registry.v1.ModuleVersion
-	5,  // 3: build.stack.bazel.registry.v1.Module.repository_metadata:type_name -> build.stack.bazel.registry.v1.RepositoryMetadata
-	3,  // 4: build.stack.bazel.registry.v1.ModuleMetadata.maintainers:type_name -> build.stack.bazel.registry.v1.Maintainer
-	27, // 5: build.stack.bazel.registry.v1.ModuleMetadata.yanked_versions:type_name -> build.stack.bazel.registry.v1.ModuleMetadata.YankedVersionsEntry
-	0,  // 6: build.stack.bazel.registry.v1.RepositoryMetadata.type:type_name -> build.stack.bazel.registry.v1.RepositoryType
-	28, // 7: build.stack.bazel.registry.v1.RepositoryMetadata.languages:type_name -> build.stack.bazel.registry.v1.RepositoryMetadata.LanguagesEntry
-	5,  // 8: build.stack.bazel.registry.v1.RepositoryMetadataSet.repository_metadata:type_name -> build.stack.bazel.registry.v1.RepositoryMetadata
-	5,  // 9: build.stack.bazel.registry.v1.BazelRepositoryMetadata.repository_metadata:type_name -> build.stack.bazel.registry.v1.RepositoryMetadata
-	8,  // 10: build.stack.bazel.registry.v1.BazelRepositoryMetadata.release:type_name -> build.stack.bazel.registry.v1.BazelRelease
-	15, // 11: build.stack.bazel.registry.v1.BazelRelease.commit:type_name -> build.stack.bazel.registry.v1.ModuleCommit
-	8,  // 12: build.stack.bazel.registry.v1.BazelReleaseSet.release:type_name -> build.stack.bazel.registry.v1.BazelRelease
-	10, // 13: build.stack.bazel.registry.v1.ResourceStatusSet.status:type_name -> build.stack.bazel.registry.v1.ResourceStatus
-	29, // 14: build.stack.bazel.registry.v1.ModuleSource.patches:type_name -> build.stack.bazel.registry.v1.ModuleSource.PatchesEntry
-	30, // 15: build.stack.bazel.registry.v1.ModuleSource.overlay:type_name -> build.stack.bazel.registry.v1.ModuleSource.OverlayEntry
-	39, // 16: build.stack.bazel.registry.v1.ModuleSource.documentation:type_name -> build.stack.bazel.symbol.v1.ModuleVersionSymbols
-	10, // 17: build.stack.bazel.registry.v1.ModuleSource.docs_url_status:type_name -> build.stack.bazel.registry.v1.ResourceStatus
-	10, // 18: build.stack.bazel.registry.v1.ModuleSource.url_status:type_name -> build.stack.bazel.registry.v1.ResourceStatus
-	40, // 19: build.stack.bazel.registry.v1.ModuleSource.packages:type_name -> build.stack.bazel.symbol.v1.ModuleVersionPackages
-	33, // 20: build.stack.bazel.registry.v1.Attestations.attestations:type_name -> build.stack.bazel.registry.v1.Attestations.AttestationsEntry
-	19, // 21: build.stack.bazel.registry.v1.ModuleVersion.deps:type_name -> build.stack.bazel.registry.v1.ModuleDependency
-	12, // 22: build.stack.bazel.registry.v1.ModuleVersion.source:type_name -> build.stack.bazel.registry.v1.ModuleSource
-	13, // 23: build.stack.bazel.registry.v1.ModuleVersion.attestations:type_name -> build.stack.bazel.registry.v1.Attestations
-	24, // 24: build.stack.bazel.registry.v1.ModuleVersion.presubmit:type_name -> build.stack.bazel.registry.v1.Presubmit
-	18, // 25: build.stack.bazel.registry.v1.ModuleVersion.override:type_name -> build.stack.bazel.registry.v1.ModuleDependencyOverride
-	15, // 26: build.stack.bazel.registry.v1.ModuleVersion.commit:type_name -> build.stack.bazel.registry.v1.ModuleCommit
-	5,  // 27: build.stack.bazel.registry.v1.ModuleVersion.repository_metadata:type_name -> build.stack.bazel.registry.v1.RepositoryMetadata
-	16, // 28: build.stack.bazel.registry.v1.PRAuthorSet.authors:type_name -> build.stack.bazel.registry.v1.PRAuthor
-	20, // 29: build.stack.bazel.registry.v1.ModuleDependencyOverride.git_override:type_name -> build.stack.bazel.registry.v1.GitOverride
-	21, // 30: build.stack.bazel.registry.v1.ModuleDependencyOverride.archive_override:type_name -> build.stack.bazel.registry.v1.ArchiveOverride
-	22, // 31: build.stack.bazel.registry.v1.ModuleDependencyOverride.single_version_override:type_name -> build.stack.bazel.registry.v1.SingleVersionOverride
-	23, // 32: build.stack.bazel.registry.v1.ModuleDependencyOverride.local_path_override:type_name -> build.stack.bazel.registry.v1.LocalPathOverride
-	18, // 33: build.stack.bazel.registry.v1.ModuleDependency.override:type_name -> build.stack.bazel.registry.v1.ModuleDependencyOverride
-	34, // 34: build.stack.bazel.registry.v1.Presubmit.bcr_test_module:type_name -> build.stack.bazel.registry.v1.Presubmit.BcrTestModule
-	35, // 35: build.stack.bazel.registry.v1.Presubmit.matrix:type_name -> build.stack.bazel.registry.v1.Presubmit.PresubmitMatrix
-	37, // 36: build.stack.bazel.registry.v1.Presubmit.tasks:type_name -> build.stack.bazel.registry.v1.Presubmit.TasksEntry
-	14, // 37: build.stack.bazel.registry.v1.DependencyTreeNode.module_version:type_name -> build.stack.bazel.registry.v1.ModuleVersion
-	25, // 38: build.stack.bazel.registry.v1.DependencyTreeNode.children:type_name -> build.stack.bazel.registry.v1.DependencyTreeNode
-	14, // 39: build.stack.bazel.registry.v1.DependencyTree.module_version:type_name -> build.stack.bazel.registry.v1.ModuleVersion
-	25, // 40: build.stack.bazel.registry.v1.DependencyTree.children:type_name -> build.stack.bazel.registry.v1.DependencyTreeNode
-	32, // 41: build.stack.bazel.registry.v1.Attestations.Attestation.payload:type_name -> build.stack.bazel.registry.v1.Attestations.AttestationPayload
-	31, // 42: build.stack.bazel.registry.v1.Attestations.AttestationsEntry.value:type_name -> build.stack.bazel.registry.v1.Attestations.Attestation
-	35, // 43: build.stack.bazel.registry.v1.Presubmit.BcrTestModule.matrix:type_name -> build.stack.bazel.registry.v1.Presubmit.PresubmitMatrix
-	38, // 44: build.stack.bazel.registry.v1.Presubmit.BcrTestModule.tasks:type_name -> build.stack.bazel.registry.v1.Presubmit.BcrTestModule.TasksEntry
-	36, // 45: build.stack.bazel.registry.v1.Presubmit.TasksEntry.value:type_name -> build.stack.bazel.registry.v1.Presubmit.PresubmitTask
-	36, // 46: build.stack.bazel.registry.v1.Presubmit.BcrTestModule.TasksEntry.value:type_name -> build.stack.bazel.registry.v1.Presubmit.PresubmitTask
-	47, // [47:47] is the sub-list for method output_type
-	47, // [47:47] is the sub-list for method input_type
-	47, // [47:47] is the sub-list for extension type_name
-	47, // [47:47] is the sub-list for extension extendee
-	0,  // [0:47] is the sub-list for field type_name
+	3,  // 0: build.stack.bazel.registry.v1.Registry.modules:type_name -> build.stack.bazel.registry.v1.Module
+	28, // 1: build.stack.bazel.registry.v1.RegistryManifest.asset_hashes:type_name -> build.stack.bazel.registry.v1.RegistryManifest.AssetHashesEntry
+	5,  // 2: build.stack.bazel.registry.v1.Module.metadata:type_name -> build.stack.bazel.registry.v1.ModuleMetadata
+	15, // 3: build.stack.bazel.registry.v1.Module.versions:type_name -> build.stack.bazel.registry.v1.ModuleVersion
+	6,  // 4: build.stack.bazel.registry.v1.Module.repository_metadata:type_name -> build.stack.bazel.registry.v1.RepositoryMetadata
+	4,  // 5: build.stack.bazel.registry.v1.ModuleMetadata.maintainers:type_name -> build.stack.bazel.registry.v1.Maintainer
+	29, // 6: build.stack.bazel.registry.v1.ModuleMetadata.yanked_versions:type_name -> build.stack.bazel.registry.v1.ModuleMetadata.YankedVersionsEntry
+	0,  // 7: build.stack.bazel.registry.v1.RepositoryMetadata.type:type_name -> build.stack.bazel.registry.v1.RepositoryType
+	30, // 8: build.stack.bazel.registry.v1.RepositoryMetadata.languages:type_name -> build.stack.bazel.registry.v1.RepositoryMetadata.LanguagesEntry
+	6,  // 9: build.stack.bazel.registry.v1.RepositoryMetadataSet.repository_metadata:type_name -> build.stack.bazel.registry.v1.RepositoryMetadata
+	6,  // 10: build.stack.bazel.registry.v1.BazelRepositoryMetadata.repository_metadata:type_name -> build.stack.bazel.registry.v1.RepositoryMetadata
+	9,  // 11: build.stack.bazel.registry.v1.BazelRepositoryMetadata.release:type_name -> build.stack.bazel.registry.v1.BazelRelease
+	16, // 12: build.stack.bazel.registry.v1.BazelRelease.commit:type_name -> build.stack.bazel.registry.v1.ModuleCommit
+	9,  // 13: build.stack.bazel.registry.v1.BazelReleaseSet.release:type_name -> build.stack.bazel.registry.v1.BazelRelease
+	11, // 14: build.stack.bazel.registry.v1.ResourceStatusSet.status:type_name -> build.stack.bazel.registry.v1.ResourceStatus
+	31, // 15: build.stack.bazel.registry.v1.ModuleSource.patches:type_name -> build.stack.bazel.registry.v1.ModuleSource.PatchesEntry
+	32, // 16: build.stack.bazel.registry.v1.ModuleSource.overlay:type_name -> build.stack.bazel.registry.v1.ModuleSource.OverlayEntry
+	41, // 17: build.stack.bazel.registry.v1.ModuleSource.documentation:type_name -> build.stack.bazel.symbol.v1.ModuleVersionSymbols
+	11, // 18: build.stack.bazel.registry.v1.ModuleSource.docs_url_status:type_name -> build.stack.bazel.registry.v1.ResourceStatus
+	11, // 19: build.stack.bazel.registry.v1.ModuleSource.url_status:type_name -> build.stack.bazel.registry.v1.ResourceStatus
+	42, // 20: build.stack.bazel.registry.v1.ModuleSource.packages:type_name -> build.stack.bazel.symbol.v1.ModuleVersionPackages
+	35, // 21: build.stack.bazel.registry.v1.Attestations.attestations:type_name -> build.stack.bazel.registry.v1.Attestations.AttestationsEntry
+	20, // 22: build.stack.bazel.registry.v1.ModuleVersion.deps:type_name -> build.stack.bazel.registry.v1.ModuleDependency
+	13, // 23: build.stack.bazel.registry.v1.ModuleVersion.source:type_name -> build.stack.bazel.registry.v1.ModuleSource
+	14, // 24: build.stack.bazel.registry.v1.ModuleVersion.attestations:type_name -> build.stack.bazel.registry.v1.Attestations
+	25, // 25: build.stack.bazel.registry.v1.ModuleVersion.presubmit:type_name -> build.stack.bazel.registry.v1.Presubmit
+	19, // 26: build.stack.bazel.registry.v1.ModuleVersion.override:type_name -> build.stack.bazel.registry.v1.ModuleDependencyOverride
+	16, // 27: build.stack.bazel.registry.v1.ModuleVersion.commit:type_name -> build.stack.bazel.registry.v1.ModuleCommit
+	6,  // 28: build.stack.bazel.registry.v1.ModuleVersion.repository_metadata:type_name -> build.stack.bazel.registry.v1.RepositoryMetadata
+	17, // 29: build.stack.bazel.registry.v1.PRAuthorSet.authors:type_name -> build.stack.bazel.registry.v1.PRAuthor
+	21, // 30: build.stack.bazel.registry.v1.ModuleDependencyOverride.git_override:type_name -> build.stack.bazel.registry.v1.GitOverride
+	22, // 31: build.stack.bazel.registry.v1.ModuleDependencyOverride.archive_override:type_name -> build.stack.bazel.registry.v1.ArchiveOverride
+	23, // 32: build.stack.bazel.registry.v1.ModuleDependencyOverride.single_version_override:type_name -> build.stack.bazel.registry.v1.SingleVersionOverride
+	24, // 33: build.stack.bazel.registry.v1.ModuleDependencyOverride.local_path_override:type_name -> build.stack.bazel.registry.v1.LocalPathOverride
+	19, // 34: build.stack.bazel.registry.v1.ModuleDependency.override:type_name -> build.stack.bazel.registry.v1.ModuleDependencyOverride
+	36, // 35: build.stack.bazel.registry.v1.Presubmit.bcr_test_module:type_name -> build.stack.bazel.registry.v1.Presubmit.BcrTestModule
+	37, // 36: build.stack.bazel.registry.v1.Presubmit.matrix:type_name -> build.stack.bazel.registry.v1.Presubmit.PresubmitMatrix
+	39, // 37: build.stack.bazel.registry.v1.Presubmit.tasks:type_name -> build.stack.bazel.registry.v1.Presubmit.TasksEntry
+	15, // 38: build.stack.bazel.registry.v1.DependencyTreeNode.module_version:type_name -> build.stack.bazel.registry.v1.ModuleVersion
+	26, // 39: build.stack.bazel.registry.v1.DependencyTreeNode.children:type_name -> build.stack.bazel.registry.v1.DependencyTreeNode
+	15, // 40: build.stack.bazel.registry.v1.DependencyTree.module_version:type_name -> build.stack.bazel.registry.v1.ModuleVersion
+	26, // 41: build.stack.bazel.registry.v1.DependencyTree.children:type_name -> build.stack.bazel.registry.v1.DependencyTreeNode
+	34, // 42: build.stack.bazel.registry.v1.Attestations.Attestation.payload:type_name -> build.stack.bazel.registry.v1.Attestations.AttestationPayload
+	33, // 43: build.stack.bazel.registry.v1.Attestations.AttestationsEntry.value:type_name -> build.stack.bazel.registry.v1.Attestations.Attestation
+	37, // 44: build.stack.bazel.registry.v1.Presubmit.BcrTestModule.matrix:type_name -> build.stack.bazel.registry.v1.Presubmit.PresubmitMatrix
+	40, // 45: build.stack.bazel.registry.v1.Presubmit.BcrTestModule.tasks:type_name -> build.stack.bazel.registry.v1.Presubmit.BcrTestModule.TasksEntry
+	38, // 46: build.stack.bazel.registry.v1.Presubmit.TasksEntry.value:type_name -> build.stack.bazel.registry.v1.Presubmit.PresubmitTask
+	38, // 47: build.stack.bazel.registry.v1.Presubmit.BcrTestModule.TasksEntry.value:type_name -> build.stack.bazel.registry.v1.Presubmit.PresubmitTask
+	48, // [48:48] is the sub-list for method output_type
+	48, // [48:48] is the sub-list for method input_type
+	48, // [48:48] is the sub-list for extension type_name
+	48, // [48:48] is the sub-list for extension extendee
+	0,  // [0:48] is the sub-list for field type_name
 }
 
 func init() { file_build_stack_bazel_registry_v1_bcr_proto_init() }
@@ -2876,7 +2957,7 @@ func file_build_stack_bazel_registry_v1_bcr_proto_init() {
 	if File_build_stack_bazel_registry_v1_bcr_proto != nil {
 		return
 	}
-	file_build_stack_bazel_registry_v1_bcr_proto_msgTypes[17].OneofWrappers = []any{
+	file_build_stack_bazel_registry_v1_bcr_proto_msgTypes[18].OneofWrappers = []any{
 		(*ModuleDependencyOverride_GitOverride)(nil),
 		(*ModuleDependencyOverride_ArchiveOverride)(nil),
 		(*ModuleDependencyOverride_SingleVersionOverride)(nil),
@@ -2888,7 +2969,7 @@ func file_build_stack_bazel_registry_v1_bcr_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_build_stack_bazel_registry_v1_bcr_proto_rawDesc), len(file_build_stack_bazel_registry_v1_bcr_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   38,
+			NumMessages:   40,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
