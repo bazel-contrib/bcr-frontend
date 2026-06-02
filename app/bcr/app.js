@@ -273,7 +273,6 @@ class RegistryApp extends App {
 			this.handleRefreshChange,
 		);
 		this.refreshController_.setMode(mode);
-		document.documentElement.classList.add("bcr-refresh-available");
 	}
 
 	/**
