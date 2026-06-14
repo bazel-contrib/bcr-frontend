@@ -17,7 +17,7 @@ require (
 	github.com/shurcooL/githubv4 v0.0.0-20260209031235-2402fdf4a9ed
 	github.com/teacat/noire v1.1.0
 	github.com/zeebo/blake3 v0.2.4
-	go.starlark.net v0.0.0-20260326113308-fadfc96def35
+	go.starlark.net v0.0.0-20260613233743-8ba36ccb83fb
 	golang.org/x/oauth2 v0.35.0
 	golang.org/x/sync v0.19.0
 	golang.org/x/time v0.14.0
