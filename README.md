@@ -9,7 +9,7 @@ This repository provides a web UI and API for the [Bazel Central Registry](https
 - A protobuf representation of the state of the BCR is constructed by `bazel build //data/bazel-central-registry/modules:modules`.  This includes downloading source repository archives for latest versions (that include starlark files) and extracting stardoc for them, outputting the file `bazel-bin/data/bazel-central-registry/modules/registry.pb`.
 - `bazel run //app/bcr:release` builds the frontend single-page-application UI
   and embed the registry proto data in it, and starts a webserver for local development.
-- `bazel //app/api` builds a rust->wasm app that runs as a cloudflare worker to service API requests.  The UI does not currently depend on the API; the primary purpose is to support shields.io-like badges (example: ![bazek-skylib-latest](https://bcr.stack.build/api/v1alpha1/modules/bazel_skylib/badge.svg?label=bazel_skylib)).  The API also serves fragments of the `Registry` protobuf data.
+- `bazel //app/api` builds a rust->wasm app that runs as a cloudflare worker to service API requests.  The UI does not currently depend on the API; the primary purpose is to support shields.io-like badges (example: ![bazel-skylib-latest](https://bcr.stack.build/api/v1alpha1/modules/bazel_skylib/badge.svg?label=bazel_skylib)).  The API also serves fragments of the `Registry` protobuf data.
 - `bazel run //app/bcr:deploy` builds the UI and API and deploys it to cloudflare.
 
 CI works as follows:
