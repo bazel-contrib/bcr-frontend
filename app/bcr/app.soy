@@ -1070,6 +1070,31 @@ import {
 {/template}
 
 
+{template bazelFlagsCommandsTable}
+  {@param commands: list<[name: string, count: int]>}
+<div>
+  {if length($commands) > 0}
+    <div class="Box Box--condensed">
+      {for $command in $commands}
+        <a href="/bazel/command/{$command.name |escapeUri}"
+           class="Box-row d-flex flex-items-center"
+           style="text-decoration: none;">
+          <span class="text-mono text-bold">{$command.name}</span>
+          <span class="color-fg-muted text-small ml-auto">
+            {$command.count} flag{$command.count == 1 ? '' : 's'}
+          </span>
+        </a>
+      {/for}
+    </div>
+  {else}
+    <div class="blankslate p-3">
+      <p>No commands found.</p>
+    </div>
+  {/if}
+</div>
+{/template}
+
+
 {template bazelFlagsResultsList}
   {@param items: list<[flag: BazelFlag, description: string, current: bool]>}
 <div>
@@ -1147,9 +1172,15 @@ import {
       </div>
       <h2 class="h2 mb-3">{$title}</h2>
       {if length($items) > 0}
-        {call bazelFlagsResultsList}
-          {param items: $items /}
-        {/call}
+        <div class="mb-3">
+          <input type="text" class="js-flag-group-search-input form-control width-full"
+                 placeholder="Filter flags..." autocomplete="off">
+        </div>
+        <div class="js-flag-group-search-results">
+          {call bazelFlagsResultsList}
+            {param items: $items /}
+          {/call}
+        </div>
       {else}
         <div class="blankslate p-3">
           <p>{$emptyMessage}</p>
