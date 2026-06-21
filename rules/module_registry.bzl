@@ -629,6 +629,7 @@ _STATIC_TOP_LEVEL_ROUTES = [
     route(loc = "/bazel/flags/list", priority = 0.9, changefreq = "weekly"),
     route(loc = "/bazel/flags/list/categories", priority = 0.9, changefreq = "weekly"),
     route(loc = "/bazel/flags/list/tags", priority = 0.9, changefreq = "weekly"),
+    route(loc = "/bazel/flags/list/commands", priority = 0.9, changefreq = "weekly"),
     route(loc = "/targets", priority = 0.7, changefreq = "weekly"),
 ]
 

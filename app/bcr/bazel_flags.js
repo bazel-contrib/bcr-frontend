@@ -25,6 +25,7 @@ const {
 	bazelFlagDetail,
 	bazelFlagGroup,
 	bazelFlagsCategoriesTable,
+	bazelFlagsCommandsTable,
 	bazelFlagsListComponent,
 	bazelFlagsListSelectNav,
 	bazelFlagsResultsList,
@@ -43,6 +44,7 @@ const TabName = {
 	TAGS: "tags",
 	CATEGORY: "category",
 	CATEGORIES: "categories",
+	COMMANDS: "commands",
 };
 
 /**
@@ -283,6 +285,15 @@ class BazelFlagsListSelectNav extends SelectNav {
 			() => new BazelFlagsTagsComponent(this.registry_, this.dom_),
 		);
 
+		this.addNavTabLazy(
+			TabName.COMMANDS,
+			"Commands",
+			"Bazel commands the flags apply to",
+			undefined,
+			`${this.getPathUrl()}/${TabName.COMMANDS}`,
+			() => new BazelFlagsCommandsComponent(this.registry_, this.dom_),
+		);
+
 		getApplication(this)
 			.getRegistryWithSymbols()
 			.then(() => {
@@ -303,6 +314,10 @@ class BazelFlagsListSelectNav extends SelectNav {
 				const categorySet = new Set();
 				/** @type {!Set<string>} */
 				const tagSet = new Set();
+				let commandCount = 0;
+				for (const command of typed.getCommandsList()) {
+					if (command) commandCount++;
+				}
 				for (const flag of typed.getFlagList()) {
 					const c = flag.getCategory();
 					if (c) categorySet.add(c);
@@ -327,6 +342,7 @@ class BazelFlagsListSelectNav extends SelectNav {
 				setBadge(TabName.LIST, flagCount);
 				setBadge(TabName.CATEGORIES, categorySet.size);
 				setBadge(TabName.TAGS, tagSet.size);
+				setBadge(TabName.COMMANDS, commandCount);
 				refreshBcrSidePaneBazelFlags(document.body, flagCount);
 			});
 	}
@@ -591,6 +607,79 @@ class BazelFlagsTagsComponent extends Component {
 }
 
 /**
+ * Commands tab at /bazel/flags/list/commands — renders every Bazel command
+ * in the DB with the number of flags that apply to it. Each row links to the
+ * existing /bazel/command/<command> flag group page.
+ */
+class BazelFlagsCommandsComponent extends Component {
+	/**
+	 * @param {!Registry} registry
+	 * @param {?dom.DomHelper=} opt_domHelper
+	 */
+	constructor(registry, opt_domHelper) {
+		super(opt_domHelper);
+
+		/** @private @const @type {!Registry} */
+		this.registry_ = registry;
+	}
+
+	/**
+	 * @override
+	 */
+	createDom() {
+		const placeholder = dom.createDom("div", { class: "p-3 color-fg-muted" });
+		placeholder.textContent = "Loading flag database…";
+		this.setElementInternal(placeholder);
+	}
+
+	/**
+	 * @override
+	 */
+	enterDocument() {
+		super.enterDocument();
+		getApplication(this)
+			.getBazelFlagDb()
+			.then((db) => {
+				if (this.isDisposed()) return;
+				const typed = /** @type {!BazelFlagDb} */ (db);
+				const commandNames = typed.getCommandsList();
+				/** @type {!Array<number>} */
+				const counts = new Array(commandNames.length).fill(0);
+
+				for (const flag of typed.getFlagList()) {
+					for (const commandIdx of flag.getCommandIndexList()) {
+						if (commandIdx >= 0 && commandIdx < counts.length) {
+							counts[commandIdx]++;
+						}
+					}
+				}
+
+				/** @type {!Array<!{name: string, count: number}>} */
+				const commands = [];
+				commandNames.forEach((name, i) => {
+					if (!name) return;
+					commands.push({ name: name, count: counts[i] || 0 });
+				});
+
+				const root = this.getElementStrict();
+				root.innerHTML = "";
+				const rendered = soy.renderAsElement(bazelFlagsCommandsTable, {
+					commands: commands,
+				});
+				root.appendChild(rendered);
+			})
+			.catch((err) => {
+				if (this.isDisposed()) return;
+				const root = this.getElementStrict();
+				root.innerHTML = "";
+				const flash = dom.createDom("div", { class: "flash flash-error" });
+				flash.textContent = `Failed to load flag database: ${err}`;
+				root.appendChild(flash);
+			});
+	}
+}
+
+/**
  * Group page at /bazel/flags/tag/<tag>: lists every flag carrying <tag>.
  */
 class BazelFlagsByTagComponent extends Component {
@@ -659,6 +748,9 @@ class BazelFlagsByTagComponent extends Component {
 					uiCommitSha: uiCommitSha,
 				});
 				root.appendChild(rendered);
+				installFlagGroupSearch(rendered, items, (input, listener) => {
+					this.getHandler().listen(input, events.EventType.INPUT, listener);
+				});
 				refreshBcrSidePaneBazelFlags(document.body, typed.getFlagList().length);
 			})
 			.catch((err) => {
@@ -740,6 +832,9 @@ class BazelFlagsByCommandComponent extends Component {
 						uiCommitSha: uiCommitSha,
 					});
 					root.appendChild(rendered);
+					installFlagGroupSearch(rendered, [], (input, listener) => {
+						this.getHandler().listen(input, events.EventType.INPUT, listener);
+					});
 					return;
 				}
 
@@ -764,6 +859,9 @@ class BazelFlagsByCommandComponent extends Component {
 					uiCommitSha: uiCommitSha,
 				});
 				root.appendChild(rendered);
+				installFlagGroupSearch(rendered, items, (input, listener) => {
+					this.getHandler().listen(input, events.EventType.INPUT, listener);
+				});
 				refreshBcrSidePaneBazelFlags(document.body, typed.getFlagList().length);
 			})
 			.catch((err) => {
@@ -851,6 +949,9 @@ class BazelFlagsByCategoryComponent extends Component {
 					uiCommitSha: uiCommitSha,
 				});
 				root.appendChild(rendered);
+				installFlagGroupSearch(rendered, items, (input, listener) => {
+					this.getHandler().listen(input, events.EventType.INPUT, listener);
+				});
 				refreshBcrSidePaneBazelFlags(document.body, typed.getFlagList().length);
 			})
 			.catch((err) => {
@@ -894,6 +995,53 @@ function buildFlagItems(flags, db) {
 		description: flag.getDescriptionList().join(" "),
 		current: latestIdx >= 0 && flag.getVersionIndexList().includes(latestIdx),
 	}));
+}
+
+/**
+ * Adds client-side filtering to a rendered bazelFlagGroup.
+ *
+ * @param {!Element} root
+ * @param {!Array<!{flag: !BazelFlag, description: string, current: boolean}>} items
+ * @param {function(!HTMLInputElement, function())} listen
+ */
+function installFlagGroupSearch(root, items, listen) {
+	const input = /** @type {?HTMLInputElement} */ (
+		root.querySelector(".js-flag-group-search-input")
+	);
+	const results = root.querySelector(".js-flag-group-search-results");
+	if (!input || !results) return;
+
+	listen(input, () => {
+		const query = input.value.trim().toLowerCase();
+		soy.renderElement(
+			/** @type {!Element} */ (results),
+			bazelFlagsResultsList,
+			{ items: filterFlagItems(items, query) },
+		);
+	});
+}
+
+/**
+ * @param {!Array<!{flag: !BazelFlag, description: string, current: boolean}>} items
+ * @param {string} query lowercase trimmed query.
+ * @returns {!Array<!{flag: !BazelFlag, description: string, current: boolean}>}
+ */
+function filterFlagItems(items, query) {
+	if (!query) return items;
+	const tokens = query.split(/\s+/).filter((t) => t.length > 0);
+	if (tokens.length === 0) return items;
+
+	return items.filter((item) => {
+		const name = item.flag.getName().toLowerCase();
+		const short = item.flag.getShort().toLowerCase();
+		const description = item.description.toLowerCase();
+		return tokens.every(
+			(token) =>
+				name.includes(token) ||
+				short.includes(token) ||
+				description.includes(token),
+		);
+	});
 }
 
 /**
