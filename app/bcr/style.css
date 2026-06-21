@@ -119,7 +119,7 @@ pre code {
  * once the pills are visible; below md the input keeps its natural
  * full border so it doesn't look amputated. */
 @media (min-width: 768px) {
-	.search-scope-fused {
+	.form-control.search-scope-fused {
 		border-top-right-radius: 0;
 		border-bottom-right-radius: 0;
 		border-right: 0;
