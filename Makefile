@@ -2,9 +2,10 @@
 .PHONY: bcr_init
 bcr_init:
 	git submodule update --init data/bazel-central-registry
-	(cd data/bazel-central-registry && git sparse-checkout init --no-cone)
-	(cd data/bazel-central-registry && git sparse-checkout set modules)
-	(cd data/bazel-central-registry && git fetch --unshallow || true)
+	git -C data/bazel-central-registry rev-parse --git-dir >/dev/null 2>&1 || { echo "data/bazel-central-registry is not an initialized git repo; aborting to avoid corrupting the parent repo's sparse-checkout"; exit 1; }
+	git -C data/bazel-central-registry sparse-checkout init --no-cone
+	git -C data/bazel-central-registry sparse-checkout set modules
+	git -C data/bazel-central-registry fetch --unshallow || true
 
 .PHONY: bcr_update
 bcr_update:
@@ -12,9 +13,10 @@ bcr_update:
 
 .PHONY: bcr_clean
 bcr_clean:
-	(cd data/bazel-central-registry && git reset --hard && git clean -fd)
-	(cd data/bazel-central-registry && git sparse-checkout init --no-cone)
-	(cd data/bazel-central-registry && git sparse-checkout set modules)
+	git -C data/bazel-central-registry rev-parse --git-dir >/dev/null 2>&1 || { echo "data/bazel-central-registry is not an initialized git repo; run 'make bcr_init' first"; exit 1; }
+	git -C data/bazel-central-registry reset --hard && git -C data/bazel-central-registry clean -fd
+	git -C data/bazel-central-registry sparse-checkout init --no-cone
+	git -C data/bazel-central-registry sparse-checkout set modules
 
 .PHONY: bcr
 bcr: bcr_clean bcr_update
