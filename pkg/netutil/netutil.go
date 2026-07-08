@@ -8,8 +8,6 @@ import (
 	"net/http"
 	"sync"
 	"time"
-
-	"github.com/schollz/progressbar/v3"
 )
 
 const connectionAvailableDuration = 250 * time.Millisecond
@@ -118,18 +116,12 @@ func CheckURLsParallel[T any](desc string, items []T, getURL func(T) string, onR
 	var wg sync.WaitGroup
 	var mu sync.Mutex
 
-	bar := progressbar.NewOptions(total,
-		progressbar.OptionSetDescription(desc),
-		progressbar.OptionShowCount(),
-		progressbar.OptionSetWidth(40),
-		progressbar.OptionSetTheme(progressbar.Theme{
-			Saucer:        "=",
-			SaucerHead:    ">",
-			SaucerPadding: " ",
-			BarStart:      "[",
-			BarEnd:        "]",
-		}),
-	)
+	// In non-interactive output the animated bar is suppressed, so emit a
+	// single breadcrumb line per phase instead.
+	if !Interactive() {
+		log.Printf("%s (%d URLs)", desc, total)
+	}
+	bar := NewProgressBar(desc, total)
 
 	urlChan := make(chan struct {
 		index int

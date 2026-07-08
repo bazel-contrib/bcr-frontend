@@ -11,7 +11,7 @@ import (
 
 	bzpb "github.com/bazel-contrib/bcr-frontend/build/stack/bazel/registry/v1"
 	"github.com/bazel-contrib/bcr-frontend/pkg/gh"
-	"github.com/schollz/progressbar/v3"
+	"github.com/bazel-contrib/bcr-frontend/pkg/netutil"
 )
 
 func (ext *bcrExtension) configureGithubClient() {
@@ -250,18 +250,7 @@ func (ext *bcrExtension) resolveSourceCommitSHAsForRankedModules(rankedModules r
 	log.Printf("Resolving commit SHAs for %d unique GitHub source URLs from ranked modules...", totalURLs)
 
 	// Create progress bar
-	bar := progressbar.NewOptions(totalURLs,
-		progressbar.OptionSetDescription("Resolving commit SHAs (ranked)"),
-		progressbar.OptionShowCount(),
-		progressbar.OptionSetWidth(40),
-		progressbar.OptionSetTheme(progressbar.Theme{
-			Saucer:        "=",
-			SaucerHead:    ">",
-			SaucerPadding: " ",
-			BarStart:      "[",
-			BarEnd:        "]",
-		}),
-	)
+	bar := netutil.NewProgressBar("Resolving commit SHAs (ranked)", totalURLs)
 
 	// Convert to the format expected by BatchResolveSourceCommits
 	batchInfos := make([]struct {
@@ -417,18 +406,7 @@ func (ext *bcrExtension) resolveSourceCommitSHAsForLatestVersions() {
 	log.Printf("Resolving commit SHAs for %d unique GitHub source URLs from latest versions...", totalURLs)
 
 	// Create progress bar
-	bar := progressbar.NewOptions(totalURLs,
-		progressbar.OptionSetDescription("Resolving commit SHAs"),
-		progressbar.OptionShowCount(),
-		progressbar.OptionSetWidth(40),
-		progressbar.OptionSetTheme(progressbar.Theme{
-			Saucer:        "=",
-			SaucerHead:    ">",
-			SaucerPadding: " ",
-			BarStart:      "[",
-			BarEnd:        "]",
-		}),
-	)
+	bar := netutil.NewProgressBar("Resolving commit SHAs", totalURLs)
 
 	// Convert to the format expected by BatchResolveSourceCommits
 	batchInfos := make([]struct {
@@ -528,18 +506,7 @@ func (ext *bcrExtension) fetchPRAuthors() {
 	batchSize := 500
 	totalFetched := 0
 
-	bar := progressbar.NewOptions(len(prNumbers),
-		progressbar.OptionSetDescription("Fetching PR authors"),
-		progressbar.OptionShowCount(),
-		progressbar.OptionSetWidth(40),
-		progressbar.OptionSetTheme(progressbar.Theme{
-			Saucer:        "=",
-			SaucerHead:    ">",
-			SaucerPadding: " ",
-			BarStart:      "[",
-			BarEnd:        "]",
-		}),
-	)
+	bar := netutil.NewProgressBar("Fetching PR authors", len(prNumbers))
 
 	for i := 0; i < len(prNumbers); i += batchSize {
 		end := min(i+batchSize, len(prNumbers))

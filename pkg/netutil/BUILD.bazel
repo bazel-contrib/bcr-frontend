@@ -2,8 +2,14 @@ load("@rules_go//go:def.bzl", "go_library")
 
 go_library(
     name = "netutil",
-    srcs = ["netutil.go"],
+    srcs = [
+        "netutil.go",
+        "progress.go",
+    ],
     importpath = "github.com/bazel-contrib/bcr-frontend/pkg/netutil",
     visibility = ["//visibility:public"],
-    deps = ["@com_github_schollz_progressbar_v3//:progressbar"],
+    deps = [
+        "@com_github_schollz_progressbar_v3//:progressbar",
+        "@org_golang_x_term//:term",
+    ],
 )
