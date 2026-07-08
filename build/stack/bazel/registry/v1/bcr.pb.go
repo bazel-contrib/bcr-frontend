@@ -384,6 +384,7 @@ type ModuleMetadata struct {
 	Versions       []string               `protobuf:"bytes,4,rep,name=versions,proto3" json:"versions,omitempty"`
 	YankedVersions map[string]string      `protobuf:"bytes,5,rep,name=yanked_versions,json=yankedVersions,proto3" json:"yanked_versions,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	Deprecated     string                 `protobuf:"bytes,6,opt,name=deprecated,proto3" json:"deprecated,omitempty"`
+	Name           string                 `protobuf:"bytes,7,opt,name=name,proto3" json:"name,omitempty"`
 	unknownFields  protoimpl.UnknownFields
 	sizeCache      protoimpl.SizeCache
 }
@@ -456,6 +457,13 @@ func (x *ModuleMetadata) GetYankedVersions() map[string]string {
 func (x *ModuleMetadata) GetDeprecated() string {
 	if x != nil {
 		return x.Deprecated
+	}
+	return ""
+}
+
+func (x *ModuleMetadata) GetName() string {
+	if x != nil {
+		return x.Name
 	}
 	return ""
 }
@@ -2602,7 +2610,7 @@ const file_build_stack_bazel_registry_v1_bcr_proto_rawDesc = "" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x16\n" +
 	"\x06github\x18\x03 \x01(\tR\x06github\x12\"\n" +
 	"\rdo_not_notify\x18\x04 \x01(\bR\vdoNotNotify\x12$\n" +
-	"\x0egithub_user_id\x18\x05 \x01(\x05R\fgithubUserId\"\x84\x03\n" +
+	"\x0egithub_user_id\x18\x05 \x01(\x05R\fgithubUserId\"\x98\x03\n" +
 	"\x0eModuleMetadata\x12\x1a\n" +
 	"\bhomepage\x18\x01 \x01(\tR\bhomepage\x12K\n" +
 	"\vmaintainers\x18\x02 \x03(\v2).build.stack.bazel.registry.v1.MaintainerR\vmaintainers\x12\x1e\n" +
@@ -2613,7 +2621,8 @@ const file_build_stack_bazel_registry_v1_bcr_proto_rawDesc = "" +
 	"\x0fyanked_versions\x18\x05 \x03(\v2A.build.stack.bazel.registry.v1.ModuleMetadata.YankedVersionsEntryR\x0eyankedVersions\x12\x1e\n" +
 	"\n" +
 	"deprecated\x18\x06 \x01(\tR\n" +
-	"deprecated\x1aA\n" +
+	"deprecated\x12\x12\n" +
+	"\x04name\x18\a \x01(\tR\x04name\x1aA\n" +
 	"\x13YankedVersionsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xc1\x03\n" +
