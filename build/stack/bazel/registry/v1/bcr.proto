@@ -65,6 +65,8 @@ message ModuleMetadata {
     map<string,string> yanked_versions = 5;
     // Deprecation message (empty if not deprecated)
     string deprecated = 6;
+    // Module name (optional; mirrors the module directory name)
+    string name = 7;
 }
 
 // RepositoryType indicates the source code hosting platform.
