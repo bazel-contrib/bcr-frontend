@@ -2,6 +2,7 @@ load("@bazel_gazelle//:def.bzl", "gazelle", "gazelle_binary")
 load("@build_stack_rules_proto//rules:proto_compile_assets.bzl", "proto_compile_assets")
 load("@build_stack_rules_proto//rules:proto_gazelle.bzl", "proto_gazelle")
 load("//bazel_tools/formatting:biome.bzl", "biome_format")
+load("@build_stack_rules_proto//rules/go:proto_go_modules.bzl", "proto_go_modules")
 
 exports_files([
     "rules_proto_config.yaml",
@@ -13,14 +14,18 @@ exports_files([
 # ----------------------------------------------------
 #
 # -- Gazelle language "walk" ---
-#
+# gazelle:exclude vendor
+# gazelle:exclude genproto
+
 # -- Gazelle language "go" ---
 # gazelle:prefix github.com/bazel-contrib/bcr-frontend
 # gazelle:go_generate_proto false
 #
 # -- Gazelle language "protobuf" ---
 # gazelle:proto_language go enable true
-#
+# gazelle:proto_language go +rule proto_compiled_sources
+# gazelle:proto_language go -rule proto_compile
+# gazelle:proto_language go -rule proto_go_library
 
 gazelle_binary(
     name = "gazelle-custom",
@@ -28,6 +33,7 @@ gazelle_binary(
         "@bazel_gazelle//language/go",
         "@bazel_gazelle//language/proto",
         "@build_stack_rules_proto//language/protobuf",
+        "@build_stack_rules_proto//language/proto_go_modules",
     ],
     visibility = ["//visibility:public"],
 )
@@ -38,6 +44,12 @@ proto_gazelle(
     cfgs = ["//:rules_proto_config.yaml"],
     external = "static",
     gazelle = "//:gazelle-custom",
+    imports = [
+        "@bazelapis//:imports.csv",
+        "@googleapis//:imports.csv",
+        "@protobufapis//:imports.csv",
+        "@remoteapis//:imports.csv",
+    ],
 )
 
 gazelle_binary(
@@ -112,4 +124,20 @@ biome_format(
 biome_format(
     name = "format.check",
     command = "check",
+)
+
+proto_go_modules(
+    name = "proto_go_modules",
+    imports = [
+        # "github.com/bazelbuild/bazel/src/main/protobuf/stardoc_output",
+        # "github.com/bazelbuild/bazelapis/src/main/protobuf/analysis_v2",
+        "github.com/bazelbuild/bazel/src/main/java/com/google/devtools/lib/buildeventstream/proto/build_event_stream",
+    ],
+    modules = [
+        "@bazelapis//:proto_go_modules",
+        "@googleapis//:proto_go_modules",
+        "@protobufapis//:proto_go_modules",
+        "@remoteapis//:proto_go_modules",
+    ],
+    srcroot = "genproto",
 )
