@@ -30,19 +30,20 @@ func loadStarlarkModuleBazelFile(filename string, src any, reporter func(msg str
 func newPredeclared(module *bzpb.ModuleVersion) *permissiveStringDict {
 	return &permissiveStringDict{
 		StringDict: starlark.StringDict{
-			"module":                  starlark.NewBuiltin("module", makeModuleBuiltin(module)),
-			"bazel_dep":               starlark.NewBuiltin("bazel_dep", makeBazelDepBuiltin(module)),
-			"git_override":            starlark.NewBuiltin("git_override", makeGitOverrideBuiltin(module)),
-			"archive_override":        starlark.NewBuiltin("archive_override", makeArchiveOverrideBuiltin(module)),
-			"single_version_override": starlark.NewBuiltin("single_version_override", makeSingleVersionOverrideBuiltin(module)),
-			"local_path_override":     starlark.NewBuiltin("local_path_override", makeLocalPathOverrideBuiltin(module)),
-			"use_extension":           starlark.NewBuiltin("use_extension", ignoreReturningCallable("use_extension")),
-			"use_repo":                starlark.NewBuiltin("use_repo", ignore()),
-			"use_repo_rule":           starlark.NewBuiltin("use_repo_rule", ignoreReturningCallable("use_repo_rule")),
-			"struct":                  starlark.NewBuiltin("struct", starlarkstruct.Make),
-			"True":                    starlark.True,
-			"False":                   starlark.False,
-			"None":                    starlark.None,
+			"module":                    starlark.NewBuiltin("module", makeModuleBuiltin(module)),
+			"bazel_dep":                 starlark.NewBuiltin("bazel_dep", makeBazelDepBuiltin(module)),
+			"git_override":              starlark.NewBuiltin("git_override", makeGitOverrideBuiltin(module)),
+			"archive_override":          starlark.NewBuiltin("archive_override", makeArchiveOverrideBuiltin(module)),
+			"single_version_override":   starlark.NewBuiltin("single_version_override", makeSingleVersionOverrideBuiltin(module)),
+			"multiple_version_override": starlark.NewBuiltin("multiple_version_override", makeMultipleVersionOverrideBuiltin(module)),
+			"local_path_override":       starlark.NewBuiltin("local_path_override", makeLocalPathOverrideBuiltin(module)),
+			"use_extension":             starlark.NewBuiltin("use_extension", ignoreReturningCallable("use_extension")),
+			"use_repo":                  starlark.NewBuiltin("use_repo", ignore()),
+			"use_repo_rule":             starlark.NewBuiltin("use_repo_rule", ignoreReturningCallable("use_repo_rule")),
+			"struct":                    starlark.NewBuiltin("struct", starlarkstruct.Make),
+			"True":                      starlark.True,
+			"False":                     starlark.False,
+			"None":                      starlark.None,
 		},
 	}
 }
@@ -197,13 +198,14 @@ func makeArchiveOverrideBuiltin(module *bzpb.ModuleVersion) goStarlarkFunction {
 
 func makeSingleVersionOverrideBuiltin(module *bzpb.ModuleVersion) goStarlarkFunction {
 	return func(thread *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
-		var moduleName, version string
+		var moduleName, version, registry string
 		var patchStrip int
 		patches := &starlark.List{}
 
 		if err := starlark.UnpackArgs("single_version_override", args, kwargs,
 			"module_name", &moduleName,
 			"version?", &version,
+			"registry?", &registry,
 			"patch_strip?", &patchStrip,
 			"patches?", &patches,
 		); err != nil {
@@ -215,8 +217,36 @@ func makeSingleVersionOverrideBuiltin(module *bzpb.ModuleVersion) goStarlarkFunc
 			Override: &bzpb.ModuleDependencyOverride_SingleVersionOverride{
 				SingleVersionOverride: &bzpb.SingleVersionOverride{
 					Version:    version,
+					Registry:   registry,
 					PatchStrip: int32(patchStrip),
 					Patches:    mustGetStringSlice(patches),
+				},
+			},
+		}
+		module.Override = append(module.Override, override)
+		return starlark.None, nil
+	}
+}
+
+func makeMultipleVersionOverrideBuiltin(module *bzpb.ModuleVersion) goStarlarkFunction {
+	return func(thread *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
+		var moduleName, registry string
+		versions := &starlark.List{}
+
+		if err := starlark.UnpackArgs("multiple_version_override", args, kwargs,
+			"module_name", &moduleName,
+			"versions", &versions,
+			"registry?", &registry,
+		); err != nil {
+			return nil, fmt.Errorf("unpack error: %v", err)
+		}
+
+		override := &bzpb.ModuleDependencyOverride{
+			ModuleName: moduleName,
+			Override: &bzpb.ModuleDependencyOverride_MultipleVersionOverride{
+				MultipleVersionOverride: &bzpb.MultipleVersionOverride{
+					Versions: mustGetStringSlice(versions),
+					Registry: registry,
 				},
 			},
 		}

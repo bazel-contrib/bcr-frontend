@@ -26,6 +26,7 @@ go_library(
         "module_registry.go",
         "module_source.go",
         "module_version.go",
+        "multiple_version_override.go",
         "mvs.go",
         "pr_author_cache.go",
         "presubmit.go",
@@ -69,6 +70,7 @@ go_test(
     name = "bcr_test",
     srcs = [
         "attestations_fetch_test.go",
+        "module_dependency_override_test.go",
         "registry_backup_test.go",
         "repository_test.go",
         "stardoc_test.go",

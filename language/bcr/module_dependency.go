@@ -85,6 +85,8 @@ func makeOverrideRule(moduleName string, override *bzpb.ModuleDependencyOverride
 		return makeArchiveOverrideRule(moduleName, o.ArchiveOverride)
 	case *bzpb.ModuleDependencyOverride_SingleVersionOverride:
 		return makeSingleVersionOverrideRule(moduleName, o.SingleVersionOverride)
+	case *bzpb.ModuleDependencyOverride_MultipleVersionOverride:
+		return makeMultipleVersionOverrideRule(moduleName, o.MultipleVersionOverride)
 	case *bzpb.ModuleDependencyOverride_LocalPathOverride:
 		return makeLocalPathOverrideRule(moduleName, o.LocalPathOverride)
 	default:

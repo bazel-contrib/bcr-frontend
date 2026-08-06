@@ -174,6 +174,16 @@ SingleVersionOverrideInfo = provider(
         "patch_strip": "int: Number of leading path components to strip from patches",
         "patches": "list[str]: Patch file paths",
         "version": "str: Specific version to use",
+        "registry": "str: Registry from which to resolve the module",
+    },
+)
+
+MultipleVersionOverrideInfo = provider(
+    doc = "Multiple-version module override configuration.",
+    fields = {
+        "module_name": "str: Name of the module being overridden",
+        "versions": "list[str]: Versions allowed to coexist",
+        "registry": "str: Registry from which to resolve the module",
     },
 )
 

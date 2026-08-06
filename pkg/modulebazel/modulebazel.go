@@ -126,7 +126,7 @@ func parse(filename string, f *build.File) (*bzpb.ModuleVersion, error) {
 // buildOverridesMap builds a map of module name to override rule from the MODULE.bazel file
 func buildOverridesMap(f *build.File) map[string]*build.Rule {
 	overrides := make(map[string]*build.Rule)
-	overrideKinds := []string{"git_override", "archive_override", "single_version_override", "local_path_override"}
+	overrideKinds := []string{"git_override", "archive_override", "single_version_override", "multiple_version_override", "local_path_override"}
 
 	for _, kind := range overrideKinds {
 		for _, r := range f.Rules(kind) {
@@ -177,6 +177,14 @@ func addOverride(dep *bzpb.ModuleDependency, moduleName string, overrides map[st
 				PatchStrip: parseInt32(overrideRule.AttrString("patch_strip")),
 				Patches:    overrideRule.AttrStrings("patches"),
 				Version:    overrideRule.AttrString("version"),
+				Registry:   overrideRule.AttrString("registry"),
+			},
+		}
+	case "multiple_version_override":
+		dep.Override.Override = &bzpb.ModuleDependencyOverride_MultipleVersionOverride{
+			MultipleVersionOverride: &bzpb.MultipleVersionOverride{
+				Versions: overrideRule.AttrStrings("versions"),
+				Registry: overrideRule.AttrString("registry"),
 			},
 		}
 	case "local_path_override":
