@@ -12,6 +12,7 @@ def _single_version_override_impl(ctx):
             patch_strip = ctx.attr.patch_strip,
             patches = ctx.attr.patches,
             version = ctx.attr.version,
+            registry = ctx.attr.registry,
         ),
     ]
 
@@ -32,6 +33,9 @@ single_version_override = rule(
         ),
         "version": attr.string(
             doc = "str: Specific version to use",
+        ),
+        "registry": attr.string(
+            doc = "str: Registry from which to resolve the module",
         ),
     },
     provides = [ModuleOverrideInfo, SingleVersionOverrideInfo],

@@ -345,6 +345,7 @@ message ModuleDependencyOverride {
         ArchiveOverride archive_override = 2;
         SingleVersionOverride single_version_override = 3;
         LocalPathOverride local_path_override = 4;
+        MultipleVersionOverride multiple_version_override = 7;
     }
 }
 
@@ -409,6 +410,8 @@ message SingleVersionOverride {
     repeated string patches = 2;
     // Specific version to use
     string version = 3;
+    // Registry from which to resolve this module instead of the default registries
+    string registry = 4;
 }
 
 // Override dependency with a local filesystem path
@@ -478,7 +481,7 @@ message DependencyTreeNode {
     repeated DependencyTreeNode children = 5;
     // Whether children were pruned to avoid duplication
     bool pruned = 6;
-    // Override type if applied: "single_version", "git", "archive", "local_path"
+    // Override type if applied: "single_version", "multiple_version", "git", "archive", "local_path"
     string override_type = 7;
 }
 
@@ -488,4 +491,13 @@ message DependencyTree {
     ModuleVersion module_version = 1;
     // Direct dependencies
     repeated DependencyTreeNode children = 2;
+}
+
+// Override dependency to allow multiple versions from a registry
+// Example: multiple_version_override(module_name = "foo", versions = ["1.2.3", "2.0.0"], registry = "https://example.com/modules")
+message MultipleVersionOverride {
+    // Versions allowed to coexist in the resolved dependency graph
+    repeated string versions = 1;
+    // Registry from which to resolve this module instead of the default registries
+    string registry = 2;
 }

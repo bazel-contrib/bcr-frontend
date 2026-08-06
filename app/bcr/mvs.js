@@ -304,13 +304,14 @@ class MVS {
 	/**
 	 * Determines the type of override from a ModuleDependencyOverride proto.
 	 * @param {!proto.build.stack.bazel.registry.v1.ModuleDependencyOverride} override The override proto
-	 * @return {string} Override type: "single_version", "git", "archive", "local_path", or empty string
+	 * @return {string} Override type: "single_version", "multiple_version", "git", "archive", "local_path", or empty string
 	 * @private
 	 */
 	getOverrideType_(override) {
 		if (override.hasGitOverride()) return "git";
 		if (override.hasArchiveOverride()) return "archive";
 		if (override.hasSingleVersionOverride()) return "single_version";
+		if (override.hasMultipleVersionOverride()) return "multiple_version";
 		if (override.hasLocalPathOverride()) return "local_path";
 		return "";
 	}

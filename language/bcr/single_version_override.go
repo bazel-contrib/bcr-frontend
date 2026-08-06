@@ -36,6 +36,9 @@ func makeSingleVersionOverrideRule(moduleName string, override *bzpb.SingleVersi
 	if override.Version != "" {
 		r.SetAttr("version", override.Version)
 	}
+	if override.Registry != "" {
+		r.SetAttr("registry", override.Registry)
+	}
 	r.SetAttr("visibility", []string{"//visibility:public"})
 	return r
 }
