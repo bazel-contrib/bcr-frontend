@@ -14,6 +14,7 @@ def _git_override_impl(ctx):
             branch = ctx.attr.branch,
             patch_strip = ctx.attr.patch_strip,
             patches = ctx.attr.patches,
+            tag = ctx.attr.tag,
         ),
     ]
 
@@ -40,6 +41,9 @@ git_override = rule(
         ),
         "patches": attr.string_list(
             doc = "list[str]: Patch file paths",
+        ),
+        "tag": attr.string(
+            doc = "str: Git tag name",
         ),
     },
     provides = [ModuleOverrideInfo, GitOverrideInfo],

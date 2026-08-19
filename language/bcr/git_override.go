@@ -44,6 +44,9 @@ func makeGitOverrideRule(moduleName string, override *bzpb.GitOverride) *rule.Ru
 	if len(override.Patches) > 0 {
 		r.SetAttr("patches", override.Patches)
 	}
+	if override.Tag != "" {
+		r.SetAttr("tag", override.Tag)
+	}
 	r.SetAttr("visibility", []string{"//visibility:public"})
 	return r
 }

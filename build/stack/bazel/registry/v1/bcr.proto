@@ -380,6 +380,8 @@ message GitOverride {
     string remote = 4;
     // Git branch name
     string branch = 5;
+    // Git tag name
+    string tag = 6;
 }
 
 // Override dependency with an archive download

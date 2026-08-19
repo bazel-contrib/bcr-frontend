@@ -157,6 +157,7 @@ func addOverride(dep *bzpb.ModuleDependency, moduleName string, overrides map[st
 				Branch:     overrideRule.AttrString("branch"),
 				PatchStrip: parseInt32(overrideRule.AttrString("patch_strip")),
 				Patches:    overrideRule.AttrStrings("patches"),
+				Tag:        overrideRule.AttrString("tag"),
 			},
 		}
 	case "archive_override":
