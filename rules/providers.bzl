@@ -152,6 +152,7 @@ GitOverrideInfo = provider(
         "branch": "str: Git branch name",
         "patch_strip": "int: Number of leading path components to strip from patches",
         "patches": "list[str]: Patch file paths",
+        "tag": "str: Git tag name",
     },
 )
 

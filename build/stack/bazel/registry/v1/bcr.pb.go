@@ -1685,6 +1685,7 @@ type GitOverride struct {
 	Patches       []string               `protobuf:"bytes,3,rep,name=patches,proto3" json:"patches,omitempty"`
 	Remote        string                 `protobuf:"bytes,4,opt,name=remote,proto3" json:"remote,omitempty"`
 	Branch        string                 `protobuf:"bytes,5,opt,name=branch,proto3" json:"branch,omitempty"`
+	Tag           string                 `protobuf:"bytes,6,opt,name=tag,proto3" json:"tag,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
