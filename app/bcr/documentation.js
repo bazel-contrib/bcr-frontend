@@ -725,13 +725,10 @@ class FileSelect extends ContentSelect {
 	 * @param {!Route} route
 	 */
 	goHere(route) {
-		// Synthetic pseudo-module files (e.g. @_builtins's "globals", "cpp")
-		// have no upstream source to fetch — the BzlFileSourceComponent would
-		// 404. Land on the symbol list instead. Heuristic: files whose label
-		// name doesn't end in .bzl aren't real source files.
-		const labelName = this.file_.getLabel()?.getName() || "";
-		const tab = labelName.endsWith(".bzl") ? TabName.SOURCE : TabName.LIST;
-		this.select(tab, route.add(tab));
+		// The bare file route is the documentation overview: its top-level
+		// Stardoc description is rendered as Markdown above the exported symbols
+		// and source. The explicit /source route remains available.
+		this.select(TabName.LIST, route.add(TabName.LIST));
 	}
 
 	/**
@@ -1704,6 +1701,24 @@ class FileListComponent extends MarkdownComponent {
 		super.enterDocument();
 
 		highlightAll(this.getElementStrict());
+
+		// Real .bzl files show their source after the module-level documentation
+		// and exported symbols. Synthetic pseudo-module files (for example
+		// @_builtins's "globals") have no upstream source and remain docs-only.
+		const labelName = this.file_.getLabel()?.getName() || "";
+		if (labelName.endsWith(".bzl")) {
+			const source = new BzlFileSourceComponent(
+				this.module_,
+				this.moduleVersion_,
+				this.file_,
+				this.dom_,
+			);
+			this.addChild(source, false);
+			const sourceContainer = document.createElement("div");
+			sourceContainer.className = "mt-4";
+			this.getElementStrict().appendChild(sourceContainer);
+			source.render(sourceContainer);
+		}
 	}
 }
 
