@@ -150,6 +150,7 @@ closure_js_template_library(
         "registry.soy",
         "settings.soy",
         "targets.soy",
+        "tools.soy",
         "treeview.soy",
         "uri.soy",
     ],
@@ -289,6 +290,7 @@ closure_js_library(
         "source_archive_files.js",
         "syntax.js",
         "targets.js",
+        "tools.js",
         "treeview.js",
         "unified_search.js",
         ":shiki",
@@ -315,6 +317,7 @@ closure_js_library(
         "@stackb_rules_closure//closure/goog/dom:dataset",
         "@stackb_rules_closure//closure/goog/events",
         "@stackb_rules_closure//closure/goog/events:eventtype",
+        "@stackb_rules_closure//closure/goog/events:filedrophandler",
         "@stackb_rules_closure//closure/goog/events:listenable",
         "@stackb_rules_closure//closure/goog/soy",
         "@stackb_rules_closure//closure/goog/string",
@@ -332,6 +335,20 @@ closure_js_library(
         "@stackb_rules_closure//google3/third_party/javascript/safevalues/dom/elements",
         "@stackb_ui_js//js/ui:core",
         "@stackb_ui_js//js/ui:select",
+        "@bazelapis//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_js_proto",
+        "@protobufapis//google/protobuf:timestamp_js_proto",
+    ],
+)
+
+closure_js_test(
+    name = "tools_test",
+    srcs = ["tools_test.js"],
+    compilation_level = "ADVANCED",
+    entry_points = ["goog:bcrfrontend.toolsTest"],
+    deps = [
+        ":app",
+        "@stackb_rules_closure//closure/goog/testing:jsunit",
+        "@stackb_rules_closure//closure/goog/testing:testsuite",
     ],
 )
 

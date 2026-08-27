@@ -10,8 +10,7 @@ proto_repository.archive(
         "gazelle:exclude google/protobuf/compiler/ruby",
         "gazelle:exclude google/protobuf/bridge",
         "gazelle:exclude google/protobuf/util/internal/testdata",
-        "gazelle:proto_language go enable true",
-        "gazelle:proto_go_modules_index_kind proto_go_library",
+        "gazelle:proto_language closure enable true",
     ],
     build_file_generation = "clean",
     build_file_proto_mode = "file",
@@ -55,8 +54,7 @@ proto_repository.archive(
         "gazelle:exclude google/devtools/containeranalysis/v1beta1",
         "gazelle:exclude google/example",
         "gazelle:exclude google/maps/weather/v1",
-        "gazelle:proto_go_modules_index_kind proto_go_library",
-        "gazelle:proto_language go enable true",
+        "gazelle:proto_language closure enable true",
     ],
     build_file_generation = "clean",
     build_file_proto_mode = "file",
@@ -77,8 +75,7 @@ proto_repository.archive(
     name = "remoteapis",
     build_directives = [
         "gazelle:exclude third_party",
-        "gazelle:proto_go_modules_index_kind proto_go_library",
-        "gazelle:proto_language go enable true",
+        "gazelle:proto_language closure enable true",
     ],
     build_file_generation = "clean",
     build_file_proto_mode = "file",
@@ -102,31 +99,15 @@ proto_repository.archive(
     build_directives = [
         "gazelle:exclude src/java_tools/import_deps_checker/javatests/com/google/devtools/build/importdeps/testdata",
         "gazelle:exclude src/tools/android/java/com/google/devtools/build/android",
-        "gazelle:exclude src/main/protobuf/project",
         "gazelle:exclude third_party",
-        "gazelle:proto_go_modules_index_kind proto_go_library",
-        "gazelle:proto_language go enable true",
-        "gazelle:proto_plugin protoc-gen-go option Msrc/main/java/com/google/devtools/build/lib/packages/metrics/package_load_metrics.proto=github.com/bazelbuild/bazel/src/main/java/com/google/devtools/build/lib/packages/metrics",
-        "gazelle:proto_plugin protoc-gen-go option Msrc/main/java/com/google/devtools/build/lib/buildeventstream/proto/build_event_stream.proto=github.com/bazelbuild/bazel/src/main/java/com/google/devtools/lib/buildeventstream/proto/build_event_stream",
-        "gazelle:proto_plugin protoc-gen-go option Msrc/main/protobuf/bazel_output_service_rev2.proto=github.com/bazelbuild/bazel/src/main/protobuf/bazel_output_service_rev2",
-        "gazelle:proto_plugin protoc-gen-go option Msrc/main/protobuf/bazel_output_service.proto=github.com/bazelbuild/bazel/src/main/protobuf/bazel_output_service",
-        "gazelle:proto_plugin protoc-gen-go option Msrc/main/protobuf/cache_salt.proto=github.com/bazelbuild/bazel/src/main/protobuf/cache_salt",
-        "gazelle:proto_plugin protoc-gen-go option Msrc/main/protobuf/crash_debugging.proto=github.com/bazelbuild/bazel/src/main/protobuf/crash_debugging",
-        "gazelle:proto_plugin protoc-gen-go option Msrc/main/protobuf/execution_graph.proto=github.com/bazelbuild/bazel/src/main/protobuf/execution_graph",
-        "gazelle:proto_plugin protoc-gen-go option Msrc/main/protobuf/file_invalidation_data.proto=github.com/bazelbuild/bazel/src/main/protobuf/file_invalidation_data",
-        "gazelle:proto_plugin protoc-gen-go option Msrc/main/protobuf/memory_pressure.proto=github.com/bazelbuild/bazel/src/main/protobuf/memory_pressure",
-        "gazelle:proto_plugin protoc-gen-go option Msrc/main/protobuf/remote_scrubbing.proto=github.com/bazelbuild/bazel/src/main/protobuf/remote_scrubbing",
-        "gazelle:proto_plugin protoc-gen-go option Msrc/main/protobuf/stardoc_output.proto=github.com/bazelbuild/bazel/src/main/protobuf/stardoc_output",
-        "gazelle:proto_plugin protoc-gen-go option Msrc/main/protobuf/strategy_policy.proto=github.com/bazelbuild/bazel/src/main/protobuf/strategy_policy",
+        "gazelle:proto_language closure enable true",
     ],
     build_file_generation = "clean",
     build_file_proto_mode = "file",
+    # Kept explicit so toggling it while developing the custom Starlark
+    # generator invalidates stale generated BUILD files.
+    debug_mode = True,
     cfgs = ["//:rules_proto_config.yaml"],
-    deleted_files = [
-        "src/main/protobuf/bazel_output_service.proto",
-        "src/main/protobuf/extra_actions_base.proto",
-        "src/main/protobuf/option_filters.proto",
-    ],
     imports = [
         "@googleapis//:imports.csv",
         "@protobufapis//:imports.csv",
@@ -143,3 +124,5 @@ use_repo(
     "protobufapis",
     "remoteapis",
 )
+
+inject_repo(proto_repository, "bcr-frontend", "stackb_rules_closure")
