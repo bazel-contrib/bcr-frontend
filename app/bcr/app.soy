@@ -350,7 +350,10 @@ import {
   <a class="Link--primary d-flex flex-items-center mb-2" href="/docs">
     <span class="color-fg-muted">Symbols</span>
     <span class="dotted-leader"></span>
-    <span class="text-bold js-symbols-count">{$totalSymbols}</span>
+    /* Symbols are lazily loaded, so the count is unknown until something
+       pulls symbols.pb.gz in. Render a dash rather than a misleading 0;
+       refreshBcrSidePaneSymbols fills it in if/when symbols arrive. */
+    <span class="text-bold js-symbols-count">{$totalSymbols > 0 ? $totalSymbols : '—'}</span>
   </a>
   <a class="Link--primary d-flex flex-items-center mb-2" href="/bazel/versions">
     <span class="color-fg-muted">Bazel Versions</span>
