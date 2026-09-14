@@ -163,12 +163,15 @@ class HomeOverviewSelectNav extends SelectNav {
 			() => new HomeRecentlyAddedComponent(this.registry_, this.dom_),
 		);
 
-		getApplication(this)
-			.getRegistryWithSymbols()
-			.then(() => {
+		// Side-pane symbol count only. Refresh it if symbols happen to be
+		// loaded already, but never fetch symbols.pb.gz just for a number.
+		const symbols = getApplication(this).getRegistryWithSymbolsIfLoaded();
+		if (symbols) {
+			symbols.then(() => {
 				if (this.isDisposed()) return;
 				refreshBcrSidePaneSymbols(this.getElement(), this.registry_);
 			});
+		}
 	}
 }
 
