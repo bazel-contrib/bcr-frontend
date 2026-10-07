@@ -56,9 +56,19 @@ class Application {
 
 	/**
 	 * Returns a promise that resolves when symbols are loaded and decorated.
+	 * Calling this starts the symbols.pb.gz fetch if it hasn't started yet, so
+	 * only call it where symbols are genuinely needed.
 	 * @returns {!Promise<*>}
 	 */
 	getRegistryWithSymbols() {}
+
+	/**
+	 * Like getRegistryWithSymbols, but returns null instead of starting the
+	 * fetch when symbols haven't been requested yet. For cosmetic consumers
+	 * (the side-pane symbol count) that shouldn't pull in ~56MB of protobuf.
+	 * @returns {?Promise<*>}
+	 */
+	getRegistryWithSymbolsIfLoaded() {}
 
 	/**
 	 * Returns a promise that resolves when packages (BUILD-file extraction) are
