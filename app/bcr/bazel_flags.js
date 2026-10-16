@@ -294,12 +294,15 @@ class BazelFlagsListSelectNav extends SelectNav {
 			() => new BazelFlagsCommandsComponent(this.registry_, this.dom_),
 		);
 
-		getApplication(this)
-			.getRegistryWithSymbols()
-			.then(() => {
+		// Side-pane symbol count only. Refresh it if symbols happen to be
+		// loaded already, but never fetch symbols.pb.gz just for a number.
+		const symbols = getApplication(this).getRegistryWithSymbolsIfLoaded();
+		if (symbols) {
+			symbols.then(() => {
 				if (this.isDisposed()) return;
 				refreshBcrSidePaneSymbols(this.getElement(), this.registry_);
 			});
+		}
 
 		// Inject counts into the three nav tabs once the DB loads.
 		// addNavTabLazy was called with count=undefined so the Counter badges

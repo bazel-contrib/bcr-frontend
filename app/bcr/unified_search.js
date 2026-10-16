@@ -53,16 +53,18 @@ exports.SCOPE_SYMBOLS = SCOPE_SYMBOLS;
 class UnifiedSearchHandler extends EventTarget {
 	/**
 	 * @param {!Registry} registry
-	 * @param {!Promise<!Registry>} registryWithSymbols
+	 * @param {function():!Promise<!Registry>} registryWithSymbolsLoader memoized
+	 *     lazy loader. Invoking it starts the symbols.pb.gz fetch, so it is
+	 *     deliberately not called until the user actually searches.
 	 */
-	constructor(registry, registryWithSymbols) {
+	constructor(registry, registryWithSymbolsLoader) {
 		super();
 
 		/** @private @const @type {!Registry} */
 		this.registry_ = registry;
 
-		/** @private @const @type {!Promise<!Registry>} */
-		this.registryWithSymbols_ = registryWithSymbols;
+		/** @private @const @type {function():!Promise<!Registry>} */
+		this.registryWithSymbolsLoader_ = registryWithSymbolsLoader;
 
 		/** @private @const @type {!Map<string, !Entry>} */
 		this.entries_ = new Map();
@@ -173,6 +175,9 @@ class UnifiedSearchHandler extends EventTarget {
 	 * @return {!Array<string>}
 	 */
 	getActiveKeys() {
+		// First actual match request is what pulls symbols.pb.gz in. See
+		// ensureSymbols_ for why this isn't done at load() time.
+		this.ensureSymbols_();
 		if (this.scope_ === SCOPE_MODULES) {
 			return this.moduleKeys_;
 		}
@@ -183,11 +188,34 @@ class UnifiedSearchHandler extends EventTarget {
 	}
 
 	/**
+	 * Kicks off the symbols fetch exactly once, and indexes symbols when it
+	 * lands. Fire-and-forget: the ScopedMatcher picks up the appended symbol
+	 * keys on the next match request, so the first keystroke searches modules
+	 * only and symbols fold in a moment later without an AC rebuild.
+	 *
+	 * This deliberately does NOT happen in load(). load() runs during boot
+	 * (App wires up the "all" provider immediately), and symbols.pb.gz is
+	 * ~56MB of protobuf that expands to hundreds of MB of JS objects -- enough
+	 * to get the tab killed on mobile Safari before the user has typed
+	 * anything.
+	 *
+	 * @private
+	 */
+	ensureSymbols_() {
+		if (this.symbolsRequested_) return;
+		this.symbolsRequested_ = true;
+		this.registryWithSymbolsLoader_().then((registry) => {
+			this.indexSymbols_(registry);
+			this.provider_.desc = `Search ${this.moduleKeys_.length} modules and ${this.symbolKeys_.length} symbols`;
+		});
+	}
+
+	/**
 	 * Synchronously indexes modules and creates the AC the first time it's
-	 * called. The symbols.pb.gz promise is kicked off but NOT awaited —
-	 * load() resolves as soon as modules are searchable so SearchComponent
-	 * can attach the input handler immediately. The ScopedMatcher picks
-	 * up symbols later without any AC rebuild.
+	 * called. Symbols are NOT requested here — App attaches the "all" provider
+	 * during boot, so fetching them from load() would put ~56MB of protobuf on
+	 * every page load. ensureSymbols_ handles that on the first match request
+	 * instead.
 	 * @return {!Promise<void>}
 	 */
 	async load() {
@@ -197,15 +225,6 @@ class UnifiedSearchHandler extends EventTarget {
 		}
 		if (!this.ac_) {
 			this.createAutoComplete_();
-		}
-		if (!this.symbolsRequested_) {
-			this.symbolsRequested_ = true;
-			// Fire-and-forget. The ScopedMatcher will see the appended symbol
-			// keys on the next match request.
-			this.registryWithSymbols_.then((registry) => {
-				this.indexSymbols_(registry);
-				this.provider_.desc = `Search ${this.moduleKeys_.length} modules and ${this.symbolKeys_.length} symbols`;
-			});
 		}
 	}
 
