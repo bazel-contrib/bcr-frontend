@@ -699,13 +699,41 @@ Sitemap: {registry_url}/sitemap.xml
 
     return output
 
-def _compile_registry_action(ctx, filename, modules, symbols = None):
+def _compile_registry_action(ctx, filename, modules, symbols = None, thin = False):
+    """Compiles the per-module protos into a single Registry proto.
+
+    Args:
+        ctx: The rule context
+        filename: Name of the output proto
+        modules: List of compiled Module protos
+        symbols: Optional ModuleRegistrySymbols proto to decorate with
+        thin: When True, strip per-version detail from non-latest module
+            versions and emit each untouched record into a `moduleversions`
+            tree artifact. Used for the boot payload, which is parsed in full
+            on every page load and otherwise exceeds mobile Safari's per-tab
+            memory cap. See cmd/registrycompiler for what is kept and why.
+
+    Returns:
+        struct(proto = File, module_versions = File | None)
+    """
     output = ctx.actions.declare_file(filename)
+    outputs = [output]
     inputs = [] + modules
 
     args = ctx.actions.args()
     args.add("--output_file")
     args.add(output)
+
+    module_versions = None
+    if thin:
+        args.add("--thin")
+
+        # One tree artifact rather than ~8k declared files: the records are
+        # produced by a single registrycompiler action, and declaring them
+        # individually would add thousands of actions to every build.
+        module_versions = ctx.actions.declare_directory("moduleversions")
+        args.add("--module_versions_dir", module_versions.path)
+        outputs.append(module_versions)
     args.add("--registry_url")
     args.add(ctx.attr.registry_url)
     if symbols:
@@ -730,12 +758,12 @@ def _compile_registry_action(ctx, filename, modules, symbols = None):
         executable = ctx.executable._registrycompiler,
         arguments = [args],
         inputs = inputs,
-        outputs = [output],
+        outputs = outputs,
         mnemonic = "CompileRegistry",
         progress_message = "Compiling registry for %{label}",
     )
 
-    return output
+    return struct(proto = output, module_versions = module_versions)
 
 def _module_registry_impl(ctx):
     deps = [d[ModuleMetadataInfo] for d in ctx.attr.deps]
@@ -754,8 +782,13 @@ def _module_registry_impl(ctx):
     symbols_pb = _compile_module_registry_symbols(ctx, doc_results)
     pkg_results = _compile_packages(ctx, deps)
     packages_pb = _compile_module_registry_packages(ctx, pkg_results)
-    registry_pb = _compile_registry_action(ctx, "registry.pb", modules, symbols_pb)
-    registrylite_pb = _compile_registry_action(ctx, "registrylite.pb", modules)
+    registry_pb = _compile_registry_action(ctx, "registry.pb", modules, symbols_pb).proto
+    registrylite_pb = _compile_registry_action(ctx, "registrylite.pb", modules).proto
+
+    # The payload actually shipped in index.html. Thinned so the parse fits in
+    # a mobile browser tab; the stripped detail rides along as per-version
+    # records the frontend fetches on demand.
+    registrythin = _compile_registry_action(ctx, "registrythin.pb", modules, thin = True)
 
     bazel_help = _compile_bazel_help_registry_action(ctx, bazel_versions)
     bazel_flag_db = _compile_bazel_flag_db_action(ctx, bazel_help)
@@ -789,6 +822,8 @@ def _module_registry_impl(ctx):
             robots_txt = [robots_txt],
             registry_pb = [registry_pb],
             registrylite_pb = [registrylite_pb],
+            registrythin_pb = [registrythin.proto],
+            module_versions = [registrythin.module_versions],
             codesearch_index = [codesearch_index],
             # The @_builtins output is a single shared file (not per-MV),
             # is already aggregated into symbols.pb, and lives at a non-
