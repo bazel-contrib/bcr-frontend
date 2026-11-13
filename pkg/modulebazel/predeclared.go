@@ -141,6 +141,7 @@ func makeArchiveOverrideBuiltin(module *bzpb.ModuleVersion) goStarlarkFunction {
 		var patchStrip int
 		patches := &starlark.List{}
 		patchArgs := &starlark.List{}
+		patchCmds := &starlark.List{}
 		var urlsValue, urlValue starlark.Value
 
 		if err := starlark.UnpackArgs("archive_override", args, kwargs,
@@ -148,6 +149,7 @@ func makeArchiveOverrideBuiltin(module *bzpb.ModuleVersion) goStarlarkFunction {
 			"integrity?", &integrity,
 			"patch_strip?", &patchStrip,
 			"patch_args?", &patchArgs,
+			"patch_cmds?", &patchCmds,
 			"patches?", &patches,
 			"sha256?", &sha256,
 			"strip_prefix?", &stripPrefix,
@@ -203,12 +205,14 @@ func makeSingleVersionOverrideBuiltin(module *bzpb.ModuleVersion) goStarlarkFunc
 		var moduleName, version, registry string
 		var patchStrip int
 		patches := &starlark.List{}
+		patchCmds := &starlark.List{}
 
 		if err := starlark.UnpackArgs("single_version_override", args, kwargs,
 			"module_name", &moduleName,
 			"version?", &version,
 			"registry?", &registry,
 			"patch_strip?", &patchStrip,
+			"patch_cmds?", &patchCmds,
 			"patches?", &patches,
 		); err != nil {
 			return nil, fmt.Errorf("unpack error: %v", err)
