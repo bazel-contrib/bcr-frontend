@@ -401,6 +401,8 @@ message ArchiveOverride {
     repeated string patch_args = 6;
     // sha256 is not an officially legitimate attribute of archive_override, but there are errors in the BCR so we include it to tolerate and not fail.
     string sha256 = 7;
+    // Bash commands to run after applying patches
+    repeated string patch_cmds = 8;
 }
 
 // Override dependency to use a specific version with optional patches
@@ -414,6 +416,8 @@ message SingleVersionOverride {
     string version = 3;
     // Registry from which to resolve this module instead of the default registries
     string registry = 4;
+    // Bash commands to run after applying patches
+    repeated string patch_cmds = 5;
 }
 
 // Override dependency with a local filesystem path

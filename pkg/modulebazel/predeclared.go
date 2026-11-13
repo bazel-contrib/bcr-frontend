@@ -187,6 +187,7 @@ func makeArchiveOverrideBuiltin(module *bzpb.ModuleVersion) goStarlarkFunction {
 				ArchiveOverride: &bzpb.ArchiveOverride{
 					Integrity:   integrity,
 					PatchArgs:   mustGetStringSlice(patchArgs),
+					PatchCmds:   mustGetStringSlice(patchCmds),
 					Patches:     mustGetStringSlice(patches),
 					PatchStrip:  int32(patchStrip),
 					Sha256:      sha256,
@@ -226,6 +227,7 @@ func makeSingleVersionOverrideBuiltin(module *bzpb.ModuleVersion) goStarlarkFunc
 					Registry:   registry,
 					PatchStrip: int32(patchStrip),
 					Patches:    mustGetStringSlice(patches),
+					PatchCmds:  mustGetStringSlice(patchCmds),
 				},
 			},
 		}

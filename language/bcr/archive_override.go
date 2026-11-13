@@ -39,6 +39,9 @@ func makeArchiveOverrideRule(moduleName string, override *bzpb.ArchiveOverride) 
 	if len(override.Patches) > 0 {
 		r.SetAttr("patches", override.Patches)
 	}
+	if len(override.PatchCmds) > 0 {
+		r.SetAttr("patch_cmds", override.PatchCmds)
+	}
 	if override.StripPrefix != "" {
 		r.SetAttr("strip_prefix", override.StripPrefix)
 	}
