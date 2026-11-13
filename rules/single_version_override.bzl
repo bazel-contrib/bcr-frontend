@@ -11,6 +11,7 @@ def _single_version_override_impl(ctx):
             module_name = ctx.attr.module_name,
             patch_strip = ctx.attr.patch_strip,
             patches = ctx.attr.patches,
+            patch_cmds = ctx.attr.patch_cmds,
             version = ctx.attr.version,
             registry = ctx.attr.registry,
         ),
@@ -30,6 +31,9 @@ single_version_override = rule(
         ),
         "patches": attr.string_list(
             doc = "list[str]: Patch file paths",
+        ),
+        "patch_cmds": attr.string_list(
+            doc = "list[str]: Bash commands to run after applying patches",
         ),
         "version": attr.string(
             doc = "str: Specific version to use",

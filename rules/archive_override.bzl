@@ -12,6 +12,7 @@ def _archive_override_impl(ctx):
             integrity = ctx.attr.integrity,
             patch_strip = ctx.attr.patch_strip,
             patches = ctx.attr.patches,
+            patch_cmds = ctx.attr.patch_cmds,
             strip_prefix = ctx.attr.strip_prefix,
             urls = ctx.attr.urls,
         ),
@@ -34,6 +35,9 @@ archive_override = rule(
         ),
         "patches": attr.string_list(
             doc = "list[str]: Patch file paths",
+        ),
+        "patch_cmds": attr.string_list(
+            doc = "list[str]: Bash commands to run after applying patches",
         ),
         "strip_prefix": attr.string(
             doc = "str: Directory prefix to strip from the archive",

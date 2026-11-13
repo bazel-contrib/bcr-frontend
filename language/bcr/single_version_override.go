@@ -33,6 +33,9 @@ func makeSingleVersionOverrideRule(moduleName string, override *bzpb.SingleVersi
 	if len(override.Patches) > 0 {
 		r.SetAttr("patches", override.Patches)
 	}
+	if len(override.PatchCmds) > 0 {
+		r.SetAttr("patch_cmds", override.PatchCmds)
+	}
 	if override.Version != "" {
 		r.SetAttr("version", override.Version)
 	}
