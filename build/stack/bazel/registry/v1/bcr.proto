@@ -382,6 +382,8 @@ message GitOverride {
     string branch = 5;
     // Git tag name
     string tag = 6;
+    // Directory prefix to strip from the checked-out repository
+    string strip_prefix = 7;
 }
 
 // Override dependency with an archive download

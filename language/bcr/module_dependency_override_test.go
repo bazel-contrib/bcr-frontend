@@ -110,3 +110,44 @@ bazel_dep(name = "dep", version = "1.2.3")
 		})
 	}
 }
+
+func TestGitOverrideStripPrefixGeneratedBuild(t *testing.T) {
+	const src = `
+module(name = "root", version = "1.0.0")
+bazel_dep(name = "dep", version = "1.2.3")
+git_override(
+    module_name = "dep",
+    remote = "https://example.com/monorepo.git",
+    commit = "abc123",
+    strip_prefix = "packages/dep",
+)
+`
+	filename := filepath.Join(t.TempDir(), "MODULE.bazel")
+	if err := os.WriteFile(filename, []byte(src), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	module, err := modulebazel.ExecFile(filename)
+	if err != nil {
+		t.Fatal(err)
+	}
+	deps, overrides := makeModuleDependencyRules(module.GetDeps())
+	if len(deps) != 1 || len(overrides) != 1 {
+		t.Fatalf("generated %d dependencies and %d overrides, want 1 each", len(deps), len(overrides))
+	}
+	if got := deps[0].AttrString("override"); got != ":dep_override" {
+		t.Errorf("dependency override = %q, want :dep_override", got)
+	}
+	file := rule.EmptyFile("BUILD.bazel", "")
+	deps[0].Insert(file)
+	overrides[0].Insert(file)
+	generated, err := rule.LoadData("BUILD.bazel", "", file.Format())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(generated.Rules) != 2 || generated.Rules[1].Kind() != "git_override" {
+		t.Fatalf("unexpected generated BUILD file: %s", file.Format())
+	}
+	if got := generated.Rules[1].AttrString("strip_prefix"); got != "packages/dep" {
+		t.Errorf("generated strip_prefix = %q, want packages/dep", got)
+	}
+}

@@ -219,3 +219,62 @@ func TestOverridePatchCmdsFromFile(t *testing.T) {
 		})
 	}
 }
+
+func TestGitOverrideStripPrefixFromFile(t *testing.T) {
+	for _, prefix := range []string{"packages/dep", ""} {
+		t.Run(fmt.Sprintf("strip_prefix=%q", prefix), func(t *testing.T) {
+			const baseCode = "git_override(\n    module_name = \"dep\",\n    remote = \"https://example.com/monorepo.git\",\n    commit = \"abc123\",\n"
+			code := baseCode
+			if prefix != "" {
+				code += fmt.Sprintf("    strip_prefix = %q,\n", prefix)
+			}
+			code += ")\n"
+			src := "module(name = \"root\", version = \"1.0.0\")\nbazel_dep(name = \"dep\", version = \"1.2.3\")\n" + code
+			filename := filepath.Join(t.TempDir(), "MODULE.bazel")
+			if err := os.WriteFile(filename, []byte(src), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			for _, loader := range []struct {
+				name string
+				load func(string) (*bzpb.ModuleVersion, error)
+			}{
+				{"ExecFile", ExecFile},
+				{"ParseFileModuleVersion", ParseFileModuleVersion},
+			} {
+				t.Run(loader.name, func(t *testing.T) {
+					module, err := loader.load(filename)
+					if err != nil {
+						t.Fatal(err)
+					}
+					data, err := proto.Marshal(module)
+					if err != nil {
+						t.Fatal(err)
+					}
+					module = new(bzpb.ModuleVersion)
+					if err := proto.Unmarshal(data, module); err != nil {
+						t.Fatal(err)
+					}
+					if len(module.GetDeps()) != 1 {
+						t.Fatalf("len(deps) = %d, want 1", len(module.GetDeps()))
+					}
+					override := module.GetDeps()[0].GetOverride()
+					git := override.GetGitOverride()
+					if git == nil {
+						t.Fatal("dependency has no git override")
+					}
+					if got := git.GetStripPrefix(); got != prefix {
+						t.Errorf("strip_prefix = %q, want %q", got, prefix)
+					}
+					if loader.name == "ExecFile" {
+						if got := override.GetCode(); got != code {
+							t.Errorf("override display source = %q, want %q", got, code)
+						}
+						if len(module.GetOverride()) != 1 || module.GetOverride()[0].GetCode() != code {
+							t.Error("module override display source was not preserved")
+						}
+					}
+				})
+			}
+		})
+	}
+}

@@ -152,12 +152,13 @@ func addOverride(dep *bzpb.ModuleDependency, moduleName string, overrides map[st
 	case "git_override":
 		dep.Override.Override = &bzpb.ModuleDependencyOverride_GitOverride{
 			GitOverride: &bzpb.GitOverride{
-				Commit:     overrideRule.AttrString("commit"),
-				Remote:     overrideRule.AttrString("remote"),
-				Branch:     overrideRule.AttrString("branch"),
-				PatchStrip: parseInt32(overrideRule.AttrString("patch_strip")),
-				Patches:    overrideRule.AttrStrings("patches"),
-				Tag:        overrideRule.AttrString("tag"),
+				Commit:      overrideRule.AttrString("commit"),
+				Remote:      overrideRule.AttrString("remote"),
+				Branch:      overrideRule.AttrString("branch"),
+				PatchStrip:  parseInt32(overrideRule.AttrString("patch_strip")),
+				Patches:     overrideRule.AttrStrings("patches"),
+				Tag:         overrideRule.AttrString("tag"),
+				StripPrefix: overrideRule.AttrString("strip_prefix"),
 			},
 		}
 	case "archive_override":
