@@ -39,6 +39,52 @@ single_version_override(
 			},
 		},
 		{
+			name: "single version with patch_cmds",
+			src: `
+module(name = "root", version = "1.0.0")
+bazel_dep(name = "dep", version = "1.2.3")
+single_version_override(
+    module_name = "dep",
+    version = "1.2.3",
+    patch_cmds = ["rm -f foo"],
+    patch_strip = 1,
+    patches = ["//:dep.patch"],
+)
+`,
+			want: func(t *testing.T, got *bzpb.ModuleDependencyOverride) {
+				t.Helper()
+				override := got.GetSingleVersionOverride()
+				if override == nil {
+					t.Fatal("override type is not single_version_override")
+				}
+				if got, want := strings.Join(override.GetPatches(), ","), "//:dep.patch"; got != want {
+					t.Errorf("patches = %q, want %q", got, want)
+				}
+			},
+		},
+		{
+			name: "archive with patch_cmds",
+			src: `
+module(name = "root", version = "1.0.0")
+bazel_dep(name = "dep", version = "1.2.3")
+archive_override(
+    module_name = "dep",
+    urls = ["https://example.com/dep.tar.gz"],
+    patch_cmds = ["rm -f foo"],
+)
+`,
+			want: func(t *testing.T, got *bzpb.ModuleDependencyOverride) {
+				t.Helper()
+				override := got.GetArchiveOverride()
+				if override == nil {
+					t.Fatal("override type is not archive_override")
+				}
+				if got, want := strings.Join(override.GetUrls(), ","), "https://example.com/dep.tar.gz"; got != want {
+					t.Errorf("urls = %q, want %q", got, want)
+				}
+			},
+		},
+		{
 			name: "multiple version",
 			src: `
 module(name = "root", version = "1.0.0")
