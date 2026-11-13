@@ -1686,6 +1686,7 @@ type GitOverride struct {
 	Remote        string                 `protobuf:"bytes,4,opt,name=remote,proto3" json:"remote,omitempty"`
 	Branch        string                 `protobuf:"bytes,5,opt,name=branch,proto3" json:"branch,omitempty"`
 	Tag           string                 `protobuf:"bytes,6,opt,name=tag,proto3" json:"tag,omitempty"`
+	StripPrefix   string                 `protobuf:"bytes,7,opt,name=strip_prefix,json=stripPrefix,proto3" json:"strip_prefix,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1758,6 +1759,13 @@ func (x *GitOverride) GetBranch() string {
 func (x *GitOverride) GetTag() string {
 	if x != nil {
 		return x.Tag
+	}
+	return ""
+}
+
+func (x *GitOverride) GetStripPrefix() string {
+	if x != nil {
+		return x.StripPrefix
 	}
 	return ""
 }
@@ -2874,7 +2882,7 @@ const file_build_stack_bazel_registry_v1_bcr_proto_rawDesc = "" +
 	"\boverride\x18\x06 \x01(\v27.build.stack.bazel.registry.v1.ModuleDependencyOverrideR\boverride\x12\x1e\n" +
 	"\n" +
 	"unresolved\x18\a \x01(\bR\n" +
-	"unresolved\"\xa2\x01\n" +
+	"unresolved\"\xc5\x01\n" +
 	"\vGitOverride\x12\x16\n" +
 	"\x06commit\x18\x01 \x01(\tR\x06commit\x12\x1f\n" +
 	"\vpatch_strip\x18\x02 \x01(\x05R\n" +
@@ -2882,7 +2890,8 @@ const file_build_stack_bazel_registry_v1_bcr_proto_rawDesc = "" +
 	"\apatches\x18\x03 \x03(\tR\apatches\x12\x16\n" +
 	"\x06remote\x18\x04 \x01(\tR\x06remote\x12\x16\n" +
 	"\x06branch\x18\x05 \x01(\tR\x06branch\x12\x10\n" +
-	"\x03tag\x18\x06 \x01(\tR\x03tag\"\xf7\x01\n" +
+	"\x03tag\x18\x06 \x01(\tR\x03tag\x12!\n" +
+	"\fstrip_prefix\x18\a \x01(\tR\vstripPrefix\"\xf7\x01\n" +
 	"\x0fArchiveOverride\x12\x1c\n" +
 	"\tintegrity\x18\x01 \x01(\tR\tintegrity\x12\x1f\n" +
 	"\vpatch_strip\x18\x02 \x01(\x05R\n" +

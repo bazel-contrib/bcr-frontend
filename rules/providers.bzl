@@ -153,6 +153,7 @@ GitOverrideInfo = provider(
         "patch_strip": "int: Number of leading path components to strip from patches",
         "patches": "list[str]: Patch file paths",
         "tag": "str: Git tag name",
+        "strip_prefix": "str: Directory prefix to strip from the checked-out repository",
     },
 )
 

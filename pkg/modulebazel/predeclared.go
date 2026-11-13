@@ -101,7 +101,7 @@ func makeBazelDepBuiltin(module *bzpb.ModuleVersion) goStarlarkFunction {
 
 func makeGitOverrideBuiltin(module *bzpb.ModuleVersion) goStarlarkFunction {
 	return func(thread *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
-		var moduleName, commit, remote, branch, tag string
+		var moduleName, commit, remote, branch, tag, stripPrefix string
 		var patchStrip int
 		patches := &starlark.List{}
 
@@ -113,6 +113,7 @@ func makeGitOverrideBuiltin(module *bzpb.ModuleVersion) goStarlarkFunction {
 			"patch_strip?", &patchStrip,
 			"patches?", &patches,
 			"tag?", &tag,
+			"strip_prefix?", &stripPrefix,
 		); err != nil {
 			return nil, fmt.Errorf("unpack error: %v", err)
 		}
@@ -121,12 +122,13 @@ func makeGitOverrideBuiltin(module *bzpb.ModuleVersion) goStarlarkFunction {
 			ModuleName: moduleName,
 			Override: &bzpb.ModuleDependencyOverride_GitOverride{
 				GitOverride: &bzpb.GitOverride{
-					Commit:     commit,
-					Remote:     remote,
-					Branch:     branch,
-					PatchStrip: int32(patchStrip),
-					Patches:    mustGetStringSlice(patches),
-					Tag:        tag,
+					Commit:      commit,
+					Remote:      remote,
+					Branch:      branch,
+					PatchStrip:  int32(patchStrip),
+					Patches:     mustGetStringSlice(patches),
+					Tag:         tag,
+					StripPrefix: stripPrefix,
 				},
 			},
 		}
