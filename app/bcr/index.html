@@ -59,6 +59,9 @@
 
 		window.codeToHtml = codeToHtml;
 		window.marked = marked;
+		// Mermaid is large; only fetch it when a page has a mermaid block.
+		window.loadMermaid = () =>
+			import("https://esm.sh/mermaid@11.17.2").then((m) => m.default);
 
 		window.marked.setOptions({
 			gfm: true, // GitHub Flavored Markdown
