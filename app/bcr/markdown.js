@@ -8,7 +8,9 @@ const { SafeHtml, sanitizeHtml } = goog.require(
 	"google3.third_party.javascript.safevalues.index",
 );
 const { copyToClipboardButton } = goog.require("soy.registry");
-const { highlight } = goog.require("bcrfrontend.syntax");
+const { getEffectiveColorMode, highlight } = goog.require(
+	"bcrfrontend.syntax",
+);
 const { setElementInnerHtml } = goog.require(
 	"google3.third_party.javascript.safevalues.dom.elements.element",
 );
@@ -65,6 +67,7 @@ function renderDocstring(el) {
  * @param {!Element} el The element to convert
  */
 async function formatMarkdown(el) {
+	const mermaidSources = parseMermaidSources(el.textContent);
 	setElementInnerHtml(el, renderDocstring(el));
 
 	// Trim whitespace from code blocks in the rendered HTML
@@ -72,6 +75,22 @@ async function formatMarkdown(el) {
 	for (const code of codeElements) {
 		code.textContent = code.textContent.trim();
 	}
+
+	// Swap ```mermaid blocks for placeholders before syntax highlighting.
+	// Blocks are matched by source text since the sanitizer may strip the
+	// language class that marked emits.
+	const mermaidEls = [];
+	if (mermaidSources.size) {
+		for (const pre of el.querySelectorAll("pre")) {
+			const source = pre.textContent;
+			if (mermaidSources.has(source)) {
+				const div = dom.createDom("div", { "class": "mermaid mb-2" }, source);
+				dom.replaceNode(div, pre);
+				mermaidEls.push(div);
+			}
+		}
+	}
+	const mermaidDone = renderMermaid(mermaidEls);
 
 	// Syntax highlight code blocks that have <pre><code> structure
 	let preElements = el.querySelectorAll("pre");
@@ -100,7 +119,53 @@ async function formatMarkdown(el) {
 		dom.insertChildAt(pre, button, 0);
 	}
 
+	await mermaidDone;
 	dom.dataset.set(el, "formatted", "markdown");
+}
+
+/**
+ * Returns the trimmed source of every ```mermaid fenced block in the text.
+ *
+ * @param {string} text The markdown text
+ * @returns {!Set<string>}
+ * @suppress {reportUnknownTypes, missingSourcesWarnings}
+ */
+function parseMermaidSources(text) {
+	const sources = new Set();
+	const marked = window["marked"];
+	marked["walkTokens"](marked["lexer"](text), (token) => {
+		if (token["type"] === "code" && token["lang"] === "mermaid") {
+			sources.add(String(token["text"]).trim());
+		}
+	});
+	return sources;
+}
+
+/**
+ * Renders mermaid placeholder elements into SVG diagrams. On failure the
+ * diagram source is left in place as plain text.
+ *
+ * @param {!Array<!Element>} els The placeholder elements
+ * @suppress {reportUnknownTypes, missingSourcesWarnings}
+ */
+async function renderMermaid(els) {
+	if (!els.length) {
+		return;
+	}
+	try {
+		const mermaid = await window["loadMermaid"]();
+		const colorMode = getEffectiveColorMode(
+			/** @type {!Document} */ (els[0].ownerDocument),
+		);
+		mermaid["initialize"]({
+			"startOnLoad": false,
+			"securityLevel": "strict",
+			"theme": colorMode === "dark" ? "dark" : "default",
+		});
+		await mermaid["run"]({ "nodes": els });
+	} catch (e) {
+		console.warn("mermaid render failed", e);
+	}
 }
 
 /**
