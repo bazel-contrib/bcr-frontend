@@ -14,6 +14,8 @@ def _git_override_impl(ctx):
             branch = ctx.attr.branch,
             patch_strip = ctx.attr.patch_strip,
             patches = ctx.attr.patches,
+            tag = ctx.attr.tag,
+            strip_prefix = ctx.attr.strip_prefix,
         ),
     ]
 
@@ -40,6 +42,12 @@ git_override = rule(
         ),
         "patches": attr.string_list(
             doc = "list[str]: Patch file paths",
+        ),
+        "tag": attr.string(
+            doc = "str: Git tag name",
+        ),
+        "strip_prefix": attr.string(
+            doc = "str: Directory prefix to strip from the checked-out repository",
         ),
     },
     provides = [ModuleOverrideInfo, GitOverrideInfo],

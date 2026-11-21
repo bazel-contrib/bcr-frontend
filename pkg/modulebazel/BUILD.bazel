@@ -1,4 +1,4 @@
-load("@rules_go//go:def.bzl", "go_library")
+load("@rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
     name = "modulebazel",
@@ -15,5 +15,15 @@ go_library(
         "@com_github_bazelbuild_buildtools//build",
         "@net_starlark_go//starlark",
         "@net_starlark_go//starlarkstruct",
+    ],
+)
+
+go_test(
+    name = "modulebazel_test",
+    srcs = ["predeclared_test.go"],
+    embed = [":modulebazel"],
+    deps = [
+        "//build/stack/bazel/registry/v1:registry",
+        "@org_golang_google_protobuf//proto",
     ],
 )

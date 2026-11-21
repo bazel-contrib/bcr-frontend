@@ -116,7 +116,7 @@ func (ext *bcrExtension) RegisterFlags(fs *flag.FlagSet, cmd string, c *config.C
 	fs.StringVar(&ext.registryURL,
 		"registry-url", "", "base URL for the deployed registry")
 	fs.StringVar(&ext.registrySourceURL,
-		"registry-source-url", "https://registry-preview.bazel.build/registry.pb.gz", "URL to fetch backup registry data from (for repository metadata fallback)")
+		"registry-source-url", "https://registry.bazel.build/registry.pb.gz", "URL to fetch backup registry data from (for repository metadata fallback)")
 	fs.StringVar(&ext.resourceStatusSetFile,
 		"resource-status-set-file", "", "path to resource-status.json file containing cached http statuses for the registry URLs (helpful for development)")
 	fs.StringVar(&ext.repositoryMetadataSetFile,
@@ -191,6 +191,7 @@ func (*bcrExtension) Kinds() map[string]rule.KindInfo {
 	maps.Copy(kinds, gitOverrideKinds())
 	maps.Copy(kinds, archiveOverrideKinds())
 	maps.Copy(kinds, singleVersionOverrideKinds())
+	maps.Copy(kinds, multipleVersionOverrideKinds())
 	maps.Copy(kinds, localPathOverrideKinds())
 	maps.Copy(kinds, repositoryMetadataKinds())
 	maps.Copy(kinds, bazelVersionKinds())
@@ -215,6 +216,7 @@ func (ext *bcrExtension) Loads() []rule.LoadInfo {
 		gitOverrideLoadInfo(),
 		archiveOverrideLoadInfo(),
 		singleVersionOverrideLoadInfo(),
+		multipleVersionOverrideLoadInfo(),
 		localPathOverrideLoadInfo(),
 		repositoryMetadataLoadInfo(),
 		bazelVersionLoadInfo(),
@@ -248,6 +250,8 @@ func (ext *bcrExtension) Imports(c *config.Config, r *rule.Rule, f *rule.File) [
 		return archiveOverrideImports(r)
 	case "single_version_override":
 		return singleVersionOverrideImports(r)
+	case "multiple_version_override":
+		return multipleVersionOverrideImports(r)
 	case "local_path_override":
 		return localPathOverrideImports(r)
 	case "repository_metadata":
