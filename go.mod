@@ -30,6 +30,9 @@ require (
 require (
 	github.com/PuerkitoBio/goquery v1.9.2 // indirect
 	github.com/andybalholm/cascadia v1.3.2 // indirect
+	github.com/bazel-contrib/bcr-frontend/proto/build v0.0.0 // indirect
+	github.com/bazel-contrib/bcr-frontend/proto/buildeventstream v0.0.0 // indirect
+	github.com/bazel-contrib/bcr-frontend/proto/failure_details v0.0.0 // indirect
 	github.com/bgentry/go-netrc v0.0.0-20140422174119-9fd32a8b3d3d // indirect
 	github.com/chromedp/sysutil v1.1.0 // indirect
 	github.com/go-json-experiment/json v0.0.0-20250725192818-e39067aee2d2 // indirect
@@ -52,5 +55,12 @@ require (
 	golang.org/x/sys v0.42.0 // indirect
 	golang.org/x/text v0.26.0 // indirect
 	golang.org/x/tools/go/vcs v0.1.0-deprecated // indirect
-	google.golang.org/genproto v0.0.0-20200526211855-cb27e3aa2013 // indirect
+	google.golang.org/genproto/googleapis/api v0.0.0-20250707201910-8d1bb00bc6a7
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20250707201910-8d1bb00bc6a7 // indirect
 )
+
+replace github.com/bazel-contrib/bcr-frontend/proto/build => ./genproto/github.com/bazel-contrib/bcr-frontend/proto/build
+
+replace github.com/bazel-contrib/bcr-frontend/proto/buildeventstream => ./genproto/github.com/bazel-contrib/bcr-frontend/proto/buildeventstream
+
+replace github.com/bazel-contrib/bcr-frontend/proto/failure_details => ./genproto/github.com/bazel-contrib/bcr-frontend/proto/failure_details

@@ -1,8 +1,8 @@
 load("@bazel_gazelle//:def.bzl", "gazelle", "gazelle_binary")
 load("@build_stack_rules_proto//rules:proto_compile_assets.bzl", "proto_compile_assets")
 load("@build_stack_rules_proto//rules:proto_gazelle.bzl", "proto_gazelle")
-load("//bazel_tools/formatting:biome.bzl", "biome_format")
 load("@build_stack_rules_proto//rules/go:proto_go_modules.bzl", "proto_go_modules")
+load("//bazel_tools/formatting:biome.bzl", "biome_format")
 
 exports_files([
     "rules_proto_config.yaml",
@@ -20,6 +20,9 @@ exports_files([
 # -- Gazelle language "go" ---
 # gazelle:prefix github.com/bazel-contrib/bcr-frontend
 # gazelle:go_generate_proto false
+# gazelle:resolve go github.com/bazel-contrib/bcr-frontend/proto/build //bazel_tools/proto:publish_build_event
+# gazelle:resolve go github.com/bazel-contrib/bcr-frontend/proto/buildeventstream //bazel_tools/proto:buildeventstream
+# gazelle:resolve go github.com/bazel-contrib/bcr-frontend/proto/failure_details //bazel_tools/proto:failure_details
 #
 # -- Gazelle language "protobuf" ---
 # gazelle:proto_language go enable true
@@ -126,18 +129,13 @@ biome_format(
     command = "check",
 )
 
+# Regenerate the vendored Go bindings with `bazel run //:proto_go_modules`.
 proto_go_modules(
     name = "proto_go_modules",
-    imports = [
-        # "github.com/bazelbuild/bazel/src/main/protobuf/stardoc_output",
-        # "github.com/bazelbuild/bazelapis/src/main/protobuf/analysis_v2",
-        "github.com/bazelbuild/bazel/src/main/java/com/google/devtools/lib/buildeventstream/proto/build_event_stream",
-    ],
-    modules = [
-        "@bazelapis//:proto_go_modules",
-        "@googleapis//:proto_go_modules",
-        "@protobufapis//:proto_go_modules",
-        "@remoteapis//:proto_go_modules",
+    deps = [
+        "//bazel_tools/proto:buildeventstream",
+        "//bazel_tools/proto:failure_details",
+        "//bazel_tools/proto:publish_build_event",
     ],
     srcroot = "genproto",
 )
