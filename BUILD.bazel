@@ -106,6 +106,7 @@ proto_compile_assets(
     name = "proto_assets",
     deps = [
         "//build/stack/bazel/help/v1:bhpb_go_compiled_sources",
+        "//build/stack/bazel/invocation/v1:invocation_go_compiled_sources",
         "//build/stack/bazel/registry/v1:bzpb_go_compiled_sources",
         "//build/stack/bazel/symbol/v1:sympb_go_compiled_sources",
         "//build/stack/livegrep/v1:livegrep_go_compiled_sources",

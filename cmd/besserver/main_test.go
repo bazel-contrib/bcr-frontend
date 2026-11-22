@@ -6,10 +6,13 @@ import (
 	"io"
 	"log"
 	"net"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
+	invocationpb "github.com/bazel-contrib/bcr-frontend/build/stack/bazel/invocation/v1"
+	"github.com/bazel-contrib/bcr-frontend/pkg/invocation"
 	buildpb "github.com/bazel-contrib/bcr-frontend/proto/build"
 	beppb "github.com/bazel-contrib/bcr-frontend/proto/buildeventstream"
 	"google.golang.org/grpc"
@@ -22,10 +25,16 @@ import (
 )
 
 func TestPublish(t *testing.T) {
+	storage, err := invocation.OpenSQLite(filepath.Join(t.TempDir(), "events.sqlite"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	store := invocation.NewStore(storage)
+	defer store.Close()
 	listener := bufconn.Listen(1024 * 1024)
 	var logs bytes.Buffer
 	server := grpc.NewServer()
-	buildpb.RegisterPublishBuildEventServer(server, &publishServer{logger: log.New(&logs, "", 0)})
+	buildpb.RegisterPublishBuildEventServer(server, &publishServer{logger: log.New(&logs, "", 0), store: store})
 	go server.Serve(listener)
 	t.Cleanup(server.Stop)
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -70,6 +79,10 @@ func TestPublish(t *testing.T) {
 	}
 	if _, err := stream.Recv(); err != io.EOF {
 		t.Fatalf("stream close: got %v, want EOF", err)
+	}
+	inv, err := store.GetInvocation(ctx, &invocationpb.GetInvocationRequest{InvocationId: "invocation"})
+	if err != nil || inv.GetState() != invocationpb.InvocationState_INVOCATION_STATE_COMPLETE {
+		t.Fatalf("published invocation missing from service: %v %v", inv, err)
 	}
 	// Both RPCs finished, so the server has completed its log writes.
 	if text := logs.String(); !strings.Contains(text, "lifecycle") || strings.Count(text, "build ") != 3 || !strings.Contains(text, "lastMessage") {

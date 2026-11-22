@@ -1,0 +1,163 @@
+syntax = "proto3";
+
+package build.stack.bazel.invocation.v1;
+
+import "google/protobuf/timestamp.proto";
+import "google/devtools/build/v1/publish_build_event.proto";
+
+option go_package = "github.com/bazel-contrib/bcr-frontend/build/stack/bazel/invocation/v1;invocationpb";
+
+// Summary of one Bazel command, updated as build events arrive. Raw events and
+// console output are stored separately and associated through invocation_id.
+// An invocation may contain several BES component streams. Each stream has its
+// own sequence numbers, so sequence numbers alone cannot identify an event.
+message Invocation {
+  // Client-generated Bazel invocation UUID, from BES StreamId.invocation_id
+  // and BuildStarted.uuid. Also matches REAPI RequestMetadata.tool_invocation_id.
+  // Storage lookups are scoped by group_id and invocation_id.
+  string invocation_id = 1;
+  // BES StreamId.build_id identifies a build that may have multiple invocations.
+  string build_id = 2;
+  // Optional workflow or CI correlation ID, matching REAPI
+  // RequestMetadata.correlated_invocations_id when supplied.
+  string correlated_invocations_id = 3;
+  // Optional invocation that launched this one.
+  string parent_invocation_id = 4;
+
+  // Server-assigned ownership, derived from the authenticated publishing
+  // principal. Client build metadata must never set or override these IDs.
+  // Empty user_id supports a group-owned service account or anonymous upload.
+  // Empty group_id denotes an unassigned invocation.
+  string user_id = 5;
+  string group_id = 6;
+  // Effective read visibility. Unspecified must be treated as PRIVATE.
+  // This field does not grant write access. Writes require an authorized
+  // publishing principal within the owning group.
+  InvocationVisibility visibility = 7;
+
+  InvocationState state = 8;
+  InvocationResult result = 9;
+
+  // Server receipt times. created_at is the first accepted event, updated_at
+  // is the latest summary update, and last_event_at is the latest event receipt.
+  google.protobuf.Timestamp created_at = 10;
+  google.protobuf.Timestamp updated_at = 11;
+  google.protobuf.Timestamp last_event_at = 12;
+  // Client-reported build times from BuildStarted and BuildFinished.
+  google.protobuf.Timestamp started_at = 13;
+  google.protobuf.Timestamp finished_at = 14;
+
+  // Client-reported OS username and hostname. These are display metadata.
+  string build_user = 15;
+  string host = 16;
+  string command = 17;
+  repeated string target_patterns = 18;
+  string bazel_version = 19;
+  string workspace_directory = 20;
+  string working_directory = 21;
+
+  SourceControl source_control = 22;
+  // Client-reported role such as CI or developer.
+  string role = 23;
+  repeated string tags = 24;
+  // Sanitized Bazel BuildMetadata key/value pairs. Secrets must be removed
+  // before storage or exposure through an API.
+  map<string, string> build_metadata = 25;
+  CIContext ci = 26;
+
+  // Bazel runner accounting. Absent if the event did not report this signal.
+  optional int64 bazel_remote_cache_hits = 27;
+  // RPC observations recorded by the instrumented cache frontend.
+  RemoteCacheStats remote_cache = 28;
+}
+
+message RemoteCacheStats {
+  repeated RemoteCacheMetric metrics = 1;
+  google.protobuf.Timestamp observed_at = 2;
+}
+
+message RemoteCacheMetric {
+  // Stable names such as ac_lookup, ac_write, cas_presence, cas_read, cas_write.
+  string operation = 1;
+  // hit, miss, ok or error. CAS batches and existence checks count blobs.
+  // transfer rows account for batch payload bytes without incrementing counts.
+  string result = 2;
+  int64 count = 3;
+  // Cache data payload bytes observed at the frontend, excluding framing.
+  int64 transferred_bytes = 4;
+}
+
+// State of event collection, independent of the command's exit status.
+enum InvocationState {
+  INVOCATION_STATE_UNSPECIFIED = 0;
+  INVOCATION_STATE_IN_PROGRESS = 1;
+  // All observed build-tool streams have finished with contiguous events.
+  INVOCATION_STATE_COMPLETE = 2;
+  // Collection was finalized with missing events, for example after a timeout.
+  // A transient disconnect alone does not finalize collection.
+  INVOCATION_STATE_INCOMPLETE = 3;
+}
+
+enum InvocationVisibility {
+  INVOCATION_VISIBILITY_UNSPECIFIED = 0;
+  // Readable by the owner and authorized group administrators.
+  INVOCATION_VISIBILITY_PRIVATE = 1;
+  // Readable by authorized members of group_id.
+  INVOCATION_VISIBILITY_GROUP = 2;
+  INVOCATION_VISIBILITY_PUBLIC = 3;
+}
+
+// Present when a BuildFinished event has supplied a result, even if other
+// events are still missing. An absent result means the outcome is unknown.
+message InvocationResult {
+  // Numeric Bazel exit code. Presence distinguishes success (0) from unknown.
+  optional int32 exit_code = 1;
+  // Symbolic Bazel exit code name, for example SUCCESS or BUILD_FAILURE.
+  string exit_code_name = 2;
+}
+
+message SourceControl {
+  string repository_url = 1;
+  string commit_sha = 2;
+  string branch = 3;
+  // Optional source change identifier, such as a pull request number.
+  string change_id = 4;
+}
+
+message CIContext {
+  string provider = 1;
+  string workflow = 2;
+  string job = 3;
+  string run_id = 4;
+  string run_url = 5;
+  // CI retry number when supplied. Independent of BES upload reconnections.
+  optional uint32 attempt = 6;
+}
+
+// Query and follow invocations accepted by this server.
+service InvocationService {
+  rpc ListInvocations(ListInvocationsRequest) returns (ListInvocationsResponse);
+  rpc GetInvocation(GetInvocationRequest) returns (Invocation);
+  // Replays events after the cursor, then follows newly accepted events.
+  rpc WatchInvocation(WatchInvocationRequest) returns (stream InvocationEvent);
+}
+
+message ListInvocationsRequest {}
+message ListInvocationsResponse {
+  repeated Invocation invocations = 1;
+}
+message GetInvocationRequest {
+  string invocation_id = 1;
+}
+message WatchInvocationRequest {
+  string invocation_id = 1;
+  // Server journal offset. Zero starts at the first recorded event.
+  uint64 after_cursor = 2;
+}
+message InvocationEvent {
+  // Monotonic journal position, distinct from the per-stream BES sequence.
+  uint64 cursor = 1;
+  google.protobuf.Timestamp received_at = 2;
+  bool lifecycle = 3;
+  google.devtools.build.v1.OrderedBuildEvent ordered_event = 4;
+}

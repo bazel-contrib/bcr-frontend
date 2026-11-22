@@ -42,7 +42,7 @@ import {sectionHeader} from 'app/bcr/registry.soy';
         <span class="mr-3">{octiconTools16()}</span>
         <span class="flex-auto">
           <span class="text-bold d-block">Build Event Viewer</span>
-          <span class="color-fg-muted text-small">Inspect a binary Build Event Protocol file locally in your browser.</span>
+          <span class="color-fg-muted text-small">Watch live builds, replay saved runs, or open a local BEP file.</span>
         </span>
         {octiconChevronRight16(fill: 'var(--color-fg-muted)')}
       </a>
@@ -57,15 +57,34 @@ import {sectionHeader} from 'app/bcr/registry.soy';
       <span class="color-fg-muted mr-2">/</span>
       <span class="text-bold">Build Event Viewer</span>
     </div>
-    <h1 class="h2 mb-2">Build Event Viewer</h1>
-    <p class="color-fg-muted mb-3">
-      Inspect a file produced by <code>--build_event_binary_file=&lt;path&gt;</code>.
-      The file is processed locally and is never uploaded.
-    </p>
+    <details class="Box Box--condensed mb-3 {css('bes-source')}" open>
+      <summary class="Box-header text-bold">Open an invocation</summary>
+      <div class="Box-body">
+        <div class="bes-source-fields">
+          <label>Backend URL
+            <input class="form-control input-block {css('bes-backend')}" type="url" value="http://localhost:1974">
+          </label>
+          <label>Saved run
+            <select class="form-select input-block {css('bes-runs')}">
+              <option value="">Select a saved invocation</option>
+            </select>
+          </label>
+          <label>Invocation ID
+            <input class="form-control input-block {css('bes-id')}" type="text" placeholder="Bazel invocation UUID">
+          </label>
+        </div>
+        <div class="bes-source-buttons mt-2">
+          <button type="button" class="btn btn-primary btn-sm {css('bes-connect')}">Replay and follow</button>
+          <button type="button" class="btn btn-sm {css('bes-disconnect')}">Disconnect</button>
+          <button type="button" class="btn btn-sm {css('bes-refresh')}">Refresh saved runs</button>
+        </div>
+        <div class="mt-2 color-fg-muted {css('bes-connection')}" role="status" aria-live="polite"></div>
+      </div>
+    </details>
 
     <div class="Box Box--condensed mb-3 bes-drop-zone {css('drop-zone')}">
       <div class="Box-header d-flex flex-items-center">
-        <h2 class="Box-title flex-auto">Invocation Summary</h2>
+        <h2 class="Box-title flex-auto">Invocation</h2>
         <button type="button" class="btn btn-outline btn-sm {css('choose-file')}">Choose file</button>
         <input type="file" class="d-none {css('file-input')}" aria-label="Choose a binary build event file">
       </div>
@@ -73,12 +92,87 @@ import {sectionHeader} from 'app/bcr/registry.soy';
         <div class="bes-drop-blankslate">
           {octiconFile16(class: 'mb-2', fill: 'var(--color-accent-fg)')}
           <div class="text-bold">Drop a binary build event file here</div>
-          <div id="bes-drop-help" class="color-fg-muted mt-1">or choose a file from your computer</div>
+          <div id="bes-drop-help" class="color-fg-muted mt-1">or choose a file created with <code>--build_event_binary_file</code></div>
         </div>
       </div>
     </div>
 
     <div class="{css('status')}" role="status" aria-live="polite"></div>
-    <div class="{css('results')}"></div>
+    <div class="d-none {css('results')}">
+      <div class="{css('bes-tabs')}" role="tablist" aria-label="Invocation views">
+        <button type="button" role="tab" id="bes-tab-overview" aria-controls="bes-panel-overview"
+            aria-selected="true" tabindex="0">Overview</button>
+        <button type="button" role="tab" id="bes-tab-terminal" aria-controls="bes-panel-terminal"
+            aria-selected="false" tabindex="-1">Terminal</button>
+        <button type="button" role="tab" id="bes-tab-tests" aria-controls="bes-panel-tests"
+            aria-selected="false" tabindex="-1">Tests</button>
+        <button type="button" role="tab" id="bes-tab-metrics" aria-controls="bes-panel-metrics"
+            aria-selected="false" tabindex="-1">Metrics</button>
+      </div>
+      <div role="tabpanel" id="bes-panel-overview" aria-labelledby="bes-tab-overview" tabindex="0">
+        <section class="Box Box--condensed mb-3" aria-labelledby="bes-log-title">
+          <header class="Box-header d-flex flex-items-center flex-justify-between">
+            <h2 class="Box-title" id="bes-log-title">Build output</h2>
+            <span class="text-small color-fg-muted {css('bes-log-limit')}"></span>
+          </header>
+          <div class="bes-terminal {css('bes-log')}" tabindex="0" role="region" aria-label="Build terminal output"></div>
+        </section>
+
+        <div class="{css('bes-critical-path')}"></div>
+
+        <section class="Box Box--condensed mb-3" aria-labelledby="bes-frontier-title">
+          <header class="Box-header">
+            <h2 class="Box-title" id="bes-frontier-title">Build frontier</h2>
+            <div class="d-flex flex-wrap flex-items-center flex-justify-between">
+              <span class="color-fg-muted text-small {css('bes-frontier-count')}"></span>
+              <span class="bes-frontier-key color-fg-muted text-small">
+                <span><span class="bes-frontier-outline"></span>Expected</span>
+                <span><span class="bes-frontier-solid"></span>Received</span>
+              </span>
+            </div>
+          </header>
+          <div class="{css('bes-frontier-scroll')}">
+            <canvas class="{css('bes-frontier-canvas')}" tabindex="0"
+                aria-label="Build event graph. Use arrow keys to inspect events."></canvas>
+            <div class="{css('bes-frontier-spacer')}" aria-hidden="true"></div>
+          </div>
+          <div class="Box-footer">
+            <div class="text-small color-fg-muted {css('bes-frontier-caption')}" aria-live="polite">Select a mark to inspect its event and connections.</div>
+            <div class="{css('bes-frontier-detail')}"></div>
+          </div>
+        </section>
+
+        <section class="Box Box--condensed mb-3" aria-labelledby="bes-cache-title">
+          <header class="Box-header">
+            <h2 class="Box-title" id="bes-cache-title">Remote cache</h2>
+          </header>
+          <div class="Box-body {css('bes-cache-stats')}"></div>
+        </section>
+
+        <details class="Box Box--condensed mb-3 {css('bes-browser')}">
+          <summary class="Box-header text-bold">Browse events</summary>
+          <div class="Box-body {css('bes-browser-body')}"></div>
+        </details>
+      </div>
+
+      <div role="tabpanel" id="bes-panel-terminal" aria-labelledby="bes-tab-terminal" tabindex="0" hidden>
+        <section class="Box Box--condensed mb-3">
+          <header class="Box-header d-flex flex-items-center flex-justify-between">
+            <h2 class="Box-title">Terminal output</h2>
+            <button type="button" class="btn btn-sm {css('bes-download-log')}" disabled>Download log</button>
+          </header>
+          <div class="bes-terminal bes-terminal-full {css('bes-log-full')}" tabindex="0"
+              role="region" aria-label="Full build terminal output"></div>
+        </section>
+      </div>
+
+      <div role="tabpanel" id="bes-panel-tests" aria-labelledby="bes-tab-tests" tabindex="0" hidden>
+        <div class="{css('bes-tests')}"></div>
+      </div>
+
+      <div role="tabpanel" id="bes-panel-metrics" aria-labelledby="bes-tab-metrics" tabindex="0" hidden>
+        <div class="{css('bes-metrics')}"></div>
+      </div>
+    </div>
   </div>
 {/template}

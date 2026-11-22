@@ -549,3 +549,182 @@ html.bcr-refresh-available .bcr-refresh-indicator {
 	border-radius: 2px;
 	height: 100%;
 }
+
+.bes-invocation-overview {
+	display: grid;
+	gap: 12px;
+}
+
+.bes-invocation-heading {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: start;
+	justify-content: space-between;
+	gap: 8px 24px;
+}
+
+.bes-invocation-command {
+	min-width: 0;
+	overflow-wrap: anywhere;
+}
+
+.bes-invocation-state {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 8px;
+}
+
+.bes-invocation-state time {
+	font-variant-numeric: tabular-nums;
+}
+
+.bes-invocation-metadata {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr));
+	gap: 8px 20px;
+	margin: 0;
+}
+
+.bes-invocation-metadata dd {
+	margin: 0;
+	overflow-wrap: anywhere;
+}
+
+.bes-terminal {
+	min-height: 76px;
+	max-height: min(30vh, 220px);
+	overflow: auto;
+	padding: 12px 16px;
+	background: #161b22;
+	color: #e6edf3;
+	font-family: var(--fontStack-monospace, monospace);
+	font-size: 12px;
+	line-height: 1.5;
+	white-space: pre-wrap;
+	overflow-wrap: anywhere;
+}
+
+.bes-frontier-scroll {
+	height: clamp(140px, 30vh, 300px);
+	overflow: auto;
+	scrollbar-gutter: stable;
+	overflow-anchor: none;
+	background: var(--color-canvas-subtle);
+}
+
+.bes-frontier-canvas {
+	position: sticky;
+	top: 0;
+	display: block;
+	width: 100%;
+	cursor: crosshair;
+}
+
+.bes-frontier-canvas:focus-visible {
+	outline-offset: -2px;
+}
+
+.bes-frontier-key {
+	display: flex;
+	gap: 12px;
+}
+
+.bes-frontier-outline,
+.bes-frontier-solid {
+	display: inline-block;
+	width: 8px;
+	height: 8px;
+	margin-right: 4px;
+	border: 1px solid currentColor;
+}
+
+.bes-frontier-solid {
+	background: currentColor;
+}
+
+.bes-source-fields {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr));
+	gap: 8px 12px;
+}
+
+.bes-source-buttons {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+}
+
+.bes-tabs {
+	display: flex;
+	gap: 4px;
+	margin-bottom: 16px;
+	overflow-x: auto;
+	border-bottom: 1px solid var(--color-border-default);
+}
+
+.bes-tabs button {
+	padding: 8px 14px;
+	color: var(--color-fg-muted);
+	background: transparent;
+	border: 0;
+	border-bottom: 2px solid transparent;
+	white-space: nowrap;
+}
+
+.bes-tabs button[aria-selected="true"] {
+	color: var(--color-fg-default);
+	font-weight: 600;
+	border-bottom-color: var(--color-accent-fg);
+}
+
+.bes-tabs button:hover {
+	color: var(--color-fg-default);
+	background: var(--color-canvas-subtle);
+}
+
+.bes-tabs button:focus-visible {
+	outline-offset: -3px;
+}
+
+.bes-terminal-full {
+	min-height: 132px;
+	max-height: min(64vh, 680px);
+	overflow-anchor: none;
+}
+
+.bes-tests-header {
+	display: flex;
+	flex-wrap: wrap;
+	justify-content: space-between;
+	gap: 4px 16px;
+}
+
+.bes-test-target {
+	font-family: var(--fontStack-monospace, monospace);
+	overflow-wrap: anywhere;
+}
+
+.bes-test-attempts {
+	width: 100%;
+	text-align: left;
+}
+
+.bes-test-attempts th,
+.bes-test-attempts td {
+	padding: 4px 12px 4px 0;
+	vertical-align: top;
+}
+
+.bes-test-attempts td:last-child {
+	min-width: 10em;
+	overflow-wrap: anywhere;
+}
+
+.bes-critical-path-table th {
+	padding: 6px 12px;
+}
+
+.bes-critical-path-table th:last-child {
+	text-align: left;
+}

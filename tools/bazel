@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Bazelisk supplies the selected Bazel executable when invoking this wrapper.
+exec "${BAZEL_REAL:?Run Bazel through Bazelisk}" --nohome_rc "$@"

@@ -24,6 +24,9 @@ const {
 	toolsSelect,
 } = goog.require("soy.bcrfrontend.tools");
 
+const EventHandler = goog.require("goog.events.EventHandler");
+const base64 = goog.require("goog.crypt.base64");
+
 const MAX_FILE_BYTES = 256 * 1024 * 1024;
 
 /** @const {!Array<string>} */
@@ -186,6 +189,272 @@ function payloadCaseTextColor(payloadCase) {
 	}
 }
 
+/** Bezel action palette, grouped by color.
+ * @const {!Array<!Array<string>>}
+ */
+const BEZEL_MNEMONIC_COLORS = [
+	["#a05f14", "JavaIjar Javac Turbine JavacTurbine JavaSourceJar"],
+	["#ed306a", "CppCompile CcStrip SolibSymlink"],
+	["#f7ba13", "CppLink"],
+	["#159ccf", "GoCompilePkg GoLink GoSourcesData"],
+	["#4b3c72", "haskell"],
+	["#094eaf", "jsonnet"],
+	["#eb7b27", "kotlin"],
+	["#3676fe", "objc"],
+	["#295e94", "py python"],
+	["#1975e1", "r"],
+	["#5c0c11", "ruby SoyCompiler"],
+	["#d59471", "rust Rustc"],
+	["#b21931", "scala Scalac ScalaDeployJar"],
+	["#7add40", "sh GZIP Genrule FileWrite TemplateExpand"],
+	["#fe9b37", "swift"],
+	["#236176", "ts TypeScriptCompile"],
+	["#eedc49", "js Closure TestRunner"],
+	["#6cae04", "Commands BazelWorkspaceStatusAction SkylarkAction Middleman PackagingSourcesManifest"],
+	["#e22b9a", "SymlinkTree SourceSymlinkManifest ExecutableSymlink"],
+	["#2b3c42", "docker ImageConfig ImageLayer SHA256"],
+	["#8fbc2b", "android"],
+	["#187405", "csharp CoreCompile"],
+	["#47b2b9", "GenProtoDescriptorSet GoProtocGen ProtoCompile GenProto proto"],
+	["#50a6c0", "elm"],
+	["#fc4f05", "genmnemonic"],
+	["#1a90f4", "filegroup toolchain"],
+	["#3b5b3a", "platform"],
+	["#e47182", "config"],
+	["#a82273", "constraint"],
+	["#000000", "alias"],
+	["#2db23e", "skylark"],
+	["#442b68", "css SassCompiler"],
+	["#dd3531", "AngularTemplateCompile"],
+];
+/** @const {!Map<string,string>} */
+const MNEMONIC_COLORS = new Map();
+for (const entry of BEZEL_MNEMONIC_COLORS) {
+	for (const name of entry[1].split(" ")) MNEMONIC_COLORS.set(name, entry[0]);
+}
+
+/**
+ * @param {!BuildEvent} event
+ * @return {string}
+ */
+function eventMarkColor(event) {
+	const action = event.getAction();
+	const mnemonic = action && action.getType();
+	if (!mnemonic) return payloadCaseColor(event.getPayloadCase());
+	const known = MNEMONIC_COLORS.get(mnemonic);
+	if (known) return known;
+	let hash = 0;
+	for (let i = 0; i < mnemonic.length; i++) {
+		hash = (Math.imul(hash, 31) + mnemonic.charCodeAt(i)) >>> 0;
+	}
+	return "hsl(" + (hash % 360) + ", 65%, 48%)";
+}
+
+/** Maps announced ID cases to the payload palette. Their wire numbers differ.
+ * @const {!Map<number,number>}
+ */
+const EXPECTED_PAYLOADS = new Map([
+	[BuildEventId.IdCase.PROGRESS, BuildEvent.PayloadCase.PROGRESS],
+	[BuildEventId.IdCase.STARTED, BuildEvent.PayloadCase.STARTED],
+	[BuildEventId.IdCase.UNSTRUCTURED_COMMAND_LINE, BuildEvent.PayloadCase.UNSTRUCTURED_COMMAND_LINE],
+	[BuildEventId.IdCase.STRUCTURED_COMMAND_LINE, BuildEvent.PayloadCase.STRUCTURED_COMMAND_LINE],
+	[BuildEventId.IdCase.OPTIONS_PARSED, BuildEvent.PayloadCase.OPTIONS_PARSED],
+	[BuildEventId.IdCase.WORKSPACE_STATUS, BuildEvent.PayloadCase.WORKSPACE_STATUS],
+	[BuildEventId.IdCase.FETCH, BuildEvent.PayloadCase.FETCH],
+	[BuildEventId.IdCase.CONFIGURATION, BuildEvent.PayloadCase.CONFIGURATION],
+	[BuildEventId.IdCase.PATTERN, BuildEvent.PayloadCase.EXPANDED],
+	[BuildEventId.IdCase.PATTERN_SKIPPED, BuildEvent.PayloadCase.EXPANDED],
+	[BuildEventId.IdCase.TARGET_CONFIGURED, BuildEvent.PayloadCase.CONFIGURED],
+	[BuildEventId.IdCase.ACTION_COMPLETED, BuildEvent.PayloadCase.ACTION],
+	[BuildEventId.IdCase.NAMED_SET, BuildEvent.PayloadCase.NAMED_SET_OF_FILES],
+	[BuildEventId.IdCase.TARGET_COMPLETED, BuildEvent.PayloadCase.COMPLETED],
+	[BuildEventId.IdCase.TEST_RESULT, BuildEvent.PayloadCase.TEST_RESULT],
+	[BuildEventId.IdCase.TEST_PROGRESS, BuildEvent.PayloadCase.TEST_PROGRESS],
+	[BuildEventId.IdCase.TEST_SUMMARY, BuildEvent.PayloadCase.TEST_SUMMARY],
+	[BuildEventId.IdCase.TARGET_SUMMARY, BuildEvent.PayloadCase.TARGET_SUMMARY],
+	[BuildEventId.IdCase.BUILD_FINISHED, BuildEvent.PayloadCase.FINISHED],
+	[BuildEventId.IdCase.BUILD_TOOL_LOGS, BuildEvent.PayloadCase.BUILD_TOOL_LOGS],
+	[BuildEventId.IdCase.BUILD_METRICS, BuildEvent.PayloadCase.BUILD_METRICS],
+	[BuildEventId.IdCase.WORKSPACE, BuildEvent.PayloadCase.WORKSPACE_INFO],
+	[BuildEventId.IdCase.BUILD_METADATA, BuildEvent.PayloadCase.BUILD_METADATA],
+	[BuildEventId.IdCase.CONVENIENCE_SYMLINKS_IDENTIFIED, BuildEvent.PayloadCase.CONVENIENCE_SYMLINKS_IDENTIFIED],
+	[BuildEventId.IdCase.EXEC_REQUEST, BuildEvent.PayloadCase.EXEC_REQUEST],
+	[BuildEventId.IdCase.UNCONFIGURED_LABEL, BuildEvent.PayloadCase.ABORTED],
+	[BuildEventId.IdCase.CONFIGURED_LABEL, BuildEvent.PayloadCase.ABORTED],
+]);
+
+/** @const {number} */
+const TERMINAL_LIMIT = 64 * 1024;
+
+/** @typedef {{id: ?BuildEventId, event: ?BuildEvent, index: number,
+ *     pendingIndex: number, parents: !Array<!FrontierMark>,
+ *     children: !Array<!FrontierMark>, color: string}} */
+let FrontierMark;
+
+/**
+ * Key the entire ID, including configuration, shard, attempt, and primary output.
+ * @param {!BuildEventId} id
+ * @return {string}
+ */
+function frontierId(id) {
+	return base64.encodeByteArray(id.serializeBinary());
+}
+
+class InvocationProgress {
+	constructor() {
+		/** @const {!Array<!FrontierMark>} */
+		this.history = [];
+		/** @const {!Map<string,!FrontierMark>} */
+		this.pending = new Map();
+		/** @private @const {!Map<string,!FrontierMark>} */
+		this.marks_ = new Map();
+		/** @type {?FrontierMark} */
+		this.last = null;
+		/** @type {?BuildEvent} */
+		this.started = null;
+		/** @type {?BuildEvent} */
+		this.finished = null;
+		/** @const {!Set<string>} */
+		this.targets = new Set();
+		/** @const {!Map<string,string>} */
+		this.metadata = new Map();
+		/** @type {?number} */
+		this.bazelRemoteCacheHits = null;
+		/** @type {?BuildMetrics} */
+		this.metrics = null;
+		/** @type {?BuildToolLogs} */
+		this.toolLogs = null;
+		/** @const {!Array<!BuildEvent>} */
+		this.tests = [];
+		/** @const {!Array<string>} */
+		this.logChunks = [];
+		this.log = "";
+		this.logTruncated = false;
+	}
+
+	/**
+	 * @private
+	 * @param {?BuildEventId} id
+	 * @return {!FrontierMark}
+	 */
+	mark_(id) {
+		const key = id && id.getIdCase() ? frontierId(id) : null;
+		const prior = key === null ? undefined : this.marks_.get(key);
+		if (prior) return prior;
+		const mark = {
+			id,
+			event: null,
+			index: -1,
+			pendingIndex: -1,
+			parents: [],
+			children: [],
+			color: payloadCaseColor(id ? EXPECTED_PAYLOADS.get(id.getIdCase()) || 0 : 0),
+		};
+		if (key !== null) this.marks_.set(key, mark);
+		return mark;
+	}
+
+	/** @param {!BuildEvent} event */
+	add(event) {
+		const id = event.getId() || null;
+		const mark = this.mark_(id);
+		if (mark.event) return;
+		if (id && id.getIdCase()) this.pending.delete(frontierId(id));
+		mark.event = event;
+		mark.index = this.history.length;
+		mark.color = eventMarkColor(event);
+		this.history.push(mark);
+		if (event.getLastMessage()) this.last = mark;
+
+		// A child may be announced by several parents or already have arrived.
+		const children = new Set();
+		for (const childId of event.getChildrenList()) {
+			if (!childId.getIdCase()) continue;
+			const child = this.mark_(childId);
+			if (child === mark || children.has(child)) continue;
+			children.add(child);
+			mark.children.push(child);
+			child.parents.push(mark);
+			if (!child.event) this.pending.set(frontierId(childId), child);
+			if (event.hasStarted()) this.addTargetPattern_(childId);
+		}
+		if (id) this.addTargetPattern_(id);
+		if (event.hasStarted()) this.started = event;
+		if (event.hasFinished()) this.finished = event;
+		const metrics = event.getBuildMetrics();
+		if (metrics) this.metrics = metrics;
+		const toolLogs = event.getBuildToolLogs();
+		if (toolLogs) this.toolLogs = toolLogs;
+		if (event.hasTestResult() || event.hasTestSummary()) this.tests.push(event);
+		const actions = metrics && metrics.getActionSummary();
+		if (actions) {
+			const runners = actions.getRunnerCountList();
+			if (runners.length) {
+				this.bazelRemoteCacheHits = 0;
+				for (const runner of runners) {
+					if (runner.getName() === "remote cache hit") {
+						this.bazelRemoteCacheHits += runner.getCount();
+					}
+				}
+			} else if (Number(actions.getRemoteCacheHits()) > 0) {
+				this.bazelRemoteCacheHits = Number(actions.getRemoteCacheHits());
+			}
+		}
+		const progress = event.getProgress();
+		if (progress) {
+			// BEP recommends stderr first when both streams share a wrapper.
+			const output = progress.getStderr() + progress.getStdout();
+			if (output) this.logChunks.push(output);
+			this.log += output;
+			if (this.log.length > TERMINAL_LIMIT) {
+				const cutoff = this.log.length - TERMINAL_LIMIT;
+				const newline = this.log.indexOf("\n", cutoff);
+				this.log = this.log.slice(newline < 0 || newline === this.log.length - 1 ? cutoff : newline + 1);
+				this.logTruncated = true;
+			}
+		}
+		const status = event.getWorkspaceStatus();
+		if (status) {
+			for (const item of status.getItemList()) {
+				this.addMetadata_(item.getKey(), item.getValue());
+			}
+		}
+		const metadata = event.getBuildMetadata();
+		if (metadata) {
+			metadata.getMetadataMap().forEach(
+				(/** string */ value, /** string */ key) => this.addMetadata_(key, value),
+			);
+		}
+	}
+
+	/**
+	 * @param {!BuildEventId} id
+	 * @private
+	 */
+	addTargetPattern_(id) {
+		const value = id.getPattern() || id.getPatternSkipped();
+		if (!value) return;
+		for (const pattern of value.getPatternList()) this.targets.add(pattern);
+	}
+
+	/**
+	 * @param {string} key
+	 * @param {string} value
+	 * @private
+	 */
+	addMetadata_(key, value) {
+		switch (key) {
+			case "BUILD_USER":
+			case "BUILD_HOST":
+			case "REPO_URL":
+			case "BRANCH_NAME":
+			case "COMMIT_SHA":
+			case "ROLE":
+				if (value) this.metadata.set(key, value);
+		}
+	}
+}
+
 /**
  * @param {!BuildEvent} event
  * @return {?boolean}
@@ -252,7 +521,7 @@ function eventTimestampMillis(event) {
 	switch (event.getPayloadCase()) {
 		case BuildEvent.PayloadCase.STARTED: {
 			const payload = event.getStarted();
-			return payload ? timestampMillis(payload.getStartTime()) : null;
+			return payload ? (timestampMillis(payload.getStartTime()) ?? (Number(payload.getStartTimeMillis()) || null)) : null;
 		}
 		case BuildEvent.PayloadCase.ACTION: {
 			const payload = event.getAction();
@@ -268,7 +537,7 @@ function eventTimestampMillis(event) {
 		}
 		case BuildEvent.PayloadCase.FINISHED: {
 			const payload = event.getFinished();
-			return payload ? timestampMillis(payload.getFinishTime()) : null;
+			return payload ? (timestampMillis(payload.getFinishTime()) ?? (Number(payload.getFinishTimeMillis()) || null)) : null;
 		}
 		default:
 			return null;
@@ -396,18 +665,24 @@ function ansiCubeChannel(component) {
 	return component === 0 ? 0 : 55 + component * 40;
 }
 
+/** @typedef {{foreground: string, background: string, bold: boolean, dim: boolean}} */
+let TerminalStyle;
+
+/** @return {!TerminalStyle} */
+function defaultTerminalStyle() {
+	return {foreground: "", background: "", bold: false, dim: false};
+}
+
 /**
  * Render terminal SGR sequences without interpreting the text as markup.
  * Unsupported ANSI control sequences are ignored.
  * @param {string} value
+ * @param {!TerminalStyle=} style
  * @return {!HTMLElement}
  */
-function renderTerminalText(value) {
+function renderTerminalText(value, style = defaultTerminalStyle()) {
 	const root = /** @type {!HTMLElement} */ (document.createElement("div"));
-	let foreground = "";
-	let background = "";
-	let bold = false;
-	let dim = false;
+	let {foreground, background, bold, dim} = style;
 	let offset = 0;
 	/**
 	 * @param {string} text
@@ -513,7 +788,68 @@ function renderTerminalText(value) {
 		}
 	}
 	appendText(value.slice(offset));
+	Object.assign(style, {foreground, background, bold, dim});
 	return root;
+}
+
+class InvocationTerminal {
+	/** @param {!HTMLElement} root */
+	constructor(root) {
+		this.root = root;
+		this.tail_ = document.createElement("span");
+		/** @private @type {number} */
+		this.cursor_ = 0;
+		/** @private @type {string} */
+		this.partial_ = "";
+		/** @private @type {!TerminalStyle} */
+		this.style_ = defaultTerminalStyle();
+		this.reset();
+	}
+
+	reset() {
+		this.cursor_ = 0;
+		this.partial_ = "";
+		this.style_ = defaultTerminalStyle();
+		this.root.scrollTop = 0;
+		dom.removeChildren(this.root);
+		this.tail_.textContent = "No build output received.";
+		this.root.appendChild(this.tail_);
+	}
+
+	/** @param {!Array<string>} chunks */
+	update(chunks) {
+		if (this.cursor_ === chunks.length) return;
+		const follow = this.cursor_ === 0 ||
+			this.root.scrollHeight - this.root.scrollTop - this.root.clientHeight <= 8;
+		let pending = this.partial_;
+		while (this.cursor_ < chunks.length) {
+			pending += chunks[this.cursor_++];
+			if (pending.length >= TERMINAL_LIMIT) pending = this.appendLines_(pending);
+		}
+		this.partial_ = this.appendLines_(pending);
+		dom.removeChildren(this.tail_);
+		const style = /** @type {!TerminalStyle} */ (
+			Object.assign(defaultTerminalStyle(), this.style_)
+		);
+		const lastLine = renderTerminalText(formatTerminalText(this.partial_), style);
+		while (lastLine.firstChild) this.tail_.appendChild(lastLine.firstChild);
+		if (follow) this.root.scrollTop = this.root.scrollHeight;
+	}
+
+	/**
+	 * @private
+	 * @param {string} text
+	 * @return {string}
+	 */
+	appendLines_(text) {
+		const end = text.lastIndexOf("\n") + 1;
+		if (end === 0) return text;
+		const rendered = renderTerminalText(formatTerminalText(text.slice(0, end)), this.style_);
+		const batch = document.createDocumentFragment();
+		while (rendered.firstChild) batch.appendChild(rendered.firstChild);
+		this.root.insertBefore(batch, this.tail_);
+		return text.slice(end);
+	}
 }
 
 /**
@@ -612,6 +948,94 @@ function createMetricTable(metric) {
 	return table;
 }
 
+/**
+ * @param {!HTMLTableElement} table
+ * @param {!Array<string>} labels
+ */
+function appendTableHeader(table, labels) {
+	const head = /** @type {!HTMLTableSectionElement} */ (table.createTHead());
+	const row = /** @type {!HTMLTableRowElement} */ (head.insertRow());
+	for (const label of labels) {
+		const heading = document.createElement("th");
+		heading.scope = "col";
+		heading.textContent = label;
+		row.appendChild(heading);
+	}
+}
+
+/**
+ * @param {?BuildToolLogs} logs
+ * @return {string}
+ */
+function criticalPathLog(logs) {
+	if (!logs) return "";
+	for (const file of logs.getLogList()) {
+		if (file.getName().trim().toLowerCase() !== "critical path") continue;
+		const bytes = /** @type {!Uint8Array} */ (file.getContents_asU8());
+		if (bytes.length) return new TextDecoder().decode(bytes);
+	}
+	return "";
+}
+
+/**
+ * @param {?BuildMetrics} metrics
+ * @return {?number}
+ */
+function criticalPathMillis(metrics) {
+	const timing = metrics && metrics.getTimingMetrics();
+	const duration = timing && timing.getCriticalPathTime();
+	return duration ? Number(duration.getSeconds()) * 1000 + Math.round(duration.getNanos() / 1000000) : null;
+}
+
+/**
+ * @typedef {{key: string, label: string, configuration: string, summary: ?BuildEvent,
+ *     attempts: !Array<!BuildEvent>}}
+ */
+let InvocationTest;
+
+/**
+ * @param {!Array<!BuildEvent>} events
+ * @return {!Array<!InvocationTest>}
+ */
+function groupInvocationTests(events) {
+	/** @type {!Map<string,!InvocationTest>} */
+	const groups = new Map();
+	for (const event of events) {
+		const id = event.getId();
+		if (!id) continue;
+		const result = id.getTestResult();
+		const summary = id.getTestSummary();
+		if (!result && !summary) continue;
+		const label = result ? result.getLabel() : summary.getLabel();
+		const config = result ? result.getConfiguration() : summary.getConfiguration();
+		const configuration = config ? config.getId() : "";
+		const key = JSON.stringify([label, configuration]);
+		let group = groups.get(key);
+		if (!group) {
+			group = {key, label, configuration, summary: null, attempts: []};
+			groups.set(key, group);
+		}
+		if (event.hasTestSummary()) group.summary = event;
+		else group.attempts.push(event);
+	}
+	return Array.from(groups.values());
+}
+
+/**
+ * @param {number} status
+ * @param {string=} fallback
+ * @return {!HTMLElement}
+ */
+function testStatusLabel(status, fallback = "Status unavailable") {
+	const badge = /** @type {!HTMLElement} */ (document.createElement("span"));
+	badge.className = "Label";
+	if (status === 1) badge.classList.add("Label--success");
+	else if (status === 2 || status === 5 || status === 8) badge.classList.add("Label--attention");
+	else if (status > 0) badge.classList.add("Label--danger");
+	badge.textContent = status ? testStatusName(status) : fallback;
+	return badge;
+}
+
 /** @typedef {{timeMillis: number, startMillis: number, action: string}} */
 let CriticalPathItem;
 
@@ -637,10 +1061,10 @@ function parseCriticalPath(content) {
 	}
 	for (let i = lines.length - 1; i >= 0; i--) {
 		/** @type {?Array<string>} */
-		const match = /^\s*([\d,.]+)s action '(.+)'$/.exec(lines[i]);
+		const match = /^\s*([\d,.]+)s action '(.+)'\s*$/.exec(lines[i]);
 		if (!match) continue;
 		const itemMillis = Math.round(Number(match[1].replace(/,/g, "")) * 1000);
-		if (!itemMillis) continue;
+		if (!Number.isFinite(itemMillis)) continue;
 		items.push({
 			timeMillis: itemMillis,
 			startMillis: currentStartMillis,
@@ -657,7 +1081,14 @@ function parseCriticalPath(content) {
  * @return {string}
  */
 function eventIdSummary(event) {
-	const id = event.getId();
+	return buildEventIdSummary(event.getId() || null);
+}
+
+/**
+ * @param {?BuildEventId} id
+ * @return {string}
+ */
+function buildEventIdSummary(id) {
 	if (!id) return "No event ID";
 	switch (id.getIdCase()) {
 		case BuildEventId.IdCase.STARTED: return "Build started";
@@ -802,6 +1233,227 @@ class ToolsCatalogComponent extends Component {
 	}
 }
 
+const FRONTIER_CELL_SIZE = 13;
+const FRONTIER_INSET = 10;
+
+class InvocationFrontier {
+	/**
+	 * @param {!HTMLCanvasElement} canvas
+	 * @param {!HTMLElement} scroll
+	 * @param {!HTMLElement} spacer
+	 * @param {function(!FrontierMark):void} inspect
+	 */
+	constructor(canvas, scroll, spacer, inspect) {
+		this.canvas = canvas;
+		this.scroll = scroll;
+		this.spacer = spacer;
+		this.inspect = inspect;
+		this.progress = new InvocationProgress();
+		/** @private @type {!Array<!FrontierMark>} */
+		this.pending_ = [];
+		/** @private @type {?FrontierMark} */
+		this.selected_ = null;
+		this.columns_ = 1;
+	}
+
+	/** @param {!InvocationProgress} progress */
+	update(progress) {
+		if (this.progress !== progress) {
+			this.selected_ = null;
+			this.scroll.scrollTop = 0;
+			this.canvas.title = "";
+		}
+		this.progress = progress;
+		this.pending_ = Array.from(progress.pending.values());
+		this.pending_.forEach((mark, index) => { mark.pendingIndex = index; });
+		this.draw();
+		if (this.selected_) this.select_(this.selected_);
+	}
+
+	/**
+	 * @private
+	 * @return {number}
+	 */
+	historyRow_() {
+		return Number(!!this.progress.last) + Math.ceil(this.pending_.length / this.columns_);
+	}
+
+	/**
+	 * @private
+	 * @param {number} column
+	 * @param {number} row
+	 * @return {?FrontierMark}
+	 */
+	markAt_(column, row) {
+		if (column < 0 || column >= this.columns_ || row < 0) return null;
+		const last = this.progress.last;
+		if (last && row === 0) return column === 0 ? last : null;
+		if (row < this.historyRow_()) {
+			return this.pending_[(row - Number(!!last)) * this.columns_ + column] || null;
+		}
+		let index = this.progress.history.length - 1 -
+			((row - this.historyRow_()) * this.columns_ + column);
+		if (last && index <= last.index) index--;
+		return this.progress.history[index] || null;
+	}
+
+	/**
+	 * @private
+	 * @param {!FrontierMark} mark
+	 * @return {{column: number, row: number}}
+	 */
+	cell_(mark) {
+		const last = this.progress.last;
+		if (mark === last) return {column: 0, row: 0};
+		const index = mark.event
+			? this.progress.history.length - 1 - mark.index - Number(!!last && last.index > mark.index)
+			: mark.pendingIndex;
+		const offset = mark.event ? this.historyRow_() : Number(!!last);
+		return {column: index % this.columns_, row: offset + Math.floor(index / this.columns_)};
+	}
+
+	draw() {
+		const width = this.scroll.clientWidth;
+		const height = this.scroll.clientHeight;
+		const context = /** @type {?CanvasRenderingContext2D} */ (this.canvas.getContext("2d"));
+		if (!width || !height || !context) return;
+		this.columns_ = Math.max(1, Math.floor((width - 2 * FRONTIER_INSET) / FRONTIER_CELL_SIZE));
+		const historyRows = Math.ceil(
+			(this.progress.history.length - Number(!!this.progress.last)) / this.columns_,
+		);
+		const rows = this.historyRow_() + historyRows;
+		this.spacer.style.height = Math.max(
+			0, 2 * FRONTIER_INSET + rows * FRONTIER_CELL_SIZE - height,
+		) + "px";
+		const scale = window.devicePixelRatio || 1;
+		if (this.canvas.width !== Math.round(width * scale) ||
+			this.canvas.height !== Math.round(height * scale)) {
+			this.canvas.width = Math.round(width * scale);
+			this.canvas.height = Math.round(height * scale);
+			this.canvas.style.height = height + "px";
+		}
+		context.setTransform(scale, 0, 0, scale, 0, 0);
+		context.clearRect(0, 0, width, height);
+		const top = this.scroll.scrollTop;
+		const first = Math.max(0, Math.floor((top - FRONTIER_INSET) / FRONTIER_CELL_SIZE));
+		const end = Math.min(rows, Math.ceil((top + height - FRONTIER_INSET) / FRONTIER_CELL_SIZE));
+		/** @type {function(number):number} */
+		const x = (column) => FRONTIER_INSET + (column + 0.5) * FRONTIER_CELL_SIZE;
+		/** @type {function(number):number} */
+		const y = (row) => FRONTIER_INSET + (row + 0.5) * FRONTIER_CELL_SIZE - top;
+		const foreground = getComputedStyle(this.canvas).color;
+
+		const selected = this.selected_;
+		if (selected) {
+			const origin = this.cell_(selected);
+			context.beginPath();
+			/** @type {!Array<!Array<!FrontierMark>>} */
+			const connections = [selected.parents, selected.children];
+			for (const relatives of connections) {
+				for (const relative of relatives) {
+					const target = this.cell_(relative);
+					if (target.row < first || target.row >= end) continue;
+					context.moveTo(x(origin.column), y(origin.row));
+					context.lineTo(x(target.column), y(target.row));
+				}
+			}
+			context.strokeStyle = foreground;
+			context.globalAlpha = 0.35;
+			context.stroke();
+			context.globalAlpha = 1;
+		}
+
+		for (let row = first; row < end; row++) {
+			for (let column = 0; column < this.columns_; column++) {
+				const mark = this.markAt_(column, row);
+				if (!mark) break;
+				const left = x(column) - 3;
+				const top = y(row) - 3;
+				context.strokeStyle = foreground;
+				context.globalAlpha = 0.55;
+				context.strokeRect(left - 0.5, top - 0.5, 7, 7);
+				context.globalAlpha = 1;
+				if (mark.event) {
+					context.fillStyle = mark.color;
+					context.fillRect(left, top, 6, 6);
+				} else {
+					context.strokeStyle = mark.color;
+					context.strokeRect(left + 0.5, top + 0.5, 5, 5);
+				}
+				if (mark === selected) {
+					context.strokeStyle = foreground;
+					context.strokeRect(left - 2.5, top - 2.5, 11, 11);
+				}
+			}
+		}
+	}
+
+	/**
+	 * @param {!MouseEvent} event
+	 * @return {?FrontierMark}
+	 */
+	pick(event) {
+		const bounds = this.canvas.getBoundingClientRect();
+		return this.markAt_(
+			Math.floor((event.clientX - bounds.left - FRONTIER_INSET) / FRONTIER_CELL_SIZE),
+			Math.floor((event.clientY - bounds.top + this.scroll.scrollTop - FRONTIER_INSET) / FRONTIER_CELL_SIZE),
+		);
+	}
+
+	/** @param {!FrontierMark} mark */
+	select(mark) {
+		this.select_(mark);
+		this.draw();
+	}
+
+	/**
+	 * @private
+	 * @param {!FrontierMark} mark
+	 */
+	select_(mark) {
+		this.selected_ = mark;
+		this.inspect(mark);
+	}
+
+	/** @param {!KeyboardEvent} event */
+	navigate(event) {
+		const key = event.key;
+		if (!["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Home", "End"].includes(key)) return;
+		event.preventDefault();
+		const current = this.selected_;
+		let mark = this.markAt_(0, 0);
+		if (key === "End") {
+			mark = this.progress.history[0] || mark;
+		} else if (current && key !== "Home") {
+			const {column, row} = this.cell_(current);
+			switch (key) {
+				case "ArrowLeft": mark = this.markAt_(column - 1, row); break;
+				case "ArrowRight": mark = this.markAt_(column + 1, row); break;
+				case "ArrowUp": mark = this.markAt_(column, row - 1) || this.markAt_(0, row - 1); break;
+				case "ArrowDown": mark = this.markAt_(column, row + 1) || this.markAt_(0, row + 1); break;
+			}
+		}
+		if (!mark) return;
+		const top = FRONTIER_INSET + this.cell_(mark).row * FRONTIER_CELL_SIZE;
+		if (top < this.scroll.scrollTop) this.scroll.scrollTop = top;
+		if (top + FRONTIER_CELL_SIZE > this.scroll.scrollTop + this.scroll.clientHeight) {
+			this.scroll.scrollTop = top + FRONTIER_CELL_SIZE - this.scroll.clientHeight;
+		}
+		this.select(mark);
+	}
+}
+
+/**
+ * @param {!FrontierMark} mark
+ * @return {string}
+ */
+function frontierMarkLabel(mark) {
+	const action = mark.event && mark.event.getAction();
+	const mnemonic = action && action.getType();
+	const label = buildEventIdSummary(mark.id);
+	return (mnemonic ? mnemonic + " · " : "") + label;
+}
+
 class BuildEventViewerComponent extends Component {
 	/** @param {?dom.DomHelper=} opt_domHelper */
 	constructor(opt_domHelper) {
@@ -809,14 +1461,68 @@ class BuildEventViewerComponent extends Component {
 
 		/** @private @type {!Array<!BuildEvent>} */
 		this.events_ = [];
+		/** @private @type {!InvocationProgress} */
+		this.progress_ = new InvocationProgress();
+		/** @private @type {?InvocationFrontier} */
+		this.frontier_ = null;
+		/** @private @type {?ResizeObserver} */
+		this.frontierObserver_ = null;
+		/** @private @type {?FrontierMark} */
+		this.inspected_ = null;
+		/** @private @type {?BuildEvent} */
+		this.inspectedEvent_ = null;
+		/** @private @type {?string} */
+		this.renderedLog_ = null;
+		/** @private @type {?InvocationTerminal} */
+		this.terminal_ = null;
+		/** @private @type {number} */
+		this.activeTab_ = 0;
+		/** @private @type {string} */
+		this.testsRenderKey_ = "";
+		/** @private @type {?BuildMetrics} */
+		this.renderedMetrics_ = null;
+		/** @private @type {?BuildToolLogs} */
+		this.renderedPathLogs_ = null;
+		/** @private @type {?number} */
+		this.renderedPathTime_ = null;
+		/** @private @type {number} */
+		this.clockTimer_ = 0;
+		/** @private @type {number} */
+		this.cacheTimer_ = 0;
+		/** @private @type {boolean} */
+		this.cacheRequestPending_ = false;
+		/** @private @type {boolean} */
+		this.cacheRefreshQueued_ = false;
+		/** @private @type {?Object<string, *>} */
+		this.cacheSummary_ = null;
+
+		/** @private @type {?number} */
+		this.clockStoppedAt_ = null;
+		/** @private @type {boolean} */
+		this.local_ = false;
+		/** @private @type {boolean} */
+		this.connected_ = false;
 		/** @private @type {string} */
 		this.fileName_ = "";
 		/** @private @type {number} */
 		this.fileSize_ = 0;
 		/** @private @type {number} */
 		this.selectedIndex_ = 0;
+		/** @private @const {!Set<number>} */
+		this.selectedTypes_ = new Set();
 		/** @private @type {?number} */
 		this.buildStartMillis_ = null;
+		/** @private @type {?EventSource} */
+		this.source_ = null;
+		/** @private @type {number} */
+		this.lastCursor_ = 0;
+		/** @private @type {number} */
+		this.renderTimer_ = 0;
+		/** @private @type {number} */
+		this.loadGeneration_ = 0;
+		/** @private @const {!EventHandler} */
+		this.resultsHandler_ = new EventHandler(this);
+		this.registerDisposable(this.resultsHandler_);
 	}
 
 	/** @override */
@@ -827,6 +1533,36 @@ class BuildEventViewerComponent extends Component {
 	/** @override */
 	enterDocument() {
 		super.enterDocument();
+		this.getHandler().listen(
+			this.getElement_(goog.getCssName("bes-refresh")),
+			events.EventType.CLICK,
+			() => this.refreshRuns_(),
+		);
+		this.getHandler().listen(
+			this.getElement_(goog.getCssName("bes-connect")),
+			events.EventType.CLICK,
+			() => this.connectBackend_(),
+		);
+		this.getHandler().listen(
+			this.getElement_(goog.getCssName("bes-disconnect")),
+			events.EventType.CLICK,
+			() => this.disconnectBackend_(),
+		);
+		this.getHandler().listen(
+			this.getElement_(goog.getCssName("bes-runs")),
+			events.EventType.CHANGE,
+			() => {
+				this.backendInput_(goog.getCssName("bes-id")).value =
+					/** @type {!HTMLSelectElement} */ (
+						this.getElement_(goog.getCssName("bes-runs"))
+					).value;
+			},
+		);
+		this.bindTabs_();
+		this.bindFrontier_();
+		if (this.events_.length) this.renderTab_();
+		const browser = this.getElement_(goog.getCssName("bes-browser"));
+		this.getHandler().listen(browser, "toggle", () => this.renderEventBrowser_());
 		const dropZone = this.getElement_(CSS_DROP_ZONE);
 		const summary = this.getElement_(CSS_SUMMARY);
 		const choose = this.getElement_(CSS_CHOOSE_FILE);
@@ -841,7 +1577,9 @@ class BuildEventViewerComponent extends Component {
 			FileDropHandler.EventType.DROP,
 			this.handleDrop_,
 		);
-		this.getHandler().listen(choose, events.EventType.CLICK, () => input.click());
+		this.getHandler().listen(choose, events.EventType.CLICK, () =>
+			input.click(),
+		);
 		this.getHandler().listen(
 			summary,
 			events.EventType.KEYDOWN,
@@ -864,6 +1602,180 @@ class BuildEventViewerComponent extends Component {
 
 	/**
 	 * @private
+	 * @param {string} name
+	 * @return {!HTMLInputElement}
+	 */
+	backendInput_(name) {
+		return /** @type {!HTMLInputElement} */ (this.getElement_(name));
+	}
+
+	/**
+	 * @private
+	 * @return {string}
+	 */
+	backendURL_() {
+		const url = new URL(
+			this.backendInput_(goog.getCssName("bes-backend")).value,
+		);
+		if (url.protocol !== "http:" && url.protocol !== "https:") {
+			throw new Error("Use an HTTP or HTTPS backend URL.");
+		}
+		return url.href.replace(/\/$/, "");
+	}
+
+	/** @private */
+	async refreshRuns_() {
+		const status = this.getElement_(goog.getCssName("bes-connection"));
+		status.textContent = "Loading saved runs…";
+		try {
+			const response = await fetch(this.backendURL_() + "/api/invocations");
+			if (!response.ok)
+				throw new Error("Backend returned HTTP " + response.status);
+			const result =
+				/** @type {!Object<string,!Array<!Object<string,string>>>} */ (
+					await response.json()
+				);
+			if (this.isDisposed() || !this.isInDocument()) return;
+			const select = /** @type {!HTMLSelectElement} */ (
+				this.getElement_(goog.getCssName("bes-runs"))
+			);
+			while (select.options.length > 1) select.remove(1);
+			// JSON field names form the HTTP API and must survive ADVANCED renaming.
+			const runs = result["invocations"] || [];
+			for (const run of runs) {
+				const option = document.createElement("option");
+				option.value = String(run["invocationId"]);
+				option.textContent =
+					String(run["command"] || "Bazel") + " · " + option.value;
+				select.appendChild(option);
+			}
+			status.textContent = runs.length + " saved invocations";
+		} catch (error) {
+			if (!this.isDisposed())
+				status.textContent =
+					"Could not load runs. Check the backend URL and allowed frontend origin.";
+		}
+	}
+
+	/** @private */
+	connectBackend_() {
+		const status = this.getElement_(goog.getCssName("bes-connection"));
+		try {
+			const id = this.backendInput_(goog.getCssName("bes-id")).value.trim();
+			if (!id) throw new Error("Enter an invocation ID or select a saved run.");
+			const url = this.backendURL_() + "/api/invocations/" + encodeURIComponent(id);
+			this.stopBackend_();
+			this.events_ = [];
+			this.progress_ = new InvocationProgress();
+			this.local_ = false;
+			this.connected_ = false;
+			this.clockStoppedAt_ = null;
+			this.resetResults_();
+			this.selectedIndex_ = 0;
+			this.selectedTypes_.clear();
+			this.buildStartMillis_ = null;
+			this.fileName_ = id;
+			this.fileSize_ = 0;
+			this.lastCursor_ = 0;
+			this.renderSummary_();
+			this.getElement_(CSS_STATUS).textContent = "";
+			const source = (this.source_ = new EventSource(url + "/events"));
+			this.cacheTimer_ = setInterval(() => this.refreshCacheStats_(url), 1500);
+			source.onopen = () => {
+				this.connected_ = true;
+				this.clockStoppedAt_ = null;
+				this.renderSummary_();
+				status.textContent = "Connected · replaying and following " + id;
+			};
+			source.onerror = () => {
+				this.connected_ = false;
+				this.clockStoppedAt_ = this.clockStoppedAt_ ?? Date.now();
+				this.renderSummary_();
+				status.textContent = source.readyState === EventSource.CLOSED
+					? "Could not open the invocation stream."
+					: "Connection interrupted · reconnecting from the last event";
+			};
+			source.addEventListener("bep", (e) => {
+				const message = /** @type {!Object<string,string>} */ (e);
+				const cursor = Number(message["lastEventId"]);
+				if (cursor <= this.lastCursor_) return;
+				try {
+					const bytes = base64.decodeStringToUint8Array(message["data"]);
+					const event = BuildEvent.deserializeBinary(bytes);
+					this.lastCursor_ = cursor;
+					this.events_.push(event);
+					this.progress_.add(event);
+					if (event.getLastMessage()) {
+						clearInterval(this.cacheTimer_);
+						this.cacheTimer_ = 0;
+						this.refreshCacheStats_(url, true);
+					}
+					this.fileSize_ += bytes.length;
+					if (event.getPayloadCase() === BuildEvent.PayloadCase.STARTED) {
+						this.buildStartMillis_ = eventTimestampMillis(event);
+					}
+					status.textContent =
+						"Following " + id + " · " + this.events_.length + " events";
+					// Coalesce bursts so a build doesn't redraw the timeline on every event.
+					if (!this.renderTimer_) {
+						this.renderTimer_ = setTimeout(() => {
+							this.renderTimer_ = 0;
+							this.renderResults_();
+						}, 250);
+					}
+				} catch (error) {
+					this.disconnectBackend_();
+					status.textContent = "Could not decode a backend build event.";
+				}
+			});
+		} catch (error) {
+			status.textContent =
+				"Enter an invocation ID and a valid HTTP or HTTPS backend URL.";
+		}
+	}
+
+	/** @private */
+	disconnectBackend_() {
+		const renderPending = this.renderTimer_ !== 0;
+		this.stopBackend_();
+		if (renderPending) this.renderResults_();
+		else this.renderSummary_();
+		this.getElement_(goog.getCssName("bes-connection")).textContent =
+			"Disconnected";
+	}
+
+	/** @private */
+	stopBackend_() {
+		this.loadGeneration_++;
+		clearInterval(this.cacheTimer_);
+		this.cacheTimer_ = 0;
+		this.cacheRequestPending_ = false;
+		this.cacheRefreshQueued_ = false;
+		if (this.source_) this.source_.close();
+		this.source_ = null;
+		this.connected_ = false;
+		this.clockStoppedAt_ = this.clockStoppedAt_ ?? Date.now();
+		clearInterval(this.clockTimer_);
+		this.clockTimer_ = 0;
+		clearTimeout(this.renderTimer_);
+		this.renderTimer_ = 0;
+	}
+
+	/** @override */
+	exitDocument() {
+		this.stopBackend_();
+		if (this.frontierObserver_) this.frontierObserver_.disconnect();
+		super.exitDocument();
+	}
+
+	/** @override */
+	disposeInternal() {
+		this.stopBackend_();
+		super.disposeInternal();
+	}
+
+	/**
+	 * @private
 	 * @param {!events.BrowserEvent} e
 	 */
 	handleDrop_(e) {
@@ -882,7 +1794,8 @@ class BuildEventViewerComponent extends Component {
 	 */
 	handleDropZoneKeyDown_(e) {
 		const key = /** @type {!KeyboardEvent} */ (e.getBrowserEvent()).key;
-		if (key === "Enter" || key === " ") {
+		if (this.getElement_(CSS_SUMMARY).getAttribute("role") === "button" &&
+			(key === "Enter" || key === " ")) {
 			e.preventDefault();
 			/** @type {!HTMLInputElement} */ (this.getElement_(CSS_FILE_INPUT)).click();
 		}
@@ -902,20 +1815,28 @@ class BuildEventViewerComponent extends Component {
 			status.className = "mt-3 flash flash-error " + goog.getCssName("status");
 			return;
 		}
+		if (this.source_) this.disconnectBackend_();
+		const generation = ++this.loadGeneration_;
 		status.textContent = "Reading " + file.name + "…";
 		status.className = "sr-only " + goog.getCssName("status");
 		try {
 			const bytes = new Uint8Array(await file.arrayBuffer());
-			if (this.isDisposed()) return;
-			this.events_ = /** @type {!Array<!BuildEvent>} */ (
+			if (this.isDisposed() || generation !== this.loadGeneration_) return;
+			const fileEvents = /** @type {!Array<!BuildEvent>} */ (
 				decodeDelimitedMessages(bytes, (message) =>
 					BuildEvent.deserializeBinary(message),
 				)
 			);
-			if (!this.events_.length) throw new Error("The file contains no events.");
+			if (!fileEvents.length) throw new Error("The file contains no events.");
+			this.resetResults_();
+			this.events_ = fileEvents;
+			this.progress_ = new InvocationProgress();
+			for (const event of fileEvents) this.progress_.add(event);
+			this.local_ = true;
 			this.fileName_ = file.name;
 			this.fileSize_ = file.size;
 			this.selectedIndex_ = 0;
+			this.selectedTypes_.clear();
 			this.buildStartMillis_ = null;
 			for (const event of this.events_) {
 				if (event.getPayloadCase() === BuildEvent.PayloadCase.STARTED) {
@@ -930,6 +1851,7 @@ class BuildEventViewerComponent extends Component {
 				"Loaded " + this.events_.length + " events from " + file.name + ".",
 			);
 		} catch (_error) {
+			if (this.isDisposed() || generation !== this.loadGeneration_) return;
 			status.textContent =
 				"Could not read this build event file. The file may be truncated or invalid.";
 			status.className = "mt-3 flash flash-error " + goog.getCssName("status");
@@ -937,13 +1859,533 @@ class BuildEventViewerComponent extends Component {
 	}
 
 	/** @private */
+	bindTabs_() {
+		const tabs = this.getElement_(goog.getCssName("bes-tabs"));
+		this.terminal_ = new InvocationTerminal(this.getElement_(goog.getCssName("bes-log-full")));
+		const buttons = tabs.querySelectorAll("button");
+		for (let i = 0; i < buttons.length; i++) {
+			const button = buttons[i];
+			const index = Number(i);
+			this.getHandler().listen(button, events.EventType.CLICK, () => this.selectTab_(index));
+			this.getHandler().listen(button, events.EventType.KEYDOWN, (/** !events.BrowserEvent */ e) => {
+				const key = e.key;
+				let next;
+				switch (key) {
+					case "ArrowLeft": next = (index + buttons.length - 1) % buttons.length; break;
+					case "ArrowRight": next = (index + 1) % buttons.length; break;
+					case "Home": next = 0; break;
+					case "End": next = buttons.length - 1; break;
+					default: return;
+				}
+				e.preventDefault();
+				this.selectTab_(next);
+				buttons[next].focus();
+			});
+		}
+		this.getHandler().listen(this.getElement_(goog.getCssName("bes-download-log")),
+			events.EventType.CLICK, () => this.downloadLog_());
+	}
+
+	/**
+	 * @private
+	 * @param {number} index
+	 * @param {boolean=} skipRender
+	 */
+	selectTab_(index, skipRender = false) {
+		this.activeTab_ = index;
+		const tabs = this.getElement_(goog.getCssName("bes-tabs")).querySelectorAll("button");
+		const panels = this.getElement_(CSS_RESULTS).querySelectorAll('[role="tabpanel"]');
+		for (let i = 0; i < tabs.length; i++) {
+			const active = i === index;
+			tabs[i].setAttribute("aria-selected", String(active));
+			tabs[i].tabIndex = active ? 0 : -1;
+			/** @type {!HTMLElement} */ (panels[i]).hidden = !active;
+		}
+		if (!skipRender) this.renderTab_();
+	}
+
+	/** @private */
+	downloadLog_() {
+		const chunks = this.progress_.logChunks;
+		if (!chunks.length) return;
+		const blob = new Blob(chunks, {type: "text/plain;charset=utf-8"});
+		const url = URL.createObjectURL(blob);
+		const link = document.createElement("a");
+		link.href = url;
+		link.download = this.fileName_ + ".log";
+		link.click();
+		setTimeout(() => URL.revokeObjectURL(url), 1000);
+	}
+
+	/** @private */
+	renderTab_() {
+		switch (this.activeTab_) {
+			case 0:
+				this.renderOverview_();
+				break;
+			case 1:
+				if (this.terminal_) this.terminal_.update(this.progress_.logChunks);
+				/** @type {!HTMLButtonElement} */ (
+					this.getElement_(goog.getCssName("bes-download-log"))
+				).disabled = this.progress_.logChunks.length === 0;
+				break;
+			case 2:
+				this.renderTests_();
+				break;
+			case 3:
+				this.renderMetrics_();
+				break;
+		}
+	}
+
+	/** @private */
+	bindFrontier_() {
+		const canvas = /** @type {!HTMLCanvasElement} */ (
+			this.getElement_(goog.getCssName("bes-frontier-canvas"))
+		);
+		const scroll = this.getElement_(goog.getCssName("bes-frontier-scroll"));
+		const spacer = this.getElement_(goog.getCssName("bes-frontier-spacer"));
+		const frontier = new InvocationFrontier(canvas, scroll, spacer,
+			(mark) => this.inspectFrontierMark_(mark));
+		this.frontier_ = frontier;
+		if (this.events_.length) frontier.update(this.progress_);
+		this.frontierObserver_ = new ResizeObserver(() => frontier.draw());
+		this.frontierObserver_.observe(scroll);
+		this.getHandler().listen(scroll, events.EventType.SCROLL, () => frontier.draw());
+		this.getHandler().listen(canvas, events.EventType.CLICK, (/** !events.BrowserEvent */ e) => {
+			const mark = frontier.pick(/** @type {!MouseEvent} */ (e.getBrowserEvent()));
+			if (mark) frontier.select(mark);
+		});
+		this.getHandler().listen(canvas, events.EventType.MOUSEMOVE, (/** !events.BrowserEvent */ e) => {
+			const mark = frontier.pick(/** @type {!MouseEvent} */ (e.getBrowserEvent()));
+			canvas.title = mark ? frontierMarkLabel(mark) : "";
+		});
+		this.getHandler().listen(canvas, events.EventType.KEYDOWN, (/** !events.BrowserEvent */ e) =>
+			frontier.navigate(/** @type {!KeyboardEvent} */ (e.getBrowserEvent())),
+		);
+	}
+
+	/** @private */
+	resetResults_() {
+		this.resultsHandler_.removeAll();
+		this.inspected_ = null;
+		this.inspectedEvent_ = null;
+		this.renderedLog_ = null;
+		this.cacheSummary_ = null;
+		this.testsRenderKey_ = "";
+		this.renderedMetrics_ = null;
+		this.renderedPathLogs_ = null;
+		this.renderedPathTime_ = null;
+		this.getElement_(CSS_RESULTS).classList.add("d-none");
+		this.selectTab_(0, true);
+		if (this.terminal_) this.terminal_.reset();
+		dom.removeChildren(this.getElement_(goog.getCssName("bes-critical-path")));
+		dom.removeChildren(this.getElement_(goog.getCssName("bes-tests")));
+		dom.removeChildren(this.getElement_(goog.getCssName("bes-metrics")));
+		dom.removeChildren(this.getElement_(goog.getCssName("bes-frontier-detail")));
+		dom.removeChildren(this.getElement_(goog.getCssName("bes-browser-body")));
+		this.getElement_(goog.getCssName("bes-frontier-caption")).textContent =
+			"Select a mark to inspect its event and connections.";
+		this.getElement_(goog.getCssName("bes-log")).scrollTop = 0;
+	}
+
+	/**
+	 * @private
+	 * @param {!FrontierMark} mark
+	 */
+	inspectFrontierMark_(mark) {
+		const caption = this.getElement_(goog.getCssName("bes-frontier-caption"));
+		const label = frontierMarkLabel(mark);
+		const state = mark.event
+			? (mark === this.progress_.last ? "Final event" : "Received")
+			: this.progress_.last ? "Unreceived" : "Expected";
+		const text = state + " · " + label + " · " + mark.parents.length +
+			" parents · " + mark.children.length + " children";
+		if (caption.textContent !== text) caption.textContent = text;
+		if (this.inspected_ === mark && this.inspectedEvent_ === mark.event) return;
+		this.inspected_ = mark;
+		this.inspectedEvent_ = mark.event;
+		const detail = this.getElement_(goog.getCssName("bes-frontier-detail"));
+		dom.removeChildren(detail);
+		if (mark.event) {
+			detail.appendChild(this.createSelectedEventDetail_(mark.event));
+		}
+	}
+
+	/** @private */
 	renderResults_() {
-		const root = this.getElement_(CSS_RESULTS);
-		const summary = this.getElement_(CSS_SUMMARY);
-		dom.removeChildren(root);
-		dom.removeChildren(summary);
-		summary.appendChild(this.createSummary_());
-		root.appendChild(this.createTimeline_());
+		this.renderSummary_();
+		const results = this.getElement_(CSS_RESULTS);
+		if (results.classList.contains("d-none")) {
+			const source = /** @type {!HTMLDetailsElement} */ (
+				this.getElement_(goog.getCssName("bes-source"))
+			);
+			source.open = false;
+			results.classList.remove("d-none");
+		}
+		this.renderTab_();
+	}
+
+	/** @private */
+	renderOverview_() {
+		this.renderOverviewCriticalPath_();
+		const terminal = this.getElement_(goog.getCssName("bes-log"));
+		const log = this.progress_.log;
+		if (this.renderedLog_ !== log) {
+			const atBottom = terminal.scrollHeight - terminal.scrollTop - terminal.clientHeight <= 8;
+			dom.removeChildren(terminal);
+			terminal.appendChild(renderTerminalText(formatTerminalText(log || "No build output received.")));
+			if (atBottom || this.renderedLog_ === null) terminal.scrollTop = terminal.scrollHeight;
+			this.renderedLog_ = log;
+		}
+		this.getElement_(goog.getCssName("bes-log-limit")).textContent =
+			this.progress_.logTruncated ? "Showing recent output" : "";
+		const pending = this.progress_.pending.size;
+		const received = this.progress_.history.length + " received";
+		this.getElement_(goog.getCssName("bes-frontier-count")).textContent = this.progress_.last
+			? "Stream ended · " + (pending ? pending + " unreceived · " : "") + received
+			: pending + " expected · " + received;
+		if (this.frontier_) this.frontier_.update(this.progress_);
+		this.renderCacheStats_();
+		this.renderEventBrowser_();
+	}
+
+	/**
+	 * @private
+	 * @param {string} url
+	 * @param {boolean=} finalRefresh
+	 */
+	async refreshCacheStats_(url, finalRefresh) {
+		if (this.cacheRequestPending_) {
+			this.cacheRefreshQueued_ = this.cacheRefreshQueued_ || !!finalRefresh;
+			return;
+		}
+		this.cacheRequestPending_ = true;
+		const generation = this.loadGeneration_;
+		try {
+			const response = await fetch(url);
+			if (!response.ok || generation !== this.loadGeneration_) return;
+			const summary = /** @type {!Object<string, *>} */ (await response.json());
+			if (generation !== this.loadGeneration_) return;
+			this.cacheSummary_ = summary;
+			if (this.activeTab_ === 0 && this.events_.length) this.renderCacheStats_();
+		} catch (_error) {
+			// BES replay can continue independently of the summary request.
+		} finally {
+			if (generation === this.loadGeneration_) {
+				this.cacheRequestPending_ = false;
+				if (this.cacheRefreshQueued_) {
+					this.cacheRefreshQueued_ = false;
+					this.refreshCacheStats_(url);
+				}
+			}
+		}
+	}
+
+	/** @private */
+	renderCacheStats_() {
+		const body = this.getElement_(goog.getCssName("bes-cache-stats"));
+		const summary = this.cacheSummary_;
+		const stored = summary && summary["bazelRemoteCacheHits"];
+		const hits = stored != null ? Number(stored) : this.progress_.bazelRemoteCacheHits;
+		const telemetry = /** @type {?Object<string, *>} */ (summary && summary["remoteCache"]);
+		const values = /** @type {!Array<!Object<string, string>>} */ (
+			(telemetry && telemetry["metrics"]) || []
+		);
+		/** @type {!Map<string,!Map<string,number>>} */
+		const counts = new Map();
+		/** @type {!Map<string,number>} */
+		const traffic = new Map();
+		for (const row of values) {
+			const operation = String(row["operation"]);
+			const result = String(row["result"]);
+			let results = counts.get(operation);
+			if (!results) {
+				results = new Map();
+				counts.set(operation, results);
+			}
+			results.set(result, Number(row["count"] || 0));
+			traffic.set(operation, (traffic.get(operation) || 0) + Number(row["transferredBytes"] || 0));
+		}
+		/** @type {!Array<!Array<string>>} */
+		const entries = [];
+		entries.push(["Remote hits reported by Bazel", hits === null
+			? (this.source_ && !this.progress_.last ? "Awaiting build metrics" : "Unavailable")
+			: hits.toLocaleString()]);
+		const lookup = counts.get("ac_lookup");
+		if (lookup) {
+			const found = lookup.get("hit") || 0;
+			const missing = lookup.get("miss") || 0;
+			const total = found + missing;
+			const rate = total ? (100 * found / total).toFixed(1) + "% hit rate · " : "";
+			entries.push(["Action cache lookups", rate + found.toLocaleString() + " hits · " +
+				missing.toLocaleString() + " misses · " + (lookup.get("error") || 0).toLocaleString() + " errors"]);
+		}
+		/** @type {!Array<!Array<string>>} */
+		const cacheRows = [
+			["ac_write", "Action cache writes", "ok", "writes"],
+			["cas_presence", "CAS presence checks", "hit", "present"],
+			["cas_read", "CAS downloads", "hit", "downloaded"],
+			["cas_write", "CAS uploads", "ok", "uploaded"],
+		];
+		for (const entry of cacheRows) {
+			const results = counts.get(entry[0]);
+			if (!results) continue;
+			const parts = [(results.get(entry[2]) || 0).toLocaleString() + " " + entry[3]];
+			if (entry[2] === "hit") {
+				parts.push((results.get("miss") || 0).toLocaleString() + " missing");
+			}
+			parts.push((results.get("error") || 0).toLocaleString() + " errors");
+			const bytes = traffic.get(entry[0]);
+			if (bytes) parts.push(formatBytes(bytes) + " transferred");
+			entries.push([entry[1], parts.join(" · ")]);
+		}
+		dom.removeChildren(body);
+		const info = document.createElement("dl");
+		info.className = "bes-invocation-metadata";
+		for (const entry of entries) {
+			const item = document.createElement("div");
+			const term = document.createElement("dt");
+			term.className = "color-fg-muted text-small";
+			term.textContent = entry[0];
+			const description = document.createElement("dd");
+			description.textContent = entry[1];
+			item.appendChild(term);
+			item.appendChild(description);
+			info.appendChild(item);
+		}
+		body.appendChild(info);
+		if (!counts.size) {
+			const message = document.createElement("div");
+			message.className = "mt-2 color-fg-muted text-small";
+			message.textContent = "No cache request telemetry available";
+			body.appendChild(message);
+		}
+	}
+
+	/** @private */
+	renderTests_() {
+		const ended = !!this.progress_.finished || !!this.progress_.last || this.local_;
+		const key = this.progress_.tests.length + "/" + ended;
+		if (key === this.testsRenderKey_) return;
+		this.testsRenderKey_ = key;
+		const body = this.getElement_(goog.getCssName("bes-tests"));
+		/** @type {!Set<string>} */
+		const open = new Set();
+		for (const details of body.querySelectorAll("details[open]")) {
+			open.add(details.getAttribute("data-test-key") || "");
+		}
+		dom.removeChildren(body);
+		const groups = groupInvocationTests(this.progress_.tests);
+		if (!groups.length) {
+			body.appendChild(this.dataTabMessage_(ended ? "No test results were reported." : "Waiting for test results…"));
+			return;
+		}
+		/** @type {!Map<number,number>} */
+		const totals = new Map();
+		for (const group of groups) {
+			const summary = group.summary && group.summary.getTestSummary();
+			const status = summary ? summary.getOverallStatus() : 0;
+			totals.set(status, (totals.get(status) || 0) + 1);
+		}
+		const overview = document.createElement("div");
+		overview.className = "bes-tests-header mb-3";
+		const title = document.createElement("h2");
+		title.className = "h3";
+		title.textContent = "Test results";
+		overview.appendChild(title);
+		const counts = document.createElement("div");
+		counts.className = "color-fg-muted text-small";
+		/** @type {!Array<string>} */
+		const parts = [];
+		/** @type {!Array<number>} */
+		const statuses = [];
+		for (const status of totals.keys()) statuses.push(status);
+		statuses.sort((a, b) => a - b);
+		for (const status of statuses) {
+			const description = status ? testStatusName(status).toLowerCase()
+				: ended ? "without summary" : "awaiting summary";
+			parts.push(totals.get(status) + " " + description);
+		}
+		counts.textContent = parts.join(" · ");
+		overview.appendChild(counts);
+		body.appendChild(overview);
+		/** @type {function(!InvocationTest):number} */
+		const order = (group) => {
+			const summary = group.summary && group.summary.getTestSummary();
+			const status = summary ? summary.getOverallStatus() : 0;
+			if (status >= 3) return 0;
+			if (status === 2) return 1;
+			return status === 0 ? 2 : 3;
+		};
+		groups.sort((a, b) => order(a) - order(b) || a.label.localeCompare(b.label) ||
+			a.configuration.localeCompare(b.configuration));
+		for (const group of groups) {
+			body.appendChild(this.createTestGroup_(group, ended, open.has(group.key)));
+		}
+	}
+
+	/**
+	 * @private
+	 * @param {!InvocationTest} group
+	 * @param {boolean} ended
+	 * @param {boolean} open
+	 * @return {!HTMLElement}
+	 */
+	createTestGroup_(group, ended, open) {
+		const details = /** @type {!HTMLDetailsElement} */ (document.createElement("details"));
+		details.className = "Box Box--condensed mb-2";
+		details.open = open;
+		details.setAttribute("data-test-key", group.key);
+		const payload = group.summary && group.summary.getTestSummary();
+		const summary = document.createElement("summary");
+		summary.className = "Box-header";
+		const name = document.createElement("span");
+		name.className = "bes-test-target text-bold mr-2";
+		name.textContent = group.label || "Unnamed test";
+		summary.appendChild(name);
+		summary.appendChild(testStatusLabel(payload ? payload.getOverallStatus() : 0,
+			ended ? "Summary unavailable" : "Awaiting summary"));
+		const duration = payload && payload.getTotalRunDuration();
+		const meta = document.createElement("span");
+		meta.className = "ml-2 text-small color-fg-muted";
+		const attemptCount = payload ? payload.getTotalRunCount() || group.attempts.length : group.attempts.length;
+		const parts = [attemptCount + (attemptCount === 1 ? " attempt" : " attempts")];
+		if (duration) parts.push(formatDuration(duration.getSeconds(), duration.getNanos()));
+		if (group.configuration) parts.push("Config " + group.configuration.slice(0, 8));
+		meta.textContent = parts.join(" · ");
+		meta.title = group.configuration;
+		summary.appendChild(meta);
+		details.appendChild(summary);
+
+		const body = document.createElement("div");
+		body.className = "Box-body overflow-auto";
+		details.appendChild(body);
+		if (!group.attempts.length) {
+			body.textContent = "No individual test attempts were reported.";
+			return details;
+		}
+		const table = /** @type {!HTMLTableElement} */ (document.createElement("table"));
+		table.className = "bes-test-attempts text-small";
+		appendTableHeader(table, ["Run / shard / attempt", "Result", "Duration", "Execution", "Details"]);
+		const rows = /** @type {!HTMLTableSectionElement} */ (table.createTBody());
+		for (const event of group.attempts) {
+			const id = event.getId();
+			const attempt = id && id.getTestResult();
+			const result = event.getTestResult();
+			if (!attempt || !result) continue;
+			const row = /** @type {!HTMLTableRowElement} */ (rows.insertRow());
+			const ordinal = row.insertCell(-1);
+			ordinal.className = "text-mono";
+			ordinal.textContent = [attempt.getRun(), attempt.getShard(), attempt.getAttempt()].join(" / ");
+			row.insertCell(-1).appendChild(testStatusLabel(result.getStatus()));
+			const elapsed = result.getTestAttemptDuration();
+			const legacyMillis = Number(result.getTestAttemptDurationMillis());
+			row.insertCell(-1).textContent = elapsed ? formatDuration(elapsed.getSeconds(), elapsed.getNanos())
+				: legacyMillis ? formatElapsed(legacyMillis) : "—";
+			const execution = result.getExecutionInfo();
+			row.insertCell(-1).textContent = result.getCachedLocally() ? "Local cache" :
+				execution && execution.getCachedRemotely() ? "Remote cache" :
+				(execution && execution.getStrategy()) || "—";
+			const info = row.insertCell(-1);
+			const text = result.getStatusDetails();
+			if (text) info.appendChild(document.createTextNode(text));
+			for (const output of result.getTestActionOutputList()) {
+				const file = document.createElement("div");
+				file.className = "text-mono";
+				file.textContent = fileSummary(output);
+				info.appendChild(file);
+			}
+			if (!info.hasChildNodes()) info.textContent = "—";
+		}
+		body.appendChild(table);
+		return details;
+	}
+
+	/**
+	 * @private
+	 * @param {string} message
+	 * @return {!HTMLElement}
+	 */
+	dataTabMessage_(message) {
+		const empty = /** @type {!HTMLElement} */ (document.createElement("p"));
+		empty.className = "Box p-3 color-fg-muted";
+		empty.textContent = message;
+		return empty;
+	}
+
+	/** @private */
+	renderMetrics_() {
+		const body = this.getElement_(goog.getCssName("bes-metrics"));
+		const metrics = this.progress_.metrics;
+		if (!metrics) {
+			const ended = this.progress_.finished || this.progress_.last || this.local_;
+			const message = ended ? "No build metrics were reported." : "Waiting for build metrics…";
+			if (body.textContent !== message) {
+				dom.removeChildren(body);
+				body.appendChild(this.dataTabMessage_(message));
+			}
+			return;
+		}
+		if (metrics === this.renderedMetrics_) return;
+		this.renderedMetrics_ = metrics;
+		dom.removeChildren(body);
+		const timing = metrics.getTimingMetrics();
+		const actions = metrics.getActionSummary();
+		/** @type {!Array<!Array<string>>} */
+		const entries = [];
+		if (timing) {
+			entries.push(
+				["Wall time", formatElapsed(Number(timing.getWallTimeInMs()))],
+				["CPU time", formatElapsed(Number(timing.getCpuTimeInMs()))],
+				["Analysis time", formatElapsed(Number(timing.getAnalysisPhaseTimeInMs()))],
+				["Execution time", formatElapsed(Number(timing.getExecutionPhaseTimeInMs()))],
+			);
+		}
+		const path = criticalPathMillis(metrics);
+		if (path !== null) entries.push(["Critical path", formatElapsed(path)]);
+		if (actions) entries.push(["Actions executed", Number(actions.getActionsExecuted()).toLocaleString()]);
+		if (entries.length) {
+			const section = document.createElement("section");
+			section.className = "Box Box--condensed mb-3";
+			const header = document.createElement("h2");
+			header.className = "Box-header Box-title";
+			header.textContent = "Build metrics";
+			section.appendChild(header);
+			const summary = document.createElement("dl");
+			summary.className = "Box-body bes-invocation-metadata";
+			for (const entry of entries) {
+				const item = document.createElement("div");
+				const term = document.createElement("dt");
+				term.className = "color-fg-muted text-small";
+				term.textContent = entry[0];
+				const value = document.createElement("dd");
+				value.className = "text-mono";
+				value.textContent = entry[1];
+				item.appendChild(term);
+				item.appendChild(value);
+				summary.appendChild(item);
+			}
+			section.appendChild(summary);
+			body.appendChild(section);
+		}
+		body.appendChild(this.createBuildMetricsDetail_(metrics, false));
+	}
+
+	/** @private */
+	renderEventBrowser_() {
+		const browser = /** @type {!HTMLDetailsElement} */ (
+			this.getElement_(goog.getCssName("bes-browser"))
+		);
+		if (!browser.open || !this.events_.length) {
+			this.resultsHandler_.removeAll();
+			dom.removeChildren(this.getElement_(goog.getCssName("bes-browser-body")));
+			return;
+		}
+		this.resultsHandler_.removeAll();
+		const body = this.getElement_(goog.getCssName("bes-browser-body"));
+		dom.removeChildren(body);
+		body.appendChild(this.createTimeline_());
 	}
 
 	/**
@@ -967,7 +2409,7 @@ class BuildEventViewerComponent extends Component {
 		const payloadCases = [];
 		for (const payloadCase of counts.keys()) payloadCases.push(payloadCase);
 		/** @type {!Set<number>} */
-		const selectedTypes = new Set();
+		const selectedTypes = this.selectedTypes_;
 		/** @type {!Map<number,!HTMLButtonElement>} */
 		const typeButtons = new Map();
 		for (const payloadCase of payloadCases) {
@@ -1052,8 +2494,13 @@ class BuildEventViewerComponent extends Component {
 		const context = /** @type {?CanvasRenderingContext2D} */ (
 			canvas.getContext("2d")
 		);
+		/** @return {!Array<!BuildEvent>} */
+		const filteredEvents = () =>
+			selectedTypes.size
+				? this.events_.filter((event) => selectedTypes.has(event.getPayloadCase()))
+				: this.events_.slice();
 		/** @type {!Array<!BuildEvent>} */
-		let visibleEvents = this.events_.slice();
+		let visibleEvents = filteredEvents();
 
 		/** @type {function():void} */
 		const draw = () => {
@@ -1092,14 +2539,8 @@ class BuildEventViewerComponent extends Component {
 			detail.appendChild(this.createSelectedEventDetail_(event));
 		};
 		/** @type {function():void} */
-		const applyTypeFilter = () => {
-			const current = visibleEvents[this.selectedIndex_];
-			visibleEvents = selectedTypes.size
-				? this.events_.filter((event) => selectedTypes.has(event.getPayloadCase()))
-				: this.events_.slice();
+		const updateTimeline = () => {
 			seek.max = String(Math.max(0, visibleEvents.length - 1));
-			const retainedIndex = current ? visibleEvents.indexOf(current) : -1;
-			this.selectedIndex_ = retainedIndex >= 0 ? retainedIndex : 0;
 			clear.classList.toggle("d-none", selectedTypes.size === 0);
 			for (const payloadCase of payloadCases) {
 				const button = typeButtons.get(payloadCase);
@@ -1111,29 +2552,36 @@ class BuildEventViewerComponent extends Component {
 			draw();
 			select(this.selectedIndex_);
 		};
+		const applyTypeFilter = () => {
+			const current = visibleEvents[this.selectedIndex_];
+			visibleEvents = filteredEvents();
+			const retainedIndex = visibleEvents.indexOf(current);
+			this.selectedIndex_ = retainedIndex >= 0 ? retainedIndex : 0;
+			updateTimeline();
+		};
 		for (const payloadCase of payloadCases) {
 			const button = typeButtons.get(payloadCase);
 			if (!button) continue;
-			this.getHandler().listen(button, events.EventType.CLICK, () => {
+			this.resultsHandler_.listen(button, events.EventType.CLICK, () => {
 				if (selectedTypes.has(payloadCase)) selectedTypes.delete(payloadCase);
 				else selectedTypes.add(payloadCase);
 				applyTypeFilter();
 			});
 		}
-		this.getHandler().listen(clear, events.EventType.CLICK, () => {
+		this.resultsHandler_.listen(clear, events.EventType.CLICK, () => {
 			selectedTypes.clear();
 			applyTypeFilter();
 		});
-		this.getHandler().listen(seek, events.EventType.INPUT, () =>
+		this.resultsHandler_.listen(seek, events.EventType.INPUT, () =>
 			select(Number(seek.value)),
 		);
-		this.getHandler().listen(previous, events.EventType.CLICK, () =>
+		this.resultsHandler_.listen(previous, events.EventType.CLICK, () =>
 			select(this.selectedIndex_ - 1),
 		);
-		this.getHandler().listen(next, events.EventType.CLICK, () =>
+		this.resultsHandler_.listen(next, events.EventType.CLICK, () =>
 			select(this.selectedIndex_ + 1),
 		);
-		this.getHandler().listen(
+		this.resultsHandler_.listen(
 			canvas,
 			events.EventType.CLICK,
 			(/** !events.BrowserEvent */ e) => {
@@ -1145,8 +2593,7 @@ class BuildEventViewerComponent extends Component {
 				select(Math.floor(fraction * visibleEvents.length));
 			},
 		);
-		draw();
-		select(this.selectedIndex_);
+		updateTimeline();
 		return section;
 	}
 
@@ -1161,7 +2608,7 @@ class BuildEventViewerComponent extends Component {
 		heading.className = "d-flex flex-items-center mb-2";
 		const swatch = document.createElement("span");
 		swatch.className = "bes-event-swatch mr-2";
-		swatch.style.backgroundColor = payloadCaseColor(event.getPayloadCase());
+		swatch.style.backgroundColor = eventMarkColor(event);
 		const title = document.createElement("h3");
 		title.className = "h4 m-0";
 		title.textContent = payloadCaseName(event.getPayloadCase());
@@ -1223,9 +2670,10 @@ class BuildEventViewerComponent extends Component {
 	/**
 	 * @private
 	 * @param {!BuildMetrics} metrics
+	 * @param {boolean=} expanded
 	 * @return {!HTMLElement}
 	 */
-	createBuildMetricsDetail_(metrics) {
+	createBuildMetricsDetail_(metrics, expanded = true) {
 		const root = /** @type {!HTMLElement} */ (document.createElement("div"));
 		root.className = "mt-3";
 		const object = /** @type {!Object<string, *>} */ (
@@ -1241,7 +2689,7 @@ class BuildEventViewerComponent extends Component {
 				document.createElement("details")
 			);
 			section.className = "Box mb-2";
-			section.open = true;
+			section.open = expanded;
 			const summary = document.createElement("summary");
 			summary.className = "Box-header text-bold";
 			summary.textContent = metricLabel(key);
@@ -1255,85 +2703,106 @@ class BuildEventViewerComponent extends Component {
 		return root;
 	}
 
+	/** @private */
+	renderOverviewCriticalPath_() {
+		const logs = this.progress_.toolLogs;
+		const duration = criticalPathMillis(this.progress_.metrics);
+		const ended = this.progress_.finished || this.progress_.last;
+		if (!ended && !this.local_) return;
+		if (this.renderedPathLogs_ === logs && this.renderedPathTime_ === duration) return;
+		this.renderedPathLogs_ = logs;
+		this.renderedPathTime_ = duration;
+		const root = this.getElement_(goog.getCssName("bes-critical-path"));
+		dom.removeChildren(root);
+		const path = this.createCriticalPathDetail_(logs, duration);
+		if (path) root.appendChild(path);
+	}
+
 	/**
 	 * @private
-	 * @param {!BuildToolLogs} logs
+	 * @param {?BuildToolLogs} logs
+	 * @param {?number=} duration
 	 * @return {?HTMLElement}
 	 */
-	createCriticalPathDetail_(logs) {
-		for (const log of logs.getLogList()) {
-			if (log.getName().toLowerCase() !== "critical path") continue;
-			const bytes = /** @type {!Uint8Array} */ (log.getContents_asU8());
-			if (!bytes.length) continue;
-			const content = new TextDecoder().decode(bytes);
-			const criticalPath = parseCriticalPath(content);
-			const root = /** @type {!HTMLElement} */ (document.createElement("section"));
-			root.className = "Box mt-3";
-			const header = document.createElement("div");
-			header.className = "Box-header d-flex flex-items-center";
-			const title = document.createElement("h4");
-			title.className = "Box-title flex-auto";
-			title.textContent = "Critical path";
-			const total = document.createElement("span");
-			total.className = "text-mono text-small";
-			total.textContent = formatElapsed(criticalPath.timeMillis);
-			header.appendChild(title);
-			header.appendChild(total);
-			root.appendChild(header);
-			const body = document.createElement("div");
-			body.className = "Box-body p-0 overflow-auto";
-			const table = document.createElement("table");
-			table.className = "bes-critical-path-table width-full text-small";
-			for (let i = 0; i < criticalPath.items.length; i++) {
-				const item = criticalPath.items[i];
-				const row = document.createElement("tr");
-				const number = document.createElement("td");
-				number.className = "color-fg-muted text-mono text-right";
-				number.textContent = String(i + 1);
-				const duration = document.createElement("td");
-				duration.className = "text-mono text-right text-bold";
-				duration.textContent = formatElapsed(item.timeMillis);
-				const percent = document.createElement("td");
-				percent.className = "text-mono text-right color-fg-muted";
-				const ratio = criticalPath.timeMillis > 0
-					? item.timeMillis / criticalPath.timeMillis : 0;
-				percent.textContent = (ratio * 100).toFixed(2) + "%";
-				const action = document.createElement("td");
-				action.className = "bes-critical-path-action";
-				const label = document.createElement("div");
-				label.className = "text-mono text-small mb-1";
-				label.textContent = item.action;
-				const track = document.createElement("div");
-				track.className = "bes-critical-path-track";
-				const bar = document.createElement("div");
-				bar.className = "bes-critical-path-bar";
-				bar.style.marginLeft = criticalPath.timeMillis > 0
-					? (item.startMillis / criticalPath.timeMillis * 100) + "%" : "0";
-				bar.style.width = Math.max(0.2, ratio * 100) + "%";
-				track.appendChild(bar);
-				action.appendChild(label);
-				action.appendChild(track);
-				row.appendChild(number);
-				row.appendChild(duration);
-				row.appendChild(percent);
-				row.appendChild(action);
-				table.appendChild(row);
-			}
-			body.appendChild(table);
-			root.appendChild(body);
-			const raw = document.createElement("details");
-			raw.className = "Box-footer";
-			const summary = document.createElement("summary");
-			summary.textContent = "Critical path log";
-			raw.appendChild(summary);
-			const pre = document.createElement("pre");
-			pre.className = "bes-event-json mt-2 p-3 text-small";
-			pre.textContent = content;
-			raw.appendChild(pre);
-			root.appendChild(raw);
+	createCriticalPathDetail_(logs, duration = null) {
+		const content = criticalPathLog(logs);
+		const criticalPath = parseCriticalPath(content);
+		if (duration !== null) criticalPath.timeMillis = duration;
+		if (!content && duration === null) return null;
+		const root = /** @type {!HTMLElement} */ (document.createElement("section"));
+		root.className = "Box Box--condensed my-3";
+		const header = document.createElement("div");
+		header.className = "Box-header d-flex flex-items-center";
+		const title = document.createElement("h3");
+		title.className = "Box-title flex-auto";
+		title.textContent = "Critical path";
+		const total = document.createElement("span");
+		total.className = "text-mono text-small";
+		total.textContent = formatElapsed(criticalPath.timeMillis);
+		header.appendChild(title);
+		header.appendChild(total);
+		root.appendChild(header);
+		const body = document.createElement("div");
+		body.className = "Box-body p-0 overflow-auto";
+		if (!criticalPath.items.length) {
+			const unavailable = document.createElement("p");
+			unavailable.className = "Box-body color-fg-muted mb-0";
+			unavailable.textContent = "Action breakdown unavailable.";
+			root.appendChild(unavailable);
 			return root;
 		}
-		return null;
+		const table = /** @type {!HTMLTableElement} */ (document.createElement("table"));
+		table.className = "bes-critical-path-table width-full text-small";
+		appendTableHeader(table, ["#", "Duration", "% of path", "Action"]);
+		const lastItem = criticalPath.items[criticalPath.items.length - 1];
+		const chartMillis = Math.max(criticalPath.timeMillis, lastItem.startMillis + lastItem.timeMillis);
+		const rows = /** @type {!HTMLTableSectionElement} */ (table.createTBody());
+		for (let i = 0; i < criticalPath.items.length; i++) {
+			const item = criticalPath.items[i];
+			const row = document.createElement("tr");
+			const number = document.createElement("td");
+			number.className = "color-fg-muted text-mono text-right";
+			number.textContent = String(i + 1);
+			const duration = document.createElement("td");
+			duration.className = "text-mono text-right text-bold";
+			duration.textContent = formatElapsed(item.timeMillis);
+			const percent = document.createElement("td");
+			percent.className = "text-mono text-right color-fg-muted";
+			const ratio = chartMillis > 0 ? item.timeMillis / chartMillis : 0;
+			percent.textContent = (ratio * 100).toFixed(2) + "%";
+			const action = document.createElement("td");
+			action.className = "bes-critical-path-action";
+			const label = document.createElement("div");
+			label.className = "text-mono text-small mb-1";
+			label.textContent = item.action;
+			const track = document.createElement("div");
+			track.className = "bes-critical-path-track";
+			const bar = document.createElement("div");
+			bar.className = "bes-critical-path-bar";
+			bar.style.marginLeft = chartMillis > 0 ? (item.startMillis / chartMillis * 100) + "%" : "0";
+			bar.style.width = Math.max(0.2, ratio * 100) + "%";
+			track.appendChild(bar);
+			action.appendChild(label);
+			action.appendChild(track);
+			row.appendChild(number);
+			row.appendChild(duration);
+			row.appendChild(percent);
+			row.appendChild(action);
+			rows.appendChild(row);
+		}
+		body.appendChild(table);
+		root.appendChild(body);
+		const raw = document.createElement("details");
+		raw.className = "Box-footer";
+		const summary = document.createElement("summary");
+		summary.textContent = "Critical path log";
+		raw.appendChild(summary);
+		const pre = document.createElement("pre");
+		pre.className = "bes-event-json mt-2 p-3 text-small";
+		pre.textContent = content;
+		raw.appendChild(pre);
+		root.appendChild(raw);
+		return root;
 	}
 
 	/**
@@ -1658,75 +3127,113 @@ class BuildEventViewerComponent extends Component {
 		return values;
 	}
 
-	/**
-	 * @private
-	 * @return {!HTMLElement}
-	 */
-	createSummary_() {
-		const section = /** @type {!HTMLElement} */ (
-			document.createElement("div")
-		);
-		section.className = "bes-summary-grid";
-		/** @type {!Object<string,string>} */
-		const values = {
-			File: this.fileName_ + " (" + formatBytes(this.fileSize_) + ")",
-			Events: String(this.events_.length),
+	/** @private */
+	renderSummary_() {
+		if (!this.fileName_) return;
+		const section = this.getElement_(CSS_SUMMARY);
+		section.removeAttribute("role");
+		section.removeAttribute("tabindex");
+		section.removeAttribute("aria-describedby");
+		dom.removeChildren(section);
+		const overview = document.createElement("div");
+		overview.className = "bes-invocation-overview";
+		const header = document.createElement("div");
+		header.className = "bes-invocation-heading";
+		const command = document.createElement("h3");
+		command.className = "h3 text-mono bes-invocation-command";
+		const startedEvent = this.progress_.started;
+		const started = startedEvent && startedEvent.getStarted();
+		const finishedEvent = this.progress_.finished;
+		const finished = finishedEvent && finishedEvent.getFinished();
+		command.textContent = ["bazel", started && started.getCommand(),
+			...this.progress_.targets].filter(Boolean).join(" ");
+		header.appendChild(command);
+		const state = document.createElement("div");
+		state.className = "bes-invocation-state";
+		const badge = document.createElement("span");
+		badge.className = "Label";
+		const exit = finished && finished.getExitCode();
+		if (exit) {
+			const success = exit.getCode() === 0;
+			badge.textContent = success ? "Succeeded" : "Failed";
+			badge.classList.add(success ? "Label--success" : "Label--danger");
+			badge.title = exit.getName() + " (" + exit.getCode() + ")";
+		} else if (finished) {
+			badge.textContent = "Finished";
+		} else if (this.progress_.last || this.local_) {
+			badge.textContent = "Incomplete";
+			badge.classList.add("Label--attention");
+		} else if (!this.source_ && this.events_.length) {
+			badge.textContent = "Disconnected";
+		} else if (!this.connected_ && this.events_.length) {
+			badge.textContent = "Reconnecting";
+			badge.classList.add("Label--attention");
+		} else if (this.events_.length) {
+			badge.textContent = "Building";
+			badge.classList.add("Label--accent");
+		} else {
+			badge.textContent = "Waiting for events";
+		}
+		state.appendChild(badge);
+		const elapsed = document.createElement("time");
+		elapsed.className = "text-mono";
+		elapsed.setAttribute("aria-label", "Build elapsed time");
+		state.appendChild(elapsed);
+		header.appendChild(state);
+		overview.appendChild(header);
+
+		const metadata = this.progress_.metadata;
+		const info = document.createElement("dl");
+		info.className = "bes-invocation-metadata";
+		/** @type {!Array<!Array<string|null|undefined>>} */
+		const entries = [
+			["Invocation ID", (started && started.getUuid()) || (!this.local_ ? this.fileName_ : "")],
+			["Bazel version", started && started.getBuildToolVersion()],
+			["Started", this.buildStartMillis_ === null ? "" : new Date(this.buildStartMillis_).toISOString()],
+			["User", (started && started.getUser()) || metadata.get("BUILD_USER")],
+			["Host", (started && started.getHost()) || metadata.get("BUILD_HOST")],
+			["Workspace", started && started.getWorkspaceDirectory()],
+			["Repository", metadata.get("REPO_URL")],
+			["Branch", metadata.get("BRANCH_NAME")],
+			["Commit", metadata.get("COMMIT_SHA")],
+			["Role", metadata.get("ROLE")],
+			["BEP file", this.local_ ? this.fileName_ + " · " + formatBytes(this.fileSize_) : ""],
+		];
+		for (const entry of entries) {
+			const value = entry[1];
+			if (!value) continue;
+			const item = document.createElement("div");
+			const term = document.createElement("dt");
+			term.className = "color-fg-muted text-small";
+			term.textContent = entry[0] || "";
+			const description = document.createElement("dd");
+			description.textContent = value;
+			item.appendChild(term);
+			item.appendChild(description);
+			info.appendChild(item);
+		}
+		overview.appendChild(info);
+		section.appendChild(overview);
+
+		clearInterval(this.clockTimer_);
+		this.clockTimer_ = 0;
+		const start = this.buildStartMillis_;
+		const finish = finishedEvent ? eventTimestampMillis(finishedEvent) : null;
+		const active = !finishedEvent && !this.progress_.last && !this.local_ && this.connected_;
+		const updateClock = () => {
+			const end = finish ?? (finishedEvent || this.progress_.last || this.local_
+				? null
+				: active ? Date.now() : this.clockStoppedAt_);
+			if (start === null || end === null) {
+				elapsed.textContent = "—";
+				return;
+			}
+			const duration = Math.max(0, end - start);
+			elapsed.textContent = formatElapsed(duration);
+			elapsed.setAttribute("datetime", "PT" + duration / 1000 + "S");
 		};
-		/** @type {!Set<string>} */
-		const targets = new Set();
-		let command = "";
-		/** @type {?boolean} */
-		let buildOutcome = null;
-		for (const event of this.events_) {
-			if (event.hasStarted()) {
-				const started = event.getStarted();
-				command = started.getCommand();
-				values["Invocation ID"] = started.getUuid() || "Not reported";
-				values["Bazel version"] =
-					started.getBuildToolVersion() || "Not reported";
-			}
-			if (event.getPayloadCase() === BuildEvent.PayloadCase.EXPANDED) {
-				const id = event.getId();
-				const pattern = id ? id.getPattern() : null;
-				if (pattern) {
-					for (const target of pattern.getPatternList()) targets.add(target);
-				}
-				const skipped = id ? id.getPatternSkipped() : null;
-				if (skipped) {
-					for (const target of skipped.getPatternList()) targets.add(target);
-				}
-			}
-			if (event.hasFinished()) {
-				const exit = event.getFinished().getExitCode();
-				values["Result"] = exit
-					? exit.getName() + " (" + exit.getCode() + ")"
-					: "Finished";
-				buildOutcome = exit ? exit.getCode() === 0 : null;
-			}
-		}
-		const targetList = targets.size ? Array.from(targets).join(" ") : "";
-		values["Command"] = (command + " " + targetList).trim() || "Not reported";
-		for (const label in values) {
-			const key = document.createElement("div");
-			key.className = "text-bold color-fg-muted";
-			key.textContent = label;
-			const value = document.createElement("div");
-			if (label === "Result" && buildOutcome !== null) {
-				value.className = "d-flex flex-items-center";
-				value.appendChild(soy.renderAsElement(eventStatusIcon, {
-					success: buildOutcome,
-				}));
-				const text = document.createElement("span");
-				text.className = "ml-2";
-				text.textContent = values[label];
-				value.appendChild(text);
-			} else {
-				value.textContent = values[label];
-			}
-			section.appendChild(key);
-			section.appendChild(value);
-		}
-		return section;
+		updateClock();
+		if (active && start !== null) this.clockTimer_ = setInterval(updateClock, 250);
 	}
 
 	/**
@@ -1751,6 +3258,9 @@ function formatBytes(bytes) {
 	return (bytes / (1024 * 1024)).toFixed(1) + " MiB";
 }
 
+exports.FrontierMark = FrontierMark;
+exports.InvocationProgress = InvocationProgress;
+exports.InvocationTerminal = InvocationTerminal;
 exports.decodeDelimitedMessages = decodeDelimitedMessages;
 exports.formatTerminalText = formatTerminalText;
 exports.parseCriticalPath = parseCriticalPath;

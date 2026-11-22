@@ -317,6 +317,7 @@ closure_js_library(
         "@stackb_rules_closure//closure/goog/dom:dataset",
         "@stackb_rules_closure//closure/goog/events",
         "@stackb_rules_closure//closure/goog/events:eventtype",
+        "@stackb_rules_closure//closure/goog/events:eventhandler",
         "@stackb_rules_closure//closure/goog/events:filedrophandler",
         "@stackb_rules_closure//closure/goog/events:listenable",
         "@stackb_rules_closure//closure/goog/soy",
@@ -347,6 +348,7 @@ closure_js_test(
     entry_points = ["goog:bcrfrontend.toolsTest"],
     deps = [
         ":app",
+        "@bazelapis//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_js_proto",
         "@stackb_rules_closure//closure/goog/testing:jsunit",
         "@stackb_rules_closure//closure/goog/testing:testsuite",
     ],
