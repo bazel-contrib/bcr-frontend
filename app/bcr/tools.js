@@ -16,6 +16,7 @@ const soy = goog.require("goog.soy");
 const { Component, Route } = goog.require("stack.ui");
 const { ContentSelect } = goog.require("bcrfrontend.ContentSelect");
 const { getApplication } = goog.require("bcrfrontend.common");
+const { InvocationBackend, openInvocationBackend } = goog.require("bcrfrontend.invocationTransport");
 const {
 	eventStatusIcon,
 	invocationViewer,
@@ -1512,10 +1513,10 @@ class BuildEventViewerComponent extends Component {
 		this.selectedTypes_ = new Set();
 		/** @private @type {?number} */
 		this.buildStartMillis_ = null;
-		/** @private @type {?EventSource} */
+		/** @private @type {?InvocationBackend} */
 		this.source_ = null;
-		/** @private @type {number} */
-		this.lastCursor_ = 0;
+		/** @private @type {string} */
+		this.lastCursor_ = "0";
 		/** @private @type {number} */
 		this.renderTimer_ = 0;
 		/** @private @type {number} */
@@ -1609,31 +1610,18 @@ class BuildEventViewerComponent extends Component {
 		return /** @type {!HTMLInputElement} */ (this.getElement_(name));
 	}
 
-	/**
-	 * @private
-	 * @return {string}
-	 */
-	backendURL_() {
-		const url = new URL(
-			this.backendInput_(goog.getCssName("bes-backend")).value,
-		);
-		if (url.protocol !== "http:" && url.protocol !== "https:") {
-			throw new Error("Use an HTTP or HTTPS backend URL.");
-		}
-		return url.href.replace(/\/$/, "");
-	}
-
 	/** @private */
 	async refreshRuns_() {
 		const status = this.getElement_(goog.getCssName("bes-connection"));
 		status.textContent = "Loading saved runs…";
+		const address = this.backendInput_(goog.getCssName("bes-backend")).value.trim();
+		/** @type {?InvocationBackend} */
+		let backend = null;
 		try {
-			const response = await fetch(this.backendURL_() + "/api/invocations");
-			if (!response.ok)
-				throw new Error("Backend returned HTTP " + response.status);
+			backend = await openInvocationBackend(address);
 			const result =
 				/** @type {!Object<string,!Array<!Object<string,string>>>} */ (
-					await response.json()
+					await backend.list()
 				);
 			if (this.isDisposed() || !this.isInDocument()) return;
 			const select = /** @type {!HTMLSelectElement} */ (
@@ -1653,18 +1641,31 @@ class BuildEventViewerComponent extends Component {
 		} catch (error) {
 			if (!this.isDisposed())
 				status.textContent =
-					"Could not load runs. Check the backend URL and allowed frontend origin.";
+					"Could not load runs. Check the backend and viewer access.";
+		} finally {
+			if (backend) backend.close();
 		}
 	}
 
 	/** @private */
-	connectBackend_() {
+	async connectBackend_() {
 		const status = this.getElement_(goog.getCssName("bes-connection"));
+		const id = this.backendInput_(goog.getCssName("bes-id")).value.trim();
+		if (!id) {
+			status.textContent = "Enter an invocation ID or select a saved run.";
+			return;
+		}
+		const address = this.backendInput_(goog.getCssName("bes-backend")).value.trim();
+		this.stopBackend_();
+		const generation = this.loadGeneration_;
+		status.textContent = "Connecting…";
 		try {
-			const id = this.backendInput_(goog.getCssName("bes-id")).value.trim();
-			if (!id) throw new Error("Enter an invocation ID or select a saved run.");
-			const url = this.backendURL_() + "/api/invocations/" + encodeURIComponent(id);
-			this.stopBackend_();
+			const source = await openInvocationBackend(address);
+			if (generation !== this.loadGeneration_) {
+				source.close();
+				return;
+			}
+			this.source_ = source;
 			this.events_ = [];
 			this.progress_ = new InvocationProgress();
 			this.local_ = false;
@@ -1676,61 +1677,67 @@ class BuildEventViewerComponent extends Component {
 			this.buildStartMillis_ = null;
 			this.fileName_ = id;
 			this.fileSize_ = 0;
-			this.lastCursor_ = 0;
+			this.lastCursor_ = "0";
 			this.renderSummary_();
 			this.getElement_(CSS_STATUS).textContent = "";
-			const source = (this.source_ = new EventSource(url + "/events"));
-			this.cacheTimer_ = setInterval(() => this.refreshCacheStats_(url), 1500);
-			source.onopen = () => {
-				this.connected_ = true;
-				this.clockStoppedAt_ = null;
-				this.renderSummary_();
-				status.textContent = "Connected · replaying and following " + id;
-			};
-			source.onerror = () => {
-				this.connected_ = false;
-				this.clockStoppedAt_ = this.clockStoppedAt_ ?? Date.now();
-				this.renderSummary_();
-				status.textContent = source.readyState === EventSource.CLOSED
-					? "Could not open the invocation stream."
-					: "Connection interrupted · reconnecting from the last event";
-			};
-			source.addEventListener("bep", (e) => {
-				const message = /** @type {!Object<string,string>} */ (e);
-				const cursor = Number(message["lastEventId"]);
-				if (cursor <= this.lastCursor_) return;
-				try {
-					const bytes = base64.decodeStringToUint8Array(message["data"]);
-					const event = BuildEvent.deserializeBinary(bytes);
-					this.lastCursor_ = cursor;
-					this.events_.push(event);
-					this.progress_.add(event);
-					if (event.getLastMessage()) {
-						clearInterval(this.cacheTimer_);
-						this.cacheTimer_ = 0;
-						this.refreshCacheStats_(url, true);
-					}
-					this.fileSize_ += bytes.length;
-					if (event.getPayloadCase() === BuildEvent.PayloadCase.STARTED) {
-						this.buildStartMillis_ = eventTimestampMillis(event);
-					}
-					status.textContent =
-						"Following " + id + " · " + this.events_.length + " events";
-					// Coalesce bursts so a build doesn't redraw the timeline on every event.
-					if (!this.renderTimer_) {
-						this.renderTimer_ = setTimeout(() => {
-							this.renderTimer_ = 0;
-							this.renderResults_();
-						}, 250);
-					}
-				} catch (error) {
+			this.cacheTimer_ = setInterval(() => this.refreshCacheStats_(source, id), 1500);
+			source.watch(id, () => this.lastCursor_, (/** string */ cursor, /** string */ data) => {
+				if (generation === this.loadGeneration_) this.receiveBuildEvent_(source, id, cursor, data);
+			}, (/** string */ message, /** boolean */ connected, /** boolean= */ closed) => {
+				if (generation !== this.loadGeneration_) return;
+				if (closed) {
 					this.disconnectBackend_();
-					status.textContent = "Could not decode a backend build event.";
+				} else {
+					this.connected_ = connected;
+					this.clockStoppedAt_ = connected ? null : this.clockStoppedAt_ ?? Date.now();
+					this.renderSummary_();
 				}
+				status.textContent = message;
 			});
-		} catch (error) {
-			status.textContent =
-				"Enter an invocation ID and a valid HTTP or HTTPS backend URL.";
+		} catch (_error) {
+			if (generation !== this.loadGeneration_) return;
+			this.stopBackend_();
+			status.textContent = "Could not connect. Check the backend URL or Iroh viewer ticket.";
+		}
+	}
+
+	/**
+	 * @private
+	 * @param {!InvocationBackend} source
+	 * @param {string} id
+	 * @param {string} cursor
+	 * @param {string} data
+	 */
+	receiveBuildEvent_(source, id, cursor, data) {
+		const last = this.lastCursor_;
+		if (!/^[1-9][0-9]*$/.test(cursor) || cursor.length < last.length ||
+			(cursor.length === last.length && cursor <= last)) return;
+		const status = this.getElement_(goog.getCssName("bes-connection"));
+		try {
+			const bytes = base64.decodeStringToUint8Array(data);
+			const event = BuildEvent.deserializeBinary(bytes);
+			this.lastCursor_ = cursor;
+			this.events_.push(event);
+			this.progress_.add(event);
+			if (event.getLastMessage()) {
+				clearInterval(this.cacheTimer_);
+				this.cacheTimer_ = 0;
+				this.refreshCacheStats_(source, id, true);
+			}
+			this.fileSize_ += bytes.length;
+			if (event.getPayloadCase() === BuildEvent.PayloadCase.STARTED) {
+				this.buildStartMillis_ = eventTimestampMillis(event);
+			}
+			status.textContent = "Following " + id + " · " + this.events_.length + " events";
+			if (!this.renderTimer_) {
+				this.renderTimer_ = setTimeout(() => {
+					this.renderTimer_ = 0;
+					this.renderResults_();
+				}, 250);
+			}
+		} catch (_error) {
+			this.disconnectBackend_();
+			status.textContent = "Could not decode a backend build event.";
 		}
 	}
 
@@ -2052,10 +2059,11 @@ class BuildEventViewerComponent extends Component {
 
 	/**
 	 * @private
-	 * @param {string} url
+	 * @param {!InvocationBackend} source
+	 * @param {string} id
 	 * @param {boolean=} finalRefresh
 	 */
-	async refreshCacheStats_(url, finalRefresh) {
+	async refreshCacheStats_(source, id, finalRefresh) {
 		if (this.cacheRequestPending_) {
 			this.cacheRefreshQueued_ = this.cacheRefreshQueued_ || !!finalRefresh;
 			return;
@@ -2063,9 +2071,7 @@ class BuildEventViewerComponent extends Component {
 		this.cacheRequestPending_ = true;
 		const generation = this.loadGeneration_;
 		try {
-			const response = await fetch(url);
-			if (!response.ok || generation !== this.loadGeneration_) return;
-			const summary = /** @type {!Object<string, *>} */ (await response.json());
+			const summary = await source.get(id);
 			if (generation !== this.loadGeneration_) return;
 			this.cacheSummary_ = summary;
 			if (this.activeTab_ === 0 && this.events_.length) this.renderCacheStats_();
@@ -2076,7 +2082,7 @@ class BuildEventViewerComponent extends Component {
 				this.cacheRequestPending_ = false;
 				if (this.cacheRefreshQueued_) {
 					this.cacheRefreshQueued_ = false;
-					this.refreshCacheStats_(url);
+					this.refreshCacheStats_(source, id);
 				}
 			}
 		}

@@ -61,8 +61,8 @@ import {sectionHeader} from 'app/bcr/registry.soy';
       <summary class="Box-header text-bold">Open an invocation</summary>
       <div class="Box-body">
         <div class="bes-source-fields">
-          <label>Backend URL
-            <input class="form-control input-block {css('bes-backend')}" type="url" value="http://localhost:1974">
+          <label>Backend URL or Iroh ticket
+            <input class="form-control input-block {css('bes-backend')}" type="text" autocomplete="off" spellcheck="false" value="http://localhost:1974">
           </label>
           <label>Saved run
             <select class="form-select input-block {css('bes-runs')}">

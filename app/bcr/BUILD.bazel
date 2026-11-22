@@ -290,6 +290,7 @@ closure_js_library(
         "source_archive_files.js",
         "syntax.js",
         "targets.js",
+        "invocation_transport.js",
         "tools.js",
         "treeview.js",
         "unified_search.js",
@@ -436,7 +437,11 @@ RELEASE_SRCS = [
     "favicon.png",
     ":robots_txt",
     ":sitemap_xml",
-] + select({
+    "invocation_iroh.mjs",
+] + glob([
+    "iroh_wasm/bcr_invocation_iroh.js",
+    "iroh_wasm/bcr_invocation_iroh_bg.wasm",
+]) + select({
     ":is_debug_release": ["bcr.js.map"],
     "//conditions:default": [],
 })
