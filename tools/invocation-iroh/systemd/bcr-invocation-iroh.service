@@ -14,8 +14,8 @@ StateDirectoryMode=0700
 RuntimeDirectory=bcr-invocation-iroh
 RuntimeDirectoryMode=0700
 UMask=0077
-ExecStart=/bin/sh -c 'exec "$${XDG_DATA_HOME:-$$HOME/.local/share}/bcr-invocation-observer/current/invocation-iroh" "$$@"' bcr-invocation-iroh --backend-port=${BCR_INVOCATION_HTTP_PORT} --key-file=${STATE_DIRECTORY}/iroh.key --ttl-seconds=${BCR_IROH_TTL_SECONDS} $BCR_IROH_ARGS
-StandardOutput=truncate:%t/bcr-invocation-iroh/connection
+# Open the private ticket file after systemd has created the runtime directory.
+ExecStart=/bin/sh -c 'exec "$${XDG_DATA_HOME:-$$HOME/.local/share}/bcr-invocation-observer/current/invocation-iroh" "$$@" > "$${RUNTIME_DIRECTORY}/connection"' bcr-invocation-iroh --backend-port=${BCR_INVOCATION_HTTP_PORT} --key-file=${STATE_DIRECTORY}/iroh.key --ttl-seconds=${BCR_IROH_TTL_SECONDS} $BCR_IROH_ARGS
 StandardError=journal
 KillSignal=SIGINT
 TimeoutStopSec=15s
