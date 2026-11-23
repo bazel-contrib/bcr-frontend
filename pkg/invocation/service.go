@@ -9,8 +9,34 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-func (s *Store) ListInvocations(ctx context.Context, _ *pb.ListInvocationsRequest) (*pb.ListInvocationsResponse, error) {
-	invocations, err := s.storage.List(ctx)
+func (s *Store) ListInvocationGroups(ctx context.Context, _ *pb.ListInvocationGroupsRequest) (*pb.ListInvocationGroupsResponse, error) {
+	groups, err := s.storage.ListGroups(ctx)
+	if err != nil {
+		return nil, storageError(err)
+	}
+	return &pb.ListInvocationGroupsResponse{Groups: groups}, nil
+}
+
+func (s *Store) GetInvocationGroupMetrics(ctx context.Context, req *pb.GetInvocationGroupMetricsRequest) (*pb.InvocationGroupMetrics, error) {
+	name := req.GetInvocationGroup()
+	if !validGroupName.MatchString(name) {
+		return nil, status.Error(codes.InvalidArgument, "invalid invocation group name")
+	}
+	metrics, err := s.storage.GroupMetrics(ctx, name)
+	return metrics, storageError(err)
+}
+
+func (s *Store) ListInvocations(ctx context.Context, req *pb.ListInvocationsRequest) (*pb.ListInvocationsResponse, error) {
+	var invocations []*pb.Invocation
+	var err error
+	if group := req.GetInvocationGroup(); group != "" {
+		if !validGroupName.MatchString(group) {
+			return nil, status.Error(codes.InvalidArgument, "invalid invocation group name")
+		}
+		invocations, err = s.storage.ListByGroup(ctx, group)
+	} else {
+		invocations, err = s.storage.List(ctx)
+	}
 	if err != nil {
 		return nil, storageError(err)
 	}

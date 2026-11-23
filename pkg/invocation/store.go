@@ -9,6 +9,8 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"regexp"
+	"slices"
 	"sort"
 	"sync"
 	"syscall"
@@ -21,6 +23,16 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
+
+var validGroupName = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$`)
+
+func invocationGroupName(bep *beppb.BuildEvent) string {
+	name := bep.GetBuildMetadata().GetMetadata()["igroup"]
+	if validGroupName.MatchString(name) {
+		return name
+	}
+	return ""
+}
 
 type streamProgress struct {
 	contiguous int64
@@ -198,6 +210,7 @@ func bazelRemoteCacheHits(bep *beppb.BuildEvent) *int64 {
 }
 
 func applySummary(inv *pb.Invocation, bep *beppb.BuildEvent) {
+	inv.TargetPatterns = appendTargetPatterns(inv.TargetPatterns, bep)
 	if count := bazelRemoteCacheHits(bep); count != nil {
 		inv.BazelRemoteCacheHits = count
 	}
@@ -230,6 +243,30 @@ func applySummary(inv *pb.Invocation, bep *beppb.BuildEvent) {
 		}
 		inv.Role = metadata.Metadata["ROLE"]
 	}
+	if inv.InvocationGroup == "" {
+		inv.InvocationGroup = invocationGroupName(bep)
+	}
+}
+
+func appendTargetPatterns(patterns []string, bep *beppb.BuildEvent) []string {
+	add := func(id *beppb.BuildEventId) {
+		pattern := id.GetPattern()
+		if pattern == nil {
+			pattern = id.GetPatternSkipped()
+		}
+		for _, value := range pattern.GetPattern() {
+			if !slices.Contains(patterns, value) {
+				patterns = append(patterns, value)
+			}
+		}
+	}
+	add(bep.GetId())
+	if bep.GetStarted() != nil {
+		for _, child := range bep.GetChildren() {
+			add(child)
+		}
+	}
+	return patterns
 }
 
 // Track only tool streams, since lifecycle publishers may finish independently.
@@ -272,16 +309,46 @@ func (s *journalStorage) trackStreams(inv *pb.Invocation, event *pb.InvocationEv
 }
 
 func (s *journalStorage) List(_ context.Context) ([]*pb.Invocation, error) {
+	return s.list("")
+}
+
+func (s *journalStorage) ListByGroup(_ context.Context, group string) ([]*pb.Invocation, error) {
+	return s.list(group)
+}
+
+func (s *journalStorage) list(group string) ([]*pb.Invocation, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	var result []*pb.Invocation
 	for _, inv := range s.summaries {
-		result = append(result, proto.Clone(inv).(*pb.Invocation))
+		if group == "" || inv.InvocationGroup == group {
+			result = append(result, proto.Clone(inv).(*pb.Invocation))
+		}
 	}
 	sort.Slice(result, func(i, j int) bool {
+		if result[i].CreatedAt.AsTime().Equal(result[j].CreatedAt.AsTime()) {
+			return result[i].InvocationId < result[j].InvocationId
+		}
 		return result[i].CreatedAt.AsTime().After(result[j].CreatedAt.AsTime())
 	})
 	return result, nil
+}
+
+func (s *journalStorage) ListGroups(_ context.Context) ([]*pb.InvocationGroup, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	names := make(map[string]bool)
+	for _, inv := range s.summaries {
+		if name := inv.InvocationGroup; name != "" {
+			names[name] = true
+		}
+	}
+	var groups []*pb.InvocationGroup
+	for name := range names {
+		groups = append(groups, &pb.InvocationGroup{Name: name})
+	}
+	sort.Slice(groups, func(i, j int) bool { return groups[i].Name < groups[j].Name })
+	return groups, nil
 }
 
 func (s *journalStorage) Get(_ context.Context, id string) (*pb.Invocation, error) {

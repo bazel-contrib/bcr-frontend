@@ -18,6 +18,9 @@ type Storage interface {
 	Append(context.Context, *buildpb.OrderedBuildEvent, bool) (inserted bool, err error)
 	Get(context.Context, string) (*pb.Invocation, error)
 	List(context.Context) ([]*pb.Invocation, error)
+	ListByGroup(context.Context, string) ([]*pb.Invocation, error)
+	ListGroups(context.Context) ([]*pb.InvocationGroup, error)
+	GroupMetrics(context.Context, string) (*pb.InvocationGroupMetrics, error)
 	// Replay returns at most limit events in arrival order after the cursor.
 	// The returned cursor is the last event read, or the replay snapshot's
 	// high-water mark when the requested invocation has no more events.

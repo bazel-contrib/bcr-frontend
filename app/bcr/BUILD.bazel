@@ -350,6 +350,7 @@ closure_js_test(
     deps = [
         ":app",
         "@bazelapis//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_js_proto",
+        "@bazelapis//src/main/protobuf:failure_details_js_proto",
         "@stackb_rules_closure//closure/goog/testing:jsunit",
         "@stackb_rules_closure//closure/goog/testing:testsuite",
     ],

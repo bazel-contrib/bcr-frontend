@@ -40,6 +40,22 @@ impl InvocationClient {
         self.summary(Operation::List).await.map_err(js_error)
     }
 
+    pub async fn list_groups(&self) -> Result<String, JsError> {
+        self.summary(Operation::ListGroups).await.map_err(js_error)
+    }
+
+    pub async fn list_group(&self, name: String) -> Result<String, JsError> {
+        self.summary(Operation::ListGroup { name })
+            .await
+            .map_err(js_error)
+    }
+
+    pub async fn group_metrics(&self, name: String) -> Result<String, JsError> {
+        self.summary(Operation::GroupMetrics { name })
+            .await
+            .map_err(js_error)
+    }
+
     pub async fn get(&self, id: String) -> Result<String, JsError> {
         self.summary(Operation::Get { id }).await.map_err(js_error)
     }

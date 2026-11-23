@@ -11,7 +11,8 @@ use anyhow::{Context, Result, bail, ensure};
 use base64::{Engine, engine::general_purpose::URL_SAFE_NO_PAD};
 use clap::Parser;
 use invocation_iroh::{
-    ALPN, MAX_REQUEST, MAX_SUMMARY, Operation, Request, Ticket, valid_invocation_id,
+    ALPN, MAX_REQUEST, MAX_SUMMARY, Operation, Request, Ticket, valid_group_name,
+    valid_invocation_id,
 };
 use iroh::{
     Endpoint, RelayMap, RelayMode, RelayUrl, SecretKey,
@@ -115,6 +116,23 @@ impl ViewerApi {
                 || "/api/invocations".to_owned(),
                 |id| format!("/api/invocations/{id}"),
             ),
+            Operation::ListGroups
+            | Operation::ListGroup { .. }
+            | Operation::GroupMetrics { .. } => {
+                if self.scope.is_some() {
+                    return reply(send, 403, b"group queries require an unscoped ticket").await;
+                }
+                match &request.operation {
+                    Operation::ListGroup { name } if valid_group_name(name) => {
+                        format!("/api/invocations?group={name}")
+                    }
+                    Operation::GroupMetrics { name } if valid_group_name(name) => {
+                        format!("/api/invocation-groups/{name}/metrics")
+                    }
+                    Operation::ListGroups => "/api/invocation-groups".to_owned(),
+                    _ => return reply(send, 400, b"invalid invocation group name").await,
+                }
+            }
             Operation::Get { id } | Operation::Watch { id, .. } => {
                 if !valid_invocation_id(id) {
                     return reply(send, 400, b"invalid invocation ID").await;

@@ -1,5 +1,7 @@
 # Build event viewer POC
 
+For a persistent deployment, see [installing the backend and Iroh companion as systemd user services](../../tools/invocation-iroh/README.md#install-as-systemd-user-services).
+
 Start the backend from the repository root.
 
 ```sh
@@ -19,7 +21,11 @@ bazel run //app/bcr:release --//app/bcr:release_type=dummy
 Open `http://localhost:8080/tools/invocation`. Set the backend URL to
 `http://localhost:1974`. Use **Refresh saved runs**, select an invocation, and
 click **Replay and follow**. The timeline replays recorded events and continues
-to receive live events. Its event selector and filters also work for saved runs.
+to receive live events. Select a mark in **Build frontier** to inspect an event.
+
+The viewer adds `?invocation=<id>` to the URL when you open a run. Reloading
+replays that run with the backend remembered in the current tab. A shared
+link can be opened with a backend URL or Iroh ticket supplied by the reader.
 
 Publish a build to the backend.
 
@@ -36,17 +42,55 @@ Bazel using `--invocation_id=<uuid>`.
 The local file viewer remains available for binary files produced by
 `--build_event_binary_file=<path>`.
 
+## Invocation Groups
+
+Publish builds with a shared group name.
+
+```sh
+bazel build //cmd/besserver \
+  --bes_backend=grpc://localhost:1973 \
+  --build_metadata=igroup=release
+```
+
+Open `/tools/igroup?group=release` and connect to the backend. Leave the group
+name blank to browse existing groups. **Current** follows the newest active
+invocation through completion when newer builds arrive. The tab reads **Last**
+when the displayed run has finished. The **Runs** table shows the outcome, ID,
+command and targets, and recorded start or finish time. Select a row to replay
+it. Open **Runs** again to resume auto-follow after selecting a run.
+The group URL includes the selected invocation, so a reload restores it.
+
+Group tabs show all-time metrics:
+
+- **Build metrics** shows invocation counts and outcomes, success rate, and
+  average, median, and 95th-percentile duration for completed builds with timing.
+- **Cache** shows action cache hits, misses, errors, and the hit rate across
+  observed lookups. The rate is total hits divided by total hits plus misses.
+  Bazel-reported remote cache hits are available as a separate count.
+- **Tests** shows failed or timed-out results and groups Bazel's explicit
+  `FLAKY` results by target. Each invocation contributes its latest summary
+  per target and configuration. Detailed cache and test aggregates use SQLite.
+
+The first valid `igroup` value sets membership. Group names are case sensitive
+and use up to 128 ASCII letters, digits, dots, underscores, or hyphens, starting
+with a letter or digit. Membership is an analytics label independent of
+invocation ownership and visibility.
+
 ## APIs and storage
 
-The BES gRPC port also serves `InvocationService` with `ListInvocations`,
-`GetInvocation`, and `WatchInvocation`. Watch requests replay events after
-`after_cursor`, then follow new events until cancellation. The cursor identifies
-a position in the selected backend. BES sequence numbers belong to individual
-component streams.
+The BES gRPC port also serves `InvocationService` with `ListInvocationGroups`,
+`GetInvocationGroupMetrics`, `ListInvocations`, `GetInvocation`, and `WatchInvocation`. Pass
+`invocation_group` to `ListInvocations` to filter by group. Watch requests
+replay events after `after_cursor`, then follow new events until cancellation.
+The cursor identifies a position in the selected backend. BES sequence numbers
+belong to individual component streams.
 
 The browser uses these HTTP endpoints.
 
 - `GET /api/invocations` returns protobuf JSON invocation summaries.
+- `GET /api/invocation-groups` lists group names. Use `?group=release` on
+  `GET /api/invocations` to list one group's builds.
+- `GET /api/invocation-groups/{name}/metrics` returns group aggregates.
 - `GET /api/invocations/{id}` returns one protobuf JSON summary.
 - `GET /api/invocations/{id}/events` returns an SSE subscription.
 
@@ -56,6 +100,10 @@ the cursor for transport and lifecycle events. The browser automatically resumes
 using `Last-Event-ID`. A new connection can supply `?after=<cursor>`. Starting
 at zero replays the stored arrival order. Replay and live events use
 the same append lock and cursor, so subscribers cannot miss the transition.
+
+A `bep-time` event precedes each `bep` event. It carries the cursor, original
+receipt time, and server send time in milliseconds since the Unix epoch. The
+viewer uses the receipt time to preserve frontier waits across reloads.
 
 ### Storage design
 
@@ -72,12 +120,14 @@ acknowledgement order.
 [NativeLink BES server](https://raw.githubusercontent.com/TraceMachina/nativelink/main/nativelink-service/src/bep_server.rs)
 [NativeLink v1.7.6](https://github.com/TraceMachina/nativelink/releases/tag/v1.7.6)
 
-The [Storage interface](../../pkg/invocation/storage.go) provides five operations.
+The [Storage interface](../../pkg/invocation/storage.go) provides these operations.
 
 - `Append` commits the event and its projections before acknowledging ingestion.
   The identity is the request kind, invocation ID, build ID, component, and
   sequence number. Identical retries are no-ops and conflicting retries fail.
 - `Get` and `List` read invocation summaries independently of event replay.
+- `ListByGroup` and `ListGroups` read group membership and names.
+- `GroupMetrics` aggregates recorded data for one group.
 - `Replay` reads a bounded page for one invocation, ordered by arrival cursor.
   The service coordinates live wakeups with committed appends.
 - `Close` releases the backend.
@@ -89,10 +139,11 @@ replay require no startup scan. Existing journals can be reopened with
 
 ### Local analytics
 
-`invocations` holds repository, branch, commit, command, state, exit code, and
-duration. `test_attempts` preserves configuration, run, shard, retry number,
-status, cache flags, and duration. `test_summaries` holds Bazel's overall status
-per label and configuration. `build_metrics` includes CPU and wall time,
+`invocations` holds repository, branch, commit, command, state, exit code,
+duration, and the group name referenced by `invocation_group`. Join group members
+to facts through `invocation_id`. `test_attempts` preserves configuration, run,
+shard, retry number, status, cache flags, and duration. `test_summaries` holds
+Bazel's overall status per label and configuration. `build_metrics` includes CPU and wall time,
 analysis and execution time, actions executed, and Bazel's critical-path
 duration when supplied. Each fact points back to the source event cursor.
 

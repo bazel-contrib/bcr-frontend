@@ -10,6 +10,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -154,9 +155,10 @@ func checkBrowserReplayAndLive(t *testing.T, store *Store) {
 		t.Fatal("missing CORS header")
 	}
 	reader := bufio.NewReader(response.Body)
-	readEvent := func(wantID string) {
+	readEvent := func(wantID string) int64 {
 		t.Helper()
-		var id, payload string
+		var id, kind, payload string
+		var received int64
 		for {
 			line, err := reader.ReadString('\n')
 			if err != nil {
@@ -165,15 +167,32 @@ func checkBrowserReplayAndLive(t *testing.T, store *Store) {
 			if strings.HasPrefix(line, "id: ") {
 				id = strings.TrimSpace(strings.TrimPrefix(line, "id: "))
 			}
+			if strings.HasPrefix(line, "event: ") {
+				kind = strings.TrimSpace(strings.TrimPrefix(line, "event: "))
+			}
 			if strings.HasPrefix(line, "data: ") {
 				payload = strings.TrimSpace(strings.TrimPrefix(line, "data: "))
 			}
 			if line == "\n" && payload != "" {
+				if kind == "bep-time" {
+					fields := strings.Fields(payload)
+					if len(fields) != 3 || fields[0] != wantID || id != "" {
+						t.Fatalf("timing frame changed cursor or had invalid payload: %q %q", id, payload)
+					}
+					var parseErr error
+					received, parseErr = strconv.ParseInt(fields[1], 10, 64)
+					sent, sentErr := strconv.ParseInt(fields[2], 10, 64)
+					if parseErr != nil || sentErr != nil || received <= 0 || sent < received {
+						t.Fatalf("invalid event timing: %q", payload)
+					}
+					kind, payload = "", ""
+					continue
+				}
 				break
 			}
 		}
-		if id != wantID {
-			t.Fatalf("cursor %s, want %s", id, wantID)
+		if id != wantID || kind != "bep" || received == 0 {
+			t.Fatalf("BEP frame: cursor %s, kind %s, received %d, want cursor %s", id, kind, received, wantID)
 		}
 		data, err := base64.StdEncoding.DecodeString(payload)
 		if err != nil {
@@ -183,12 +202,13 @@ func checkBrowserReplayAndLive(t *testing.T, store *Store) {
 		if err := proto.Unmarshal(data, bep); err != nil || bep.GetStarted().GetCommand() != "test" {
 			t.Fatalf("browser payload: %v %v", bep, err)
 		}
+		return received
 	}
 	readEvent("1")
 	if err := store.Append(testEvent(t, 2), false); err != nil {
 		t.Fatal(err)
 	}
-	readEvent("2")
+	receipt := readEvent("2")
 	response.Body.Close()
 	req, _ = http.NewRequestWithContext(ctx, "GET", server.URL+"/api/invocations/invocation/events", nil)
 	req.Header.Set("Last-Event-ID", "1")
@@ -198,7 +218,9 @@ func checkBrowserReplayAndLive(t *testing.T, store *Store) {
 	}
 	defer response.Body.Close()
 	reader = bufio.NewReader(response.Body)
-	readEvent("2")
+	if replayed := readEvent("2"); replayed != receipt {
+		t.Fatalf("replay receipt changed: got %d, want %d", replayed, receipt)
+	}
 	req, _ = http.NewRequestWithContext(ctx, "GET", server.URL+"/api/invocations", nil)
 	req.Header.Set("Origin", "https://unrelated.example")
 	denied, err := http.DefaultClient.Do(req)

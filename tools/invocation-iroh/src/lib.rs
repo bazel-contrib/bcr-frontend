@@ -46,8 +46,22 @@ pub struct Request {
 #[derive(Serialize, Deserialize)]
 pub enum Operation {
     List,
+    ListGroups,
+    ListGroup { name: String },
+    GroupMetrics { name: String },
     Get { id: String },
     Watch { id: String, after: u64 },
+}
+
+pub fn valid_group_name(name: &str) -> bool {
+    name.len() <= 128
+        && name
+            .as_bytes()
+            .first()
+            .is_some_and(u8::is_ascii_alphanumeric)
+        && name
+            .bytes()
+            .all(|c| c.is_ascii_alphanumeric() || matches!(c, b'.' | b'_' | b'-'))
 }
 
 pub fn valid_invocation_id(id: &str) -> bool {

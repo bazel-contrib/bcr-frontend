@@ -3,6 +3,7 @@ load("@rules_go//go:def.bzl", "go_library", "go_test")
 go_library(
     name = "invocation",
     srcs = [
+        "group_metrics.go",
         "http.go",
         "service.go",
         "sqlite.go",
@@ -40,5 +41,6 @@ go_test(
         "@org_golang_google_grpc//test/bufconn",
         "@org_golang_google_protobuf//proto",
         "@org_golang_google_protobuf//types/known/anypb",
+        "@org_golang_google_protobuf//types/known/timestamppb",
     ],
 )

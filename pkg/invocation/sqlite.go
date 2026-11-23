@@ -109,6 +109,13 @@ CREATE TABLE remote_cache_metrics (
 PRAGMA user_version = 2;
 `
 
+const sqliteGroupSchema = `
+CREATE TABLE invocation_groups (name TEXT PRIMARY KEY NOT NULL);
+ALTER TABLE invocations ADD COLUMN invocation_group TEXT REFERENCES invocation_groups(name);
+CREATE INDEX invocations_group_created ON invocations(invocation_group, created_us DESC, id);
+PRAGMA user_version = 3;
+`
+
 type sqliteStorage struct {
 	db   *sql.DB
 	lock *os.File
@@ -193,11 +200,132 @@ func (s *sqliteStorage) initialize(ctx context.Context) error {
 				return err
 			}
 		}
+		fallthrough
 	case 2:
+		if _, err := tx.ExecContext(ctx, sqliteGroupSchema); err != nil {
+			return err
+		}
+		fallthrough
+	case 3:
+		if version != 0 {
+			if err := backfillInvocationSummaries(ctx, tx, version < 3); err != nil {
+				return err
+			}
+		}
+		if _, err := tx.ExecContext(ctx, "PRAGMA user_version = 4"); err != nil {
+			return err
+		}
+		fallthrough
+	case 4:
+		if _, err := tx.ExecContext(ctx, "ALTER TABLE invocations ADD COLUMN exit_code_name TEXT"); err != nil {
+			return err
+		}
+		if err := backfillExitCodeNames(ctx, tx); err != nil {
+			return err
+		}
+		if _, err := tx.ExecContext(ctx, "PRAGMA user_version = 5"); err != nil {
+			return err
+		}
+	case 5:
 	default:
 		return fmt.Errorf("unsupported invocation database schema version %d", version)
 	}
 	return tx.Commit()
+}
+
+func backfillExitCodeNames(ctx context.Context, tx *sql.Tx) error {
+	rows, err := tx.QueryContext(ctx, "SELECT summary FROM invocations WHERE exit_code IS NOT NULL")
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	names := make(map[string]string)
+	for rows.Next() {
+		inv, err := scanInvocation(rows)
+		if err != nil {
+			return err
+		}
+		if name := inv.GetResult().GetExitCodeName(); name != "" {
+			names[inv.GetInvocationId()] = name
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return err
+	}
+	if err := rows.Close(); err != nil {
+		return err
+	}
+	for id, name := range names {
+		if _, err := tx.ExecContext(ctx, "UPDATE invocations SET exit_code_name = ? WHERE id = ?", name, id); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func backfillInvocationSummaries(ctx context.Context, tx *sql.Tx, backfillGroups bool) error {
+	rows, err := tx.QueryContext(ctx, `SELECT invocation_id, payload FROM events
+		WHERE invocation_id != '' ORDER BY cursor`)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	type projection struct {
+		group   string
+		targets []string
+	}
+	projections := make(map[string]projection)
+	for rows.Next() {
+		var id string
+		var data []byte
+		if err := rows.Scan(&id, &data); err != nil {
+			return err
+		}
+		var event pb.InvocationEvent
+		if err := proto.Unmarshal(data, &event); err != nil {
+			return err
+		}
+		bep := decodeBEP(event.GetOrderedEvent())
+		current := projections[id]
+		if backfillGroups && current.group == "" {
+			current.group = invocationGroupName(bep)
+		}
+		current.targets = appendTargetPatterns(current.targets, bep)
+		if current.group != "" || len(current.targets) > 0 {
+			projections[id] = current
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return err
+	}
+	for id, projection := range projections {
+		inv, err := scanInvocation(tx.QueryRowContext(ctx, "SELECT summary FROM invocations WHERE id = ?", id))
+		if err != nil {
+			return err
+		}
+		if projection.group != "" {
+			inv.InvocationGroup = projection.group
+			if err := ensureInvocationGroup(ctx, tx, projection.group); err != nil {
+				return err
+			}
+		}
+		if len(projection.targets) > 0 {
+			inv.TargetPatterns = projection.targets
+		}
+		data, err := proto.Marshal(inv)
+		if err != nil {
+			return err
+		}
+		if _, err := tx.ExecContext(ctx, "UPDATE invocations SET invocation_group = NULLIF(?, ''), summary = ? WHERE id = ?", inv.InvocationGroup, data, id); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func ensureInvocationGroup(ctx context.Context, tx *sql.Tx, name string) error {
+	_, err := tx.ExecContext(ctx, "INSERT INTO invocation_groups (name) VALUES (?) ON CONFLICT DO NOTHING", name)
+	return err
 }
 
 func backfillBazelCacheHits(ctx context.Context, tx *sql.Tx) error {
@@ -371,7 +499,13 @@ func updateSQLiteSummary(ctx context.Context, tx *sql.Tx, event *pb.InvocationEv
 			return err
 		}
 	}
+	previousGroup := inv.InvocationGroup
 	applySummary(inv, bep)
+	if inv.InvocationGroup != previousGroup {
+		if err := ensureInvocationGroup(ctx, tx, inv.InvocationGroup); err != nil {
+			return err
+		}
+	}
 	var exitCode, duration any
 	if inv.Result != nil && inv.Result.ExitCode != nil {
 		exitCode = inv.Result.GetExitCode()
@@ -384,14 +518,16 @@ func updateSQLiteSummary(ctx context.Context, tx *sql.Tx, event *pb.InvocationEv
 		return err
 	}
 	_, err = tx.ExecContext(ctx, `INSERT INTO invocations
-		(id, created_us, repo, branch, commit_sha, command, state, exit_code, duration_ms, summary)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		(id, created_us, repo, branch, commit_sha, command, state, exit_code, exit_code_name, duration_ms, summary, invocation_group)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULLIF(?, ''), ?, ?, NULLIF(?, ''))
 		ON CONFLICT(id) DO UPDATE SET repo=excluded.repo, branch=excluded.branch,
 		commit_sha=excluded.commit_sha, command=excluded.command, state=excluded.state,
-		exit_code=excluded.exit_code, duration_ms=excluded.duration_ms, summary=excluded.summary`,
+		exit_code=excluded.exit_code, exit_code_name=excluded.exit_code_name,
+		duration_ms=excluded.duration_ms, summary=excluded.summary,
+		invocation_group=excluded.invocation_group`,
 		inv.InvocationId, inv.CreatedAt.AsTime().UnixMicro(), inv.SourceControl.GetRepositoryUrl(),
 		inv.SourceControl.GetBranch(), inv.SourceControl.GetCommitSha(), inv.Command,
-		inv.State, exitCode, duration, summary)
+		inv.State, exitCode, inv.GetResult().GetExitCodeName(), duration, summary, inv.InvocationGroup)
 	return err
 }
 
@@ -489,7 +625,19 @@ func (s *sqliteStorage) Get(ctx context.Context, id string) (*pb.Invocation, err
 }
 
 func (s *sqliteStorage) List(ctx context.Context) ([]*pb.Invocation, error) {
-	rows, err := s.db.QueryContext(ctx, "SELECT summary FROM invocations ORDER BY created_us DESC, id")
+	return listSQLiteInvocations(ctx, s.db, "SELECT summary FROM invocations ORDER BY created_us DESC, id")
+}
+
+const sqliteInvocationsByGroup = "SELECT summary FROM invocations WHERE invocation_group = ? ORDER BY created_us DESC, id"
+
+func (s *sqliteStorage) ListByGroup(ctx context.Context, group string) ([]*pb.Invocation, error) {
+	return listSQLiteInvocations(ctx, s.db, sqliteInvocationsByGroup, group)
+}
+
+func listSQLiteInvocations(ctx context.Context, reader interface {
+	QueryContext(context.Context, string, ...any) (*sql.Rows, error)
+}, query string, args ...any) ([]*pb.Invocation, error) {
+	rows, err := reader.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -503,6 +651,23 @@ func (s *sqliteStorage) List(ctx context.Context) ([]*pb.Invocation, error) {
 		invocations = append(invocations, inv)
 	}
 	return invocations, rows.Err()
+}
+
+func (s *sqliteStorage) ListGroups(ctx context.Context) ([]*pb.InvocationGroup, error) {
+	rows, err := s.db.QueryContext(ctx, "SELECT name FROM invocation_groups ORDER BY name")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var groups []*pb.InvocationGroup
+	for rows.Next() {
+		group := new(pb.InvocationGroup)
+		if err := rows.Scan(&group.Name); err != nil {
+			return nil, err
+		}
+		groups = append(groups, group)
+	}
+	return groups, rows.Err()
 }
 
 func (s *sqliteStorage) Replay(ctx context.Context, id string, after uint64, limit int) ([]*pb.InvocationEvent, uint64, error) {

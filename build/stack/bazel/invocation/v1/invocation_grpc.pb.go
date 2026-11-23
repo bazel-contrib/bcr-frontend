@@ -19,17 +19,24 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	InvocationService_ListInvocations_FullMethodName = "/build.stack.bazel.invocation.v1.InvocationService/ListInvocations"
-	InvocationService_GetInvocation_FullMethodName   = "/build.stack.bazel.invocation.v1.InvocationService/GetInvocation"
-	InvocationService_WatchInvocation_FullMethodName = "/build.stack.bazel.invocation.v1.InvocationService/WatchInvocation"
+	InvocationService_ListInvocationGroups_FullMethodName      = "/build.stack.bazel.invocation.v1.InvocationService/ListInvocationGroups"
+	InvocationService_GetInvocationGroupMetrics_FullMethodName = "/build.stack.bazel.invocation.v1.InvocationService/GetInvocationGroupMetrics"
+	InvocationService_ListInvocations_FullMethodName           = "/build.stack.bazel.invocation.v1.InvocationService/ListInvocations"
+	InvocationService_GetInvocation_FullMethodName             = "/build.stack.bazel.invocation.v1.InvocationService/GetInvocation"
+	InvocationService_WatchInvocation_FullMethodName           = "/build.stack.bazel.invocation.v1.InvocationService/WatchInvocation"
 )
 
 // InvocationServiceClient is the client API for InvocationService service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+//
+// Query and follow invocations accepted by this server.
 type InvocationServiceClient interface {
+	ListInvocationGroups(ctx context.Context, in *ListInvocationGroupsRequest, opts ...grpc.CallOption) (*ListInvocationGroupsResponse, error)
+	GetInvocationGroupMetrics(ctx context.Context, in *GetInvocationGroupMetricsRequest, opts ...grpc.CallOption) (*InvocationGroupMetrics, error)
 	ListInvocations(ctx context.Context, in *ListInvocationsRequest, opts ...grpc.CallOption) (*ListInvocationsResponse, error)
 	GetInvocation(ctx context.Context, in *GetInvocationRequest, opts ...grpc.CallOption) (*Invocation, error)
+	// Replays events after the cursor, then follows newly accepted events.
 	WatchInvocation(ctx context.Context, in *WatchInvocationRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[InvocationEvent], error)
 }
 
@@ -39,6 +46,26 @@ type invocationServiceClient struct {
 
 func NewInvocationServiceClient(cc grpc.ClientConnInterface) InvocationServiceClient {
 	return &invocationServiceClient{cc}
+}
+
+func (c *invocationServiceClient) ListInvocationGroups(ctx context.Context, in *ListInvocationGroupsRequest, opts ...grpc.CallOption) (*ListInvocationGroupsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListInvocationGroupsResponse)
+	err := c.cc.Invoke(ctx, InvocationService_ListInvocationGroups_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *invocationServiceClient) GetInvocationGroupMetrics(ctx context.Context, in *GetInvocationGroupMetricsRequest, opts ...grpc.CallOption) (*InvocationGroupMetrics, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(InvocationGroupMetrics)
+	err := c.cc.Invoke(ctx, InvocationService_GetInvocationGroupMetrics_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 func (c *invocationServiceClient) ListInvocations(ctx context.Context, in *ListInvocationsRequest, opts ...grpc.CallOption) (*ListInvocationsResponse, error) {
@@ -83,9 +110,14 @@ type InvocationService_WatchInvocationClient = grpc.ServerStreamingClient[Invoca
 // InvocationServiceServer is the server API for InvocationService service.
 // All implementations must embed UnimplementedInvocationServiceServer
 // for forward compatibility.
+//
+// Query and follow invocations accepted by this server.
 type InvocationServiceServer interface {
+	ListInvocationGroups(context.Context, *ListInvocationGroupsRequest) (*ListInvocationGroupsResponse, error)
+	GetInvocationGroupMetrics(context.Context, *GetInvocationGroupMetricsRequest) (*InvocationGroupMetrics, error)
 	ListInvocations(context.Context, *ListInvocationsRequest) (*ListInvocationsResponse, error)
 	GetInvocation(context.Context, *GetInvocationRequest) (*Invocation, error)
+	// Replays events after the cursor, then follows newly accepted events.
 	WatchInvocation(*WatchInvocationRequest, grpc.ServerStreamingServer[InvocationEvent]) error
 	mustEmbedUnimplementedInvocationServiceServer()
 }
@@ -97,6 +129,12 @@ type InvocationServiceServer interface {
 // pointer dereference when methods are called.
 type UnimplementedInvocationServiceServer struct{}
 
+func (UnimplementedInvocationServiceServer) ListInvocationGroups(context.Context, *ListInvocationGroupsRequest) (*ListInvocationGroupsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListInvocationGroups not implemented")
+}
+func (UnimplementedInvocationServiceServer) GetInvocationGroupMetrics(context.Context, *GetInvocationGroupMetricsRequest) (*InvocationGroupMetrics, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetInvocationGroupMetrics not implemented")
+}
 func (UnimplementedInvocationServiceServer) ListInvocations(context.Context, *ListInvocationsRequest) (*ListInvocationsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListInvocations not implemented")
 }
@@ -125,6 +163,42 @@ func RegisterInvocationServiceServer(s grpc.ServiceRegistrar, srv InvocationServ
 		t.testEmbeddedByValue()
 	}
 	s.RegisterService(&InvocationService_ServiceDesc, srv)
+}
+
+func _InvocationService_ListInvocationGroups_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListInvocationGroupsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(InvocationServiceServer).ListInvocationGroups(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: InvocationService_ListInvocationGroups_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(InvocationServiceServer).ListInvocationGroups(ctx, req.(*ListInvocationGroupsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _InvocationService_GetInvocationGroupMetrics_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetInvocationGroupMetricsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(InvocationServiceServer).GetInvocationGroupMetrics(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: InvocationService_GetInvocationGroupMetrics_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(InvocationServiceServer).GetInvocationGroupMetrics(ctx, req.(*GetInvocationGroupMetricsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _InvocationService_ListInvocations_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -181,6 +255,14 @@ var InvocationService_ServiceDesc = grpc.ServiceDesc{
 	ServiceName: "build.stack.bazel.invocation.v1.InvocationService",
 	HandlerType: (*InvocationServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "ListInvocationGroups",
+			Handler:    _InvocationService_ListInvocationGroups_Handler,
+		},
+		{
+			MethodName: "GetInvocationGroupMetrics",
+			Handler:    _InvocationService_GetInvocationGroupMetrics_Handler,
+		},
 		{
 			MethodName: "ListInvocations",
 			Handler:    _InvocationService_ListInvocations_Handler,

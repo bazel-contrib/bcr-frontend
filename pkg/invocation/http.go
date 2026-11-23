@@ -11,43 +11,28 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/proto"
 )
 
 // Handler exposes the local POC browser API. The configured origin permits a
 // separately served BCR frontend. Authentication and tenant filtering are future work.
 func (s *Store) Handler(origin string) http.Handler {
 	mux := http.NewServeMux()
+	mux.HandleFunc("GET /api/invocation-groups", func(w http.ResponseWriter, r *http.Request) {
+		result, err := s.ListInvocationGroups(r.Context(), &pb.ListInvocationGroupsRequest{})
+		writeInvocationJSON(w, result, err)
+	})
+	mux.HandleFunc("GET /api/invocation-groups/{name}/metrics", func(w http.ResponseWriter, r *http.Request) {
+		result, err := s.GetInvocationGroupMetrics(r.Context(), &pb.GetInvocationGroupMetricsRequest{InvocationGroup: r.PathValue("name")})
+		writeInvocationJSON(w, result, err)
+	})
 	mux.HandleFunc("GET /api/invocations", func(w http.ResponseWriter, r *http.Request) {
-		result, err := s.ListInvocations(r.Context(), &pb.ListInvocationsRequest{})
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-		data, err := protojson.Marshal(result)
-		if err != nil {
-			http.Error(w, err.Error(), 500)
-			return
-		}
-		w.Header().Set("Content-Type", "application/json")
-		w.Write(data)
+		result, err := s.ListInvocations(r.Context(), &pb.ListInvocationsRequest{InvocationGroup: r.URL.Query().Get("group")})
+		writeInvocationJSON(w, result, err)
 	})
 	mux.HandleFunc("GET /api/invocations/{id}", func(w http.ResponseWriter, r *http.Request) {
 		result, err := s.GetInvocation(r.Context(), &pb.GetInvocationRequest{InvocationId: r.PathValue("id")})
-		if err != nil {
-			code := http.StatusInternalServerError
-			if status.Code(err) == codes.NotFound {
-				code = http.StatusNotFound
-			}
-			http.Error(w, err.Error(), code)
-			return
-		}
-		data, err := protojson.Marshal(result)
-		if err != nil {
-			http.Error(w, err.Error(), 500)
-			return
-		}
-		w.Header().Set("Content-Type", "application/json")
-		w.Write(data)
+		writeInvocationJSON(w, result, err)
 	})
 	mux.HandleFunc("GET /api/invocations/{id}/events", s.serveEvents)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -61,6 +46,28 @@ func (s *Store) Handler(origin string) http.Handler {
 		}
 		mux.ServeHTTP(w, r)
 	})
+}
+
+func writeInvocationJSON(w http.ResponseWriter, result proto.Message, err error) {
+	if err != nil {
+		code := http.StatusInternalServerError
+		switch status.Code(err) {
+		case codes.InvalidArgument:
+			code = http.StatusBadRequest
+		case codes.NotFound:
+			code = http.StatusNotFound
+		}
+		http.Error(w, err.Error(), code)
+		return
+	}
+	data, err := protojson.Marshal(result)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", "no-store")
+	w.Write(data)
 }
 
 func (s *Store) serveEvents(w http.ResponseWriter, r *http.Request) {
@@ -107,11 +114,14 @@ func (s *Store) serveEvents(w http.ResponseWriter, r *http.Request) {
 	defer heartbeat.Stop()
 	for {
 		for _, event := range events {
-			kind, data := "update", ""
+			kind, data, timing := "update", "", ""
 			if payload := event.OrderedEvent.Event.GetBazelEvent(); payload != nil {
 				kind, data = "bep", base64.StdEncoding.EncodeToString(payload.Value)
+				// A separate event preserves the base64 payload and replay cursor for older viewers.
+				timing = fmt.Sprintf("event: bep-time\ndata: %d %d %d\n\n",
+					event.Cursor, event.ReceivedAt.AsTime().UnixMilli(), time.Now().UnixMilli())
 			}
-			if err := write(fmt.Sprintf("id: %d\nevent: %s\ndata: %s\n\n", event.Cursor, kind, data)); err != nil {
+			if err := write(fmt.Sprintf("%sid: %d\nevent: %s\ndata: %s\n\n", timing, event.Cursor, kind, data)); err != nil {
 				return
 			}
 		}

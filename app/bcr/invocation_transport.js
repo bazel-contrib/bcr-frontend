@@ -1,12 +1,15 @@
 goog.module("bcrfrontend.invocationTransport");
 
-/** @typedef {function(string, string):void} */
+/** @typedef {function(string, string, number=, number=):void} */
 let EventCallback;
 
 /** @typedef {function(string, boolean, boolean=):void} */
 let StatusCallback;
 
 /** @typedef {{list: function(): !Promise<!Object<string, *>>,
+ *     listGroups: function(): !Promise<!Object<string, *>>,
+ *     listGroup: function(string): !Promise<!Object<string, *>>,
+ *     groupMetrics: function(string): !Promise<!Object<string, *>>,
  *     get: function(string): !Promise<!Object<string, *>>,
  *     watch: function(string, function():string, !EventCallback, !StatusCallback):void,
  *     close: function():void}} */
@@ -47,6 +50,9 @@ async function openInvocationBackend(address) {
 		const external = factory(address);
 		return {
 			list: /** @type {function():!Promise<!Object<string, *>>} */ (external["list"]),
+			listGroups: /** @type {function():!Promise<!Object<string, *>>} */ (external["listGroups"]),
+			listGroup: /** @type {function(string):!Promise<!Object<string, *>>} */ (external["listGroup"]),
+			groupMetrics: /** @type {function(string):!Promise<!Object<string, *>>} */ (external["groupMetrics"]),
 			get: /** @type {function(string):!Promise<!Object<string, *>>} */ (external["get"]),
 			watch: /** @type {function(string, function():string, !EventCallback, !StatusCallback):void} */ (external["watch"]),
 			close: /** @type {function():void} */ (external["close"]),
@@ -56,7 +62,8 @@ async function openInvocationBackend(address) {
 	if (url.protocol !== "http:" && url.protocol !== "https:") {
 		throw new Error("Enter an HTTP or HTTPS backend URL or an Iroh viewer ticket.");
 	}
-	const base = url.href.replace(/\/$/, "") + "/api/invocations";
+	const api = url.href.replace(/\/$/, "") + "/api";
+	const base = api + "/invocations";
 	/** @type {?EventSource} */
 	let source = null;
 	/**
@@ -64,7 +71,7 @@ async function openInvocationBackend(address) {
 	 * @return {!Promise<!Object<string, *>>}
 	 */
 	async function read(path) {
-		const response = await fetch(base + path);
+		const response = await fetch(api + path);
 		if (!response.ok) throw new Error("Backend returned HTTP " + response.status);
 		return /** @type {!Object<string, *>} */ (await response.json());
 	}
@@ -83,14 +90,28 @@ async function openInvocationBackend(address) {
 			onStatus(closed ? "Could not open the invocation stream."
 				: "Connection interrupted · reconnecting from the last event", false, closed);
 		};
+		/** @type {string} */
+		let timing = "";
+		stream.addEventListener("bep-time", (event) => {
+			timing = String(/** @type {!MessageEvent<string>} */ (event).data);
+		});
 		stream.addEventListener("bep", (event) => {
 			const message = /** @type {!MessageEvent<string>} */ (event);
-			onEvent(message.lastEventId, message.data);
+			const fields = timing.split(" ");
+			timing = "";
+			if (fields[0] === message.lastEventId) {
+				onEvent(message.lastEventId, message.data, Number(fields[1]), Number(fields[2]));
+			} else {
+				onEvent(message.lastEventId, message.data);
+			}
 		});
 	}
 	return {
-		list: () => read(""),
-		get: (/** string */ id) => read("/" + encodeURIComponent(id)),
+		list: () => read("/invocations"),
+		listGroups: () => read("/invocation-groups"),
+		listGroup: (/** string */ name) => read("/invocations?group=" + encodeURIComponent(name)),
+		groupMetrics: (/** string */ name) => read("/invocation-groups/" + encodeURIComponent(name) + "/metrics"),
+		get: (/** string */ id) => read("/invocations/" + encodeURIComponent(id)),
 		watch: watch,
 		close: () => {
 			if (source) source.close();

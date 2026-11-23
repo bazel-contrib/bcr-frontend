@@ -1,0 +1,27 @@
+[Unit]
+Description=Iroh companion for the Bazel invocation server
+Requires=bcr-besserver.service
+After=bcr-besserver.service
+PartOf=bcr-besserver.service
+
+[Service]
+Type=exec
+Environment=BCR_INVOCATION_HTTP_PORT=1974
+Environment=BCR_IROH_TTL_SECONDS=86400
+EnvironmentFile=-%E/bcr-invocation-observer/environment
+StateDirectory=bcr-invocation-observer
+StateDirectoryMode=0700
+RuntimeDirectory=bcr-invocation-iroh
+RuntimeDirectoryMode=0700
+UMask=0077
+ExecStart=/bin/sh -c 'exec "$${XDG_DATA_HOME:-$$HOME/.local/share}/bcr-invocation-observer/current/invocation-iroh" "$$@"' bcr-invocation-iroh --backend-port=${BCR_INVOCATION_HTTP_PORT} --key-file=${STATE_DIRECTORY}/iroh.key --ttl-seconds=${BCR_IROH_TTL_SECONDS} $BCR_IROH_ARGS
+StandardOutput=truncate:%t/bcr-invocation-iroh/connection
+StandardError=journal
+KillSignal=SIGINT
+TimeoutStopSec=15s
+RuntimeMaxSec=1d
+Restart=always
+RestartSec=5s
+
+[Install]
+WantedBy=default.target

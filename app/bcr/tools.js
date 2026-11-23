@@ -3,6 +3,8 @@
  */
 goog.module("bcrfrontend.tools");
 
+const Aborted = goog.require("proto.build_event_stream.Aborted");
+const BazelFlagDb = goog.require("proto.build.stack.bazel.help.v1.BazelFlagDb");
 const BuildEvent = goog.require("proto.build_event_stream.BuildEvent");
 const BuildEventId = goog.require("proto.build_event_stream.BuildEventId");
 const BuildMetrics = goog.require("proto.build_event_stream.BuildMetrics");
@@ -19,13 +21,14 @@ const { getApplication } = goog.require("bcrfrontend.common");
 const { InvocationBackend, openInvocationBackend } = goog.require("bcrfrontend.invocationTransport");
 const {
 	eventStatusIcon,
+	invocationGroups,
+	invocationResultGlyph,
 	invocationViewer,
-	timelinePlayIcon,
 	toolsCatalog,
 	toolsSelect,
 } = goog.require("soy.bcrfrontend.tools");
 
-const EventHandler = goog.require("goog.events.EventHandler");
+const EventHandler = goog.requireType("goog.events.EventHandler");
 const base64 = goog.require("goog.crypt.base64");
 
 const MAX_FILE_BYTES = 256 * 1024 * 1024;
@@ -172,24 +175,6 @@ function payloadCaseColor(payloadCase) {
 	}
 }
 
-/**
- * @param {number} payloadCase
- * @return {string}
- */
-function payloadCaseTextColor(payloadCase) {
-	switch (payloadCase) {
-		case BuildEvent.PayloadCase.ACTION:
-		case BuildEvent.PayloadCase.BUILD_METRICS:
-		case BuildEvent.PayloadCase.BUILD_METADATA:
-		case BuildEvent.PayloadCase.FINISHED:
-		case BuildEvent.PayloadCase.WORKSPACE_STATUS:
-		case BuildEvent.PayloadCase.WORKSPACE_INFO:
-			return "#ffffff";
-		default:
-			return "#111111";
-	}
-}
-
 /** Bezel action palette, grouped by color.
  * @const {!Array<!Array<string>>}
  */
@@ -288,7 +273,8 @@ const EXPECTED_PAYLOADS = new Map([
 const TERMINAL_LIMIT = 64 * 1024;
 
 /** @typedef {{id: ?BuildEventId, event: ?BuildEvent, index: number,
- *     pendingIndex: number, parents: !Array<!FrontierMark>,
+ *     announcedAt: ?number,
+ *     parents: !Array<!FrontierMark>,
  *     children: !Array<!FrontierMark>, color: string}} */
 let FrontierMark;
 
@@ -327,6 +313,12 @@ class InvocationProgress {
 		this.toolLogs = null;
 		/** @const {!Array<!BuildEvent>} */
 		this.tests = [];
+		/** @const {!Map<string, {count: number, color: string}>} */
+		this.mnemonics = new Map();
+		this.receivedActions = 0;
+		/** @private */ this.serverNow_ = 0;
+		/** @private */ this.serverObservedAt_ = 0;
+		/** @private @type {?number} */ this.frontierEndedAt_ = null;
 		/** @const {!Array<string>} */
 		this.logChunks = [];
 		this.log = "";
@@ -346,7 +338,7 @@ class InvocationProgress {
 			id,
 			event: null,
 			index: -1,
-			pendingIndex: -1,
+			announcedAt: null,
 			parents: [],
 			children: [],
 			color: payloadCaseColor(id ? EXPECTED_PAYLOADS.get(id.getIdCase()) || 0 : 0),
@@ -355,8 +347,12 @@ class InvocationProgress {
 		return mark;
 	}
 
-	/** @param {!BuildEvent} event */
-	add(event) {
+	/**
+	 * @param {!BuildEvent} event
+	 * @param {?number=} receivedAt
+	 * @param {number=} sentAt
+	 */
+	add(event, receivedAt = null, sentAt = 0) {
 		const id = event.getId() || null;
 		const mark = this.mark_(id);
 		if (mark.event) return;
@@ -365,7 +361,22 @@ class InvocationProgress {
 		mark.index = this.history.length;
 		mark.color = eventMarkColor(event);
 		this.history.push(mark);
-		if (event.getLastMessage()) this.last = mark;
+		const action = event.getAction();
+		if (action) {
+			const mnemonic = action.getType();
+			const tally = this.mnemonics.get(mnemonic);
+			if (tally) tally.count++;
+			else this.mnemonics.set(mnemonic, {count: 1, color: mark.color});
+			this.receivedActions++;
+		}
+		if (sentAt > 0 && Number.isFinite(sentAt)) {
+			this.serverNow_ = sentAt;
+			this.serverObservedAt_ = performance.now();
+		}
+		if (event.getLastMessage()) {
+			this.last = mark;
+			this.frontierEndedAt_ = receivedAt;
+		}
 
 		// A child may be announced by several parents or already have arrived.
 		const children = new Set();
@@ -376,7 +387,10 @@ class InvocationProgress {
 			children.add(child);
 			mark.children.push(child);
 			child.parents.push(mark);
-			if (!child.event) this.pending.set(frontierId(childId), child);
+			if (!child.event) {
+				if (child.announcedAt === null) child.announcedAt = receivedAt;
+				this.pending.set(frontierId(childId), child);
+			}
 			if (event.hasStarted()) this.addTargetPattern_(childId);
 		}
 		if (id) this.addTargetPattern_(id);
@@ -426,6 +440,13 @@ class InvocationProgress {
 				(/** string */ value, /** string */ key) => this.addMetadata_(key, value),
 			);
 		}
+	}
+
+	/** @return {number} */
+	frontierNow() {
+		return this.frontierEndedAt_ ?? (this.serverNow_
+			? this.serverNow_ + performance.now() - this.serverObservedAt_
+			: Date.now());
 	}
 
 	/**
@@ -501,6 +522,103 @@ function eventOutcome(event) {
 		default:
 			return null;
 	}
+}
+
+/** @typedef {{context: string, message: string}} */
+let InvocationFailure;
+
+/**
+ * @param {string} message
+ * @return {string}
+ */
+function cleanFailureMessage(message) {
+	const limit = 3000;
+	const text = formatTerminalText(renderTerminalText(message.slice(0, limit)).textContent || "").trim();
+	return message.length > limit ? text + "\n…" : text;
+}
+
+/**
+ * Find a specific compiler, linker, or runtime diagnostic before falling back
+ * to Bazel's ERROR announcement. Prefer the log block for the failed action.
+ * @param {string} log
+ * @param {string} label
+ * @param {string=} detail
+ * @return {string}
+ */
+function consoleFailure(log, label, detail = "") {
+	const lines = formatTerminalText(renderTerminalText(log).textContent || "").split("\n");
+	const diagnostic = /^\s*(?:fatal )?error(?:\[[\w-]+\])?:\s|:\s+(?:fatal )?error(?:\[[\w-]+\])?:\s|\bundefined reference to\b|^panic:/;
+	const matchingAction = label ? lines.findIndex((line) =>
+		line.startsWith("ERROR:") && line.includes(label + " failed")) : -1;
+	if (matchingAction >= 0) {
+		let firstOutput = "";
+		for (let i = matchingAction + 1; i < lines.length; i++) {
+			const line = lines[i];
+			if (/^(?:ERROR|INFO|WARNING|FAILED):/.test(line)) break;
+			if (diagnostic.test(line)) return cleanFailureMessage(line);
+			const text = line.trim();
+			if (!firstOutput && text !== label && text !== "@" + label) firstOutput = text;
+		}
+		if (firstOutput) return cleanFailureMessage(firstOutput);
+	}
+	const specific = lines.find((line) => !line.startsWith("ERROR:") && diagnostic.test(line));
+	const bazelError = lines.find((line) =>
+		line.startsWith("ERROR:") && !/^ERROR: Build did not complete successfully/i.test(line));
+	return cleanFailureMessage(specific || detail || bazelError || "");
+}
+
+/**
+ * @param {!InvocationProgress} progress
+ * @return {?InvocationFailure}
+ */
+function invocationFailure(progress) {
+	const finished = progress.finished?.getFinished();
+	if (!finished) return null;
+	const exit = finished.getExitCode();
+	if (exit ? exit.getCode() === 0 : !finished.hasFailureDetail()) return null;
+	const detail = finished.getFailureDetail()?.getMessage() || "";
+	const fallback = exit ? "Bazel exited with " +
+		(exit.getName() ? exit.getName() + " (" + exit.getCode() + ")" : "code " + exit.getCode()) + "."
+		: "Bazel reported a build failure.";
+
+	const actionMark = progress.history.find((mark) =>
+		mark.event && mark.event.hasAction() && eventOutcome(mark.event) === false);
+	const action = actionMark?.event?.getAction();
+	if (action) {
+		const actionId = actionMark?.id?.getActionCompleted();
+		const label = actionId?.getLabel() || "";
+		const subject = label || actionId?.getPrimaryOutput() || "";
+		const context = [action.getType(), subject].filter(Boolean).join(" · ");
+		const stderr = action.getStderr()?.getContents_asU8();
+		const inlineError = stderr && stderr.length
+			? cleanFailureMessage(new TextDecoder().decode(stderr.subarray(0, 12000))) : "";
+		return {context, message: inlineError ||
+			consoleFailure(progress.log, label, action.getFailureDetail()?.getMessage() || detail) || fallback};
+	}
+
+	const failedTest = progress.history.find((mark) =>
+		mark.event && mark.event.hasTestSummary() && eventOutcome(mark.event) === false);
+	const testSummary = failedTest?.event?.getTestSummary();
+	if (testSummary) {
+		return {context: failedTest?.id?.getTestSummary()?.getLabel() || "",
+			message: "Test result: " + testStatusName(testSummary.getOverallStatus()) + "."};
+	}
+
+	const target = progress.history.find((mark) => mark.event?.getCompleted()?.getFailureDetail());
+	const targetDetail = target?.event?.getCompleted()?.getFailureDetail()?.getMessage() || "";
+	const abort = progress.history.find((mark) => {
+		const aborted = mark.event?.getAborted();
+		if (!aborted?.getDescription()) return false;
+		const reason = aborted.getReason();
+		return reason !== Aborted.AbortReason.SKIPPED && reason !== Aborted.AbortReason.NO_ANALYZE &&
+			reason !== Aborted.AbortReason.NO_BUILD && reason !== Aborted.AbortReason.INCOMPLETE;
+	});
+	const abortDescription = abort?.event?.getAborted()?.getDescription() || "";
+	return {
+		context: target?.id?.getTargetCompleted()?.getLabel() || "",
+		message: cleanFailureMessage(targetDetail || detail || abortDescription) ||
+			consoleFailure(progress.log, "") || fallback,
+	};
 }
 
 /**
@@ -870,6 +988,155 @@ function formatJson(value) {
 	);
 }
 
+// Unquoted keys are renamed alongside the generated protobuf toObject fields.
+/** @const {!Object<string, string>} */
+const BUILD_METRIC_CATEGORIES = {
+	actionSummary: "Actions",
+	memoryMetrics: "Memory",
+	targetMetrics: "Targets",
+	packageMetrics: "Packages",
+	timingMetrics: "Timing",
+	cumulativeMetrics: "Bazel server totals",
+	artifactMetrics: "Artifacts",
+	buildGraphMetrics: "Build graph",
+	workerMetricsList: "Workers",
+	networkMetrics: "Network",
+	workerPoolMetrics: "Worker pools",
+	dynamicExecutionMetrics: "Dynamic execution",
+	remoteAnalysisCacheStatistics: "Remote analysis cache",
+};
+
+/** @const {!Object<string, string>} */
+const BUILD_METRIC_FIELDS = {
+	actionCacheStatistics: "actionCacheStatistics",
+	actionCount: "actionCount",
+	actionCountNotIncludingAspects: "actionCountNotIncludingAspects",
+	actionDataList: "actionDataList",
+	actionLookupValueCount: "actionLookupValueCount",
+	actionLookupValueCountNotIncludingAspects: "actionLookupValueCountNotIncludingAspects",
+	actionsCreated: "actionsCreated",
+	actionsCreatedNotIncludingAspects: "actionsCreatedNotIncludingAspects",
+	actionsExecuted: "actionsExecuted",
+	actionsExecutionStartInMs: "actionsExecutionStartInMs",
+	aliveCount: "aliveCount",
+	analysisCacheBatches: "analysisCacheBatches",
+	analysisCacheBytesReceived: "analysisCacheBytesReceived",
+	analysisCacheKeyBytesSent: "analysisCacheKeyBytesSent",
+	analysisCacheOps: "analysisCacheOps",
+	analysisPhaseTimeInMs: "analysisPhaseTimeInMs",
+	aspectList: "aspectList",
+	aspectName: "aspectName",
+	builtValuesList: "builtValuesList",
+	bytesRecv: "bytesRecv",
+	bytesSent: "bytesSent",
+	cacheCheckSemaphoreWaitTimeInMs: "cacheCheckSemaphoreWaitTimeInMs",
+	cacheHits: "cacheHits",
+	cacheMisses: "cacheMisses",
+	changedValuesList: "changedValuesList",
+	cleanedValuesList: "cleanedValuesList",
+	code: "code",
+	collectTimeInMs: "collectTimeInMs",
+	computationSteps: "computationSteps",
+	count: "count",
+	cpuTimeInMs: "cpuTimeInMs",
+	createdCount: "createdCount",
+	criticalPathTime: "criticalPathTime",
+	destroyedCount: "destroyedCount",
+	dirtiedValuesList: "dirtiedValuesList",
+	evaluatedValuesList: "evaluatedValuesList",
+	evictedCount: "evictedCount",
+	execKind: "execKind",
+	executionPhaseTimeInMs: "executionPhaseTimeInMs",
+	firstStartedMs: "firstStartedMs",
+	garbageCollected: "garbageCollected",
+	garbageMetricsList: "garbageMetricsList",
+	globFilesystemOperationCost: "globFilesystemOperationCost",
+	hash: "hash",
+	hits: "hits",
+	inputFileConfiguredTargetCount: "inputFileConfiguredTargetCount",
+	interruptedExceptionDestroyedCount: "interruptedExceptionDestroyedCount",
+	ioExceptionDestroyedCount: "ioExceptionDestroyedCount",
+	isMeasurable: "isMeasurable",
+	isMultiplex: "isMultiplex",
+	isSandbox: "isSandbox",
+	key: "key",
+	lastActionStartTimeInMs: "lastActionStartTimeInMs",
+	lastEndedMs: "lastEndedMs",
+	loadDuration: "loadDuration",
+	loadTimeInMs: "loadTimeInMs",
+	localRunner: "localRunner",
+	localWins: "localWins",
+	missDetailsList: "missDetailsList",
+	misses: "misses",
+	mnemonic: "mnemonic",
+	name: "name",
+	nanos: "nanos",
+	numAnalyses: "numAnalyses",
+	numBuilds: "numBuilds",
+	numTargets: "numTargets",
+	numTransitiveLoads: "numTransitiveLoads",
+	otherConfiguredTargetCount: "otherConfiguredTargetCount",
+	outputArtifactCount: "outputArtifactCount",
+	outputArtifactsFromActionCache: "outputArtifactsFromActionCache",
+	outputArtifactsSeen: "outputArtifactsSeen",
+	outputFileConfiguredTargetCount: "outputFileConfiguredTargetCount",
+	packageLoadMetricsList: "packageLoadMetricsList",
+	packageOverhead: "packageOverhead",
+	packagesLoaded: "packagesLoaded",
+	packetsRecv: "packetsRecv",
+	packetsSent: "packetsSent",
+	peakBytesRecvPerSec: "peakBytesRecvPerSec",
+	peakBytesSentPerSec: "peakBytesSentPerSec",
+	peakPacketsRecvPerSec: "peakPacketsRecvPerSec",
+	peakPacketsSentPerSec: "peakPacketsSentPerSec",
+	peakPostGcHeapSize: "peakPostGcHeapSize",
+	peakPostGcTenuredSpaceHeapSize: "peakPostGcTenuredSpaceHeapSize",
+	postInvocationSkyframeNodeCount: "postInvocationSkyframeNodeCount",
+	priorActionsExecuted: "priorActionsExecuted",
+	priorWorkerMemoryInKb: "priorWorkerMemoryInKb",
+	processId: "processId",
+	raceStatisticsList: "raceStatisticsList",
+	reason: "reason",
+	remoteCacheHits: "remoteCacheHits",
+	remoteRunner: "remoteRunner",
+	remoteWins: "remoteWins",
+	ruleClass: "ruleClass",
+	ruleClassList: "ruleClassList",
+	runnerCountList: "runnerCountList",
+	saveTimeInMs: "saveTimeInMs",
+	seconds: "seconds",
+	sizeInBytes: "sizeInBytes",
+	skyfunctionName: "skyfunctionName",
+	sourceArtifactsRead: "sourceArtifactsRead",
+	systemNetworkStats: "systemNetworkStats",
+	systemTime: "systemTime",
+	targetsConfigured: "targetsConfigured",
+	targetsConfiguredNotIncludingAspects: "targetsConfiguredNotIncludingAspects",
+	targetsLoaded: "targetsLoaded",
+	topLevelArtifacts: "topLevelArtifacts",
+	type: "type",
+	unknownDestroyedCount: "unknownDestroyedCount",
+	usedHeapSizePostBuild: "usedHeapSizePostBuild",
+	userExecExceptionDestroyedCount: "userExecExceptionDestroyedCount",
+	userTime: "userTime",
+	valueStoreKeyBytesSent: "valueStoreKeyBytesSent",
+	valueStoreReadBatches: "valueStoreReadBatches",
+	valueStoreReadOpsNotFound: "valueStoreReadOpsNotFound",
+	valueStoreReadOpsSuccessful: "valueStoreReadOpsSuccessful",
+	valueStoreValueBytesReceived: "valueStoreValueBytesReceived",
+	valueStoreValueBytesSent: "valueStoreValueBytesSent",
+	valueStoreWriteBatches: "valueStoreWriteBatches",
+	valueStoreWriteOps: "valueStoreWriteOps",
+	wallTimeInMs: "wallTimeInMs",
+	workerId: "workerId",
+	workerIdsList: "workerIdsList",
+	workerKeyHash: "workerKeyHash",
+	workerMemoryInKb: "workerMemoryInKb",
+	workerPoolStatsList: "workerPoolStatsList",
+	workerStatsList: "workerStatsList",
+	workerStatus: "workerStatus",
+};
+
 /**
  * @param {string} name
  * @return {string}
@@ -878,7 +1145,14 @@ function metricLabel(name) {
 	const label = name
 		.replace(/List$/, "")
 		.replace(/([a-z0-9])([A-Z])/g, "$1 $2")
-		.replace(/_/g, " ");
+		.replace(/_/g, " ")
+		.toLowerCase()
+		.replace(/\bcpu\b/g, "CPU")
+		.replace(/\bgc\b/g, "GC")
+		.replace(/\brecv\b/g, "received")
+		.replace(/ in ms$/, " (ms)")
+		.replace(/ in kb$/, " (KB)")
+		.replace(/ in bytes$/, " (bytes)");
 	return label ? label.charAt(0).toUpperCase() + label.slice(1) : label;
 }
 
@@ -903,7 +1177,8 @@ function flattenMetricRows(value, path, rows) {
 				(Array.isArray(child) && child.length === 0)) {
 				continue;
 			}
-			const childPath = path ? path + " · " + metricLabel(key) : metricLabel(key);
+			const label = metricLabel(BUILD_METRIC_FIELDS[key] || key);
+			const childPath = path ? path + " · " + label : label;
 			flattenMetricRows(child, childPath, rows);
 		}
 		return;
@@ -986,6 +1261,143 @@ function criticalPathMillis(metrics) {
 	const timing = metrics && metrics.getTimingMetrics();
 	const duration = timing && timing.getCriticalPathTime();
 	return duration ? Number(duration.getSeconds()) * 1000 + Math.round(duration.getNanos() / 1000000) : null;
+}
+
+/**
+ * @param {number} millis
+ * @return {string}
+ */
+function statSeconds(millis) {
+	return (millis / 1000).toLocaleString(undefined, {maximumFractionDigits: 3}) + " s";
+}
+
+/**
+ * @param {string} title
+ * @param {!Array<!Array<string>>=} entries
+ * @return {!Element}
+ */
+function buildStatCard(title, entries) {
+	const card = dom.createDom("article", {"class": "Box bes-build-stat", "aria-label": title},
+		dom.createDom("h3", "h5 m-0", title));
+	if (!entries || !entries.length) return card;
+	const values = dom.createDom("dl", "text-small");
+	for (const entry of entries) {
+		values.appendChild(dom.createDom("div", null,
+			dom.createDom("dt", "color-fg-muted", entry[0]),
+			dom.createDom("dd", "text-bold", entry[1])));
+	}
+	card.appendChild(values);
+	return card;
+}
+
+/**
+ * @param {!BuildMetrics} metrics
+ * @return {!DocumentFragment}
+ */
+function createBuildStatCards(metrics) {
+	const cards = document.createDocumentFragment();
+	const actions = metrics.getActionSummary();
+	const graph = metrics.getBuildGraphMetrics();
+	if (actions || graph) {
+		// Bazel can omit Action Count when analysis was fully cached.
+		const total = Number(graph?.getActionCount() ?? 0);
+		cards.appendChild(buildStatCard("Actions", [
+			["Executed", actions ? Number(actions.getActionsExecuted()).toLocaleString() : "—"],
+			["Total", total ? total.toLocaleString() : "—"],
+		]));
+	}
+	const targets = metrics.getTargetMetrics();
+	if (targets) cards.appendChild(buildStatCard("Targets", [
+		["Configured", Number(targets.getTargetsConfigured()).toLocaleString()],
+	]));
+	const timing = metrics.getTimingMetrics();
+	if (timing) {
+		// CPU and elapsed durations can overlap, so compare them on a shared scale.
+		/** @type {!Array<{label: string, millis: number, color: string}>} */
+		const durations = [
+			{label: "Wall", millis: Number(timing.getWallTimeInMs()), color: "bes-build-timing-wall"},
+			{label: "CPU", millis: Number(timing.getCpuTimeInMs()), color: "bes-build-timing-cpu"},
+			{label: "Execution", millis: Number(timing.getExecutionPhaseTimeInMs()), color: "bes-build-timing-execution"},
+		];
+		const max = Math.max(1, ...durations.map((value) => value.millis));
+		const card = buildStatCard("Timing");
+		for (const duration of durations) {
+			const bar = /** @type {!HTMLElement} */ (dom.createDom("span", duration.color));
+			bar.style.width = Math.max(0, duration.millis) / max * 100 + "%";
+			card.appendChild(dom.createDom("div", "bes-build-timing-row text-small",
+				dom.createDom("span", "color-fg-muted", duration.label),
+				dom.createDom("span", {"class": "bes-build-timing-track", "aria-hidden": "true"}, bar),
+				dom.createDom("span", "text-mono text-right", statSeconds(duration.millis))));
+		}
+		cards.appendChild(card);
+	}
+	const path = criticalPathMillis(metrics);
+	if (path !== null) cards.appendChild(buildStatCard("Critical path", [["Duration", statSeconds(path)]]));
+
+	const artifacts = metrics.getArtifactMetrics();
+	const outputs = artifacts?.getOutputArtifactsSeen();
+	const cached = artifacts?.getOutputArtifactsFromActionCache();
+	if (outputs || cached) {
+		/** @type {!Array<!Array<string>>} */
+		const entries = [];
+		if (outputs) entries.push(["Outputs", Number(outputs.getCount()).toLocaleString() +
+			" · " + formatBytes(Number(outputs.getSizeInBytes()))]);
+		if (cached) entries.push(["From local action cache", Number(cached.getCount()).toLocaleString() +
+			" · " + formatBytes(Number(cached.getSizeInBytes()))]);
+		cards.appendChild(buildStatCard("Artifacts", entries));
+	}
+	const network = metrics.getNetworkMetrics()?.getSystemNetworkStats();
+	if (network) cards.appendChild(buildStatCard("Host network", [
+		["Sent", formatBytes(Number(network.getBytesSent()))],
+		["Received", formatBytes(Number(network.getBytesRecv()))],
+	]));
+	const cache = metrics.getRemoteAnalysisCacheStatistics();
+	if (cache) {
+		const hits = Number(cache.getCacheHits());
+		const misses = Number(cache.getCacheMisses());
+		cards.appendChild(buildStatCard("Remote analysis cache", hits + misses ? [
+			["Hit rate", groupRate(hits, hits + misses)],
+			["Hits", hits.toLocaleString()],
+			["Misses", misses.toLocaleString()],
+		] : [["Lookups", "None"]]));
+	}
+
+	/** @type {!Map<string, !Array<{ids: string, actions: number}>>} */
+	const workers = new Map();
+	for (const worker of metrics.getWorkerMetricsList()) {
+		const name = worker.getMnemonic() || "Unnamed workers";
+		let group = workers.get(name);
+		if (!group) {
+			group = [];
+			workers.set(name, group);
+		}
+		const ids = worker.getWorkerIdsList();
+		group.push({
+			ids: ids.length ? (ids.length > 1 ? "Workers " : "Worker ") + ids.join(", ")
+				: worker.getWorkerId() ? "Worker " + worker.getWorkerId()
+				: worker.getProcessId() ? "Process " + worker.getProcessId() : "",
+			actions: Number(worker.getActionsExecuted()),
+		});
+	}
+	/** @type {!Array<string>} */
+	const names = Array.from(workers.keys());
+	names.sort((a, b) => a.localeCompare(b));
+	for (const name of names) {
+		const group = workers.get(name);
+		if (!group) continue;
+		const card = buildStatCard(name);
+		card.setAttribute("aria-label", name + " workers");
+		const counts = dom.createDom("ul", {"role": "list", "aria-label": "Actions executed per worker"});
+		for (let index = 0; index < group.length; index++) {
+			const worker = group[index];
+			const description = (worker.ids || "Worker " + (index + 1)) + " · " + worker.actions.toLocaleString() + " executed";
+			counts.appendChild(dom.createDom("li", {"class": "text-mono", "title": description}, worker.actions.toLocaleString()));
+		}
+		card.appendChild(dom.createDom("div", "bes-worker-counts text-small",
+			dom.createDom("span", "color-fg-muted", "Executed"), counts));
+		cards.appendChild(card);
+	}
+	return cards;
 }
 
 /**
@@ -1075,14 +1487,6 @@ function parseCriticalPath(content) {
 	}
 	if (!timeMillis) timeMillis = currentStartMillis;
 	return { timeMillis, items };
-}
-
-/**
- * @param {!BuildEvent} event
- * @return {string}
- */
-function eventIdSummary(event) {
-	return buildEventIdSummary(event.getId() || null);
 }
 
 /**
@@ -1217,6 +1621,11 @@ class ToolsSelect extends ContentSelect {
 			this.select(name, route);
 			return;
 		}
+		if (name === "igroup") {
+			this.addTab(name, new InvocationGroupsComponent(this.dom_));
+			this.select(name, route);
+			return;
+		}
 		super.selectFail(name, route);
 	}
 }
@@ -1234,49 +1643,1292 @@ class ToolsCatalogComponent extends Component {
 	}
 }
 
-const FRONTIER_CELL_SIZE = 13;
+/**
+ * @param {!EventHandler} handler
+ * @param {!HTMLElement} tabs
+ * @param {function(number):void} select
+ */
+function bindViewerTabs(handler, tabs, select) {
+	const buttons = tabs.querySelectorAll("button");
+	for (let i = 0; i < buttons.length; i++) {
+		const button = buttons[i];
+		const index = Number(i);
+		handler.listen(button, events.EventType.CLICK, () => select(index));
+		handler.listen(button, events.EventType.KEYDOWN, (/** !events.BrowserEvent */ e) => {
+			const key = e.key;
+			let next;
+			switch (key) {
+				case "ArrowLeft": next = (index + buttons.length - 1) % buttons.length; break;
+				case "ArrowRight": next = (index + 1) % buttons.length; break;
+				case "Home": next = 0; break;
+				case "End": next = buttons.length - 1; break;
+				default: return;
+			}
+			e.preventDefault();
+			select(next);
+			buttons[next].focus();
+		});
+	}
+}
+
+/**
+ * @param {!HTMLElement} tablist
+ * @param {!HTMLElement} content
+ * @param {number} index
+ */
+function showViewerTab(tablist, content, index) {
+	const tabs = tablist.querySelectorAll("button");
+	const panels = content.querySelectorAll(':scope > [role="tabpanel"]');
+	for (let i = 0; i < tabs.length; i++) {
+		const active = i === index;
+		tabs[i].setAttribute("aria-selected", String(active));
+		tabs[i].tabIndex = active ? 0 : -1;
+		/** @type {!HTMLElement} */ (panels[i]).hidden = !active;
+	}
+}
+
+/**
+ * @param {!HTMLElement} body
+ * @param {!Array<!Array<string>>} entries
+ */
+function renderGroupMetricList(body, entries) {
+	const list = dom.createDom("dl", "bes-invocation-metadata");
+	for (const entry of entries) {
+		list.appendChild(dom.createDom("div", null,
+			dom.createDom("dt", "color-fg-muted text-small", entry[0]),
+			dom.createDom("dd", "text-bold", entry[1])));
+	}
+	dom.removeChildren(body);
+	body.appendChild(list);
+}
+
+/**
+ * @param {number} numerator
+ * @param {number} denominator
+ * @return {string}
+ */
+function groupRate(numerator, denominator) {
+	return denominator ? (100 * numerator / denominator).toFixed(1) + "%" : "—";
+}
+
+/**
+ * @param {string} scope
+ * @return {string}
+ */
+function readViewerBackend(scope) {
+	try {
+		return window.sessionStorage.getItem("bcr.viewer.backend." + scope) || "";
+	} catch (_error) {
+		return "";
+	}
+}
+
+/**
+ * @param {string} scope
+ * @param {string} address
+ */
+function rememberViewerBackend(scope, address) {
+	try {
+		window.sessionStorage.setItem("bcr.viewer.backend." + scope, address);
+	} catch (_error) {
+		// The viewer also works when the browser disables session storage.
+	}
+}
+
+/**
+ * @param {!URL} url
+ * @param {string} id
+ */
+function setInvocationQuery(url, id) {
+	if (id) url.searchParams.set("invocation", id);
+	else url.searchParams.delete("invocation");
+}
+
+/** @param {!URL} url */
+function replaceViewerLocation(url) {
+	if (url.href !== window.location.href) window.history.replaceState(window.history.state, "", url.href);
+}
+
+/**
+ * @param {string} page
+ * @param {string} id
+ */
+function selectInvocationInUrl(page, id) {
+	const url = new URL(window.location.href);
+	if (url.pathname.replace(/\/$/, "") !== "/tools/" + page) return;
+	setInvocationQuery(url, id);
+	replaceViewerLocation(url);
+}
+
+/**
+ * @param {!URLSearchParams} params
+ * @return {string}
+ */
+function groupFollowMode(params) {
+	const mode = params.get("follow");
+	if (mode === "auto" || mode === "off" || mode === "manual") return mode;
+	// Older group links omitted the follow parameter for manual selections.
+	return params.get("invocation") ? "manual" : "auto";
+}
+
+/** @typedef {{label: string, kind: string, color: string, title: string}} */
+let InvocationStatus;
+
+/**
+ * @param {string} label
+ * @param {string} kind
+ * @param {?number=} code
+ * @return {!InvocationStatus}
+ */
+function invocationStatus(label, kind, code = null) {
+	let color = "color-fg-muted";
+	switch (kind) {
+		case "success": color = "color-fg-success"; break;
+		case "failure":
+		case "tests": color = "color-fg-danger"; break;
+		case "interrupted":
+		case "input":
+		case "empty":
+		case "warning": color = "color-fg-attention"; break;
+		case "infrastructure": color = "color-fg-done"; break;
+		case "running": color = "color-fg-accent"; break;
+	}
+	return {label, kind, color, title: code === null ? label : label + " (" + code + ")"};
+}
+
+/**
+ * @param {string} name
+ * @param {?number} code
+ * @return {!InvocationStatus}
+ */
+function invocationExitStatus(name, code) {
+	let kind = code === 0 ? "success" : "failure";
+	switch (name) {
+		case "SUCCESS": kind = "success"; break;
+		case "INTERRUPTED": kind = "interrupted"; break;
+		case "COMMAND_LINE_ERROR":
+		case "PARSING_FAILURE": kind = "input"; break;
+		case "TESTS_FAILED": kind = "tests"; break;
+		case "NO_TESTS_FOUND": kind = "empty"; break;
+		case "PARTIAL_ANALYSIS_FAILURE":
+		case "LOCK_HELD_NOBLOCK_FOR_LOCK": kind = "warning"; break;
+		case "REMOTE_ENVIRONMENTAL_ERROR":
+		case "LOCAL_ENVIRONMENTAL_ERROR":
+		case "REMOTE_ERROR":
+		case "OOM_ERROR":
+		case "BLAZE_INTERNAL_ERROR":
+		case "PUBLISH_ERROR":
+		case "REMOTE_CACHE_EVICTED":
+		case "PERSISTENT_BUILD_EVENT_SERVICE_UPLOAD_ERROR":
+		case "EXTERNAL_DEPS_ERROR": kind = "infrastructure"; break;
+	}
+	return invocationStatus(name || (code === 0 ? "Succeeded" : "Failed"), kind, code);
+}
+
+/**
+ * @param {!InvocationStatus} status
+ * @return {!Element}
+ */
+function renderInvocationStatusIcon(status) {
+	return dom.createDom("span", {
+		"class": "bes-invocation-status-icon " + status.color,
+		"role": "img", "aria-label": status.label, "title": status.title,
+	}, soy.renderAsElement(invocationResultGlyph, {kind: status.kind}));
+}
+
+class InvocationGroupsComponent extends Component {
+	/** @param {?dom.DomHelper=} opt_domHelper */
+	constructor(opt_domHelper) {
+		super(opt_domHelper);
+		/** @private @type {?InvocationBackend} */
+		this.backend_ = null;
+		/** @private @type {?BuildEventViewerComponent} */
+		this.viewer_ = null;
+		/** @private @type {!Array<!Object<string, *>>} */
+		this.runs_ = [];
+		/** @private @type {?Set<string>} */
+		this.seenRuns_ = null;
+		/** @private */ this.generation_ = 0;
+		/** @private */ this.pollTimer_ = 0;
+		/** @private */ this.address_ = "";
+		/** @private */ this.group_ = "";
+		/** @private */ this.watchedId_ = "";
+		/** @private */ this.requestedId_ = "";
+		/** @private */ this.historyKey_ = "";
+		/** @private */ this.activeGroupTab_ = 0;
+		/** @private */ this.metricsInFlight_ = false;
+		/** @private */ this.lastMetricsRead_ = 0;
+	}
+
+	/** @override */
+	createDom() {
+		this.setElementInternal(soy.renderAsElement(invocationGroups));
+	}
+
+	/** @override */
+	enterDocument() {
+		super.enterDocument();
+		const groupInput = this.input_(goog.getCssName("igroup-name"));
+		const showLast = this.input_(goog.getCssName("igroup-show-last"));
+		this.getHandler().listen(showLast, "change", () => {
+			const url = new URL(window.location.href);
+			url.searchParams.set("showLast", showLast.checked ? "1" : "0");
+			replaceViewerLocation(url);
+		});
+		const follow = this.input_(goog.getCssName("igroup-follow"));
+		this.getHandler().listen(follow, "change", () => {
+			this.setFollowMode_(follow.checked ? "auto" : "off");
+			if (!this.seenRuns_) return;
+			if (follow.checked) this.returnToGroup_();
+			this.renderGroupStatus_();
+		});
+		bindViewerTabs(this.getHandler(), this.groupElement_(goog.getCssName("igroup-tabs")),
+			(index) => this.selectGroupTab_(index));
+		this.getHandler().listen(this.groupElement_(goog.getCssName("igroup-form")), "submit", (/** !events.BrowserEvent */ event) => {
+			event.preventDefault();
+			this.openGroup_();
+		});
+		this.getHandler().listen(this.groupElement_(goog.getCssName("igroup-list")), "click", (/** !events.BrowserEvent */ event) => {
+			const target = /** @type {!Element} */ (event.target).closest("[data-group-name]");
+			if (!target) return;
+			groupInput.value = target.getAttribute("data-group-name") || "";
+			this.openGroup_();
+		});
+		this.getHandler().listen(this.groupElement_(goog.getCssName("igroup-runs")), "click", (/** !events.BrowserEvent */ event) => {
+			const target = /** @type {!Element} */ (event.target).closest("[data-invocation-id]");
+			const id = target && target.getAttribute("data-invocation-id");
+			if (id) {
+				if (this.followMode_() === "auto") this.setFollowMode_("manual");
+				this.watch_(id);
+				this.renderGroupStatus_();
+				this.selectGroupTab_(0);
+				this.groupElement_(goog.getCssName("igroup-current-tab")).focus();
+			}
+		});
+	}
+
+	/**
+	 * @private
+	 * @param {!URL} url
+	 */
+	syncGroupOptions_(url) {
+		const follow = groupFollowMode(url.searchParams);
+		const showLast = url.searchParams.get("showLast") !== "0";
+		url.searchParams.set("follow", follow);
+		url.searchParams.set("showLast", showLast ? "1" : "0");
+		this.input_(goog.getCssName("igroup-follow")).checked = follow === "auto";
+		this.input_(goog.getCssName("igroup-show-last")).checked = showLast;
+	}
+
+	/** @private @return {string} */
+	followMode_() {
+		return groupFollowMode(new URL(window.location.href).searchParams);
+	}
+
+	/** @private @param {string} mode */
+	setFollowMode_(mode) {
+		const url = new URL(window.location.href);
+		url.searchParams.set("follow", mode);
+		this.input_(goog.getCssName("igroup-follow")).checked = mode === "auto";
+		replaceViewerLocation(url);
+	}
+
+	/**
+	 * @override
+	 * @param {!Route} route
+	 */
+	goHere(route) {
+		super.goHere(route);
+		const groupInput = this.input_(goog.getCssName("igroup-name"));
+		const url = new URL(window.location.href);
+		this.syncGroupOptions_(url);
+		replaceViewerLocation(url);
+		const params = url.searchParams;
+		const group = params.get("group");
+		if (group !== null) {
+			groupInput.value = group;
+			const remembered = readViewerBackend("group." + group);
+			if (remembered) this.input_(goog.getCssName("igroup-backend")).value = remembered;
+		}
+		const id = params.get("invocation") || "";
+		if (groupInput.value && (!this.backend_ || groupInput.value !== this.group_ ||
+			id !== (this.requestedId_ || this.watchedId_))) this.openGroup_();
+		else if (this.seenRuns_) {
+			if (!this.requestedId_) this.selectActiveRun_();
+			this.renderGroupStatus_();
+		}
+	}
+
+	/** @override */
+	hide() {
+		this.closeGroup_();
+		super.hide();
+	}
+
+	/** @override */
+	exitDocument() {
+		this.closeGroup_();
+		super.exitDocument();
+	}
+
+	/** @private */
+	closeGroup_() {
+		clearTimeout(this.pollTimer_);
+		this.generation_++;
+		this.metricsInFlight_ = false;
+		this.lastMetricsRead_ = 0;
+		if (this.backend_) this.backend_.close();
+		this.backend_ = null;
+		this.stopWatching_();
+	}
+
+	/** @private */
+	async openGroup_() {
+		this.closeGroup_();
+		const generation = this.generation_;
+		this.address_ = this.input_(goog.getCssName("igroup-backend")).value.trim();
+		this.group_ = this.input_(goog.getCssName("igroup-name")).value.trim();
+		this.runs_ = [];
+		this.seenRuns_ = null;
+		this.historyKey_ = "";
+		this.groupElement_(goog.getCssName("igroup-list")).classList.add("d-none");
+		this.groupElement_(goog.getCssName("igroup-current-tab")).textContent = "Current";
+		this.renderHistory_();
+		const pending = this.group_ ? "Waiting for the group connection…" : "Connect to a backend and choose a group.";
+		this.setGroupWaitingMessage_(pending);
+		if (this.group_ && !/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.test(this.group_)) {
+			this.setBackendStatus_("Disconnected", "", "Enter a valid group name.");
+			return;
+		}
+		const url = new URL(window.location.href);
+		const sameGroup = this.group_ !== "" && url.searchParams.get("group") === this.group_;
+		if (!sameGroup && groupFollowMode(url.searchParams) === "manual") url.searchParams.set("follow", "auto");
+		this.syncGroupOptions_(url);
+		this.requestedId_ = sameGroup ? url.searchParams.get("invocation") || "" : "";
+		setInvocationQuery(url, this.requestedId_);
+		if (this.group_) url.searchParams.set("group", this.group_);
+		else url.searchParams.delete("group");
+		replaceViewerLocation(url);
+		this.setBackendStatus_("Connecting", "Label--accent", "Opening the invocation backend…");
+		try {
+			const backend = await openInvocationBackend(this.address_);
+			if (generation !== this.generation_) {
+				backend.close();
+				return;
+			}
+			this.backend_ = backend;
+			if (this.group_) {
+				rememberViewerBackend("group." + this.group_, this.address_);
+				await this.pollGroup_(backend, generation);
+			} else {
+				const result = await backend.listGroups();
+				if (generation !== this.generation_) return;
+				const groups = /** @type {!Array<!Object<string, *>>} */ (result["groups"] || []);
+				this.setBackendStatus_("Connected", "Label--success", groups.length ? "Choose an invocation group."
+					: "No groups yet. Enter a group name to wait for its first build.");
+				this.renderCatalog_(groups);
+			}
+		} catch (/** @type {*} */ error) {
+			if (generation === this.generation_) {
+				this.setBackendStatus_("Connection failed", "Label--danger",
+					error instanceof Error ? error.message : "Could not connect to invocation groups.");
+				this.setGroupWaitingMessage_("Connect to a backend and choose a group.");
+			}
+		}
+	}
+
+	/**
+	 * @private
+	 * @param {string} message
+	 */
+	setGroupWaitingMessage_(message) {
+		const status = this.groupElement_(goog.getCssName("igroup-status"));
+		status.hidden = false;
+		if (status.textContent !== message) status.textContent = message;
+		this.groupElement_(goog.getCssName("igroup-runs-empty")).textContent = message;
+		this.setMetricsMessage_(message);
+	}
+
+	/**
+	 * @private
+	 * @param {string} state
+	 * @param {string} color
+	 * @param {string} detail
+	 * @param {string=} group
+	 */
+	setBackendStatus_(state, color, detail, group = "") {
+		const label = this.groupElement_(goog.getCssName("igroup-backend-label"));
+		if (label.textContent !== state) label.textContent = state;
+		label.className = ["Label", goog.getCssName("igroup-backend-label"), color].filter(Boolean).join(" ");
+		const message = this.groupElement_(goog.getCssName("igroup-backend-detail"));
+		const flag = "--build_metadata=igroup=" + group;
+		const suffix = " on a build to add it to the " + group + " group.)";
+		const text = group ? detail + group + " (Set " + flag + suffix : detail;
+		if (message.textContent === text) return;
+		message.textContent = detail;
+		if (group) message.append(dom.createDom("strong", "text-mono", group), " (Set ",
+			dom.createDom("code", null, flag), suffix);
+	}
+
+	/**
+	 * @private
+	 * @param {!InvocationBackend} backend
+	 * @param {number} generation
+	 */
+	async pollGroup_(backend, generation) {
+		try {
+			const result = await backend.listGroup(this.group_);
+			if (generation !== this.generation_) return;
+			const transport = this.address_.startsWith("bcr-iroh-v1:") ? "Iroh" : "HTTP";
+			this.setBackendStatus_("Connected", "Label--success", "Connected over " + transport +
+				" · Watching group ", this.group_);
+			this.runs_ = /** @type {!Array<!Object<string, *>>} */ (result["invocations"] || []);
+			const seen = this.seenRuns_;
+			const newestUnseen = seen && this.runs_.find((run) => !seen.has(String(run["invocationId"])));
+			this.seenRuns_ = new Set(this.runs_.map((run) => String(run["invocationId"])));
+			this.renderHistory_();
+			if (this.requestedId_) {
+				if (this.runs_.some((run) => run["invocationId"] === this.requestedId_)) {
+					this.watch_(this.requestedId_);
+				}
+			} else {
+				this.selectActiveRun_(newestUnseen ? String(newestUnseen["invocationId"]) : "");
+				if (!seen && !this.watchedId_ && new URL(window.location.href).searchParams.get("showLast") !== "0") {
+					const last = this.runs_.find((run) =>
+						run["state"] === "INVOCATION_STATE_COMPLETE" || run["state"] === "INVOCATION_STATE_INCOMPLETE");
+					if (last) this.watch_(String(last["invocationId"]));
+				}
+			}
+			this.renderGroupStatus_();
+			this.refreshMetrics_();
+		} catch (/** @type {*} */ error) {
+			if (generation !== this.generation_) return;
+			const detail = error instanceof Error ? error.message : "Could not load this group.";
+			this.setBackendStatus_("Retrying", "Label--attention", detail + " Retrying the group connection…");
+			if (this.seenRuns_ === null) this.setGroupWaitingMessage_("Waiting for the group connection…");
+		}
+		this.pollTimer_ = setTimeout(() => this.pollGroup_(backend, generation), 2000);
+	}
+
+	/**
+	 * @private
+	 * @param {number} index
+	 */
+	selectGroupTab_(index) {
+		this.activeGroupTab_ = index;
+		showViewerTab(this.groupElement_(goog.getCssName("igroup-tabs")),
+			this.groupElement_(goog.getCssName("igroup-content")), index);
+		const mode = this.followMode_();
+		if (index === 1 && (this.requestedId_ || mode === "manual")) {
+			if (mode === "manual") this.setFollowMode_("auto");
+			this.returnToGroup_();
+			this.renderGroupStatus_();
+		}
+		this.refreshMetrics_();
+	}
+
+	/** @private */
+	returnToGroup_() {
+		this.requestedId_ = "";
+		selectInvocationInUrl("igroup", this.watchedId_);
+		this.selectActiveRun_();
+	}
+
+	/** @private */
+	async refreshMetrics_() {
+		const backend = this.backend_;
+		if (!backend || !this.seenRuns_ || this.activeGroupTab_ < 2 || this.activeGroupTab_ > 4 ||
+			this.metricsInFlight_ || Date.now() - this.lastMetricsRead_ < 10000) return;
+		const generation = this.generation_;
+		this.metricsInFlight_ = true;
+		this.lastMetricsRead_ = Date.now();
+		try {
+			const metrics = await backend.groupMetrics(this.group_);
+			if (generation === this.generation_) this.renderMetrics_(metrics);
+		} catch (_error) {
+			if (generation === this.generation_) this.setMetricsMessage_("Could not load group metrics.");
+		} finally {
+			if (generation === this.generation_) this.metricsInFlight_ = false;
+		}
+	}
+
+	/**
+	 * @private
+	 * @param {string} message
+	 */
+	setMetricsMessage_(message) {
+		/** @type {!Array<string>} */
+		const panels = [goog.getCssName("igroup-build-metrics"), goog.getCssName("igroup-cache-metrics"),
+			goog.getCssName("igroup-test-metrics")];
+		for (const css of panels) {
+			this.renderMetricBlankslate_(this.groupElement_(css), message);
+		}
+	}
+
+	/**
+	 * @private
+	 * @param {!HTMLElement} body
+	 * @param {string} message
+	 */
+	renderMetricBlankslate_(body, message) {
+		dom.removeChildren(body);
+		body.appendChild(dom.createDom("p", "bes-group-empty", message));
+	}
+
+	/**
+	 * @private
+	 * @param {!Object<string, *>} metrics
+	 */
+	renderMetrics_(metrics) {
+		/** @type {function(string):number} */
+		const count = (field) => Number(metrics[field] || 0);
+		/** @type {function(string):string} */
+		const time = (field) => metrics[field] == null ? "—" : formatElapsed(Number(metrics[field]));
+		const total = count("invocationCount");
+		if (!total) {
+			this.setMetricsMessage_("Waiting for the first build to report group metrics.");
+			return;
+		}
+		const running = count("runningCount");
+		const succeeded = count("succeededCount");
+		const failed = count("failedCount");
+		renderGroupMetricList(this.groupElement_(goog.getCssName("igroup-build-metrics")), [
+			["Invocations", total.toLocaleString()],
+			["Running", running.toLocaleString()],
+			["Succeeded", succeeded.toLocaleString()],
+			["Failed", failed.toLocaleString()],
+			["Other outcomes", (total - running - succeeded - failed).toLocaleString()],
+			["Success rate", groupRate(succeeded, succeeded + failed)],
+			["Average build time", time("averageDurationMs")],
+			["Median build time", time("medianDurationMs")],
+			["P95 build time", time("p95DurationMs")],
+			["Completed builds with timing", count("timingSampleCount").toLocaleString()],
+		]);
+		this.renderGroupCache_(/** @type {!Object<string, *>} */ (metrics["cache"] || {}));
+		if (metrics["tests"]) this.renderGroupTests_(/** @type {!Object<string, *>} */ (metrics["tests"]));
+		else this.renderMetricBlankslate_(this.groupElement_(goog.getCssName("igroup-test-metrics")),
+			"Group test metrics require SQLite.");
+	}
+
+	/**
+	 * @private
+	 * @param {!Object<string, *>} cache
+	 */
+	renderGroupCache_(cache) {
+		const body = this.groupElement_(goog.getCssName("igroup-cache-metrics"));
+		const hits = Number(cache["actionCacheHits"] || 0);
+		const misses = Number(cache["actionCacheMisses"] || 0);
+		const sampled = Number(cache["actionCacheInvocationCount"] || 0);
+		if (!sampled && cache["bazelRemoteCacheHits"] == null) {
+			this.renderMetricBlankslate_(body, "No action cache lookups recorded. Connect Bazel to an instrumented cache to see the hit rate.");
+			return;
+		}
+		renderGroupMetricList(body, [
+			["Action cache hit rate", groupRate(hits, hits + misses)],
+			["Hits", hits.toLocaleString()],
+			["Misses", misses.toLocaleString()],
+			["Errors", Number(cache["actionCacheErrors"] || 0).toLocaleString()],
+			["Builds with action cache lookups", sampled.toLocaleString()],
+			["Remote cache hits reported by Bazel", cache["bazelRemoteCacheHits"] == null ? "—"
+				: Number(cache["bazelRemoteCacheHits"]).toLocaleString()],
+		]);
+		const message = sampled
+			? "Hit rate uses hits divided by hits plus misses."
+			: "No action cache lookups recorded. The rate needs telemetry from the instrumented cache.";
+		body.appendChild(dom.createDom("p", "mt-3 mb-0 color-fg-muted text-small", message));
+	}
+
+	/**
+	 * @private
+	 * @param {!Object<string, *>} tests
+	 */
+	renderGroupTests_(tests) {
+		const body = this.groupElement_(goog.getCssName("igroup-test-metrics"));
+		const summaries = Number(tests["summaryCount"] || 0);
+		const flakes = Number(tests["flakyCount"] || 0);
+		if (!summaries) {
+			this.renderMetricBlankslate_(body, "No test summaries recorded.");
+			return;
+		}
+		renderGroupMetricList(body, [
+			["Test configurations reported", summaries.toLocaleString()],
+			["Flaky", flakes.toLocaleString()],
+			["Failed or timed out", Number(tests["failedOrTimedOutCount"] || 0).toLocaleString()],
+		]);
+		const targets = /** @type {!Array<!Object<string, *>>} */ (tests["flakyTargets"] || []);
+		if (targets.length) {
+			body.appendChild(dom.createDom("h3", "h4 mt-3", "Most frequently flaky targets"));
+			const list = dom.createDom("ul", "pl-3 mt-1 mb-0");
+			for (const target of targets) {
+				const count = Number(target["flakyCount"]).toLocaleString();
+				const total = Number(target["summaryCount"]).toLocaleString();
+				list.appendChild(dom.createDom("li", "mb-1",
+					dom.createDom("code", "bes-test-target", String(target["label"])),
+					" · " + count + " of " + total + " flaky"));
+			}
+			body.appendChild(list);
+		} else {
+			body.appendChild(dom.createDom("p", "mt-3 mb-0 color-fg-muted text-small",
+				"No flaky targets reported."));
+		}
+	}
+
+	/**
+	 * @private
+	 * @param {string=} newestUnseen
+	 */
+	selectActiveRun_(newestUnseen = "") {
+		const running = "INVOCATION_STATE_IN_PROGRESS";
+		if (this.followMode_() !== "auto" || this.runs_.some((run) =>
+			run["invocationId"] === this.watchedId_ && run["state"] === running)) return;
+		const next = this.runs_.find((run) => run["state"] === running);
+		if (next) this.watch_(String(next["invocationId"]));
+		// A short build can start and finish between two group polls.
+		else if (newestUnseen) this.watch_(newestUnseen);
+	}
+
+	/**
+	 * @private
+	 * @param {string} id
+	 */
+	watch_(id) {
+		this.requestedId_ = "";
+		selectInvocationInUrl("igroup", id);
+		if (id === this.watchedId_) return;
+		this.watchedId_ = id;
+		const mount = this.groupElement_(goog.getCssName("igroup-viewer"));
+		if (!this.viewer_) {
+			this.viewer_ = new BuildEventViewerComponent(this.getDomHelper(), true);
+			this.addChild(this.viewer_, false);
+			this.viewer_.render(mount);
+		}
+		mount.classList.remove("d-none");
+		this.viewer_.followInvocation(this.address_, id);
+	}
+
+	/** @private */
+	stopWatching_() {
+		if (this.viewer_) this.viewer_.stopFollowing();
+		this.watchedId_ = "";
+		this.groupElement_(goog.getCssName("igroup-viewer")).classList.add("d-none");
+	}
+
+	/** @private */
+	renderGroupStatus_() {
+		const current = this.runs_.find((run) => run["invocationId"] === this.watchedId_);
+		const status = this.groupElement_(goog.getCssName("igroup-status"));
+		status.hidden = Boolean(current);
+		const message = current ? "" : this.requestedId_ ? "Waiting for invocation " + this.requestedId_
+			: this.followMode_() === "auto" ? this.group_ + " · Waiting for the next build"
+			: "Select a run from the Runs tab.";
+		if (status.textContent !== message) status.textContent = message;
+		const tab = this.groupElement_(goog.getCssName("igroup-current-tab"));
+		const name = current && current["state"] !== "INVOCATION_STATE_IN_PROGRESS" ? "Last" : "Current";
+		if (tab.textContent !== name) tab.textContent = name;
+	}
+
+	/**
+	 * @private
+	 * @param {!Array<!Object<string, *>>} groups
+	 */
+	renderCatalog_(groups) {
+		const list = this.groupElement_(goog.getCssName("igroup-list"));
+		dom.removeChildren(list);
+		for (const group of groups) {
+			const name = String(group["name"]);
+			list.appendChild(dom.createDom("button", {
+				"type": "button", "class": "Box-row btn-link d-block width-full text-left", "data-group-name": name,
+			}, name));
+		}
+		list.classList.toggle("d-none", !groups.length);
+	}
+
+	/** @private */
+	renderHistory_() {
+		/** @type {!Array<{id: string, command: string, status: !InvocationStatus, time: string, timeLabel: string}>} */
+		const rows = this.runs_.map((run) => {
+			const id = String(run["invocationId"]);
+			const command = ["bazel", run["command"], ...(/** @type {!Array<string>} */ (run["targetPatterns"] || []))]
+				.filter(Boolean).join(" ");
+			const result = /** @type {?Object<string, *>} */ (run["result"] || null);
+			const exit = result && result["exitCode"];
+			const name = String(result && result["exitCodeName"] || "");
+			const status = name || typeof exit === "number" ? invocationExitStatus(name, typeof exit === "number" ? exit : null)
+				: run["state"] === "INVOCATION_STATE_IN_PROGRESS" ? invocationStatus("Running", "running")
+				: run["state"] === "INVOCATION_STATE_INCOMPLETE" ? invocationStatus("Incomplete", "warning")
+				: invocationStatus("Finished", "neutral");
+			const time = String(run["finishedAt"] || run["startedAt"] || run["createdAt"] || "");
+			const timeLabel = run["finishedAt"] ? "Finished" : run["startedAt"] ? "Started" : "Recorded";
+			return {id, command, status, time, timeLabel};
+		});
+		const key = JSON.stringify(rows);
+		const empty = this.groupElement_(goog.getCssName("igroup-runs-empty"));
+		empty.hidden = Boolean(rows.length);
+		if (!rows.length && empty.textContent !== "No invocations yet.") empty.textContent = "No invocations yet.";
+		this.groupElement_(goog.getCssName("igroup-runs-table")).hidden = !rows.length;
+		if (key === this.historyKey_) return;
+		this.historyKey_ = key;
+		const list = this.groupElement_(goog.getCssName("igroup-runs"));
+		const focused = document.activeElement?.getAttribute("data-invocation-id");
+		dom.removeChildren(list);
+		const dates = new Intl.DateTimeFormat(undefined, {dateStyle: "medium", timeStyle: "short"});
+		for (const row of rows) {
+			const command = dom.createDom("code", {"class": "bes-group-run-command", "title": row.command}, row.command);
+			const date = new Date(row.time);
+			const displayedTime = row.time && Number.isFinite(date.getTime()) ? row.timeLabel + " " + dates.format(date) : "";
+			const time = displayedTime ? dom.createDom("time",
+				{"class": "bes-group-run-time color-fg-muted", "datetime": row.time, "title": displayedTime}, displayedTime) : null;
+			const button = dom.createDom("button", {
+				"type": "button", "class": "btn-link branch-name bes-group-run-id", "data-invocation-id": row.id, "title": row.id,
+			}, row.id);
+			list.appendChild(dom.createDom("tr", {"class": "bes-group-run", "data-invocation-id": row.id},
+				dom.createDom("td", null, renderInvocationStatusIcon(row.status)), dom.createDom("td", null, button),
+				dom.createDom("td", null, command), dom.createDom("td", null, time)));
+			if (focused === row.id) /** @type {!HTMLElement} */ (button).focus({preventScroll: true});
+		}
+	}
+
+	/**
+	 * @private
+	 * @param {string} cssName
+	 * @return {!HTMLElement}
+	 */
+	groupElement_(cssName) {
+		return /** @type {!HTMLElement} */ (this.getElementStrict().querySelector("." + cssName));
+	}
+
+	/**
+	 * @private
+	 * @param {string} cssName
+	 * @return {!HTMLInputElement}
+	 */
+	input_(cssName) {
+		return /** @type {!HTMLInputElement} */ (this.groupElement_(cssName));
+	}
+}
+
+const FRONTIER_COLUMN_WIDTH = 36;
+const FRONTIER_ROW_HEIGHT = 20;
 const FRONTIER_INSET = 10;
+const FRONTIER_EXPECTED_WIDTH = 220;
+const FRONTIER_EXPECTED_HEIGHT = 52;
+const FRONTIER_MAX_FLIGHTS = 24;
+const FRONTIER_FLIGHT_LANES = 8;
+
+/**
+ * @param {?BuildEventId} id
+ * @return {{type: string, detail: string}}
+ */
+function expectedFrontierLabel(id) {
+	const progress = id?.getProgress();
+	if (progress) return {type: "Progress", detail: "#" + progress.getOpaqueCount()};
+	const action = id?.getActionCompleted();
+	if (action) {
+		const output = action.getPrimaryOutput().split("/").pop() || "";
+		return {type: "Action", detail: [action.getLabel(), output].filter(Boolean).join(" · ")};
+	}
+	const summary = buildEventIdSummary(id);
+	const separator = summary.indexOf(": ");
+	return separator < 0 ? {type: summary, detail: ""}
+		: {type: summary.slice(0, separator), detail: summary.slice(separator + 2)};
+}
+
+/**
+ * @param {!FrontierMark} mark
+ * @param {number} now
+ * @return {?number}
+ */
+function frontierWait(mark, now) {
+	return mark.announcedAt === null ? null : Math.max(0, Math.floor((now - mark.announcedAt) / 1000));
+}
+
+/**
+ * @param {number} seconds
+ * @return {string}
+ */
+function formatFrontierWait(seconds) {
+	return Math.floor(seconds / 60) + ":" + String(seconds % 60).padStart(2, "0");
+}
+
+/**
+ * @param {!CanvasRenderingContext2D} context
+ * @param {string} label
+ * @param {number} width
+ * @return {string}
+ */
+function fitFrontierLabel(context, label, width) {
+	if (context.measureText(label).width <= width) return label;
+	let first = 0;
+	let end = label.length;
+	while (first < end) {
+		const mid = Math.ceil((first + end) / 2);
+		if (context.measureText(label.slice(0, mid) + "…").width <= width) first = mid;
+		else end = mid - 1;
+	}
+	return label.slice(0, first) + "…";
+}
+
+/** @typedef {{column: number, row: number}} */
+let FrontierCell;
+/** @typedef {{columns: !Array<!Array<?FrontierMark>>, cells: !Map<!FrontierMark, !FrontierCell>,
+ *    parents: !Map<!FrontierMark, !Array<!FrontierMark>>,
+ *    children: !Map<!FrontierMark, !Array<!FrontierMark>>,
+ *    departures: !Map<!FrontierMark, !FrontierCell>,
+ *    suppressed: !Set<!FrontierMark>,
+ *    bodyRows: number}} */
+let FrontierLayout;
+
+/**
+ * @param {!FrontierMark} mark
+ * @return {boolean}
+ */
+function isFrontierBackbone(mark) {
+	const type = mark.id?.getIdCase();
+	return type === BuildEventId.IdCase.STARTED || type === BuildEventId.IdCase.PROGRESS ||
+		type === BuildEventId.IdCase.BUILD_FINISHED;
+}
+
+/**
+ * Layer the received graph by its longest path from a root, with roots on the
+ * right. Each shared child gets one cell regardless of how many parents
+ * announced it.
+ * @param {!InvocationProgress} progress
+ * @param {number=} start
+ * @return {!FrontierLayout}
+ */
+function layoutFrontier(progress, start = progress.history.length) {
+	const history = progress.history;
+	/** @type {!Array<!FrontierMark>} */
+	const pending = Array.from(progress.pending.values());
+	/** @type {!Set<!FrontierMark>} */
+	const removed = new Set();
+	/** @type {!Set<!FrontierMark>} */
+	const suppressed = new Set();
+	/** @param {!FrontierMark} mark */
+	const removeFromFrontier = (mark) => {
+		const artifactSet = mark.id?.getIdCase() === BuildEventId.IdCase.NAMED_SET || mark.event?.hasNamedSetOfFiles();
+		if (!artifactSet && !mark.event?.hasAction()) return;
+		removed.add(mark);
+		if (artifactSet) suppressed.add(mark);
+		const directParents = /** @type {!Array<!FrontierMark>} */ (mark.parents);
+		for (const parent of directParents) {
+			if (!parent.event?.hasProgress()) continue;
+			removed.add(parent);
+			if (artifactSet) suppressed.add(parent);
+		}
+	};
+	history.forEach(removeFromFrontier);
+	pending.forEach(removeFromFrontier);
+	/** @type {!Array<number>} */
+	const depth = history.map(() => 0);
+	/** @type {!Array<number>} */
+	const remaining = history.map((mark) =>
+		mark.parents.filter((/** !FrontierMark */ parent) => parent.event !== null).length);
+	/** @type {!Array<!FrontierMark>} */
+	const ready = history.filter((mark) => !remaining[mark.index]);
+	for (let i = 0; i < ready.length; i++) {
+		const parent = ready[i];
+		const children = /** @type {!Array<!FrontierMark>} */ (parent.children);
+		for (const child of children) {
+			if (!child.event) continue;
+			depth[child.index] = Math.max(depth[child.index], depth[parent.index] + 1);
+			if (--remaining[child.index] === 0) ready.push(child);
+		}
+	}
+
+	/** @type {!Array<!Array<!FrontierMark>>} */
+	const layers = [];
+	for (const mark of history) {
+		if (mark === progress.last && !removed.has(mark)) continue;
+		const rank = depth[mark.index];
+		if (!layers[rank]) layers[rank] = [];
+		layers[rank].push(mark);
+	}
+
+	// Keep siblings together and put a shared child near its earliest parent.
+	/** @type {!Map<!FrontierMark, number>} */
+	const rowsByMark = new Map();
+	for (const layer of layers) {
+		if (!layer) continue;
+		/** @type {!Map<!FrontierMark, number>} */
+		const preferred = new Map();
+		for (const mark of layer) {
+			let row = Infinity;
+			const parents = /** @type {!Array<!FrontierMark>} */ (mark.parents);
+			for (const parent of parents) {
+				row = Math.min(row, rowsByMark.get(parent) ?? Infinity);
+			}
+			preferred.set(mark, row);
+		}
+		layer.sort((a, b) => {
+			const left = preferred.get(a) ?? Infinity;
+			const right = preferred.get(b) ?? Infinity;
+			return left === right ? a.index - b.index : left - right;
+		});
+		layer.forEach((mark, row) => rowsByMark.set(mark, row));
+	}
+
+	/** @type {!Array<!Array<?FrontierMark>>} */
+	const columns = [];
+	/** @type {!Array<!FrontierMark>} */
+	const expected = pending.filter((mark) => !suppressed.has(mark));
+	expected.sort((a, b) => {
+		const left = a.announcedAt ?? Infinity;
+		const right = b.announcedAt ?? Infinity;
+		return left === right ? 0 : left - right;
+	});
+	columns.push(expected);
+	if (progress.last && !removed.has(progress.last)) {
+		columns.push(isFrontierBackbone(progress.last) ? [progress.last] : [null, progress.last]);
+	}
+	/** @type {!Map<!FrontierMark, !FrontierCell>} */
+	const departures = new Map();
+	for (let i = layers.length - 1; i >= 0; i--) {
+		if (!layers[i]) continue;
+		/** @type {!Array<!FrontierMark>} */
+		const backbone = [];
+		/** @type {!Array<!FrontierMark>} */
+		const branches = [];
+		/** @type {!Array<{mark: !FrontierMark, row: number}>} */
+		const leaving = [];
+		let branchRow = 1;
+		for (const mark of layers[i]) {
+			if (!removed.has(mark)) {
+				if (isFrontierBackbone(mark)) backbone.push(mark);
+				else {
+					branches.push(mark);
+					branchRow++;
+				}
+			} else if (mark.index >= start && !suppressed.has(mark)) {
+				leaving.push({mark, row: isFrontierBackbone(mark) ? 0 : branchRow++});
+			}
+		}
+		// Parallel progress events get their own column so none spill into a branch row.
+		for (let j = backbone.length - 1; j > 0; j--) columns.push([backbone[j]]);
+		const column = columns.length;
+		for (const departure of leaving) {
+			departures.set(departure.mark, {column, row: departure.row});
+		}
+		if (branches.length || backbone.length) columns.push([backbone[0] || null, ...branches]);
+	}
+	/** @type {!Map<!FrontierMark, !FrontierCell>} */
+	const cells = new Map();
+	let bodyRows = 0;
+	columns.forEach((marks, column) => {
+		if (column > 0) bodyRows = Math.max(bodyRows, marks.length);
+		marks.forEach((mark, row) => {
+			if (mark) cells.set(mark, {column, row});
+		});
+	});
+
+	// Keep dependencies reachable through excised marks without changing the stored events.
+	/** @type {!Map<!FrontierMark, !Array<!FrontierMark>>} */
+	const parents = new Map();
+	/** @type {!Map<!FrontierMark, !Array<!FrontierMark>>} */
+	const children = new Map();
+	const projected = /** @type {!Array<!FrontierMark>} */ (ready.concat(expected));
+	for (const mark of projected) {
+		/** @type {!Set<!FrontierMark>} */
+		const upstream = new Set();
+		const directParents = /** @type {!Array<!FrontierMark>} */ (mark.parents);
+		for (const parent of directParents) {
+			if (removed.has(parent)) {
+				const ancestors = parents.get(parent);
+				if (ancestors) for (const ancestor of ancestors) upstream.add(ancestor);
+			} else if (cells.has(parent)) upstream.add(parent);
+		}
+		/** @type {!Array<!FrontierMark>} */
+		const connected = Array.from(upstream);
+		parents.set(mark, connected);
+		if (removed.has(mark)) continue;
+		for (const parent of connected) {
+			let next = children.get(parent);
+			if (!next) {
+				next = [];
+				children.set(parent, next);
+			}
+			next.push(mark);
+		}
+	}
+	return {columns, cells, parents, children, departures, suppressed, bodyRows};
+}
+
+/** @typedef {{index: number, success: boolean, mnemonic: string, path: string, color: string}} */
+let FrontierActionReading;
+
+/** @typedef {{x: number, y: number}} */
+let FrontierPoint;
+
+/**
+ * The lateral spread peaks mid-flight and converges at the reader.
+ * @param {!FrontierPoint} origin
+ * @param {!FrontierPoint} target
+ * @param {number} lane
+ * @return {!Array<!Keyframe>}
+ */
+function frontierFlightFrames(origin, target, lane) {
+	/** @type {!Array<!Keyframe>} */
+	const frames = [];
+	/**
+	 * @param {number} x
+	 * @param {number} y
+	 * @param {number} offset
+	 * @param {number} opacity
+	 */
+	const step = (x, y, offset, opacity) => frames.push({
+		offset, opacity,
+		transform: "translate(" + x + "px," + y + "px)",
+	});
+	step(origin.x, origin.y, 0, 1);
+	step(origin.x + 3, origin.y - 2, 0.045, 1);
+	step(origin.x - 4, origin.y + 1, 0.09, 1);
+	step(origin.x, origin.y, 0.14, 1);
+	const arc = (lane - (FRONTIER_FLIGHT_LANES - 1) / 2) * 12;
+	for (let i = 1; i <= 8; i++) {
+		const t = i / 8;
+		const x = target.x + (origin.x - target.x) * (1 - t) ** (1.35 + lane * 0.025);
+		const y = origin.y + (target.y - origin.y) * t ** 2 + arc * 4 * t * (1 - t);
+		step(x, Math.max(4, Math.min(target.y, y)), 0.14 + 0.86 * t, i === 8 ? 0 : 1);
+	}
+	return frames;
+}
+
+class FrontierActionReaders {
+	/**
+	 * @param {!HTMLElement} layer
+	 * @param {!HTMLElement} reader
+	 */
+	constructor(layer, reader) {
+		this.layer_ = layer;
+		this.reader_ = reader;
+		this.reducedMotion_ = window.matchMedia("(prefers-reduced-motion: reduce)");
+		/** @private */ this.latest_ = -1;
+		/** @private */ this.nextFlight_ = 0;
+		/** @private @const {!Map<!Animation, {particle: !HTMLElement, reading: ?FrontierActionReading}>} */
+		this.flights_ = new Map();
+	}
+
+	reset() {
+		this.finish();
+		this.latest_ = -1;
+		this.nextFlight_ = 0;
+		this.write_("—", "", "", "", true);
+	}
+
+	finish() {
+		for (const [animation, flight] of this.flights_) {
+			animation.cancel();
+			flight.particle.remove();
+			if (flight.reading) this.read_(flight.reading);
+		}
+		this.flights_.clear();
+	}
+
+	/** @private @return {boolean} */
+	canAnimate_() {
+		return !this.reducedMotion_.matches && !document.hidden &&
+			typeof this.layer_.animate === "function" && this.flights_.size < FRONTIER_MAX_FLIGHTS;
+	}
+
+	/**
+	 * @param {!Array<!FrontierMark>} history
+	 * @param {number} start
+	 * @param {function(!FrontierMark):?FrontierPoint} origin
+	 */
+	update(history, start, origin) {
+		if (start >= history.length) return;
+		/** @type {?FrontierActionReading} */
+		let direct = null;
+		for (let index = start; index < history.length; index++) {
+			const mark = history[index];
+			const action = mark.event?.getAction();
+			if (!action) continue;
+			const file = action.getPrimaryOutput();
+			const path = mark.id?.getActionCompleted()?.getPrimaryOutput() ||
+				(file ? [...file.getPathPrefixList(), file.getName()].filter(Boolean).join("/") : "");
+			/** @type {!FrontierActionReading} */
+			const reading = {index, success: action.getSuccess(), mnemonic: action.getType() || "Unspecified",
+				path, color: mark.color};
+			const source = this.canAnimate_() ? origin(mark) : null;
+			if (source) this.launch_(reading, source);
+			else direct = reading;
+		}
+		if (direct) this.read_(direct);
+	}
+
+	/**
+	 * @private
+	 * @param {!FrontierActionReading} reading
+	 */
+	read_(reading) {
+		if (reading.index < this.latest_) return;
+		this.latest_ = reading.index;
+		const path = reading.path.replace(/\\/g, "/").replace(/^.*?bazel-out\/[^/]+\/(?:bin|genfiles)\//, "");
+		const parts = path.split("/").filter(Boolean);
+		const compact = parts.length > 3 ? "…/" + parts.slice(-3).join("/") : parts.join("/");
+		this.write_(reading.mnemonic, compact || "No primary output", reading.path, reading.color, reading.success);
+	}
+
+	/**
+	 * @private
+	 * @param {string} mnemonic
+	 * @param {string} path
+	 * @param {string} fullPath
+	 * @param {string} color
+	 * @param {boolean} success
+	 */
+	write_(mnemonic, path, fullPath, color, success) {
+		const row = this.reader_;
+		row.classList.toggle("is-failed", !success);
+		row.setAttribute("aria-label", color ? (success ? "Last successful action" : "Last failed action") : "Last completed action");
+		const dot = /** @type {?HTMLElement} */ (row.querySelector(".bes-frontier-reader-dot"));
+		const name = /** @type {?HTMLElement} */ (row.querySelector(".bes-frontier-reader-mnemonic"));
+		const output = /** @type {?HTMLElement} */ (row.querySelector(".bes-frontier-reader-output"));
+		if (dot) dot.style.backgroundColor = color;
+		if (name) {
+			name.textContent = mnemonic;
+			name.title = mnemonic;
+		}
+		if (output) {
+			output.textContent = path;
+			output.title = fullPath;
+		}
+	}
+
+	/**
+	 * @private
+	 * @param {!FrontierActionReading} reading
+	 * @param {!FrontierPoint} origin
+	 */
+	launch_(reading, origin) {
+		const gate = this.reader_.parentElement?.querySelector(reading.success
+			? ".bes-frontier-arrival-success" : ".bes-frontier-arrival-failed");
+		if (!gate) {
+			this.read_(reading);
+			return;
+		}
+		const bounds = this.layer_.getBoundingClientRect();
+		const target = gate.getBoundingClientRect();
+		const end = {x: target.left - bounds.left + target.width / 2,
+			y: target.top - bounds.top + target.height / 2};
+		const lane = this.nextFlight_ % FRONTIER_FLIGHT_LANES;
+		const stagger = lane * 12 + Math.floor(this.nextFlight_ / FRONTIER_FLIGHT_LANES) * 55;
+		this.nextFlight_ = (this.nextFlight_ + 1) % FRONTIER_MAX_FLIGHTS;
+		const distance = Math.hypot(end.x - origin.x, end.y - origin.y);
+		this.animate_(reading.color, frontierFlightFrames(origin, end, lane),
+			Math.min(950, 575 + distance / 3) + lane * 20, reading, stagger);
+	}
+
+	/**
+	 * @param {!FrontierPoint} origin
+	 * @param {string} color
+	 */
+	fadeProgress(origin, color) {
+		if (!this.canAnimate_()) return;
+		const position = "translate(" + origin.x + "px," + origin.y + "px)";
+		this.animate_(color, [
+			{transform: position, opacity: 1},
+			{transform: position + " scale(1.35)", opacity: 0.7},
+			{transform: position + " scale(0)", opacity: 0},
+		], 300, null);
+	}
+
+	/**
+	 * @private
+	 * @param {string} color
+	 * @param {!Array<!Keyframe>} frames
+	 * @param {number} duration
+	 * @param {?FrontierActionReading} reading
+	 * @param {number=} delay
+	 */
+	animate_(color, frames, duration, reading, delay = 0) {
+		const particle = /** @type {!HTMLElement} */ (dom.createDom("span", reading
+			? "bes-frontier-particle" : "bes-frontier-particle is-progress"));
+		particle.style.color = color;
+		particle.style.backgroundColor = color;
+		this.layer_.appendChild(particle);
+		const animation = particle.animate(frames, {duration, delay, fill: "both"});
+		this.flights_.set(animation, {particle, reading});
+		animation.onfinish = () => {
+			if (!this.flights_.delete(animation)) return;
+			particle.remove();
+			if (reading) this.read_(reading);
+		};
+	}
+}
 
 class InvocationFrontier {
 	/**
 	 * @param {!HTMLCanvasElement} canvas
 	 * @param {!HTMLElement} scroll
 	 * @param {!HTMLElement} spacer
+	 * @param {!FrontierActionReaders} readers
 	 * @param {function(!FrontierMark):void} inspect
 	 */
-	constructor(canvas, scroll, spacer, inspect) {
+	constructor(canvas, scroll, spacer, readers, inspect) {
 		this.canvas = canvas;
 		this.scroll = scroll;
 		this.spacer = spacer;
+		this.readers_ = readers;
 		this.inspect = inspect;
-		this.progress = new InvocationProgress();
-		/** @private @type {!Array<!FrontierMark>} */
-		this.pending_ = [];
+		/** @private @type {?InvocationProgress} */
+		this.progress_ = null;
+		/** @private @type {!FrontierLayout} */
+		this.layout_ = {columns: [[]], cells: new Map(), parents: new Map(),
+			children: new Map(), departures: new Map(), suppressed: new Set(), bodyRows: 0};
 		/** @private @type {?FrontierMark} */
 		this.selected_ = null;
-		this.columns_ = 1;
-	}
-
-	/** @param {!InvocationProgress} progress */
-	update(progress) {
-		if (this.progress !== progress) {
-			this.selected_ = null;
-			this.scroll.scrollTop = 0;
-			this.canvas.title = "";
-		}
-		this.progress = progress;
-		this.pending_ = Array.from(progress.pending.values());
-		this.pending_.forEach((mark, index) => { mark.pendingIndex = index; });
-		this.draw();
-		if (this.selected_) this.select_(this.selected_);
+		/** @private */ this.received_ = 0;
+		/** @private */ this.clock_ = 0;
 	}
 
 	/**
-	 * @private
-	 * @return {number}
+	 * @param {!InvocationProgress} progress
+	 * @return {number} The count of expected events shown in the frontier.
 	 */
-	historyRow_() {
-		return Number(!!this.progress.last) + Math.ceil(this.pending_.length / this.columns_);
+	update(progress) {
+		let start = this.received_;
+		/** @type {?FrontierLayout} */
+		let previous = this.layout_;
+		if (this.progress_ !== progress) {
+			start = 0;
+			previous = null;
+			this.readers_.reset();
+			this.selected_ = null;
+			this.scroll.scrollTop = 0;
+			this.scroll.scrollLeft = 0;
+			this.canvas.title = "";
+		} else if (this.received_ === progress.history.length) {
+			return this.layout_.columns[0].length;
+		}
+		this.progress_ = progress;
+		this.received_ = progress.history.length;
+		this.layout_ = layoutFrontier(progress, start);
+		this.draw(start, previous);
+		if (this.selected_) {
+			this.inspect(this.selected_);
+			if (!this.layout_.cells.has(this.selected_)) this.selected_ = null;
+		}
+		const running = !progress.last && this.layout_.columns[0].some((mark) => mark && mark.announcedAt !== null);
+		if (running && !this.clock_) {
+			this.clock_ = setInterval(() => {
+				this.draw();
+				if (this.selected_ && !this.selected_.event) this.inspect(this.selected_);
+			}, 1000);
+		} else if (!running) {
+			this.stopClock();
+		}
+		return this.layout_.columns[0].length;
+	}
+
+	stop() {
+		this.stopClock();
+		this.readers_.finish();
+	}
+
+	stopClock() {
+		clearInterval(this.clock_);
+		this.clock_ = 0;
 	}
 
 	/**
@@ -1286,107 +2938,205 @@ class InvocationFrontier {
 	 * @return {?FrontierMark}
 	 */
 	markAt_(column, row) {
-		if (column < 0 || column >= this.columns_ || row < 0) return null;
-		const last = this.progress.last;
-		if (last && row === 0) return column === 0 ? last : null;
-		if (row < this.historyRow_()) {
-			return this.pending_[(row - Number(!!last)) * this.columns_ + column] || null;
-		}
-		let index = this.progress.history.length - 1 -
-			((row - this.historyRow_()) * this.columns_ + column);
-		if (last && index <= last.index) index--;
-		return this.progress.history[index] || null;
+		return this.layout_.columns[column]?.[row] || null;
+	}
+
+	/** @private @return {number} */
+	expectedWidth_() {
+		return this.layout_.columns[0].length
+			? Math.min(FRONTIER_EXPECTED_WIDTH, Math.floor(this.scroll.clientWidth * 0.58))
+			: 0;
 	}
 
 	/**
-	 * @private
-	 * @param {!FrontierMark} mark
-	 * @return {{column: number, row: number}}
+	 * @param {number=} firstNewMark
+	 * @param {?FrontierLayout=} previous
 	 */
-	cell_(mark) {
-		const last = this.progress.last;
-		if (mark === last) return {column: 0, row: 0};
-		const index = mark.event
-			? this.progress.history.length - 1 - mark.index - Number(!!last && last.index > mark.index)
-			: mark.pendingIndex;
-		const offset = mark.event ? this.historyRow_() : Number(!!last);
-		return {column: index % this.columns_, row: offset + Math.floor(index / this.columns_)};
-	}
-
-	draw() {
+	draw(firstNewMark = this.received_, previous = null) {
 		const width = this.scroll.clientWidth;
 		const height = this.scroll.clientHeight;
 		const context = /** @type {?CanvasRenderingContext2D} */ (this.canvas.getContext("2d"));
-		if (!width || !height || !context) return;
-		this.columns_ = Math.max(1, Math.floor((width - 2 * FRONTIER_INSET) / FRONTIER_CELL_SIZE));
-		const historyRows = Math.ceil(
-			(this.progress.history.length - Number(!!this.progress.last)) / this.columns_,
-		);
-		const rows = this.historyRow_() + historyRows;
-		this.spacer.style.height = Math.max(
-			0, 2 * FRONTIER_INSET + rows * FRONTIER_CELL_SIZE - height,
-		) + "px";
+		const progress = this.progress_;
+		if (!width || !height || !context) {
+			if (progress) this.readers_.update(progress.history, firstNewMark, () => null);
+			return;
+		}
+		const {columns, cells, parents, children, departures, suppressed, bodyRows} = this.layout_;
+		const expectedColumn = columns[0];
+		const band = this.expectedWidth_();
+		const bodyLeft = band + FRONTIER_INSET;
+		const contentWidth = bodyLeft + (columns.length - 1) * FRONTIER_COLUMN_WIDTH + FRONTIER_INSET;
+		const contentHeight = 2 * FRONTIER_INSET + Math.max(bodyRows * FRONTIER_ROW_HEIGHT,
+			expectedColumn.length * FRONTIER_EXPECTED_HEIGHT);
+		this.spacer.style.width = Math.max(width, contentWidth) + "px";
+		this.spacer.style.height = Math.max(0, contentHeight - height) + "px";
 		const scale = window.devicePixelRatio || 1;
-		if (this.canvas.width !== Math.round(width * scale) ||
-			this.canvas.height !== Math.round(height * scale)) {
+		if (this.canvas.width !== Math.round(width * scale) || this.canvas.height !== Math.round(height * scale)) {
 			this.canvas.width = Math.round(width * scale);
 			this.canvas.height = Math.round(height * scale);
-			this.canvas.style.height = height + "px";
 		}
+		this.canvas.style.height = height + "px";
 		context.setTransform(scale, 0, 0, scale, 0, 0);
 		context.clearRect(0, 0, width, height);
-		const top = this.scroll.scrollTop;
-		const first = Math.max(0, Math.floor((top - FRONTIER_INSET) / FRONTIER_CELL_SIZE));
-		const end = Math.min(rows, Math.ceil((top + height - FRONTIER_INSET) / FRONTIER_CELL_SIZE));
-		/** @type {function(number):number} */
-		const x = (column) => FRONTIER_INSET + (column + 0.5) * FRONTIER_CELL_SIZE;
-		/** @type {function(number):number} */
-		const y = (row) => FRONTIER_INSET + (row + 0.5) * FRONTIER_CELL_SIZE - top;
-		const foreground = getComputedStyle(this.canvas).color;
 
-		const selected = this.selected_;
-		if (selected) {
-			const origin = this.cell_(selected);
-			context.beginPath();
-			/** @type {!Array<!Array<!FrontierMark>>} */
-			const connections = [selected.parents, selected.children];
-			for (const relatives of connections) {
-				for (const relative of relatives) {
-					const target = this.cell_(relative);
-					if (target.row < first || target.row >= end) continue;
-					context.moveTo(x(origin.column), y(origin.row));
-					context.lineTo(x(target.column), y(target.row));
-				}
+		const top = this.scroll.scrollTop;
+		const left = this.scroll.scrollLeft;
+		const firstRow = Math.max(0, Math.floor((top - FRONTIER_INSET) / FRONTIER_ROW_HEIGHT));
+		const endRow = Math.ceil((top + height - FRONTIER_INSET) / FRONTIER_ROW_HEIGHT);
+		const firstColumn = 1 + Math.max(0, Math.floor((left + band - bodyLeft) / FRONTIER_COLUMN_WIDTH));
+		const endColumn = Math.min(columns.length, 1 + Math.ceil((left + width - bodyLeft) / FRONTIER_COLUMN_WIDTH));
+		/** @type {function(!FrontierCell):number} */
+		const x = (cell) => cell.column === 0 ? band :
+			bodyLeft + (cell.column - 0.5) * FRONTIER_COLUMN_WIDTH - left;
+		/** @type {function(!FrontierCell):number} */
+		const y = (cell) => FRONTIER_INSET + (cell.row + 0.5) *
+			(cell.column === 0 ? FRONTIER_EXPECTED_HEIGHT : FRONTIER_ROW_HEIGHT) - top;
+
+		/** @type {!Array<?FrontierMark>} */
+		const expected = expectedColumn.slice(
+			Math.max(0, Math.floor((top - FRONTIER_INSET) / FRONTIER_EXPECTED_HEIGHT)),
+			Math.ceil((top + height - FRONTIER_INSET) / FRONTIER_EXPECTED_HEIGHT),
+		);
+		/** @type {!Array<!FrontierMark>} */
+		const visible = [];
+		for (let column = firstColumn; column < endColumn; column++) {
+			const marks = columns[column];
+			const end = Math.min(endRow, marks.length);
+			for (let row = firstRow; row < end; row++) {
+				const mark = marks[row];
+				if (mark) visible.push(mark);
 			}
+		}
+		/** @type {!Set<!FrontierMark>} */
+		const visibleMarks = new Set(visible);
+		for (const mark of expected) {
+			if (mark) visibleMarks.add(mark);
+		}
+		const selected = this.selected_;
+		const canvasStyle = getComputedStyle(this.canvas);
+		const foreground = canvasStyle.color;
+		const primary = new Path2D();
+		const shared = new Path2D();
+		const highlighted = new Path2D();
+		/** @type {function(!FrontierMark, !FrontierMark):void} */
+		const addEdge = (parent, child) => {
+			const from = cells.get(parent);
+			const to = cells.get(child);
+			if (!from || !to) return;
+			const active = selected === parent || selected === child;
+			const fromX = x(from);
+			const toX = x(to);
+			const path = active ? highlighted : parents.get(child)?.[0] === parent ? primary : shared;
+			const sourceY = y(from);
+			const targetY = y(to);
+			const midpoint = (fromX + toX) / 2;
+			path.moveTo(fromX, sourceY);
+			path.bezierCurveTo(midpoint, sourceY, midpoint, targetY, toX, targetY);
+		};
+		for (const mark of visibleMarks) {
+			for (const child of children.get(mark) || []) addEdge(mark, child);
+			for (const parent of parents.get(mark) || []) {
+				if (!visibleMarks.has(parent)) addEdge(parent, mark);
+			}
+		}
+		/** @type {function(!FrontierMark):void} */
+		const paintMark = (mark) => {
+			const cell = cells.get(mark);
+			if (!cell) return;
+			const mx = x(cell);
+			const my = y(cell);
 			context.strokeStyle = foreground;
-			context.globalAlpha = 0.35;
-			context.stroke();
+			context.globalAlpha = 0.6;
+			context.fillStyle = mark.color;
+			context.strokeRect(mx - 4, my - 4, 8, 8);
+			context.globalAlpha = 1;
+			context.fillRect(mx - 3.5, my - 3.5, 7, 7);
+			if (mark === selected) context.strokeRect(mx - 6, my - 6, 12, 12);
+		};
+
+		context.save();
+		context.beginPath();
+		context.rect(band, 0, width - band, height);
+		context.clip();
+		context.strokeStyle = foreground;
+		context.globalAlpha = 0.35;
+		context.stroke(primary);
+		context.globalAlpha = 0.24;
+		context.setLineDash([2, 3]);
+		context.stroke(shared);
+		context.setLineDash([]);
+		context.globalAlpha = 0.85;
+		context.stroke(highlighted);
+		for (const mark of visible) paintMark(mark);
+		context.restore();
+		if (band) {
+			const now = this.progress_?.frontierNow() ?? 0;
+			context.fillStyle = foreground;
+			context.globalAlpha = 0.2;
+			context.fillRect(band - 1, 0, 1, height);
+			context.textBaseline = "top";
+			for (const mark of expected) {
+				if (!mark) continue;
+				const cell = cells.get(mark);
+				if (!cell) continue;
+				const center = y(cell);
+				const start = FRONTIER_INSET;
+				const cardWidth = band - start - 8;
+				const cardTop = center - 22;
+				context.fillStyle = foreground;
+				context.globalAlpha = mark === selected ? 0.16 : 0.06;
+				context.fillRect(start, cardTop, cardWidth, 44);
+				context.strokeStyle = mark === selected ? foreground : mark.color;
+				context.globalAlpha = mark === selected ? 1 : 0.55;
+				context.strokeRect(start + 0.5, cardTop + 0.5, cardWidth - 1, 43);
+				context.globalAlpha = 0.35;
+				context.strokeStyle = foreground;
+				context.beginPath();
+				context.moveTo(start + cardWidth, center);
+				context.lineTo(band, center);
+				context.stroke();
+
+				const label = expectedFrontierLabel(mark.id);
+				const age = frontierWait(mark, now);
+				const timer = age === null ? "—" : formatFrontierWait(age);
+				context.fillStyle = foreground;
+				context.globalAlpha = 1;
+				context.font = "12px monospace";
+				context.textAlign = "right";
+				context.fillText(timer, start + cardWidth - 8, cardTop + 6);
+				const timerWidth = context.measureText(timer).width;
+				context.textAlign = "left";
+				context.font = "600 12px " + canvasStyle.fontFamily;
+				context.fillText(fitFrontierLabel(context, label.type, cardWidth - timerWidth - 24), start + 8, cardTop + 6);
+				context.font = "12px " + canvasStyle.fontFamily;
+				context.globalAlpha = 0.8;
+				context.fillText(fitFrontierLabel(context, label.detail, cardWidth - 16), start + 8, cardTop + 24);
+			}
 			context.globalAlpha = 1;
 		}
-
-		for (let row = first; row < end; row++) {
-			for (let column = 0; column < this.columns_; column++) {
-				const mark = this.markAt_(column, row);
-				if (!mark) break;
-				const left = x(column) - 3;
-				const top = y(row) - 3;
-				context.strokeStyle = foreground;
-				context.globalAlpha = 0.55;
-				context.strokeRect(left - 0.5, top - 0.5, 7, 7);
-				context.globalAlpha = 1;
-				if (mark.event) {
-					context.fillStyle = mark.color;
-					context.fillRect(left, top, 6, 6);
-				} else {
-					context.strokeStyle = mark.color;
-					context.strokeRect(left + 0.5, top + 0.5, 5, 5);
-				}
-				if (mark === selected) {
-					context.strokeStyle = foreground;
-					context.strokeRect(left - 2.5, top - 2.5, 11, 11);
-				}
-			}
+		if (progress) this.readers_.update(progress.history, firstNewMark, (mark) => {
+			const cell = departures.get(mark);
+			if (!cell) return null;
+			const mx = x(cell);
+			const my = y(cell);
+			return mx >= band && mx < width && my >= 0 && my < height ? {x: mx, y: my} : null;
+		});
+		if (previous) {
+			const oldBand = previous.columns[0].length
+				? Math.min(FRONTIER_EXPECTED_WIDTH, Math.floor(width * 0.58)) : 0;
+			previous.cells.forEach((cell, mark) => {
+				if (cell.column === 0 || cells.has(mark) || suppressed.has(mark) || !mark.event?.hasProgress()) return;
+				const mx = oldBand + FRONTIER_INSET + (cell.column - 0.5) * FRONTIER_COLUMN_WIDTH - left;
+				const my = y(cell);
+				if (mx >= oldBand && mx < width && my >= 0 && my < height) this.readers_.fadeProgress({x: mx, y: my}, mark.color);
+			});
 		}
+		departures.forEach((cell, mark) => {
+			if (!mark.event?.hasProgress() || previous?.cells.has(mark)) return;
+			const mx = x(cell);
+			const my = y(cell);
+			if (mx >= band && mx < width && my >= 0 && my < height) this.readers_.fadeProgress({x: mx, y: my}, mark.color);
+		});
 	}
 
 	/**
@@ -1395,25 +3145,23 @@ class InvocationFrontier {
 	 */
 	pick(event) {
 		const bounds = this.canvas.getBoundingClientRect();
-		return this.markAt_(
-			Math.floor((event.clientX - bounds.left - FRONTIER_INSET) / FRONTIER_CELL_SIZE),
-			Math.floor((event.clientY - bounds.top + this.scroll.scrollTop - FRONTIER_INSET) / FRONTIER_CELL_SIZE),
-		);
+		const x = event.clientX - bounds.left;
+		const y = event.clientY - bounds.top;
+		const band = this.expectedWidth_();
+		const expected = x < band;
+		const column = expected ? 0 : 1 + Math.floor((x + this.scroll.scrollLeft - band - FRONTIER_INSET) /
+			FRONTIER_COLUMN_WIDTH);
+		if (!expected && column < 1) return null;
+		const row = Math.floor((y + this.scroll.scrollTop - FRONTIER_INSET) /
+			(expected ? FRONTIER_EXPECTED_HEIGHT : FRONTIER_ROW_HEIGHT));
+		return this.markAt_(column, row);
 	}
 
 	/** @param {!FrontierMark} mark */
 	select(mark) {
-		this.select_(mark);
-		this.draw();
-	}
-
-	/**
-	 * @private
-	 * @param {!FrontierMark} mark
-	 */
-	select_(mark) {
 		this.selected_ = mark;
 		this.inspect(mark);
+		this.draw();
 	}
 
 	/** @param {!KeyboardEvent} event */
@@ -1421,24 +3169,47 @@ class InvocationFrontier {
 		const key = event.key;
 		if (!["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Home", "End"].includes(key)) return;
 		event.preventDefault();
-		const current = this.selected_;
-		let mark = this.markAt_(0, 0);
+		const current = this.selected_ && this.layout_.cells.get(this.selected_);
+		let mark = this.markAt_(0, 0) || this.markAt_(1, 0) || this.markAt_(1, 1);
 		if (key === "End") {
-			mark = this.progress.history[0] || mark;
+			const root = this.progress_?.history[0];
+			const lastColumn = this.layout_.columns.length - 1;
+			mark = root && this.layout_.cells.has(root) ? root
+				: this.markAt_(lastColumn, 0) || this.markAt_(lastColumn, 1) || mark;
 		} else if (current && key !== "Home") {
-			const {column, row} = this.cell_(current);
+			let {column, row} = current;
 			switch (key) {
-				case "ArrowLeft": mark = this.markAt_(column - 1, row); break;
-				case "ArrowRight": mark = this.markAt_(column + 1, row); break;
-				case "ArrowUp": mark = this.markAt_(column, row - 1) || this.markAt_(0, row - 1); break;
-				case "ArrowDown": mark = this.markAt_(column, row + 1) || this.markAt_(0, row + 1); break;
+				case "ArrowLeft": column--; break;
+				case "ArrowRight": column++; break;
+				case "ArrowUp": row--; break;
+				case "ArrowDown": row++; break;
 			}
+			if (column !== current.column && this.layout_.columns[column]) {
+				const previousHeight = current.column === 0 ? FRONTIER_EXPECTED_HEIGHT : FRONTIER_ROW_HEIGHT;
+				const nextHeight = column === 0 ? FRONTIER_EXPECTED_HEIGHT : FRONTIER_ROW_HEIGHT;
+				row = Math.min(Math.floor((row + 0.5) * previousHeight / nextHeight),
+					this.layout_.columns[column].length - 1);
+			}
+			mark = this.markAt_(column, row);
+			if (!mark && column !== current.column && row === 0) mark = this.markAt_(column, 1);
 		}
 		if (!mark) return;
-		const top = FRONTIER_INSET + this.cell_(mark).row * FRONTIER_CELL_SIZE;
+		const cell = this.layout_.cells.get(mark);
+		if (!cell) return;
+		const band = this.expectedWidth_();
+		if (key === "Home") this.scroll.scrollLeft = 0;
+		if (cell.column > 0) {
+			const left = band + FRONTIER_INSET + (cell.column - 1) * FRONTIER_COLUMN_WIDTH;
+			if (left < this.scroll.scrollLeft + band) this.scroll.scrollLeft = left - band;
+			else if (left + FRONTIER_COLUMN_WIDTH > this.scroll.scrollLeft + this.scroll.clientWidth) {
+				this.scroll.scrollLeft = left + FRONTIER_COLUMN_WIDTH - this.scroll.clientWidth;
+			}
+		}
+		const rowHeight = cell.column === 0 ? FRONTIER_EXPECTED_HEIGHT : FRONTIER_ROW_HEIGHT;
+		const top = FRONTIER_INSET + cell.row * rowHeight;
 		if (top < this.scroll.scrollTop) this.scroll.scrollTop = top;
-		if (top + FRONTIER_CELL_SIZE > this.scroll.scrollTop + this.scroll.clientHeight) {
-			this.scroll.scrollTop = top + FRONTIER_CELL_SIZE - this.scroll.clientHeight;
+		else if (top + rowHeight > this.scroll.scrollTop + this.scroll.clientHeight) {
+			this.scroll.scrollTop = top + rowHeight - this.scroll.clientHeight;
 		}
 		this.select(mark);
 	}
@@ -1456,12 +3227,14 @@ function frontierMarkLabel(mark) {
 }
 
 class BuildEventViewerComponent extends Component {
-	/** @param {?dom.DomHelper=} opt_domHelper */
-	constructor(opt_domHelper) {
+	/**
+	 * @param {?dom.DomHelper=} opt_domHelper
+	 * @param {boolean=} embedded
+	 */
+	constructor(opt_domHelper, embedded = false) {
 		super(opt_domHelper);
 
-		/** @private @type {!Array<!BuildEvent>} */
-		this.events_ = [];
+		/** @private @const */ this.embedded_ = embedded;
 		/** @private @type {!InvocationProgress} */
 		this.progress_ = new InvocationProgress();
 		/** @private @type {?InvocationFrontier} */
@@ -1474,6 +3247,8 @@ class BuildEventViewerComponent extends Component {
 		this.inspectedEvent_ = null;
 		/** @private @type {?string} */
 		this.renderedLog_ = null;
+		/** @private @type {string} */
+		this.mnemonicRenderKey_ = "";
 		/** @private @type {?InvocationTerminal} */
 		this.terminal_ = null;
 		/** @private @type {number} */
@@ -1482,12 +3257,22 @@ class BuildEventViewerComponent extends Component {
 		this.testsRenderKey_ = "";
 		/** @private @type {?BuildMetrics} */
 		this.renderedMetrics_ = null;
+		/** @private @type {?BuildMetrics} */
+		this.renderedStatMetrics_ = null;
 		/** @private @type {?BuildToolLogs} */
 		this.renderedPathLogs_ = null;
 		/** @private @type {?number} */
 		this.renderedPathTime_ = null;
 		/** @private @type {number} */
 		this.clockTimer_ = 0;
+		/** @private @type {?ResizeObserver} */
+		this.commandObserver_ = null;
+		/** @private @type {?HTMLElement} */
+		this.commandHeading_ = null;
+		/** @private @type {?HTMLButtonElement} */
+		this.commandToggle_ = null;
+		/** @private */
+		this.commandExpanded_ = false;
 		/** @private @type {number} */
 		this.cacheTimer_ = 0;
 		/** @private @type {boolean} */
@@ -1507,10 +3292,6 @@ class BuildEventViewerComponent extends Component {
 		this.fileName_ = "";
 		/** @private @type {number} */
 		this.fileSize_ = 0;
-		/** @private @type {number} */
-		this.selectedIndex_ = 0;
-		/** @private @const {!Set<number>} */
-		this.selectedTypes_ = new Set();
 		/** @private @type {?number} */
 		this.buildStartMillis_ = null;
 		/** @private @type {?InvocationBackend} */
@@ -1521,14 +3302,11 @@ class BuildEventViewerComponent extends Component {
 		this.renderTimer_ = 0;
 		/** @private @type {number} */
 		this.loadGeneration_ = 0;
-		/** @private @const {!EventHandler} */
-		this.resultsHandler_ = new EventHandler(this);
-		this.registerDisposable(this.resultsHandler_);
 	}
 
 	/** @override */
 	createDom() {
-		this.setElementInternal(soy.renderAsElement(invocationViewer));
+		this.setElementInternal(soy.renderAsElement(invocationViewer, {embedded: this.embedded_}));
 	}
 
 	/** @override */
@@ -1561,9 +3339,8 @@ class BuildEventViewerComponent extends Component {
 		);
 		this.bindTabs_();
 		this.bindFrontier_();
-		if (this.events_.length) this.renderTab_();
-		const browser = this.getElement_(goog.getCssName("bes-browser"));
-		this.getHandler().listen(browser, "toggle", () => this.renderEventBrowser_());
+		if (this.progress_.history.length) this.renderTab_();
+		if (this.embedded_) return;
 		const dropZone = this.getElement_(CSS_DROP_ZONE);
 		const summary = this.getElement_(CSS_SUMMARY);
 		const choose = this.getElement_(CSS_CHOOSE_FILE);
@@ -1599,6 +3376,24 @@ class BuildEventViewerComponent extends Component {
 		this.getHandler().listen(dropZone, events.EventType.DRAGLEAVE, () =>
 			dropZone.classList.remove("is-dragging"),
 		);
+	}
+
+	/**
+	 * @override
+	 * @param {!Route} route
+	 */
+	goHere(route) {
+		super.goHere(route);
+		if (this.embedded_) return;
+		const address = readViewerBackend("invocation");
+		if (address) this.backendInput_(goog.getCssName("bes-backend")).value = address;
+		const id = new URL(window.location.href).searchParams.get("invocation");
+		if (!id) {
+			if (!this.local_ && this.fileName_) selectInvocationInUrl("invocation", this.fileName_);
+			return;
+		}
+		this.backendInput_(goog.getCssName("bes-id")).value = id;
+		if (this.local_ || this.fileName_ !== id || !this.source_) this.connectBackend_();
 	}
 
 	/**
@@ -1656,6 +3451,16 @@ class BuildEventViewerComponent extends Component {
 			return;
 		}
 		const address = this.backendInput_(goog.getCssName("bes-backend")).value.trim();
+		selectInvocationInUrl("invocation", id);
+		await this.followInvocation(address, id);
+	}
+
+	/**
+	 * @param {string} address
+	 * @param {string} id
+	 */
+	async followInvocation(address, id) {
+		const status = this.getElement_(goog.getCssName("bes-connection"));
 		this.stopBackend_();
 		const generation = this.loadGeneration_;
 		status.textContent = "Connecting…";
@@ -1666,14 +3471,12 @@ class BuildEventViewerComponent extends Component {
 				return;
 			}
 			this.source_ = source;
-			this.events_ = [];
+			if (!this.embedded_) rememberViewerBackend("invocation", address);
 			this.progress_ = new InvocationProgress();
 			this.local_ = false;
 			this.connected_ = false;
 			this.clockStoppedAt_ = null;
 			this.resetResults_();
-			this.selectedIndex_ = 0;
-			this.selectedTypes_.clear();
 			this.buildStartMillis_ = null;
 			this.fileName_ = id;
 			this.fileSize_ = 0;
@@ -1681,8 +3484,9 @@ class BuildEventViewerComponent extends Component {
 			this.renderSummary_();
 			this.getElement_(CSS_STATUS).textContent = "";
 			this.cacheTimer_ = setInterval(() => this.refreshCacheStats_(source, id), 1500);
-			source.watch(id, () => this.lastCursor_, (/** string */ cursor, /** string */ data) => {
-				if (generation === this.loadGeneration_) this.receiveBuildEvent_(source, id, cursor, data);
+			source.watch(id, () => this.lastCursor_,
+				(/** string */ cursor, /** string */ data, /** number= */ receivedAt, /** number= */ sentAt) => {
+					if (generation === this.loadGeneration_) this.receiveBuildEvent_(source, id, cursor, data, receivedAt, sentAt);
 			}, (/** string */ message, /** boolean */ connected, /** boolean= */ closed) => {
 				if (generation !== this.loadGeneration_) return;
 				if (closed) {
@@ -1701,14 +3505,20 @@ class BuildEventViewerComponent extends Component {
 		}
 	}
 
+	stopFollowing() {
+		this.stopBackend_();
+	}
+
 	/**
 	 * @private
 	 * @param {!InvocationBackend} source
 	 * @param {string} id
 	 * @param {string} cursor
 	 * @param {string} data
+	 * @param {number=} receivedAt
+	 * @param {number=} sentAt
 	 */
-	receiveBuildEvent_(source, id, cursor, data) {
+	receiveBuildEvent_(source, id, cursor, data, receivedAt = 0, sentAt = 0) {
 		const last = this.lastCursor_;
 		if (!/^[1-9][0-9]*$/.test(cursor) || cursor.length < last.length ||
 			(cursor.length === last.length && cursor <= last)) return;
@@ -1717,8 +3527,8 @@ class BuildEventViewerComponent extends Component {
 			const bytes = base64.decodeStringToUint8Array(data);
 			const event = BuildEvent.deserializeBinary(bytes);
 			this.lastCursor_ = cursor;
-			this.events_.push(event);
-			this.progress_.add(event);
+			const arrival = receivedAt > 0 && Number.isFinite(receivedAt) ? receivedAt : this.progress_.frontierNow();
+			this.progress_.add(event, arrival, sentAt);
 			if (event.getLastMessage()) {
 				clearInterval(this.cacheTimer_);
 				this.cacheTimer_ = 0;
@@ -1728,7 +3538,7 @@ class BuildEventViewerComponent extends Component {
 			if (event.getPayloadCase() === BuildEvent.PayloadCase.STARTED) {
 				this.buildStartMillis_ = eventTimestampMillis(event);
 			}
-			status.textContent = "Following " + id + " · " + this.events_.length + " events";
+			status.textContent = "Following " + id + " · " + this.progress_.history.length + " events";
 			if (!this.renderTimer_) {
 				this.renderTimer_ = setTimeout(() => {
 					this.renderTimer_ = 0;
@@ -1754,6 +3564,7 @@ class BuildEventViewerComponent extends Component {
 	/** @private */
 	stopBackend_() {
 		this.loadGeneration_++;
+		if (this.frontier_) this.frontier_.stop();
 		clearInterval(this.cacheTimer_);
 		this.cacheTimer_ = 0;
 		this.cacheRequestPending_ = false;
@@ -1772,12 +3583,14 @@ class BuildEventViewerComponent extends Component {
 	exitDocument() {
 		this.stopBackend_();
 		if (this.frontierObserver_) this.frontierObserver_.disconnect();
+		if (this.commandObserver_) this.commandObserver_.disconnect();
 		super.exitDocument();
 	}
 
 	/** @override */
 	disposeInternal() {
 		this.stopBackend_();
+		if (this.commandObserver_) this.commandObserver_.disconnect();
 		super.disposeInternal();
 	}
 
@@ -1836,26 +3649,18 @@ class BuildEventViewerComponent extends Component {
 			);
 			if (!fileEvents.length) throw new Error("The file contains no events.");
 			this.resetResults_();
-			this.events_ = fileEvents;
 			this.progress_ = new InvocationProgress();
 			for (const event of fileEvents) this.progress_.add(event);
 			this.local_ = true;
+			selectInvocationInUrl("invocation", "");
 			this.fileName_ = file.name;
 			this.fileSize_ = file.size;
-			this.selectedIndex_ = 0;
-			this.selectedTypes_.clear();
-			this.buildStartMillis_ = null;
-			for (const event of this.events_) {
-				if (event.getPayloadCase() === BuildEvent.PayloadCase.STARTED) {
-					this.buildStartMillis_ = eventTimestampMillis(event);
-					break;
-				}
-			}
+			this.buildStartMillis_ = this.progress_.started ? eventTimestampMillis(this.progress_.started) : null;
 			status.textContent = "";
 			status.className = goog.getCssName("status");
 			this.renderResults_();
 			getApplication(this).toastSuccess(
-				"Loaded " + this.events_.length + " events from " + file.name + ".",
+				"Loaded " + this.progress_.history.length + " events from " + file.name + ".",
 			);
 		} catch (_error) {
 			if (this.isDisposed() || generation !== this.loadGeneration_) return;
@@ -1869,26 +3674,7 @@ class BuildEventViewerComponent extends Component {
 	bindTabs_() {
 		const tabs = this.getElement_(goog.getCssName("bes-tabs"));
 		this.terminal_ = new InvocationTerminal(this.getElement_(goog.getCssName("bes-log-full")));
-		const buttons = tabs.querySelectorAll("button");
-		for (let i = 0; i < buttons.length; i++) {
-			const button = buttons[i];
-			const index = Number(i);
-			this.getHandler().listen(button, events.EventType.CLICK, () => this.selectTab_(index));
-			this.getHandler().listen(button, events.EventType.KEYDOWN, (/** !events.BrowserEvent */ e) => {
-				const key = e.key;
-				let next;
-				switch (key) {
-					case "ArrowLeft": next = (index + buttons.length - 1) % buttons.length; break;
-					case "ArrowRight": next = (index + 1) % buttons.length; break;
-					case "Home": next = 0; break;
-					case "End": next = buttons.length - 1; break;
-					default: return;
-				}
-				e.preventDefault();
-				this.selectTab_(next);
-				buttons[next].focus();
-			});
-		}
+		bindViewerTabs(this.getHandler(), tabs, (index) => this.selectTab_(index));
 		this.getHandler().listen(this.getElement_(goog.getCssName("bes-download-log")),
 			events.EventType.CLICK, () => this.downloadLog_());
 	}
@@ -1900,14 +3686,8 @@ class BuildEventViewerComponent extends Component {
 	 */
 	selectTab_(index, skipRender = false) {
 		this.activeTab_ = index;
-		const tabs = this.getElement_(goog.getCssName("bes-tabs")).querySelectorAll("button");
-		const panels = this.getElement_(CSS_RESULTS).querySelectorAll('[role="tabpanel"]');
-		for (let i = 0; i < tabs.length; i++) {
-			const active = i === index;
-			tabs[i].setAttribute("aria-selected", String(active));
-			tabs[i].tabIndex = active ? 0 : -1;
-			/** @type {!HTMLElement} */ (panels[i]).hidden = !active;
-		}
+		showViewerTab(this.getElement_(goog.getCssName("bes-tabs")),
+			this.getElement_(CSS_RESULTS), index);
 		if (!skipRender) this.renderTab_();
 	}
 
@@ -1952,10 +3732,14 @@ class BuildEventViewerComponent extends Component {
 		);
 		const scroll = this.getElement_(goog.getCssName("bes-frontier-scroll"));
 		const spacer = this.getElement_(goog.getCssName("bes-frontier-spacer"));
-		const frontier = new InvocationFrontier(canvas, scroll, spacer,
+		const readers = new FrontierActionReaders(
+			this.getElement_(goog.getCssName("bes-frontier-flights")),
+			this.getElement_(goog.getCssName("bes-frontier-reader")),
+		);
+		const frontier = new InvocationFrontier(canvas, scroll, spacer, readers,
 			(mark) => this.inspectFrontierMark_(mark));
 		this.frontier_ = frontier;
-		if (this.events_.length) frontier.update(this.progress_);
+		if (this.progress_.history.length) frontier.update(this.progress_);
 		this.frontierObserver_ = new ResizeObserver(() => frontier.draw());
 		this.frontierObserver_.observe(scroll);
 		this.getHandler().listen(scroll, events.EventType.SCROLL, () => frontier.draw());
@@ -1974,25 +3758,32 @@ class BuildEventViewerComponent extends Component {
 
 	/** @private */
 	resetResults_() {
-		this.resultsHandler_.removeAll();
+		this.commandExpanded_ = false;
 		this.inspected_ = null;
 		this.inspectedEvent_ = null;
 		this.renderedLog_ = null;
+		this.mnemonicRenderKey_ = "";
 		this.cacheSummary_ = null;
 		this.testsRenderKey_ = "";
 		this.renderedMetrics_ = null;
+		this.renderedStatMetrics_ = null;
 		this.renderedPathLogs_ = null;
 		this.renderedPathTime_ = null;
 		this.getElement_(CSS_RESULTS).classList.add("d-none");
+		this.getElement_(goog.getCssName("bes-log-body")).hidden = true;
 		this.selectTab_(0, true);
+		const stats = this.getElement_(goog.getCssName("bes-build-stats"));
+		dom.removeChildren(stats);
+		stats.hidden = true;
 		if (this.terminal_) this.terminal_.reset();
 		dom.removeChildren(this.getElement_(goog.getCssName("bes-critical-path")));
 		dom.removeChildren(this.getElement_(goog.getCssName("bes-tests")));
 		dom.removeChildren(this.getElement_(goog.getCssName("bes-metrics")));
 		dom.removeChildren(this.getElement_(goog.getCssName("bes-frontier-detail")));
-		dom.removeChildren(this.getElement_(goog.getCssName("bes-browser-body")));
 		this.getElement_(goog.getCssName("bes-frontier-caption")).textContent =
 			"Select a mark to inspect its event and connections.";
+		this.getElement_(goog.getCssName("bes-frontier-wait")).hidden = true;
+		this.getElement_(goog.getCssName("bes-frontier-type")).hidden = true;
 		this.getElement_(goog.getCssName("bes-log")).scrollTop = 0;
 	}
 
@@ -2006,12 +3797,31 @@ class BuildEventViewerComponent extends Component {
 		const state = mark.event
 			? (mark === this.progress_.last ? "Final event" : "Received")
 			: this.progress_.last ? "Unreceived" : "Expected";
-		const text = state + " · " + label + " · " + mark.parents.length +
-			" parents · " + mark.children.length + " children";
+		const parents = mark.parents.length;
+		const children = mark.children.length;
+		const text = state + " · " + label + " · " + parents + (parents === 1 ? " parent" : " parents") +
+			" · " + children + (children === 1 ? " child" : " children");
 		if (caption.textContent !== text) caption.textContent = text;
+		const timer = this.getElement_(goog.getCssName("bes-frontier-wait"));
+		const wait = mark.event ? null : frontierWait(mark, this.progress_.frontierNow());
+		timer.hidden = wait === null;
+		if (wait !== null) {
+			timer.textContent = (this.progress_.last ? "Waited " : "Waiting ") + formatFrontierWait(wait);
+			timer.setAttribute("datetime", "PT" + wait + "S");
+		}
 		if (this.inspected_ === mark && this.inspectedEvent_ === mark.event) return;
 		this.inspected_ = mark;
 		this.inspectedEvent_ = mark.event;
+		this.getElement_(goog.getCssName("bes-frontier-type")).hidden = false;
+		const swatch = this.getElement_(goog.getCssName("bes-frontier-swatch"));
+		swatch.style.backgroundColor = mark.color;
+		swatch.classList.toggle("is-action", Boolean(mark.event?.getAction()));
+		this.getElement_(goog.getCssName("bes-frontier-type-name")).textContent = mark.event
+			? payloadCaseName(mark.event.getPayloadCase()) : expectedFrontierLabel(mark.id).type;
+		const outcome = this.getElement_(goog.getCssName("bes-frontier-outcome"));
+		dom.removeChildren(outcome);
+		const success = mark.event && eventOutcome(mark.event);
+		if (success !== null) outcome.appendChild(soy.renderAsElement(eventStatusIcon, {success}));
 		const detail = this.getElement_(goog.getCssName("bes-frontier-detail"));
 		dom.removeChildren(detail);
 		if (mark.event) {
@@ -2022,6 +3832,8 @@ class BuildEventViewerComponent extends Component {
 	/** @private */
 	renderResults_() {
 		this.renderSummary_();
+		this.renderInlineLog_();
+		this.renderStatCards_();
 		const results = this.getElement_(CSS_RESULTS);
 		if (results.classList.contains("d-none")) {
 			const source = /** @type {!HTMLDetailsElement} */ (
@@ -2034,8 +3846,19 @@ class BuildEventViewerComponent extends Component {
 	}
 
 	/** @private */
-	renderOverview_() {
-		this.renderOverviewCriticalPath_();
+	renderStatCards_() {
+		const metrics = this.progress_.metrics;
+		if (!metrics || metrics === this.renderedStatMetrics_) return;
+		this.renderedStatMetrics_ = metrics;
+		const section = this.getElement_(goog.getCssName("bes-build-stats"));
+		dom.removeChildren(section);
+		section.appendChild(createBuildStatCards(metrics));
+		section.hidden = !section.hasChildNodes();
+	}
+
+	/** @private */
+	renderInlineLog_() {
+		this.getElement_(goog.getCssName("bes-log-body")).hidden = false;
 		const terminal = this.getElement_(goog.getCssName("bes-log"));
 		const log = this.progress_.log;
 		if (this.renderedLog_ !== log) {
@@ -2045,16 +3868,51 @@ class BuildEventViewerComponent extends Component {
 			if (atBottom || this.renderedLog_ === null) terminal.scrollTop = terminal.scrollHeight;
 			this.renderedLog_ = log;
 		}
-		this.getElement_(goog.getCssName("bes-log-limit")).textContent =
-			this.progress_.logTruncated ? "Showing recent output" : "";
-		const pending = this.progress_.pending.size;
+		this.getElement_(goog.getCssName("bes-log-limit")).hidden = !this.progress_.logTruncated;
+	}
+
+	/** @private */
+	renderOverview_() {
+		this.renderOverviewCriticalPath_();
+		const pending = this.frontier_ ? this.frontier_.update(this.progress_) : 0;
 		const received = this.progress_.history.length + " received";
 		this.getElement_(goog.getCssName("bes-frontier-count")).textContent = this.progress_.last
 			? "Stream ended · " + (pending ? pending + " unreceived · " : "") + received
 			: pending + " expected · " + received;
-		if (this.frontier_) this.frontier_.update(this.progress_);
+		this.renderMnemonicBreakdown_();
 		this.renderCacheStats_();
-		this.renderEventBrowser_();
+	}
+
+	/** @private */
+	renderMnemonicBreakdown_() {
+		const key = this.progress_.receivedActions + "/" + Boolean(this.progress_.last);
+		if (key === this.mnemonicRenderKey_) return;
+		this.mnemonicRenderKey_ = key;
+		const body = this.getElement_(goog.getCssName("bes-frontier-mnemonics"));
+		dom.removeChildren(body);
+		const counts = this.progress_.mnemonics;
+		if (!counts.size) {
+			body.appendChild(dom.createDom("p", "color-fg-muted text-small mb-0",
+				this.progress_.last ? "No action events received." : "Waiting for action events."));
+			return;
+		}
+		const list = dom.createDom("ul", "bes-mnemonic-counts");
+		/** @type {!Array<string>} */
+		const names = Array.from(counts.keys());
+		names.sort((a, b) =>
+			(counts.get(b)?.count || 0) - (counts.get(a)?.count || 0) || a.localeCompare(b));
+		for (const name of names) {
+			const tally = counts.get(name);
+			if (!tally) continue;
+			const swatch = document.createElement("span");
+			swatch.className = "bes-mnemonic-swatch";
+			swatch.style.backgroundColor = tally.color;
+			swatch.setAttribute("aria-hidden", "true");
+			list.appendChild(dom.createDom("li", null, swatch,
+				dom.createDom("code", null, name || "Unspecified"),
+				dom.createDom("span", "text-bold", tally.count.toLocaleString())));
+		}
+		body.appendChild(list);
 	}
 
 	/**
@@ -2074,7 +3932,7 @@ class BuildEventViewerComponent extends Component {
 			const summary = await source.get(id);
 			if (generation !== this.loadGeneration_) return;
 			this.cacheSummary_ = summary;
-			if (this.activeTab_ === 0 && this.events_.length) this.renderCacheStats_();
+			if (this.activeTab_ === 0 && this.progress_.history.length) this.renderCacheStats_();
 		} catch (_error) {
 			// BES replay can continue independently of the summary request.
 		} finally {
@@ -2336,271 +4194,7 @@ class BuildEventViewerComponent extends Component {
 		if (metrics === this.renderedMetrics_) return;
 		this.renderedMetrics_ = metrics;
 		dom.removeChildren(body);
-		const timing = metrics.getTimingMetrics();
-		const actions = metrics.getActionSummary();
-		/** @type {!Array<!Array<string>>} */
-		const entries = [];
-		if (timing) {
-			entries.push(
-				["Wall time", formatElapsed(Number(timing.getWallTimeInMs()))],
-				["CPU time", formatElapsed(Number(timing.getCpuTimeInMs()))],
-				["Analysis time", formatElapsed(Number(timing.getAnalysisPhaseTimeInMs()))],
-				["Execution time", formatElapsed(Number(timing.getExecutionPhaseTimeInMs()))],
-			);
-		}
-		const path = criticalPathMillis(metrics);
-		if (path !== null) entries.push(["Critical path", formatElapsed(path)]);
-		if (actions) entries.push(["Actions executed", Number(actions.getActionsExecuted()).toLocaleString()]);
-		if (entries.length) {
-			const section = document.createElement("section");
-			section.className = "Box Box--condensed mb-3";
-			const header = document.createElement("h2");
-			header.className = "Box-header Box-title";
-			header.textContent = "Build metrics";
-			section.appendChild(header);
-			const summary = document.createElement("dl");
-			summary.className = "Box-body bes-invocation-metadata";
-			for (const entry of entries) {
-				const item = document.createElement("div");
-				const term = document.createElement("dt");
-				term.className = "color-fg-muted text-small";
-				term.textContent = entry[0];
-				const value = document.createElement("dd");
-				value.className = "text-mono";
-				value.textContent = entry[1];
-				item.appendChild(term);
-				item.appendChild(value);
-				summary.appendChild(item);
-			}
-			section.appendChild(summary);
-			body.appendChild(section);
-		}
 		body.appendChild(this.createBuildMetricsDetail_(metrics, false));
-	}
-
-	/** @private */
-	renderEventBrowser_() {
-		const browser = /** @type {!HTMLDetailsElement} */ (
-			this.getElement_(goog.getCssName("bes-browser"))
-		);
-		if (!browser.open || !this.events_.length) {
-			this.resultsHandler_.removeAll();
-			dom.removeChildren(this.getElement_(goog.getCssName("bes-browser-body")));
-			return;
-		}
-		this.resultsHandler_.removeAll();
-		const body = this.getElement_(goog.getCssName("bes-browser-body"));
-		dom.removeChildren(body);
-		body.appendChild(this.createTimeline_());
-	}
-
-	/**
-	 * @private
-	 * @return {!HTMLElement}
-	 */
-	createTimeline_() {
-		const section = /** @type {!HTMLElement} */ (
-			document.createElement("section")
-		);
-		section.className = "mb-3 bes-player";
-		const legend = document.createElement("div");
-		legend.className = "bes-event-type-filters d-flex flex-wrap ml-3";
-		/** @type {!Map<number,number>} */
-		const counts = new Map();
-		for (const event of this.events_) {
-			const payloadCase = event.getPayloadCase();
-			counts.set(payloadCase, (counts.get(payloadCase) || 0) + 1);
-		}
-		/** @type {!Array<number>} */
-		const payloadCases = [];
-		for (const payloadCase of counts.keys()) payloadCases.push(payloadCase);
-		/** @type {!Set<number>} */
-		const selectedTypes = this.selectedTypes_;
-		/** @type {!Map<number,!HTMLButtonElement>} */
-		const typeButtons = new Map();
-		for (const payloadCase of payloadCases) {
-			const eventType = payloadCaseName(payloadCase);
-			const button = /** @type {!HTMLButtonElement} */ (
-				document.createElement("button")
-			);
-			button.type = "button";
-			button.className = "bes-event-type-filter";
-			button.style.backgroundColor = payloadCaseColor(payloadCase);
-			button.style.color = payloadCaseTextColor(payloadCase);
-			button.textContent = String(counts.get(payloadCase));
-			button.title = eventType;
-			button.setAttribute("aria-label", eventType + ": " + counts.get(payloadCase));
-			button.setAttribute("aria-pressed", "false");
-			legend.appendChild(button);
-			typeButtons.set(payloadCase, button);
-		}
-		const clear = /** @type {!HTMLButtonElement} */ (
-			document.createElement("button")
-		);
-		clear.type = "button";
-		clear.className = "btn btn-sm ml-3 d-none";
-		clear.textContent = "Clear filter";
-
-		const body = document.createElement("div");
-		const navigation = document.createElement("div");
-		navigation.className = "d-flex flex-items-center mt-2";
-		const previous = /** @type {!HTMLButtonElement} */ (
-			document.createElement("button")
-		);
-		previous.type = "button";
-		previous.className = "btn";
-		previous.title = "Previous event";
-		previous.setAttribute("aria-label", "Previous event");
-		const previousIcon = soy.renderAsElement(timelinePlayIcon);
-		previousIcon.classList.add("bes-player-previous-icon");
-		previous.appendChild(previousIcon);
-		const next = /** @type {!HTMLButtonElement} */ (
-			document.createElement("button")
-		);
-		next.type = "button";
-		next.className = "btn ml-3";
-		next.title = "Next event";
-		next.setAttribute("aria-label", "Next event");
-		next.appendChild(soy.renderAsElement(timelinePlayIcon));
-		const track = document.createElement("div");
-		track.className = "bes-player-track";
-		const canvas = /** @type {!HTMLCanvasElement} */ (
-			document.createElement("canvas")
-		);
-		canvas.className = "bes-player-canvas";
-		canvas.width = 1200;
-		canvas.height = 28;
-		canvas.setAttribute("aria-hidden", "true");
-		const seek = /** @type {!HTMLInputElement} */ (
-			document.createElement("input")
-		);
-		seek.type = "range";
-		seek.className = "bes-player-seek";
-		seek.min = "0";
-		seek.max = String(Math.max(0, this.events_.length - 1));
-		seek.step = "1";
-		seek.value = String(this.selectedIndex_);
-		seek.setAttribute("aria-label", "Selected build event");
-		track.appendChild(canvas);
-		track.appendChild(seek);
-		const time = document.createElement("code");
-		time.className = "bes-player-time flex-auto text-right";
-		body.appendChild(track);
-		navigation.appendChild(previous);
-		navigation.appendChild(legend);
-		navigation.appendChild(clear);
-		navigation.appendChild(time);
-		navigation.appendChild(next);
-		body.appendChild(navigation);
-		const detail = document.createElement("div");
-		detail.className = "bes-player-detail mt-3";
-		body.appendChild(detail);
-		section.appendChild(body);
-
-		const context = /** @type {?CanvasRenderingContext2D} */ (
-			canvas.getContext("2d")
-		);
-		/** @return {!Array<!BuildEvent>} */
-		const filteredEvents = () =>
-			selectedTypes.size
-				? this.events_.filter((event) => selectedTypes.has(event.getPayloadCase()))
-				: this.events_.slice();
-		/** @type {!Array<!BuildEvent>} */
-		let visibleEvents = filteredEvents();
-
-		/** @type {function():void} */
-		const draw = () => {
-			if (!context) return;
-			context.clearRect(0, 0, canvas.width, canvas.height);
-			const width = canvas.width / visibleEvents.length;
-			for (let i = 0; i < visibleEvents.length; i++) {
-				context.fillStyle = payloadCaseColor(visibleEvents[i].getPayloadCase());
-				context.fillRect(i * width, 0, Math.max(1, width), canvas.height);
-			}
-		};
-
-		/** @type {function(number):void} */
-		const select = (index) => {
-			this.selectedIndex_ = Math.max(
-				0,
-				Math.min(visibleEvents.length - 1, index),
-			);
-			seek.value = String(this.selectedIndex_);
-			previous.disabled = this.selectedIndex_ === 0;
-			next.disabled = this.selectedIndex_ === visibleEvents.length - 1;
-			const event = visibleEvents[this.selectedIndex_];
-			const eventTime = eventTimestampMillis(event);
-			time.textContent =
-				eventTime != null && this.buildStartMillis_ != null
-					? formatElapsed(eventTime - this.buildStartMillis_) +
-						" · event " +
-						(this.selectedIndex_ + 1) +
-						" / " +
-						visibleEvents.length
-					: "Time not reported · event " +
-						(this.selectedIndex_ + 1) +
-						" / " +
-						visibleEvents.length;
-			dom.removeChildren(detail);
-			detail.appendChild(this.createSelectedEventDetail_(event));
-		};
-		/** @type {function():void} */
-		const updateTimeline = () => {
-			seek.max = String(Math.max(0, visibleEvents.length - 1));
-			clear.classList.toggle("d-none", selectedTypes.size === 0);
-			for (const payloadCase of payloadCases) {
-				const button = typeButtons.get(payloadCase);
-				if (!button) continue;
-				const selected = selectedTypes.has(payloadCase);
-				button.classList.toggle("selected", selected);
-				button.setAttribute("aria-pressed", selected ? "true" : "false");
-			}
-			draw();
-			select(this.selectedIndex_);
-		};
-		const applyTypeFilter = () => {
-			const current = visibleEvents[this.selectedIndex_];
-			visibleEvents = filteredEvents();
-			const retainedIndex = visibleEvents.indexOf(current);
-			this.selectedIndex_ = retainedIndex >= 0 ? retainedIndex : 0;
-			updateTimeline();
-		};
-		for (const payloadCase of payloadCases) {
-			const button = typeButtons.get(payloadCase);
-			if (!button) continue;
-			this.resultsHandler_.listen(button, events.EventType.CLICK, () => {
-				if (selectedTypes.has(payloadCase)) selectedTypes.delete(payloadCase);
-				else selectedTypes.add(payloadCase);
-				applyTypeFilter();
-			});
-		}
-		this.resultsHandler_.listen(clear, events.EventType.CLICK, () => {
-			selectedTypes.clear();
-			applyTypeFilter();
-		});
-		this.resultsHandler_.listen(seek, events.EventType.INPUT, () =>
-			select(Number(seek.value)),
-		);
-		this.resultsHandler_.listen(previous, events.EventType.CLICK, () =>
-			select(this.selectedIndex_ - 1),
-		);
-		this.resultsHandler_.listen(next, events.EventType.CLICK, () =>
-			select(this.selectedIndex_ + 1),
-		);
-		this.resultsHandler_.listen(
-			canvas,
-			events.EventType.CLICK,
-			(/** !events.BrowserEvent */ e) => {
-				const browserEvent = /** @type {!MouseEvent} */ (
-					e.getBrowserEvent()
-				);
-				const bounds = canvas.getBoundingClientRect();
-				const fraction = (browserEvent.clientX - bounds.left) / bounds.width;
-				select(Math.floor(fraction * visibleEvents.length));
-			},
-		);
-		updateTimeline();
-		return section;
 	}
 
 	/**
@@ -2610,28 +4204,9 @@ class BuildEventViewerComponent extends Component {
 	 */
 	createSelectedEventDetail_(event) {
 		const root = document.createElement("div");
-		const heading = document.createElement("div");
-		heading.className = "d-flex flex-items-center mb-2";
-		const swatch = document.createElement("span");
-		swatch.className = "bes-event-swatch mr-2";
-		swatch.style.backgroundColor = eventMarkColor(event);
-		const title = document.createElement("h3");
-		title.className = "h4 m-0";
-		title.textContent = payloadCaseName(event.getPayloadCase());
-		heading.appendChild(swatch);
-		heading.appendChild(title);
-		const outcome = eventOutcome(event);
-		if (outcome !== null) {
-			const statusIcon = soy.renderAsElement(eventStatusIcon, {
-				success: outcome,
-			});
-			statusIcon.classList.add("ml-2");
-			heading.appendChild(statusIcon);
-		}
-		root.appendChild(heading);
 		const values = this.selectedEventValues_(event);
 		const grid = document.createElement("div");
-		grid.className = "bes-summary-grid";
+		grid.className = "bes-summary-grid mt-2";
 		for (const label in values) {
 			const key = document.createElement("div");
 			key.className = "text-bold color-fg-muted";
@@ -2648,7 +4223,9 @@ class BuildEventViewerComponent extends Component {
 			grid.appendChild(key);
 			grid.appendChild(value);
 		}
-		root.appendChild(grid);
+		if (grid.hasChildNodes()) root.appendChild(grid);
+		const command = this.createCommandLineDetail_(event);
+		if (command) root.appendChild(command);
 		if (event.getPayloadCase() === BuildEvent.PayloadCase.BUILD_METRICS) {
 			const metrics = event.getBuildMetrics();
 			if (metrics) root.appendChild(this.createBuildMetricsDetail_(metrics));
@@ -2675,6 +4252,90 @@ class BuildEventViewerComponent extends Component {
 
 	/**
 	 * @private
+	 * @param {!BuildEvent} event
+	 * @return {?HTMLElement}
+	 */
+	createCommandLineDetail_(event) {
+		const root = /** @type {!HTMLElement} */ (document.createElement("dl"));
+		root.className = "bes-summary-grid mt-2";
+		/** @type {!Array<{link: !HTMLAnchorElement, name: string}>} */
+		const unresolved = [];
+		/**
+		 * @param {string} label
+		 * @param {!Array<string>} args
+		 * @param {!Array<string>=} canonicalNames
+		 */
+		const addArguments = (label, args, canonicalNames = []) => {
+			root.appendChild(dom.createDom("dt", "text-bold color-fg-muted", label));
+			const value = dom.createDom("dd", "bes-detail-value m-0");
+			if (!args.length) value.textContent = "None";
+			else {
+				const list = dom.createDom("ul", "bes-command-arguments text-mono text-small");
+				for (let index = 0; index < args.length; index++) {
+					const arg = args[index];
+					const row = dom.createDom("li");
+					const flag = /^--([a-zA-Z][a-zA-Z0-9_-]*)(?=$|[=\s])/.exec(arg);
+					const spelling = flag ? flag[0] : "";
+					const name = flag ? flag[1] : "";
+					const optionName = /** @type {string|undefined} */ (canonicalNames[index]) || "";
+					const canonical = /^[a-zA-Z][a-zA-Z0-9_-]*$/.test(optionName) ? optionName : "";
+					if (canonical || name) {
+						const negated = !canonical && /^no[a-zA-Z]/.test(name) && spelling === arg;
+						const target = canonical || (negated ? name.slice(2) : name);
+						const link = /** @type {!HTMLAnchorElement} */ (dom.createDom("a",
+							{"href": "/bazel/flags/" + encodeURIComponent(target)}, spelling || arg));
+						row.appendChild(link);
+						if (spelling) row.appendChild(document.createTextNode(arg.slice(spelling.length)));
+						if (negated) unresolved.push({link, name});
+					} else {
+						row.textContent = arg;
+					}
+					list.appendChild(row);
+				}
+				value.appendChild(list);
+			}
+			root.appendChild(value);
+		};
+		const parsed = event.getOptionsParsed();
+		const structured = event.getStructuredCommandLine();
+		const original = event.getUnstructuredCommandLine();
+		if (parsed) {
+			addArguments("Startup options", parsed.getStartupOptionsList());
+			addArguments("Explicit startup options", parsed.getExplicitStartupOptionsList());
+			addArguments("Command options", parsed.getCmdLineList());
+			addArguments("Explicit command options", parsed.getExplicitCmdLineList());
+		} else if (structured) {
+			for (const section of structured.getSectionsList()) {
+				const label = metricLabel(section.getSectionLabel()) || "Arguments";
+				const options = section.getOptionList();
+				const chunks = section.getChunkList();
+				if (options) {
+					const entries = options.getOptionList();
+					addArguments(label, entries.map((option) => option.getCombinedForm()),
+						entries.map((option) => option.getOptionName()));
+				} else if (chunks) {
+					addArguments(label, chunks.getChunkList());
+				}
+			}
+		} else if (original) {
+			addArguments("Arguments", original.getArgsList());
+		} else {
+			return null;
+		}
+		if (unresolved.length) {
+			void getApplication(this).getBazelFlagDb().then((db) => {
+				const flags = /** @type {!BazelFlagDb} */ (db).getFlagList();
+				const names = new Set(flags.map((flag) => flag.getName()));
+				for (const {link, name} of unresolved) {
+					if (names.has(name)) link.href = "/bazel/flags/" + encodeURIComponent(name);
+				}
+			}).catch(() => {});
+		}
+		return root;
+	}
+
+	/**
+	 * @private
 	 * @param {!BuildMetrics} metrics
 	 * @param {boolean=} expanded
 	 * @return {!HTMLElement}
@@ -2695,10 +4356,11 @@ class BuildEventViewerComponent extends Component {
 				document.createElement("details")
 			);
 			section.className = "Box mb-2";
-			section.open = expanded;
+			const label = BUILD_METRIC_CATEGORIES[key] || metricLabel(key);
+			section.open = expanded && label === "Timing";
 			const summary = document.createElement("summary");
 			summary.className = "Box-header text-bold";
-			summary.textContent = metricLabel(key);
+			summary.textContent = label;
 			section.appendChild(summary);
 			const body = document.createElement("div");
 			body.className = "Box-body p-0 overflow-auto";
@@ -2777,19 +4439,12 @@ class BuildEventViewerComponent extends Component {
 			const ratio = chartMillis > 0 ? item.timeMillis / chartMillis : 0;
 			percent.textContent = (ratio * 100).toFixed(2) + "%";
 			const action = document.createElement("td");
-			action.className = "bes-critical-path-action";
-			const label = document.createElement("div");
-			label.className = "text-mono text-small mb-1";
-			label.textContent = item.action;
-			const track = document.createElement("div");
-			track.className = "bes-critical-path-track";
-			const bar = document.createElement("div");
-			bar.className = "bes-critical-path-bar";
-			bar.style.marginLeft = chartMillis > 0 ? (item.startMillis / chartMillis * 100) + "%" : "0";
-			bar.style.width = Math.max(0.2, ratio * 100) + "%";
-			track.appendChild(bar);
-			action.appendChild(label);
-			action.appendChild(track);
+			action.className = "bes-critical-path-action text-mono";
+			action.textContent = item.action;
+			const start = chartMillis > 0 ? item.startMillis / chartMillis * 100 : 0;
+			const end = Math.min(100, start + Math.max(0.2, ratio * 100));
+			row.style.setProperty("--bes-critical-path-start", start + "%");
+			row.style.setProperty("--bes-critical-path-end", end + "%");
 			row.appendChild(number);
 			row.appendChild(duration);
 			row.appendChild(percent);
@@ -2818,10 +4473,7 @@ class BuildEventViewerComponent extends Component {
 	 */
 	selectedEventValues_(event) {
 		/** @type {!Object<string,string>} */
-		const values = {
-			"Event ID": eventIdSummary(event),
-			"Announced children": String(event.getChildrenList().length),
-		};
+		const values = {};
 		switch (event.getPayloadCase()) {
 			case BuildEvent.PayloadCase.STARTED: {
 				const payload = event.getStarted();
@@ -2859,7 +4511,6 @@ class BuildEventViewerComponent extends Component {
 			case BuildEvent.PayloadCase.UNSTRUCTURED_COMMAND_LINE: {
 				const payload = event.getUnstructuredCommandLine();
 				if (!payload) break;
-				values["Arguments"] = payload.getArgsList().join(" ");
 				values["Argument count"] = String(payload.getArgsList().length);
 				break;
 			}
@@ -2867,31 +4518,11 @@ class BuildEventViewerComponent extends Component {
 				const payload = event.getStructuredCommandLine();
 				if (!payload) break;
 				values["Label"] = payload.getCommandLineLabel();
-				values["Sections"] = String(payload.getSectionsList().length);
-				/** @type {!Array<string>} */
-				const command = [];
-				for (const section of payload.getSectionsList()) {
-					const chunks = section.getChunkList();
-					if (chunks) command.push(...chunks.getChunkList());
-					const options = section.getOptionList();
-					if (options) {
-						for (const option of options.getOptionList()) {
-							command.push(option.getCombinedForm());
-						}
-					}
-				}
-				values["Command line"] = command.join(" ");
 				break;
 			}
 			case BuildEvent.PayloadCase.OPTIONS_PARSED: {
 				const payload = event.getOptionsParsed();
 				if (!payload) break;
-				values["Startup options"] = payload.getStartupOptionsList().join(" ");
-				values["Explicit startup options"] =
-					payload.getExplicitStartupOptionsList().join(" ") || "None";
-				values["Command line"] = payload.getCmdLineList().join(" ");
-				values["Explicit command options"] =
-					payload.getExplicitCmdLineList().join(" ") || "None";
 				values["Tool tag"] = payload.getToolTag() || "None";
 				break;
 			}
@@ -2949,6 +4580,8 @@ class BuildEventViewerComponent extends Component {
 				values["Mnemonic"] = payload.getType();
 				values["Success"] = payload.getSuccess() ? "Yes" : "No";
 				values["Exit code"] = String(payload.getExitCode());
+				const failure = payload.getFailureDetail()?.getMessage();
+				if (failure) values["Failure detail"] = failure;
 				values["Command"] = payload.getCommandLineList().join(" ");
 				values["Started"] = formatTimestamp(payload.getStartTime());
 				values["Finished"] = formatTimestamp(payload.getEndTime());
@@ -2973,6 +4606,8 @@ class BuildEventViewerComponent extends Component {
 				const payload = event.getCompleted();
 				if (!payload) break;
 				values["Success"] = payload.getSuccess() ? "Yes" : "No";
+				const failure = payload.getFailureDetail()?.getMessage();
+				if (failure) values["Failure detail"] = failure;
 				values["Output groups"] = payload.getOutputGroupList()
 					.map((group) => group.getName() + (group.getIncomplete() ? " (incomplete)" : ""))
 					.join(", ") || "None";
@@ -3051,6 +4686,8 @@ class BuildEventViewerComponent extends Component {
 					? exit.getName() + " (" + exit.getCode() + ")"
 					: "Finished";
 				values["Finished"] = formatTimestamp(payload.getFinishTime());
+				const failure = payload.getFailureDetail()?.getMessage();
+				if (failure) values["Failure detail"] = failure;
 				break;
 			}
 			case BuildEvent.PayloadCase.BUILD_TOOL_LOGS: {
@@ -3058,21 +4695,6 @@ class BuildEventViewerComponent extends Component {
 				if (!payload) break;
 				values["Logs"] = payload.getLogList().map(fileSummary).join("\n") || "None";
 				values["Log count"] = String(payload.getLogList().length);
-				break;
-			}
-			case BuildEvent.PayloadCase.BUILD_METRICS: {
-				const payload = event.getBuildMetrics();
-				if (!payload) break;
-				const object = /** @type {!Object<string, *>} */ (
-					BuildMetrics.toObject(false, payload)
-				);
-				let count = 0;
-				for (const key of Object.keys(object)) {
-					const metric = object[key];
-					if (metric !== undefined && metric !== null &&
-						(!Array.isArray(metric) || metric.length)) count++;
-				}
-				values["Metric categories"] = String(count);
 				break;
 			}
 			case BuildEvent.PayloadCase.WORKSPACE_INFO: {
@@ -3137,63 +4759,76 @@ class BuildEventViewerComponent extends Component {
 	renderSummary_() {
 		if (!this.fileName_) return;
 		const section = this.getElement_(CSS_SUMMARY);
+		const restoreCommandFocus = this.commandToggle_ === document.activeElement;
+		if (this.commandObserver_) this.commandObserver_.disconnect();
 		section.removeAttribute("role");
 		section.removeAttribute("tabindex");
 		section.removeAttribute("aria-describedby");
 		dom.removeChildren(section);
 		const overview = document.createElement("div");
 		overview.className = "bes-invocation-overview";
-		const header = document.createElement("div");
-		header.className = "bes-invocation-heading";
-		const command = document.createElement("h3");
+		const command = /** @type {!HTMLElement} */ (document.createElement("h3"));
 		command.className = "h3 text-mono bes-invocation-command";
+		command.id = this.getId() + "-command";
 		const startedEvent = this.progress_.started;
 		const started = startedEvent && startedEvent.getStarted();
 		const finishedEvent = this.progress_.finished;
 		const finished = finishedEvent && finishedEvent.getFinished();
+		const id = (started && started.getUuid()) || (!this.local_ ? this.fileName_ : "");
+		const headingId = this.getElement_(goog.getCssName("bes-heading-id"));
+		headingId.textContent = id;
+		headingId.title = id;
 		command.textContent = ["bazel", started && started.getCommand(),
 			...this.progress_.targets].filter(Boolean).join(" ");
-		header.appendChild(command);
-		const state = document.createElement("div");
-		state.className = "bes-invocation-state";
-		const badge = document.createElement("span");
-		badge.className = "Label";
+		const toggle = /** @type {!HTMLButtonElement} */ (document.createElement("button"));
+		toggle.type = "button";
+		toggle.className = "btn-link text-small mt-1";
+		toggle.setAttribute("aria-controls", command.id);
+		toggle.onclick = () => {
+			this.commandExpanded_ = !this.commandExpanded_;
+			this.updateCommandToggle_();
+		};
+		this.commandHeading_ = command;
+		this.commandToggle_ = toggle;
+		const badge = this.getElement_(goog.getCssName("bes-heading-state"));
 		const exit = finished && finished.getExitCode();
+		const failure = invocationFailure(this.progress_);
+		/** @type {!InvocationStatus} */
+		let status;
 		if (exit) {
-			const success = exit.getCode() === 0;
-			badge.textContent = success ? "Succeeded" : "Failed";
-			badge.classList.add(success ? "Label--success" : "Label--danger");
-			badge.title = exit.getName() + " (" + exit.getCode() + ")";
+			status = invocationExitStatus(exit.getName(), exit.getCode());
+		} else if (failure) {
+			status = invocationStatus("Failed", "failure");
 		} else if (finished) {
-			badge.textContent = "Finished";
+			status = invocationStatus("Finished", "neutral");
 		} else if (this.progress_.last || this.local_) {
-			badge.textContent = "Incomplete";
-			badge.classList.add("Label--attention");
-		} else if (!this.source_ && this.events_.length) {
-			badge.textContent = "Disconnected";
-		} else if (!this.connected_ && this.events_.length) {
-			badge.textContent = "Reconnecting";
-			badge.classList.add("Label--attention");
-		} else if (this.events_.length) {
-			badge.textContent = "Building";
-			badge.classList.add("Label--accent");
+			status = invocationStatus("Incomplete", "warning");
+		} else if (!this.source_ && this.progress_.history.length) {
+			status = invocationStatus("Disconnected", "neutral");
+		} else if (!this.connected_ && this.progress_.history.length) {
+			status = invocationStatus("Reconnecting", "warning");
+		} else if (this.progress_.history.length) {
+			status = invocationStatus("Building", "running");
 		} else {
-			badge.textContent = "Waiting for events";
+			status = invocationStatus("Waiting for events", "neutral");
 		}
-		state.appendChild(badge);
-		const elapsed = document.createElement("time");
-		elapsed.className = "text-mono";
-		elapsed.setAttribute("aria-label", "Build elapsed time");
-		state.appendChild(elapsed);
-		header.appendChild(state);
-		overview.appendChild(header);
+		badge.className = "bes-invocation-state text-small text-bold " + goog.getCssName("bes-heading-state") +
+			" " + status.color;
+		badge.textContent = status.label;
+		badge.title = status.title;
+		const icon = this.getElement_(goog.getCssName("bes-heading-icon"));
+		dom.removeChildren(icon);
+		icon.appendChild(renderInvocationStatusIcon(status));
+		const elapsed = this.getElement_(goog.getCssName("bes-heading-elapsed"));
+		elapsed.hidden = false;
+		overview.appendChild(dom.createDom("div", "bes-invocation-command-block", command, toggle));
+		this.renderFailureSummary_(failure);
 
 		const metadata = this.progress_.metadata;
 		const info = document.createElement("dl");
 		info.className = "bes-invocation-metadata";
 		/** @type {!Array<!Array<string|null|undefined>>} */
 		const entries = [
-			["Invocation ID", (started && started.getUuid()) || (!this.local_ ? this.fileName_ : "")],
 			["Bazel version", started && started.getBuildToolVersion()],
 			["Started", this.buildStartMillis_ === null ? "" : new Date(this.buildStartMillis_).toISOString()],
 			["User", (started && started.getUser()) || metadata.get("BUILD_USER")],
@@ -3220,6 +4855,10 @@ class BuildEventViewerComponent extends Component {
 		}
 		overview.appendChild(info);
 		section.appendChild(overview);
+		this.updateCommandToggle_();
+		this.commandObserver_ ??= new ResizeObserver(() => this.updateCommandToggle_());
+		this.commandObserver_.observe(command);
+		if (restoreCommandFocus && !toggle.hidden) toggle.focus({preventScroll: true});
 
 		clearInterval(this.clockTimer_);
 		this.clockTimer_ = 0;
@@ -3232,14 +4871,53 @@ class BuildEventViewerComponent extends Component {
 				: active ? Date.now() : this.clockStoppedAt_);
 			if (start === null || end === null) {
 				elapsed.textContent = "—";
+				elapsed.removeAttribute("datetime");
 				return;
 			}
 			const duration = Math.max(0, end - start);
-			elapsed.textContent = formatElapsed(duration);
+			const minutes = Math.floor(duration / 60000);
+			const seconds = (duration % 60000 / 1000).toFixed(3);
+			elapsed.textContent = minutes ? minutes + "m " + seconds.padStart(6, "0") + "s" : seconds + "s";
 			elapsed.setAttribute("datetime", "PT" + duration / 1000 + "S");
 		};
 		updateClock();
 		if (active && start !== null) this.clockTimer_ = setInterval(updateClock, 250);
+	}
+
+	/** @private */
+	updateCommandToggle_() {
+		const command = this.commandHeading_;
+		const toggle = this.commandToggle_;
+		if (!command || !toggle) return;
+		const expanded = this.commandExpanded_;
+		command.classList.toggle("bes-invocation-command-collapsed", !expanded);
+		toggle.hidden = !expanded && command.scrollHeight <= command.clientHeight + 1;
+		toggle.setAttribute("aria-expanded", String(expanded));
+		toggle.textContent = expanded ? "Collapse command" : "Expand command";
+	}
+
+	/**
+	 * @private
+	 * @param {?InvocationFailure} failure
+	 */
+	renderFailureSummary_(failure) {
+		const summary = this.getElement_(goog.getCssName("bes-failure-body"));
+		dom.removeChildren(summary);
+		summary.hidden = failure === null;
+		if (!failure) return;
+		summary.appendChild(dom.createDom("h3", "h4 mb-1 color-fg-danger", "Build failure"));
+		if (failure.context) summary.appendChild(dom.createDom("p", "text-bold mb-1", failure.context));
+		summary.appendChild(dom.createDom("pre", "bes-failure-message", failure.message));
+		if (this.progress_.logChunks.length) {
+			const button = dom.createDom("button", {"type": "button", "class": "btn btn-sm mt-2"},
+				"Open terminal");
+			button.onclick = () => {
+				this.selectTab_(1);
+				const tab = this.getElementStrict().querySelector("#bes-tab-terminal");
+				if (tab) /** @type {!HTMLElement} */ (tab).focus();
+			};
+			summary.appendChild(button);
+		}
 	}
 
 	/**
@@ -3261,13 +4939,20 @@ class BuildEventViewerComponent extends Component {
 function formatBytes(bytes) {
 	if (bytes < 1024) return bytes + " B";
 	if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KiB";
-	return (bytes / (1024 * 1024)).toFixed(1) + " MiB";
+	if (bytes < 1024 ** 3) return (bytes / (1024 * 1024)).toFixed(1) + " MiB";
+	return (bytes / 1024 ** 3).toFixed(1) + " GiB";
 }
 
 exports.FrontierMark = FrontierMark;
 exports.InvocationProgress = InvocationProgress;
+exports.invocationFailure = invocationFailure;
+exports.layoutFrontier = layoutFrontier;
+exports.expectedFrontierLabel = expectedFrontierLabel;
+exports.frontierWait = frontierWait;
+exports.frontierFlightFrames = frontierFlightFrames;
 exports.InvocationTerminal = InvocationTerminal;
 exports.decodeDelimitedMessages = decodeDelimitedMessages;
 exports.formatTerminalText = formatTerminalText;
 exports.parseCriticalPath = parseCriticalPath;
+exports.createBuildStatCards = createBuildStatCards;
 exports.renderTerminalText = renderTerminalText;

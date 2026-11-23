@@ -69,6 +69,8 @@ message Invocation {
   optional int64 bazel_remote_cache_hits = 27;
   // RPC observations recorded by the instrumented cache frontend.
   RemoteCacheStats remote_cache = 28;
+  // User-supplied analytics grouping from Bazel's igroup build metadata.
+  string invocation_group = 29;
 }
 
 message RemoteCacheStats {
@@ -136,13 +138,25 @@ message CIContext {
 
 // Query and follow invocations accepted by this server.
 service InvocationService {
+  rpc ListInvocationGroups(ListInvocationGroupsRequest) returns (ListInvocationGroupsResponse);
+  rpc GetInvocationGroupMetrics(GetInvocationGroupMetricsRequest) returns (InvocationGroupMetrics);
   rpc ListInvocations(ListInvocationsRequest) returns (ListInvocationsResponse);
   rpc GetInvocation(GetInvocationRequest) returns (Invocation);
   // Replays events after the cursor, then follows newly accepted events.
   rpc WatchInvocation(WatchInvocationRequest) returns (stream InvocationEvent);
 }
 
-message ListInvocationsRequest {}
+message InvocationGroup {
+  string name = 1;
+}
+message ListInvocationGroupsRequest {}
+message ListInvocationGroupsResponse {
+  repeated InvocationGroup groups = 1;
+}
+message ListInvocationsRequest {
+  // An empty value lists invocations across all groups and ungrouped runs.
+  string invocation_group = 1;
+}
 message ListInvocationsResponse {
   repeated Invocation invocations = 1;
 }
@@ -160,4 +174,45 @@ message InvocationEvent {
   google.protobuf.Timestamp received_at = 2;
   bool lifecycle = 3;
   google.devtools.build.v1.OrderedBuildEvent ordered_event = 4;
+}
+
+message GetInvocationGroupMetricsRequest {
+  string invocation_group = 1;
+}
+
+// All-time aggregates for one invocation group.
+message InvocationGroupMetrics {
+  int64 invocation_count = 1;
+  int64 running_count = 2;
+  int64 succeeded_count = 3;
+  int64 failed_count = 4;
+  int64 timing_sample_count = 5;
+  optional double average_duration_ms = 6;
+  optional double median_duration_ms = 7;
+  optional int64 p95_duration_ms = 8;
+  GroupCacheMetrics cache = 9;
+  GroupTestMetrics tests = 10;
+}
+
+message GroupCacheMetrics {
+  int64 action_cache_hits = 1;
+  int64 action_cache_misses = 2;
+  int64 action_cache_errors = 3;
+  int64 action_cache_invocation_count = 4;
+  optional int64 bazel_remote_cache_hits = 5;
+}
+
+message GroupTestMetrics {
+  // Latest summary per invocation, target label, and configuration.
+  int64 summary_count = 1;
+  int64 flaky_count = 2;
+  int64 failed_or_timed_out_count = 3;
+  // Up to ten targets, ordered by flaky summaries descending.
+  repeated GroupFlakyTarget flaky_targets = 4;
+}
+
+message GroupFlakyTarget {
+  string label = 1;
+  int64 summary_count = 2;
+  int64 flaky_count = 3;
 }

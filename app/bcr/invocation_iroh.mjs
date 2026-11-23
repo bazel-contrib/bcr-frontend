@@ -27,6 +27,16 @@ function openBackend(ticket) {
 		void pending.then((value) => value.close()).catch(() => {});
 	}
 
+	async function readGroup(read) {
+		const pending = client();
+		try {
+			return JSON.parse(await read(await pending));
+		} catch (error) {
+			dropConnection(pending);
+			throw error;
+		}
+	}
+
 	async function follow(id, cursor, onEvent, onStatus) {
 		let wait = 500;
 		while (!closed) {
@@ -38,8 +48,8 @@ function openBackend(ticket) {
 				const stream = await transport.watch(id, cursor());
 				if (!closed) onStatus("Connected over Iroh · replaying and following " + id, true);
 				try {
-					await readEvents(stream, (id, data) => {
-						if (!closed) onEvent(id, data);
+					await readEvents(stream, (id, data, receivedAt, sentAt) => {
+						if (!closed) onEvent(id, data, receivedAt, sentAt);
 					});
 				} finally {
 					stream.free();
@@ -67,6 +77,9 @@ function openBackend(ticket) {
 
 	return {
 		list: async () => JSON.parse(await (await client()).list()),
+		listGroups: () => readGroup((transport) => transport.list_groups()),
+		listGroup: (name) => readGroup((transport) => transport.list_group(name)),
+		groupMetrics: (name) => readGroup((transport) => transport.group_metrics(name)),
 		get: async (id) => JSON.parse(await (await client()).get(id)),
 		watch: (...args) => void follow(...args),
 		close: () => {
@@ -81,6 +94,7 @@ function openBackend(ticket) {
 async function readEvents(stream, onEvent) {
 	const decoder = new TextDecoder();
 	let pending = "";
+	let timing = [];
 	for (;;) {
 		const chunk = await stream.read();
 		if (!chunk) return;
@@ -98,7 +112,12 @@ async function readEvents(stream, onEvent) {
 				else if (line.startsWith("event: ")) type = line.slice(7);
 				else if (line.startsWith("data: ")) data.push(line.slice(6));
 			}
-			if (type === "bep" && id) onEvent(id, data.join("\n"));
+			if (type === "bep-time") timing = data.join("\n").split(" ");
+			if (type === "bep" && id) {
+				if (timing[0] === id) onEvent(id, data.join("\n"), Number(timing[1]), Number(timing[2]));
+				else onEvent(id, data.join("\n"));
+				timing = [];
+			}
 		}
 		pending = pending.slice(start);
 	}

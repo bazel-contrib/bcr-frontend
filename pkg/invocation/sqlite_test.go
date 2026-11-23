@@ -2,8 +2,12 @@ package invocation
 
 import (
 	"context"
+	"net/http"
+	"net/http/httptest"
 	"path/filepath"
+	"slices"
 	"testing"
+	"time"
 
 	pb "github.com/bazel-contrib/bcr-frontend/build/stack/bazel/invocation/v1"
 	buildpb "github.com/bazel-contrib/bcr-frontend/proto/build"
@@ -12,7 +16,60 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
+
+func TestSQLiteBackfillsExitCodeName(t *testing.T) {
+	ctx := context.Background()
+	path := filepath.Join(t.TempDir(), "invocations.sqlite")
+	storage, err := OpenSQLite(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if storage != nil {
+			storage.Close()
+		}
+	}()
+	event := testEvent(t, 1)
+	payload, err := anypb.New(&beppb.BuildEvent{Payload: &beppb.BuildEvent_Finished{
+		Finished: &beppb.BuildFinished{
+			ExitCode: &beppb.BuildFinished_ExitCode{Code: 3, Name: "TESTS_FAILED"},
+		},
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	event.Event.Event = &buildpb.BuildEvent_BazelEvent{BazelEvent: payload}
+	if _, err := storage.Append(ctx, event, false); err != nil {
+		t.Fatal(err)
+	}
+	checkResult := func() {
+		t.Helper()
+		db := storage.(*sqliteStorage).db
+		var code int32
+		var name string
+		if err := db.QueryRowContext(ctx, "SELECT exit_code, exit_code_name FROM invocations WHERE id = 'invocation'").Scan(&code, &name); err != nil {
+			t.Fatal(err)
+		}
+		if code != 3 || name != "TESTS_FAILED" {
+			t.Fatalf("exit result = (%d, %q), want (3, TESTS_FAILED)", code, name)
+		}
+	}
+	checkResult()
+	db := storage.(*sqliteStorage).db
+	if _, err := db.ExecContext(ctx, `ALTER TABLE invocations DROP COLUMN exit_code_name; PRAGMA user_version = 4`); err != nil {
+		t.Fatal(err)
+	}
+	if err := storage.Close(); err != nil {
+		t.Fatal(err)
+	}
+	storage, err = OpenSQLite(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	checkResult()
+}
 
 func TestSQLiteDurableEventsAndFacts(t *testing.T) {
 	ctx := context.Background()
@@ -111,6 +168,107 @@ func TestSQLiteDurableEventsAndFacts(t *testing.T) {
 	}
 }
 
+func TestInvocationGroupMetrics(t *testing.T) {
+	ctx := context.Background()
+	storage, err := OpenSQLite(filepath.Join(t.TempDir(), "metrics.sqlite"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer storage.Close()
+	store := NewStore(storage)
+	sequences := make(map[string]int64)
+	appendEvent := func(id string, bep *beppb.BuildEvent) {
+		t.Helper()
+		sequences[id]++
+		event := testEvent(t, sequences[id])
+		event.StreamId.InvocationId = id
+		payload, err := anypb.New(bep)
+		if err != nil {
+			t.Fatal(err)
+		}
+		event.Event.Event = &buildpb.BuildEvent_BazelEvent{BazelEvent: payload}
+		if err := store.Append(event, false); err != nil {
+			t.Fatal(err)
+		}
+	}
+	start := time.Unix(1000, 0)
+	begin := func(id, group string) {
+		appendEvent(id, &beppb.BuildEvent{Payload: &beppb.BuildEvent_Started{Started: &beppb.BuildStarted{
+			StartTime: timestamppb.New(start),
+		}}})
+		appendEvent(id, &beppb.BuildEvent{Payload: &beppb.BuildEvent_BuildMetadata{BuildMetadata: &beppb.BuildMetadata{
+			Metadata: map[string]string{"igroup": group},
+		}}})
+	}
+	finish := func(id string, duration time.Duration, code int32) {
+		appendEvent(id, &beppb.BuildEvent{LastMessage: true, Payload: &beppb.BuildEvent_Finished{
+			Finished: &beppb.BuildFinished{
+				FinishTime: timestamppb.New(start.Add(duration)),
+				ExitCode:   &beppb.BuildFinished_ExitCode{Code: code},
+			},
+		}})
+	}
+	testSummary := func(id, label string, status beppb.TestStatus) {
+		appendEvent(id, &beppb.BuildEvent{
+			Id: &beppb.BuildEventId{Id: &beppb.BuildEventId_TestSummary{
+				TestSummary: &beppb.BuildEventId_TestSummaryId{Label: label},
+			}},
+			Payload: &beppb.BuildEvent_TestSummary{TestSummary: &beppb.TestSummary{OverallStatus: status}},
+		})
+	}
+	for _, id := range []string{"fast", "slow", "running"} {
+		begin(id, "release")
+	}
+	begin("other", "continuous")
+	testSummary("fast", "//:test", beppb.TestStatus_PASSED)
+	testSummary("fast", "//:test", beppb.TestStatus_FLAKY)
+	testSummary("slow", "//:test", beppb.TestStatus_TIMEOUT)
+	testSummary("other", "//:unrelated", beppb.TestStatus_FLAKY)
+	appendEvent("fast", &beppb.BuildEvent{Payload: &beppb.BuildEvent_BuildMetrics{BuildMetrics: &beppb.BuildMetrics{
+		ActionSummary: &beppb.BuildMetrics_ActionSummary{RemoteCacheHits: 2},
+	}}})
+	finish("fast", time.Second, 0)
+	finish("slow", 3*time.Second, 1)
+	finish("other", 10*time.Second, 0)
+	observe := func(id string, hits, misses, errors int64) {
+		t.Helper()
+		if err := store.ObserveRemoteCache(ctx, id, []*pb.RemoteCacheMetric{
+			{Operation: "ac_lookup", Result: "hit", Count: hits},
+			{Operation: "ac_lookup", Result: "miss", Count: misses},
+			{Operation: "ac_lookup", Result: "error", Count: errors},
+			{Operation: "cas_read", Result: "hit", Count: 999},
+		}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	observe("fast", 2, 2, 1)
+	observe("slow", 7, 1, 0)
+	observe("other", 100, 0, 0)
+	metrics, err := store.GetInvocationGroupMetrics(ctx, &pb.GetInvocationGroupMetricsRequest{InvocationGroup: "release"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if metrics.InvocationCount != 3 || metrics.RunningCount != 1 || metrics.SucceededCount != 1 || metrics.FailedCount != 1 ||
+		metrics.TimingSampleCount != 2 || metrics.GetAverageDurationMs() != 2000 || metrics.GetMedianDurationMs() != 2000 ||
+		metrics.GetP95DurationMs() != 3000 {
+		t.Fatalf("build metrics: %v", metrics)
+	}
+	cache := metrics.GetCache()
+	if cache.ActionCacheHits != 9 || cache.ActionCacheMisses != 3 || cache.ActionCacheErrors != 1 ||
+		cache.ActionCacheInvocationCount != 2 || cache.GetBazelRemoteCacheHits() != 2 {
+		t.Fatalf("cache metrics: %v", cache)
+	}
+	tests := metrics.GetTests()
+	if tests.SummaryCount != 2 || tests.FlakyCount != 1 || tests.FailedOrTimedOutCount != 1 ||
+		len(tests.FlakyTargets) != 1 || tests.FlakyTargets[0].Label != "//:test" || tests.FlakyTargets[0].SummaryCount != 2 {
+		t.Fatalf("test metrics: %v", tests)
+	}
+	empty, err := store.GetInvocationGroupMetrics(ctx, &pb.GetInvocationGroupMetricsRequest{InvocationGroup: "empty"})
+	if err != nil || empty.GetInvocationCount() != 0 || empty.AverageDurationMs != nil || empty.GetCache().BazelRemoteCacheHits != nil {
+		t.Fatalf("empty group metrics: %v, %v", empty, err)
+	}
+}
+
 func TestSQLiteMigratesBazelCacheHitsAndRetainsRemoteTelemetry(t *testing.T) {
 	ctx := context.Background()
 	path := filepath.Join(t.TempDir(), "events.sqlite")
@@ -146,7 +304,12 @@ func TestSQLiteMigratesBazelCacheHitsAndRetainsRemoteTelemetry(t *testing.T) {
 	if _, err := db.ExecContext(ctx, "UPDATE invocations SET summary = ?", data); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := db.ExecContext(ctx, "DROP TABLE remote_cache_metrics; PRAGMA user_version = 1"); err != nil {
+	if _, err := db.ExecContext(ctx, `DROP TABLE remote_cache_metrics;
+		DROP INDEX invocations_group_created;
+		ALTER TABLE invocations DROP COLUMN invocation_group;
+		ALTER TABLE invocations DROP COLUMN exit_code_name;
+		DROP TABLE invocation_groups;
+		PRAGMA user_version = 1`); err != nil {
 		t.Fatal(err)
 	}
 	if err := storage.Close(); err != nil {
@@ -182,4 +345,116 @@ func TestSQLiteMigratesBazelCacheHitsAndRetainsRemoteTelemetry(t *testing.T) {
 	if err != nil || len(metrics) != 1 || metrics[0].Count != 2 || metrics[0].TransferredBytes != 40 {
 		t.Fatalf("retained cache telemetry: %v, %v", metrics, err)
 	}
+}
+
+func TestSQLiteInvocationGroups(t *testing.T) {
+	ctx := context.Background()
+	path := filepath.Join(t.TempDir(), "events.sqlite")
+	storage, err := OpenSQLite(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { storage.Close() }()
+	store := NewStore(storage)
+	appendGroup := func(id, name string, sequence int64) {
+		t.Helper()
+		event := testEvent(t, sequence)
+		event.StreamId.InvocationId = id
+		payload, err := anypb.New(&beppb.BuildEvent{Payload: &beppb.BuildEvent_BuildMetadata{
+			BuildMetadata: &beppb.BuildMetadata{Metadata: map[string]string{"igroup": name}},
+		}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		event.Event.Event = &buildpb.BuildEvent_BazelEvent{BazelEvent: payload}
+		if err := store.Append(event, false); err != nil {
+			t.Fatal(err)
+		}
+	}
+	appendGroup("first", "release", 1)
+	appendGroup("second", "release", 1)
+	appendGroup("third", "continuous", 1)
+	appendGroup("fourth", "../invalid", 1)
+	appendGroup("first", "changed", 2)
+	pattern := &beppb.BuildEventId{Id: &beppb.BuildEventId_Pattern{
+		Pattern: &beppb.BuildEventId_PatternExpandedId{Pattern: []string{"//:one", "//:two"}},
+	}}
+	started := &beppb.BuildEvent{
+		Children: []*beppb.BuildEventId{pattern},
+		Payload:  &beppb.BuildEvent_Started{Started: &beppb.BuildStarted{Command: "build"}},
+	}
+	for i, bep := range []*beppb.BuildEvent{started, {Id: pattern}} {
+		event := testEvent(t, int64(i+3))
+		event.StreamId.InvocationId = "first"
+		payload, err := anypb.New(bep)
+		if err != nil {
+			t.Fatal(err)
+		}
+		event.Event.Event = &buildpb.BuildEvent_BazelEvent{BazelEvent: payload}
+		if err := store.Append(event, false); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	checkGroups := func() {
+		t.Helper()
+		groups, err := store.ListInvocationGroups(ctx, &pb.ListInvocationGroupsRequest{})
+		if err != nil || len(groups.GetGroups()) != 2 || groups.Groups[0].Name != "continuous" || groups.Groups[1].Name != "release" {
+			t.Fatalf("list groups: %v, %v", groups, err)
+		}
+		release, err := store.ListInvocations(ctx, &pb.ListInvocationsRequest{InvocationGroup: "release"})
+		if err != nil || len(release.GetInvocations()) != 2 || release.Invocations[0].InvocationId != "second" ||
+			release.Invocations[1].InvocationId != "first" || release.Invocations[1].InvocationGroup != "release" ||
+			release.Invocations[1].GroupId != "" {
+			t.Fatalf("release membership: %v, %v", release, err)
+		}
+		first := release.Invocations[1]
+		if first.Command != "build" || !slices.Equal(first.TargetPatterns, []string{"//:one", "//:two"}) {
+			t.Fatalf("release command: %v", first)
+		}
+	}
+	checkGroups()
+
+	handler := store.Handler("http://localhost:8080")
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/api/invocations?group=release", nil))
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("HTTP group filter: %d %s", recorder.Code, recorder.Body)
+	}
+	recorder = httptest.NewRecorder()
+	handler.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/api/invocations?group=../invalid", nil))
+	if recorder.Code != http.StatusBadRequest {
+		t.Fatalf("invalid HTTP group filter: %d", recorder.Code)
+	}
+
+	// Reopen a version-two database without the group and target projections.
+	db := storage.(*sqliteStorage).db
+	summary, err := storage.Get(ctx, "first")
+	if err != nil {
+		t.Fatal(err)
+	}
+	summary.TargetPatterns = nil
+	data, err := proto.Marshal(summary)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.ExecContext(ctx, "UPDATE invocations SET summary = ? WHERE id = 'first'", data); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.ExecContext(ctx, `DROP INDEX invocations_group_created;
+		ALTER TABLE invocations DROP COLUMN invocation_group;
+	ALTER TABLE invocations DROP COLUMN exit_code_name;
+		DROP TABLE invocation_groups;
+		PRAGMA user_version = 2`); err != nil {
+		t.Fatal(err)
+	}
+	if err := storage.Close(); err != nil {
+		t.Fatal(err)
+	}
+	storage, err = OpenSQLite(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	store = NewStore(storage)
+	checkGroups()
 }
