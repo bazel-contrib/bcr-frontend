@@ -16,8 +16,16 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
+	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
+
+// Discard projections added after schema version 5 when testing older migrations.
+const dropBuildMetricCounts = `
+	ALTER TABLE build_metrics DROP COLUMN actions_total;
+	ALTER TABLE build_metrics DROP COLUMN targets_configured;
+	ALTER TABLE build_metrics DROP COLUMN output_bytes;
+`
 
 func TestSQLiteBackfillsExitCodeName(t *testing.T) {
 	ctx := context.Background()
@@ -58,7 +66,7 @@ func TestSQLiteBackfillsExitCodeName(t *testing.T) {
 	}
 	checkResult()
 	db := storage.(*sqliteStorage).db
-	if _, err := db.ExecContext(ctx, `ALTER TABLE invocations DROP COLUMN exit_code_name; PRAGMA user_version = 4`); err != nil {
+	if _, err := db.ExecContext(ctx, dropBuildMetricCounts+`ALTER TABLE invocations DROP COLUMN exit_code_name; PRAGMA user_version = 4`); err != nil {
 		t.Fatal(err)
 	}
 	if err := storage.Close(); err != nil {
@@ -170,11 +178,12 @@ func TestSQLiteDurableEventsAndFacts(t *testing.T) {
 
 func TestInvocationGroupMetrics(t *testing.T) {
 	ctx := context.Background()
-	storage, err := OpenSQLite(filepath.Join(t.TempDir(), "metrics.sqlite"))
+	path := filepath.Join(t.TempDir(), "metrics.sqlite")
+	storage, err := OpenSQLite(path)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer storage.Close()
+	defer func() { storage.Close() }()
 	store := NewStore(storage)
 	sequences := make(map[string]int64)
 	appendEvent := func(id string, bep *beppb.BuildEvent) {
@@ -204,7 +213,7 @@ func TestInvocationGroupMetrics(t *testing.T) {
 		appendEvent(id, &beppb.BuildEvent{LastMessage: true, Payload: &beppb.BuildEvent_Finished{
 			Finished: &beppb.BuildFinished{
 				FinishTime: timestamppb.New(start.Add(duration)),
-				ExitCode:   &beppb.BuildFinished_ExitCode{Code: code},
+				ExitCode:   &beppb.BuildFinished_ExitCode{Code: code, Name: map[int32]string{1: "BUILD_FAILURE"}[code]},
 			},
 		}})
 	}
@@ -225,7 +234,16 @@ func TestInvocationGroupMetrics(t *testing.T) {
 	testSummary("slow", "//:test", beppb.TestStatus_TIMEOUT)
 	testSummary("other", "//:unrelated", beppb.TestStatus_FLAKY)
 	appendEvent("fast", &beppb.BuildEvent{Payload: &beppb.BuildEvent_BuildMetrics{BuildMetrics: &beppb.BuildMetrics{
-		ActionSummary: &beppb.BuildMetrics_ActionSummary{RemoteCacheHits: 2},
+		ActionSummary:     &beppb.BuildMetrics_ActionSummary{RemoteCacheHits: 2},
+		BuildGraphMetrics: &beppb.BuildMetrics_BuildGraphMetrics{ActionCount: 12},
+		TargetMetrics:     &beppb.BuildMetrics_TargetMetrics{TargetsConfigured: 7},
+		ArtifactMetrics: &beppb.BuildMetrics_ArtifactMetrics{
+			OutputArtifactsSeen: &beppb.BuildMetrics_ArtifactMetrics_FilesMetric{SizeInBytes: 12345},
+		},
+		TimingMetrics: &beppb.BuildMetrics_TimingMetrics{
+			WallTimeInMs: 999, CpuTimeInMs: 600, ExecutionPhaseTimeInMs: 700,
+			CriticalPathTime: durationpb.New(500 * time.Millisecond),
+		},
 	}}})
 	finish("fast", time.Second, 0)
 	finish("slow", 3*time.Second, 1)
@@ -267,6 +285,46 @@ func TestInvocationGroupMetrics(t *testing.T) {
 	if err != nil || empty.GetInvocationCount() != 0 || empty.AverageDurationMs != nil || empty.GetCache().BazelRemoteCacheHits != nil {
 		t.Fatalf("empty group metrics: %v, %v", empty, err)
 	}
+	checkBuilds := func(builds []*pb.GroupBuildSample) {
+		t.Helper()
+		if len(builds) != 2 {
+			t.Fatalf("got %d build samples, want 2", len(builds))
+		}
+		for _, build := range builds {
+			switch build.InvocationId {
+			case "fast":
+				if build.Status != "SUCCESS" || !build.StartedAt.AsTime().Equal(start) || build.GetDurationMs() != 1000 ||
+					build.GetActionsTotal() != 12 || build.GetTargetsConfigured() != 7 || build.GetOutputBytes() != 12345 ||
+					build.ActionsExecuted == nil || build.GetActionsExecuted() != 0 || build.GetCpuMs() != 600 ||
+					build.GetExecutionMs() != 700 || build.GetCriticalPathMs() != 500 {
+					t.Fatalf("fast metrics: %v", build)
+				}
+			case "slow":
+				if build.Status != "BUILD_FAILURE" || build.GetDurationMs() != 3000 ||
+					build.ActionsExecuted != nil || build.OutputBytes != nil {
+					t.Fatalf("slow metrics: %v", build)
+				}
+			default:
+				t.Fatalf("unexpected build sample: %v", build)
+			}
+		}
+	}
+	checkBuilds(metrics.Builds)
+	if _, err := storage.(*sqliteStorage).db.ExecContext(ctx, dropBuildMetricCounts+`PRAGMA user_version = 5`); err != nil {
+		t.Fatal(err)
+	}
+	if err := storage.Close(); err != nil {
+		t.Fatal(err)
+	}
+	storage, err = OpenSQLite(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	metrics, err = NewStore(storage).GetInvocationGroupMetrics(ctx, &pb.GetInvocationGroupMetricsRequest{InvocationGroup: "release"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	checkBuilds(metrics.Builds)
 }
 
 func TestSQLiteMigratesBazelCacheHitsAndRetainsRemoteTelemetry(t *testing.T) {
@@ -304,7 +362,7 @@ func TestSQLiteMigratesBazelCacheHitsAndRetainsRemoteTelemetry(t *testing.T) {
 	if _, err := db.ExecContext(ctx, "UPDATE invocations SET summary = ?", data); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := db.ExecContext(ctx, `DROP TABLE remote_cache_metrics;
+	if _, err := db.ExecContext(ctx, dropBuildMetricCounts+`DROP TABLE remote_cache_metrics;
 		DROP INDEX invocations_group_created;
 		ALTER TABLE invocations DROP COLUMN invocation_group;
 		ALTER TABLE invocations DROP COLUMN exit_code_name;
@@ -441,9 +499,9 @@ func TestSQLiteInvocationGroups(t *testing.T) {
 	if _, err := db.ExecContext(ctx, "UPDATE invocations SET summary = ? WHERE id = 'first'", data); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := db.ExecContext(ctx, `DROP INDEX invocations_group_created;
+	if _, err := db.ExecContext(ctx, dropBuildMetricCounts+`DROP INDEX invocations_group_created;
 		ALTER TABLE invocations DROP COLUMN invocation_group;
-	ALTER TABLE invocations DROP COLUMN exit_code_name;
+		ALTER TABLE invocations DROP COLUMN exit_code_name;
 		DROP TABLE invocation_groups;
 		PRAGMA user_version = 2`); err != nil {
 		t.Fatal(err)

@@ -10,12 +10,12 @@ cargo +1.95.0 run --locked --manifest-path tools/invocation-iroh/Cargo.toml \
   --backend-port 1974 --invocation <invocation-id>
 ```
 
-Paste the printed **Viewer ticket** into the backend field in the invocation
-viewer and enter the invocation ID. Refresh saved runs to list invocations in
-the ticket's scope. A ticket without `--invocation` grants access to the
-whole invocation list and its logs.
+Open Build Events at `/tools/invocations`, paste the printed **Viewer ticket**
+into **Backend URL or iroh ticket**, and click **Connect**. The **Runs** view
+lists invocations in the ticket's scope. A ticket without `--invocation`
+grants access to the whole invocation list and its logs.
 
-For **Invocation Groups** at `/tools/igroup`, connect with a ticket issued
+For **Invocation Groups** at `/tools/invocations`, connect with a ticket issued
 without `--invocation`. That ticket can browse group membership and follow
 the active runs.
 
@@ -63,7 +63,7 @@ Get the current ticket after the companion connects to its relay:
 tools/invocation-iroh/systemd/ticket.sh
 ```
 
-Paste the ticket into **URL or iroh ticket** on `/tools/igroup`. The service
+Paste the ticket into **Backend URL or iroh ticket** on `/tools/invocations`. The service
 writes it to a private runtime file. The companion rotates it on restart and
 once per day, so fetch the current ticket after an update or rotation. The
 ticket grants read access to the invocation data in its scope.

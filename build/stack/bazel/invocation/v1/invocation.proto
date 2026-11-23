@@ -192,6 +192,22 @@ message InvocationGroupMetrics {
   optional int64 p95_duration_ms = 8;
   GroupCacheMetrics cache = 9;
   GroupTestMetrics tests = 10;
+  repeated GroupBuildSample builds = 11;
+}
+
+// A completed invocation. Optional measurements distinguish missing data from zero.
+message GroupBuildSample {
+  string invocation_id = 1;
+  google.protobuf.Timestamp started_at = 2;
+  string status = 3;
+  optional int64 duration_ms = 4;
+  optional int64 cpu_ms = 5;
+  optional int64 execution_ms = 6;
+  optional int64 critical_path_ms = 7;
+  optional int64 actions_executed = 8;
+  optional int64 actions_total = 9;
+  optional int64 targets_configured = 10;
+  optional int64 output_bytes = 11;
 }
 
 message GroupCacheMetrics {

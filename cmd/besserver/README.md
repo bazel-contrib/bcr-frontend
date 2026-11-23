@@ -18,29 +18,31 @@ Serve the Closure frontend with the existing release server.
 bazel run //app/bcr:release --//app/bcr:release_type=dummy
 ```
 
-Open `http://localhost:8080/tools/invocation`. Set the backend URL to
-`http://localhost:1974`. Use **Refresh saved runs**, select an invocation, and
-click **Replay and follow**. The timeline replays recorded events and continues
-to receive live events. Select a mark in **Build frontier** to inspect an event.
+Open Build Events at `http://localhost:8080/tools/invocations`. Set the backend
+URL to `http://localhost:1974`, click **Connect**, and select an invocation
+from **Runs**. The timeline replays recorded events and continues to receive
+live events. Select a mark in **Build frontier** to inspect an event.
 
-The viewer adds `?invocation=<id>` to the URL when you open a run. Reloading
-replays that run with the backend remembered in the current tab. A shared
-link can be opened with a backend URL or Iroh ticket supplied by the reader.
+The viewer opens a run at `/tools/invocation/<id>`. Reloading replays that run
+with the backend remembered in the current tab. A shared link can be opened
+with a backend URL or Iroh ticket supplied by the reader.
 
 Publish a build to the backend.
 
 ```sh
 bazel build //cmd/besserver \
   --bes_backend=grpc://localhost:1973 \
+  --bes_results_url=https://registry.bazel.build/tools/invocation/ \
   --bes_upload_mode=wait_for_upload_complete
 ```
 
-To connect before a build starts, generate a UUID, enter it in the viewer's
-Invocation ID field, click **Replay and follow**, then pass that same UUID to
-Bazel using `--invocation_id=<uuid>`.
+To connect before a build starts, generate a UUID, open
+`/tools/invocation/<uuid>`, and click **Connect**. Pass that same UUID to Bazel
+using `--invocation_id=<uuid>`.
 
-The local file viewer remains available for binary files produced by
-`--build_event_binary_file=<path>`.
+Drop a binary file produced by `--build_event_binary_file=<path>` into the
+upload area or choose **Upload file**. Open it again from **Uploads** while
+the page is open.
 
 ## Invocation Groups
 
@@ -49,23 +51,26 @@ Publish builds with a shared group name.
 ```sh
 bazel build //cmd/besserver \
   --bes_backend=grpc://localhost:1973 \
+  --bes_results_url=https://registry.bazel.build/tools/invocations/release/ \
   --build_metadata=igroup=release
 ```
 
-Open `/tools/igroup?group=release` and connect to the backend. Leave the group
-name blank to browse existing groups. **Current** follows the newest active
-invocation through completion when newer builds arrive. The tab reads **Last**
+Open `/tools/invocations/release` and connect to the backend. Leave the group
+name blank to browse existing groups and individual runs. **Current** follows
+the newest active invocation through completion when newer builds arrive. The sidebar link reads **Last**
 when the displayed run has finished. The **Runs** table shows the outcome, ID,
 command and targets, and recorded start or finish time. Select a row to replay
 it. Open **Runs** again to resume auto-follow after selecting a run.
-The group URL includes the selected invocation, so a reload restores it.
+Bazel appends the invocation ID to the results URL. Use a trailing slash
+and match the group in the URL to the group in `--build_metadata`. The
+resulting `/tools/invocations/<group>/<id>` link opens that run directly.
 
-Group tabs show all-time metrics:
+The group views show all-time metrics:
 
-- **Build metrics** shows invocation counts and outcomes, success rate, and
+- **Metrics** shows invocation counts and outcomes, success rate, and
   average, median, and 95th-percentile duration for completed builds with timing.
-- **Cache** shows action cache hits, misses, errors, and the hit rate across
-  observed lookups. The rate is total hits divided by total hits plus misses.
+  It also shows action cache hits, misses, errors, and hit rate across observed
+  lookups. The rate is total hits divided by total hits plus misses.
   Bazel-reported remote cache hits are available as a separate count.
 - **Tests** shows failed or timed-out results and groups Bazel's explicit
   `FLAKY` results by target. Each invocation contributes its latest summary

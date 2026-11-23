@@ -18,6 +18,7 @@ const soy = goog.require("goog.soy");
 const { Component, Route } = goog.require("stack.ui");
 const { ContentSelect } = goog.require("bcrfrontend.ContentSelect");
 const { getApplication } = goog.require("bcrfrontend.common");
+const { GroupBuildChart } = goog.require("bcrfrontend.invocationCharts");
 const { InvocationBackend, openInvocationBackend } = goog.require("bcrfrontend.invocationTransport");
 const {
 	eventStatusIcon,
@@ -49,11 +50,7 @@ const ABORT_REASON_NAMES = [
 /** @const {!Array<string>} */
 const TEST_SIZE_NAMES = ["Unknown", "Small", "Medium", "Large", "Enormous"];
 
-const CSS_CHOOSE_FILE = goog.getCssName("choose-file");
-const CSS_DROP_ZONE = goog.getCssName("drop-zone");
-const CSS_FILE_INPUT = goog.getCssName("file-input");
 const CSS_RESULTS = goog.getCssName("results");
-const CSS_STATUS = goog.getCssName("status");
 const CSS_SUMMARY = goog.getCssName("summary");
 
 /**
@@ -287,8 +284,17 @@ function frontierId(id) {
 	return base64.encodeByteArray(id.serializeBinary());
 }
 
+/** @typedef {{name: string, size: number, uploadedAt: number}} */
+let InvocationFile;
+
 class InvocationProgress {
-	constructor() {
+	/**
+	 * @param {string=} sourceId Backend lookup ID or a synthetic ID for a local replay.
+	 * @param {?InvocationFile=} file
+	 */
+	constructor(sourceId = "", file = null) {
+		/** @const {string} */ this.sourceId = sourceId || "";
+		/** @const {?InvocationFile} */ this.file = file ?? null;
 		/** @const {!Array<!FrontierMark>} */
 		this.history = [];
 		/** @const {!Map<string,!FrontierMark>} */
@@ -323,6 +329,11 @@ class InvocationProgress {
 		this.logChunks = [];
 		this.log = "";
 		this.logTruncated = false;
+	}
+
+	/** @return {string} */
+	invocationId() {
+		return this.started?.getStarted()?.getUuid() || this.sourceId;
 	}
 
 	/**
@@ -1605,6 +1616,12 @@ class ToolsSelect extends ContentSelect {
 		this.select("catalog", route.add("catalog"));
 	}
 
+	/** @override @param {!Route} route */
+	goDown(route) {
+		if (route.peek() === "invocation") this.select("invocations", route);
+		else super.goDown(route);
+	}
+
 	/**
 	 * @override
 	 * @param {string} name
@@ -1616,12 +1633,7 @@ class ToolsSelect extends ContentSelect {
 			this.select(name, route);
 			return;
 		}
-		if (name === "invocation") {
-			this.addTab(name, new BuildEventViewerComponent(this.dom_));
-			this.select(name, route);
-			return;
-		}
-		if (name === "igroup") {
+		if (name === "invocations") {
 			this.addTab(name, new InvocationGroupsComponent(this.dom_));
 			this.select(name, route);
 			return;
@@ -1688,7 +1700,7 @@ function showViewerTab(tablist, content, index) {
 }
 
 /**
- * @param {!HTMLElement} body
+ * @param {!Element} body
  * @param {!Array<!Array<string>>} entries
  */
 function renderGroupMetricList(body, entries) {
@@ -1735,13 +1747,31 @@ function rememberViewerBackend(scope, address) {
 	}
 }
 
+const INVOCATION_PATH = "/tools/invocation";
+const GROUP_INVOCATIONS_PATH = "/tools/invocations";
+const GROUP_VIEW_ID_PREFIX = "igroup-panel-";
+
 /**
  * @param {!URL} url
- * @param {string} id
+ * @param {string} base
+ * @return {!Array<string>}
  */
-function setInvocationQuery(url, id) {
-	if (id) url.searchParams.set("invocation", id);
-	else url.searchParams.delete("invocation");
+function viewerPathParts(url, base) {
+	if (!url.pathname.startsWith(base + "/")) return [];
+	try {
+		return url.pathname.slice(base.length + 1).split("/").filter(Boolean).map(decodeURIComponent);
+	} catch (_error) {
+		return [];
+	}
+}
+
+/**
+ * @param {!URL} url
+ * @param {string} base
+ * @param {...string} parts
+ */
+function setViewerPath(url, base, ...parts) {
+	url.pathname = base + parts.filter(Boolean).map((part) => "/" + encodeURIComponent(part)).join("");
 }
 
 /** @param {!URL} url */
@@ -1750,25 +1780,25 @@ function replaceViewerLocation(url) {
 }
 
 /**
- * @param {string} page
+ * @param {string} base
  * @param {string} id
+ * @param {string=} group
  */
-function selectInvocationInUrl(page, id) {
+function selectInvocationInUrl(base, id, group = "") {
 	const url = new URL(window.location.href);
-	if (url.pathname.replace(/\/$/, "") !== "/tools/" + page) return;
-	setInvocationQuery(url, id);
+	if (url.pathname !== base && !url.pathname.startsWith(base + "/")) return;
+	setViewerPath(url, base, group, id);
 	replaceViewerLocation(url);
 }
 
 /**
- * @param {!URLSearchParams} params
+ * @param {!URL} url
  * @return {string}
  */
-function groupFollowMode(params) {
-	const mode = params.get("follow");
+function groupFollowMode(url) {
+	const mode = url.searchParams.get("follow");
 	if (mode === "auto" || mode === "off" || mode === "manual") return mode;
-	// Older group links omitted the follow parameter for manual selections.
-	return params.get("invocation") ? "manual" : "auto";
+	return viewerPathParts(url, GROUP_INVOCATIONS_PATH)[1] ? "manual" : "auto";
 }
 
 /** @typedef {{label: string, kind: string, color: string, title: string}} */
@@ -1791,7 +1821,7 @@ function invocationStatus(label, kind, code = null) {
 		case "empty":
 		case "warning": color = "color-fg-attention"; break;
 		case "infrastructure": color = "color-fg-done"; break;
-		case "running": color = "color-fg-accent"; break;
+		case "running": color = "color-fg-attention"; break;
 	}
 	return {label, kind, color, title: code === null ? label : label + " (" + code + ")"};
 }
@@ -1826,6 +1856,21 @@ function invocationExitStatus(name, code) {
 }
 
 /**
+ * @param {!InvocationProgress} invocation
+ * @param {?InvocationFailure=} failure
+ * @return {?InvocationStatus}
+ */
+function replayResultStatus(invocation, failure = invocationFailure(invocation)) {
+	const finished = invocation.finished?.getFinished();
+	const exit = finished?.getExitCode();
+	if (exit) return invocationExitStatus(exit.getName(), exit.getCode());
+	if (failure) return invocationStatus("Failed", "failure");
+	if (finished) return invocationStatus("Finished", "neutral");
+	if (invocation.last || invocation.file) return invocationStatus("Incomplete", "warning");
+	return null;
+}
+
+/**
  * @param {!InvocationStatus} status
  * @return {!Element}
  */
@@ -1855,14 +1900,20 @@ class InvocationGroupsComponent extends Component {
 		/** @private */ this.watchedId_ = "";
 		/** @private */ this.requestedId_ = "";
 		/** @private */ this.historyKey_ = "";
-		/** @private */ this.activeGroupTab_ = 0;
+		/** @private */ this.activeView_ = "current";
 		/** @private */ this.metricsInFlight_ = false;
 		/** @private */ this.lastMetricsRead_ = 0;
+		/** @private @type {?GroupBuildChart} */ this.buildChart_ = null;
+		/** @private @type {?Element} */ this.buildSummary_ = null;
+		/** @private @const {!Array<!InvocationProgress>} */ this.uploads_ = [];
+		/** @private */ this.viewingUpload_ = false;
+		/** @private */ this.uploadGeneration_ = 0;
 	}
 
 	/** @override */
 	createDom() {
-		this.setElementInternal(soy.renderAsElement(invocationGroups));
+		const altKeyLabel = /^Mac/i.test(navigator.platform) ? "Option" : "Alt";
+		this.setElementInternal(soy.renderAsElement(invocationGroups, {altKeyLabel}));
 	}
 
 	/** @override */
@@ -1882,8 +1933,23 @@ class InvocationGroupsComponent extends Component {
 			if (follow.checked) this.returnToGroup_();
 			this.renderGroupStatus_();
 		});
-		bindViewerTabs(this.getHandler(), this.groupElement_(goog.getCssName("igroup-tabs")),
-			(index) => this.selectGroupTab_(index));
+		const root = this.getElementStrict();
+		this.getHandler().listen(root, "click", (/** !events.BrowserEvent */ event) => {
+			const link = (/** @type {!Element} */ (event.target)).closest("a[data-view]");
+			if (!link || event.button !== 0 || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
+			event.preventDefault();
+			this.selectView_(link.getAttribute("data-view") || "", true);
+		});
+		this.getHandler().listen(this, "keydown", (/** !events.BrowserEvent */ event) => {
+			const key = /** @type {!KeyboardEvent} */ (event.getBrowserEvent());
+			if (key.defaultPrevented || !key.altKey || !key.shiftKey || key.ctrlKey || key.metaKey ||
+				key.repeat || !/^Digit[1-6]$/.test(key.code) ||
+				document.activeElement?.closest("input, textarea, select, [contenteditable]")) return;
+			const link = root.querySelector('[data-shortcut="' + key.code + '"]');
+			if (!link) return;
+			event.preventDefault();
+			this.selectView_(link.getAttribute("data-view") || "", true);
+		});
 		this.getHandler().listen(this.groupElement_(goog.getCssName("igroup-form")), "submit", (/** !events.BrowserEvent */ event) => {
 			event.preventDefault();
 			this.openGroup_();
@@ -1897,14 +1963,45 @@ class InvocationGroupsComponent extends Component {
 		this.getHandler().listen(this.groupElement_(goog.getCssName("igroup-runs")), "click", (/** !events.BrowserEvent */ event) => {
 			const target = /** @type {!Element} */ (event.target).closest("[data-invocation-id]");
 			const id = target && target.getAttribute("data-invocation-id");
-			if (id) {
-				if (this.followMode_() === "auto") this.setFollowMode_("manual");
-				this.watch_(id);
-				this.renderGroupStatus_();
-				this.selectGroupTab_(0);
-				this.groupElement_(goog.getCssName("igroup-current-tab")).focus();
-			}
+			if (id) this.openRun_(id);
 		});
+		const input = this.input_(goog.getCssName("igroup-file-input"));
+		const drop = new FileDropHandler(root, true);
+		this.registerDisposable(drop);
+		const handler = this.getHandler();
+		handler.listen(this.groupElement_(goog.getCssName("igroup-choose-file")), "click", () => input.click());
+		handler.listen(input, "change", () => {
+			const file = input.files?.[0];
+			input.value = "";
+			if (file) this.loadUpload_(file);
+		});
+		handler.listen(root, "dragenter", (/** !events.BrowserEvent */ event) => {
+			const drag = /** @type {!DragEvent} */ (event.getBrowserEvent());
+			if (drag.dataTransfer?.types.includes("Files")) root.classList.add("is-dragging");
+		});
+		handler.listen(root, "dragleave", (/** !events.BrowserEvent */ event) => {
+			if (!root.contains(/** @type {?Node} */ (event.relatedTarget))) root.classList.remove("is-dragging");
+		});
+		handler.listen(drop, FileDropHandler.EventType.DROP, (/** !events.BrowserEvent */ event) => {
+			root.classList.remove("is-dragging");
+			const drag = /** @type {!DragEvent} */ (event.getBrowserEvent());
+			const file = drag.dataTransfer?.files[0];
+			if (file) this.loadUpload_(file);
+		});
+		handler.listen(this.groupElement_(goog.getCssName("igroup-uploads")), "click", (/** !events.BrowserEvent */ event) => {
+			const row = (/** @type {!Element} */ (event.target)).closest("[data-invocation-id]");
+			const id = row?.getAttribute("data-invocation-id");
+			const invocation = this.uploads_.find((upload) => upload.sourceId === id);
+			if (invocation) this.openUpload_(invocation);
+		});
+	}
+
+	/** @private @param {string} id */
+	openRun_(id) {
+		if (this.followMode_() === "auto") this.setFollowMode_("manual");
+		this.watch_(id);
+		this.renderGroupStatus_();
+		this.selectView_("current", true);
 	}
 
 	/**
@@ -1912,7 +2009,7 @@ class InvocationGroupsComponent extends Component {
 	 * @param {!URL} url
 	 */
 	syncGroupOptions_(url) {
-		const follow = groupFollowMode(url.searchParams);
+		const follow = groupFollowMode(url);
 		const showLast = url.searchParams.get("showLast") !== "0";
 		url.searchParams.set("follow", follow);
 		url.searchParams.set("showLast", showLast ? "1" : "0");
@@ -1922,7 +2019,7 @@ class InvocationGroupsComponent extends Component {
 
 	/** @private @return {string} */
 	followMode_() {
-		return groupFollowMode(new URL(window.location.href).searchParams);
+		return groupFollowMode(new URL(window.location.href));
 	}
 
 	/** @private @param {string} mode */
@@ -1937,22 +2034,43 @@ class InvocationGroupsComponent extends Component {
 	 * @override
 	 * @param {!Route} route
 	 */
+	goDown(route) {
+		const count = route.unmatchedPath().length;
+		if (count > (viewerPathParts(new URL(window.location.href), INVOCATION_PATH).length ? 1 : 2)) {
+			super.goDown(route);
+			return;
+		}
+		this.goHere(route.advance(count));
+	}
+
+	/**
+	 * @override
+	 * @param {!Route} route
+	 */
 	goHere(route) {
 		super.goHere(route);
 		const groupInput = this.input_(goog.getCssName("igroup-name"));
 		const url = new URL(window.location.href);
 		this.syncGroupOptions_(url);
 		replaceViewerLocation(url);
-		const params = url.searchParams;
-		const group = params.get("group");
-		if (group !== null) {
-			groupInput.value = group;
-			const remembered = readViewerBackend("group." + group);
-			if (remembered) this.input_(goog.getCssName("igroup-backend")).value = remembered;
+		const panelId = url.hash.slice(1);
+		this.selectView_(panelId.startsWith(GROUP_VIEW_ID_PREFIX) ? panelId.slice(GROUP_VIEW_ID_PREFIX.length) : "current");
+		const parts = viewerPathParts(url, GROUP_INVOCATIONS_PATH);
+		const group = parts[0] || "";
+		const id = parts[1] || "";
+		groupInput.value = group;
+		const singleId = viewerPathParts(url, INVOCATION_PATH)[0];
+		const remembered = (group && readViewerBackend("group." + group)) || readViewerBackend("invocation");
+		if (remembered) this.input_(goog.getCssName("igroup-backend")).value = remembered;
+		if (singleId) {
+			if (remembered && (this.group_ || this.watchedId_ !== singleId || !this.backend_)) this.openGroup_();
+			else if (!this.watchedId_) this.groupElement_(goog.getCssName("igroup-status")).textContent =
+				"Connect to a backend to open this invocation.";
+			return;
 		}
-		const id = params.get("invocation") || "";
-		if (groupInput.value && (!this.backend_ || groupInput.value !== this.group_ ||
-			id !== (this.requestedId_ || this.watchedId_))) this.openGroup_();
+		if (group !== this.group_ || (group && (!this.backend_ || id !== (this.requestedId_ || this.watchedId_)))) {
+			this.openGroup_();
+		}
 		else if (this.seenRuns_) {
 			if (!this.requestedId_) this.selectActiveRun_();
 			this.renderGroupStatus_();
@@ -1961,12 +2079,14 @@ class InvocationGroupsComponent extends Component {
 
 	/** @override */
 	hide() {
+		this.uploadGeneration_++;
 		this.closeGroup_();
 		super.hide();
 	}
 
 	/** @override */
 	exitDocument() {
+		this.uploadGeneration_++;
 		this.closeGroup_();
 		super.exitDocument();
 	}
@@ -1988,26 +2108,27 @@ class InvocationGroupsComponent extends Component {
 		const generation = this.generation_;
 		this.address_ = this.input_(goog.getCssName("igroup-backend")).value.trim();
 		this.group_ = this.input_(goog.getCssName("igroup-name")).value.trim();
+		const url = new URL(window.location.href);
+		const singleId = this.group_ ? "" : viewerPathParts(url, INVOCATION_PATH)[0] || "";
 		this.runs_ = [];
 		this.seenRuns_ = null;
 		this.historyKey_ = "";
 		this.groupElement_(goog.getCssName("igroup-list")).classList.add("d-none");
 		this.groupElement_(goog.getCssName("igroup-current-tab")).textContent = "Current";
 		this.renderHistory_();
-		const pending = this.group_ ? "Waiting for the group connection…" : "Connect to a backend and choose a group.";
+		const pending = singleId ? "Waiting for this invocation…" : this.group_
+			? "Waiting for the group connection…" : "Connect to a backend and choose a group.";
 		this.setGroupWaitingMessage_(pending);
 		if (this.group_ && !/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.test(this.group_)) {
 			this.setBackendStatus_("Disconnected", "", "Enter a valid group name.");
 			return;
 		}
-		const url = new URL(window.location.href);
-		const sameGroup = this.group_ !== "" && url.searchParams.get("group") === this.group_;
-		if (!sameGroup && groupFollowMode(url.searchParams) === "manual") url.searchParams.set("follow", "auto");
+		const parts = viewerPathParts(url, GROUP_INVOCATIONS_PATH);
+		const sameGroup = this.group_ !== "" && parts[0] === this.group_;
+		if (!sameGroup && groupFollowMode(url) === "manual") url.searchParams.set("follow", "auto");
 		this.syncGroupOptions_(url);
-		this.requestedId_ = sameGroup ? url.searchParams.get("invocation") || "" : "";
-		setInvocationQuery(url, this.requestedId_);
-		if (this.group_) url.searchParams.set("group", this.group_);
-		else url.searchParams.delete("group");
+		this.requestedId_ = sameGroup ? parts[1] || "" : "";
+		if (!singleId) setViewerPath(url, GROUP_INVOCATIONS_PATH, this.group_, this.requestedId_);
 		replaceViewerLocation(url);
 		this.setBackendStatus_("Connecting", "Label--accent", "Opening the invocation backend…");
 		try {
@@ -2017,16 +2138,36 @@ class InvocationGroupsComponent extends Component {
 				return;
 			}
 			this.backend_ = backend;
-			if (this.group_) {
+			if (singleId) {
+				rememberViewerBackend("invocation", this.address_);
+				this.watch_(singleId);
+				const result = await backend.list();
+				if (generation !== this.generation_) return;
+				this.runs_ = /** @type {!Array<!Object<string, *>>} */ (result["invocations"] || []);
+				this.renderHistory_();
+				this.renderGroupStatus_();
+			} else if (this.group_) {
 				rememberViewerBackend("group." + this.group_, this.address_);
 				await this.pollGroup_(backend, generation);
 			} else {
-				const result = await backend.listGroups();
+				const runsResult = await backend.list();
 				if (generation !== this.generation_) return;
-				const groups = /** @type {!Array<!Object<string, *>>} */ (result["groups"] || []);
-				this.setBackendStatus_("Connected", "Label--success", groups.length ? "Choose an invocation group."
-					: "No groups yet. Enter a group name to wait for its first build.");
+				/** @type {!Array<!Object<string, *>>} */
+				let groups = [];
+				try {
+					const result = await backend.listGroups();
+					groups = /** @type {!Array<!Object<string, *>>} */ (result["groups"] || []);
+				} catch (_error) {
+					// A ticket scoped to one invocation can list its run but cannot list groups.
+				}
+				if (generation !== this.generation_) return;
+				this.runs_ = /** @type {!Array<!Object<string, *>>} */ (
+					runsResult["invocations"] || []);
+				rememberViewerBackend("invocation", this.address_);
+				this.setBackendStatus_("Connected", "Label--success", groups.length ? "Choose a group or open an invocation from Runs."
+					: this.runs_.length ? "Open an invocation from Runs." : "Enter a group name to wait for its first build.");
 				this.renderCatalog_(groups);
+				this.renderHistory_();
 			}
 		} catch (/** @type {*} */ error) {
 			if (generation === this.generation_) {
@@ -2087,11 +2228,11 @@ class InvocationGroupsComponent extends Component {
 			const newestUnseen = seen && this.runs_.find((run) => !seen.has(String(run["invocationId"])));
 			this.seenRuns_ = new Set(this.runs_.map((run) => String(run["invocationId"])));
 			this.renderHistory_();
-			if (this.requestedId_) {
+			if (!this.viewingUpload_ && this.requestedId_) {
 				if (this.runs_.some((run) => run["invocationId"] === this.requestedId_)) {
 					this.watch_(this.requestedId_);
 				}
-			} else {
+			} else if (!this.viewingUpload_) {
 				this.selectActiveRun_(newestUnseen ? String(newestUnseen["invocationId"]) : "");
 				if (!seen && !this.watchedId_ && new URL(window.location.href).searchParams.get("showLast") !== "0") {
 					const last = this.runs_.find((run) =>
@@ -2112,14 +2253,33 @@ class InvocationGroupsComponent extends Component {
 
 	/**
 	 * @private
-	 * @param {number} index
+	 * @param {string} view
+	 * @param {boolean=} navigate
 	 */
-	selectGroupTab_(index) {
-		this.activeGroupTab_ = index;
-		showViewerTab(this.groupElement_(goog.getCssName("igroup-tabs")),
-			this.groupElement_(goog.getCssName("igroup-content")), index);
+	selectView_(view, navigate = false) {
+		const content = this.groupElement_(goog.getCssName("igroup-content"));
+		const panels = content.querySelectorAll(":scope > [id]");
+		let selected = null;
+		for (const panel of panels) {
+			if (panel.id === GROUP_VIEW_ID_PREFIX + view) selected = /** @type {!HTMLElement} */ (panel);
+		}
+		if (!selected) return;
+		this.activeView_ = view;
+		for (const panel of panels) /** @type {!HTMLElement} */ (panel).hidden = panel !== selected;
+		for (const link of this.getElementStrict().querySelectorAll('a[id][data-view]')) {
+			if (link.getAttribute("data-view") === view) link.setAttribute("aria-current", "location");
+			else link.removeAttribute("aria-current");
+		}
+		if (navigate) {
+			const url = new URL(window.location.href);
+			url.hash = view === "current" ? "" : selected.id;
+			replaceViewerLocation(url);
+			selected.focus({preventScroll: true});
+			const top = selected.getBoundingClientRect().top;
+			if (top < 0 || top >= window.innerHeight) selected.scrollIntoView({block: "start"});
+		}
 		const mode = this.followMode_();
-		if (index === 1 && (this.requestedId_ || mode === "manual")) {
+		if (navigate && view === "runs" && this.group_ && (this.viewingUpload_ || this.requestedId_ || mode === "manual")) {
 			if (mode === "manual") this.setFollowMode_("auto");
 			this.returnToGroup_();
 			this.renderGroupStatus_();
@@ -2130,14 +2290,18 @@ class InvocationGroupsComponent extends Component {
 	/** @private */
 	returnToGroup_() {
 		this.requestedId_ = "";
-		selectInvocationInUrl("igroup", this.watchedId_);
+		if (this.viewingUpload_ && this.group_) {
+			if (this.watchedId_) this.watch_(this.watchedId_);
+			else this.stopWatching_();
+		}
+		selectInvocationInUrl(GROUP_INVOCATIONS_PATH, this.watchedId_, this.group_);
 		this.selectActiveRun_();
 	}
 
 	/** @private */
 	async refreshMetrics_() {
 		const backend = this.backend_;
-		if (!backend || !this.seenRuns_ || this.activeGroupTab_ < 2 || this.activeGroupTab_ > 4 ||
+		if (!backend || !this.seenRuns_ || (this.activeView_ !== "metrics" && this.activeView_ !== "tests") ||
 			this.metricsInFlight_ || Date.now() - this.lastMetricsRead_ < 10000) return;
 		const generation = this.generation_;
 		this.metricsInFlight_ = true;
@@ -2192,7 +2356,24 @@ class InvocationGroupsComponent extends Component {
 		const running = count("runningCount");
 		const succeeded = count("succeededCount");
 		const failed = count("failedCount");
-		renderGroupMetricList(this.groupElement_(goog.getCssName("igroup-build-metrics")), [
+		const body = this.groupElement_(goog.getCssName("igroup-build-metrics"));
+		if (!this.buildChart_) this.buildChart_ = new GroupBuildChart(
+			(status) => status === "UNKNOWN" ? invocationStatus(status, "unknown").color : invocationExitStatus(status, null).color,
+			(id) => {
+				const url = new URL(window.location.href);
+				setViewerPath(url, GROUP_INVOCATIONS_PATH, this.group_, id);
+				url.searchParams.set("follow", "manual");
+				return url.pathname + url.search;
+			},
+			(id) => this.openRun_(id));
+		if (!this.buildSummary_) this.buildSummary_ = document.createElement("div");
+		if (this.buildChart_.element.parentElement !== body) {
+			dom.removeChildren(body);
+			body.append(dom.createDom("section", "bes-group-totals",
+				dom.createDom("h3", "h5 mb-2", "All-time totals"), this.buildSummary_), this.buildChart_.element);
+		}
+		this.buildChart_.setBuilds(/** @type {!Array<!Object<string, *>>} */ (metrics["builds"] || []));
+		renderGroupMetricList(this.buildSummary_, [
 			["Invocations", total.toLocaleString()],
 			["Running", running.toLocaleString()],
 			["Succeeded", succeeded.toLocaleString()],
@@ -2279,7 +2460,7 @@ class InvocationGroupsComponent extends Component {
 	 */
 	selectActiveRun_(newestUnseen = "") {
 		const running = "INVOCATION_STATE_IN_PROGRESS";
-		if (this.followMode_() !== "auto" || this.runs_.some((run) =>
+		if (this.viewingUpload_ || this.followMode_() !== "auto" || this.runs_.some((run) =>
 			run["invocationId"] === this.watchedId_ && run["state"] === running)) return;
 		const next = this.runs_.find((run) => run["state"] === running);
 		if (next) this.watch_(String(next["invocationId"]));
@@ -2293,22 +2474,38 @@ class InvocationGroupsComponent extends Component {
 	 */
 	watch_(id) {
 		this.requestedId_ = "";
-		selectInvocationInUrl("igroup", id);
-		if (id === this.watchedId_) return;
+		const url = new URL(window.location.href);
+		setViewerPath(url, this.group_ ? GROUP_INVOCATIONS_PATH : INVOCATION_PATH, this.group_, id);
+		replaceViewerLocation(url);
+		if (id === this.watchedId_ && !this.viewingUpload_) return;
+		this.viewingUpload_ = false;
 		this.watchedId_ = id;
+		const viewer = this.showViewer_();
+		/** @type {function(string, boolean, boolean):void} */
+		const onStatus = (message, connected, closed) => {
+			if (this.group_) return;
+			this.setBackendStatus_(connected ? "Connected" : closed ? "Connection failed" : "Retrying",
+				connected ? "Label--success" : closed ? "Label--danger" : "Label--attention", message);
+		};
+		viewer.followInvocation(this.address_, id, onStatus);
+	}
+
+	/** @private @return {!BuildEventViewerComponent} */
+	showViewer_() {
 		const mount = this.groupElement_(goog.getCssName("igroup-viewer"));
 		if (!this.viewer_) {
-			this.viewer_ = new BuildEventViewerComponent(this.getDomHelper(), true);
+			this.viewer_ = new BuildEventViewerComponent(this.getDomHelper());
 			this.addChild(this.viewer_, false);
 			this.viewer_.render(mount);
 		}
 		mount.classList.remove("d-none");
-		this.viewer_.followInvocation(this.address_, id);
+		return this.viewer_;
 	}
 
 	/** @private */
 	stopWatching_() {
 		if (this.viewer_) this.viewer_.stopFollowing();
+		this.viewingUpload_ = false;
 		this.watchedId_ = "";
 		this.groupElement_(goog.getCssName("igroup-viewer")).classList.add("d-none");
 	}
@@ -2317,13 +2514,14 @@ class InvocationGroupsComponent extends Component {
 	renderGroupStatus_() {
 		const current = this.runs_.find((run) => run["invocationId"] === this.watchedId_);
 		const status = this.groupElement_(goog.getCssName("igroup-status"));
-		status.hidden = Boolean(current);
+		status.hidden = this.viewingUpload_ || Boolean(this.watchedId_);
 		const message = current ? "" : this.requestedId_ ? "Waiting for invocation " + this.requestedId_
 			: this.followMode_() === "auto" ? this.group_ + " · Waiting for the next build"
 			: "Select a run from the Runs tab.";
 		if (status.textContent !== message) status.textContent = message;
 		const tab = this.groupElement_(goog.getCssName("igroup-current-tab"));
-		const name = current && current["state"] !== "INVOCATION_STATE_IN_PROGRESS" ? "Last" : "Current";
+		const name = this.viewingUpload_ ? "Current" :
+			current && current["state"] !== "INVOCATION_STATE_IN_PROGRESS" ? "Last" : "Current";
 		if (tab.textContent !== name) tab.textContent = name;
 	}
 
@@ -2345,7 +2543,8 @@ class InvocationGroupsComponent extends Component {
 
 	/** @private */
 	renderHistory_() {
-		/** @type {!Array<{id: string, command: string, status: !InvocationStatus, time: string, timeLabel: string}>} */
+		/** @type {!Array<{id: string, command: string, status: !InvocationStatus, time: string,
+		 *     timeLabel: string, title: string, file: string}>} */
 		const rows = this.runs_.map((run) => {
 			const id = String(run["invocationId"]);
 			const command = ["bazel", run["command"], ...(/** @type {!Array<string>} */ (run["targetPatterns"] || []))]
@@ -2359,7 +2558,7 @@ class InvocationGroupsComponent extends Component {
 				: invocationStatus("Finished", "neutral");
 			const time = String(run["finishedAt"] || run["startedAt"] || run["createdAt"] || "");
 			const timeLabel = run["finishedAt"] ? "Finished" : run["startedAt"] ? "Started" : "Recorded";
-			return {id, command, status, time, timeLabel};
+			return {id, command, status, time, timeLabel, title: id, file: ""};
 		});
 		const key = JSON.stringify(rows);
 		const empty = this.groupElement_(goog.getCssName("igroup-runs-empty"));
@@ -2368,24 +2567,92 @@ class InvocationGroupsComponent extends Component {
 		this.groupElement_(goog.getCssName("igroup-runs-table")).hidden = !rows.length;
 		if (key === this.historyKey_) return;
 		this.historyKey_ = key;
-		const list = this.groupElement_(goog.getCssName("igroup-runs"));
+		this.renderInvocationRows_(this.groupElement_(goog.getCssName("igroup-runs")), rows);
+	}
+
+	/**
+	 * @private
+	 * @param {!HTMLElement} list
+	 * @param {!Array<{id: string, command: string, status: !InvocationStatus, time: string,
+	 *     timeLabel: string, title: string, file: string}>} rows
+	 */
+	renderInvocationRows_(list, rows) {
 		const focused = document.activeElement?.getAttribute("data-invocation-id");
 		dom.removeChildren(list);
 		const dates = new Intl.DateTimeFormat(undefined, {dateStyle: "medium", timeStyle: "short"});
 		for (const row of rows) {
 			const command = dom.createDom("code", {"class": "bes-group-run-command", "title": row.command}, row.command);
+			const file = row.file ? dom.createDom("span", {"class": "bes-group-run-command text-small color-fg-muted", "title": row.file}, row.file) : null;
 			const date = new Date(row.time);
 			const displayedTime = row.time && Number.isFinite(date.getTime()) ? row.timeLabel + " " + dates.format(date) : "";
 			const time = displayedTime ? dom.createDom("time",
 				{"class": "bes-group-run-time color-fg-muted", "datetime": row.time, "title": displayedTime}, displayedTime) : null;
 			const button = dom.createDom("button", {
-				"type": "button", "class": "btn-link branch-name bes-group-run-id", "data-invocation-id": row.id, "title": row.id,
-			}, row.id);
+				"type": "button", "class": "btn-link branch-name bes-group-run-id", "data-invocation-id": row.id, "title": row.title,
+			}, row.title);
 			list.appendChild(dom.createDom("tr", {"class": "bes-group-run", "data-invocation-id": row.id},
 				dom.createDom("td", null, renderInvocationStatusIcon(row.status)), dom.createDom("td", null, button),
-				dom.createDom("td", null, command), dom.createDom("td", null, time)));
+				dom.createDom("td", null, command, file), dom.createDom("td", null, time)));
 			if (focused === row.id) /** @type {!HTMLElement} */ (button).focus({preventScroll: true});
 		}
+	}
+
+	/** @private @param {!File} file */
+	async loadUpload_(file) {
+		const generation = ++this.uploadGeneration_;
+		const status = this.groupElement_(goog.getCssName("igroup-upload-status"));
+		status.hidden = false;
+		status.classList.remove("color-fg-danger");
+		if (file.size > MAX_FILE_BYTES) {
+			status.textContent = "The file exceeds the " + formatBytes(MAX_FILE_BYTES) + " limit.";
+			status.classList.add("color-fg-danger");
+			return;
+		}
+		status.textContent = "Reading " + file.name + "…";
+		try {
+			const bytes = new Uint8Array(await file.arrayBuffer());
+			if (generation !== this.uploadGeneration_) return;
+			const fileEvents = /** @type {!Array<!BuildEvent>} */ (
+				decodeDelimitedMessages(bytes, (message) => BuildEvent.deserializeBinary(message)));
+			if (!fileEvents.length) throw new Error("Empty build event file.");
+			const suffix = crypto.getRandomValues(new Uint32Array(2));
+			const id = "file-" + suffix[0].toString(16).padStart(8, "0") + suffix[1].toString(16).padStart(8, "0");
+			const invocation = new InvocationProgress(id, {name: file.name, size: file.size, uploadedAt: Date.now()});
+			for (const event of fileEvents) invocation.add(event);
+			this.uploads_.unshift(invocation);
+			this.renderUploads_();
+			this.openUpload_(invocation);
+			status.textContent = "Loaded " + file.name + ".";
+		} catch (_error) {
+			status.textContent = "Could not read this build event file. It may be truncated or invalid.";
+			status.classList.add("color-fg-danger");
+		}
+	}
+
+	/** @private */
+	renderUploads_() {
+		const rows = this.uploads_.map((invocation) => {
+			const file = /** @type {!InvocationFile} */ (invocation.file);
+			const started = invocation.started;
+			const startTime = started ? eventTimestampMillis(started) : null;
+			return {
+				id: invocation.sourceId, title: invocation.invocationId(), file: file.name,
+				command: ["bazel", started?.getStarted()?.getCommand(), ...invocation.targets].filter(Boolean).join(" "),
+				status: replayResultStatus(invocation) || invocationStatus("Incomplete", "warning"),
+				time: new Date(startTime ?? file.uploadedAt).toISOString(), timeLabel: startTime === null ? "Uploaded" : "Started",
+			};
+		});
+		this.groupElement_(goog.getCssName("igroup-uploads-empty")).hidden = true;
+		this.groupElement_(goog.getCssName("igroup-uploads-table")).hidden = false;
+		this.renderInvocationRows_(this.groupElement_(goog.getCssName("igroup-uploads")), rows);
+	}
+
+	/** @private @param {!InvocationProgress} invocation */
+	openUpload_(invocation) {
+		this.viewingUpload_ = true;
+		this.showViewer_().showReplay(invocation);
+		this.renderGroupStatus_();
+		this.selectView_("current", true);
 	}
 
 	/**
@@ -3227,14 +3494,9 @@ function frontierMarkLabel(mark) {
 }
 
 class BuildEventViewerComponent extends Component {
-	/**
-	 * @param {?dom.DomHelper=} opt_domHelper
-	 * @param {boolean=} embedded
-	 */
-	constructor(opt_domHelper, embedded = false) {
+	/** @param {?dom.DomHelper=} opt_domHelper */
+	constructor(opt_domHelper) {
 		super(opt_domHelper);
-
-		/** @private @const */ this.embedded_ = embedded;
 		/** @private @type {!InvocationProgress} */
 		this.progress_ = new InvocationProgress();
 		/** @private @type {?InvocationFrontier} */
@@ -3285,15 +3547,7 @@ class BuildEventViewerComponent extends Component {
 		/** @private @type {?number} */
 		this.clockStoppedAt_ = null;
 		/** @private @type {boolean} */
-		this.local_ = false;
-		/** @private @type {boolean} */
 		this.connected_ = false;
-		/** @private @type {string} */
-		this.fileName_ = "";
-		/** @private @type {number} */
-		this.fileSize_ = 0;
-		/** @private @type {?number} */
-		this.buildStartMillis_ = null;
 		/** @private @type {?InvocationBackend} */
 		this.source_ = null;
 		/** @private @type {string} */
@@ -3306,164 +3560,24 @@ class BuildEventViewerComponent extends Component {
 
 	/** @override */
 	createDom() {
-		this.setElementInternal(soy.renderAsElement(invocationViewer, {embedded: this.embedded_}));
+		this.setElementInternal(soy.renderAsElement(invocationViewer));
 	}
 
 	/** @override */
 	enterDocument() {
 		super.enterDocument();
-		this.getHandler().listen(
-			this.getElement_(goog.getCssName("bes-refresh")),
-			events.EventType.CLICK,
-			() => this.refreshRuns_(),
-		);
-		this.getHandler().listen(
-			this.getElement_(goog.getCssName("bes-connect")),
-			events.EventType.CLICK,
-			() => this.connectBackend_(),
-		);
-		this.getHandler().listen(
-			this.getElement_(goog.getCssName("bes-disconnect")),
-			events.EventType.CLICK,
-			() => this.disconnectBackend_(),
-		);
-		this.getHandler().listen(
-			this.getElement_(goog.getCssName("bes-runs")),
-			events.EventType.CHANGE,
-			() => {
-				this.backendInput_(goog.getCssName("bes-id")).value =
-					/** @type {!HTMLSelectElement} */ (
-						this.getElement_(goog.getCssName("bes-runs"))
-					).value;
-			},
-		);
 		this.bindTabs_();
 		this.bindFrontier_();
-		if (this.progress_.history.length) this.renderTab_();
-		if (this.embedded_) return;
-		const dropZone = this.getElement_(CSS_DROP_ZONE);
-		const summary = this.getElement_(CSS_SUMMARY);
-		const choose = this.getElement_(CSS_CHOOSE_FILE);
-		const input = /** @type {!HTMLInputElement} */ (
-			this.getElement_(CSS_FILE_INPUT)
-		);
-
-		const fileDropHandler = new FileDropHandler(dropZone, true);
-		this.registerDisposable(fileDropHandler);
-		this.getHandler().listen(
-			fileDropHandler,
-			FileDropHandler.EventType.DROP,
-			this.handleDrop_,
-		);
-		this.getHandler().listen(choose, events.EventType.CLICK, () =>
-			input.click(),
-		);
-		this.getHandler().listen(
-			summary,
-			events.EventType.KEYDOWN,
-			this.handleDropZoneKeyDown_,
-		);
-		this.getHandler().listen(input, events.EventType.CHANGE, () => {
-			if (input.files && input.files.length) {
-				const file = input.files[0];
-				input.value = "";
-				this.loadFile_(file);
-			}
-		});
-		this.getHandler().listen(dropZone, events.EventType.DRAGENTER, () =>
-			dropZone.classList.add("is-dragging"),
-		);
-		this.getHandler().listen(dropZone, events.EventType.DRAGLEAVE, () =>
-			dropZone.classList.remove("is-dragging"),
-		);
-	}
-
-	/**
-	 * @override
-	 * @param {!Route} route
-	 */
-	goHere(route) {
-		super.goHere(route);
-		if (this.embedded_) return;
-		const address = readViewerBackend("invocation");
-		if (address) this.backendInput_(goog.getCssName("bes-backend")).value = address;
-		const id = new URL(window.location.href).searchParams.get("invocation");
-		if (!id) {
-			if (!this.local_ && this.fileName_) selectInvocationInUrl("invocation", this.fileName_);
-			return;
-		}
-		this.backendInput_(goog.getCssName("bes-id")).value = id;
-		if (this.local_ || this.fileName_ !== id || !this.source_) this.connectBackend_();
-	}
-
-	/**
-	 * @private
-	 * @param {string} name
-	 * @return {!HTMLInputElement}
-	 */
-	backendInput_(name) {
-		return /** @type {!HTMLInputElement} */ (this.getElement_(name));
-	}
-
-	/** @private */
-	async refreshRuns_() {
-		const status = this.getElement_(goog.getCssName("bes-connection"));
-		status.textContent = "Loading saved runs…";
-		const address = this.backendInput_(goog.getCssName("bes-backend")).value.trim();
-		/** @type {?InvocationBackend} */
-		let backend = null;
-		try {
-			backend = await openInvocationBackend(address);
-			const result =
-				/** @type {!Object<string,!Array<!Object<string,string>>>} */ (
-					await backend.list()
-				);
-			if (this.isDisposed() || !this.isInDocument()) return;
-			const select = /** @type {!HTMLSelectElement} */ (
-				this.getElement_(goog.getCssName("bes-runs"))
-			);
-			while (select.options.length > 1) select.remove(1);
-			// JSON field names form the HTTP API and must survive ADVANCED renaming.
-			const runs = result["invocations"] || [];
-			for (const run of runs) {
-				const option = document.createElement("option");
-				option.value = String(run["invocationId"]);
-				option.textContent =
-					String(run["command"] || "Bazel") + " · " + option.value;
-				select.appendChild(option);
-			}
-			status.textContent = runs.length + " saved invocations";
-		} catch (error) {
-			if (!this.isDisposed())
-				status.textContent =
-					"Could not load runs. Check the backend and viewer access.";
-		} finally {
-			if (backend) backend.close();
-		}
-	}
-
-	/** @private */
-	async connectBackend_() {
-		const status = this.getElement_(goog.getCssName("bes-connection"));
-		const id = this.backendInput_(goog.getCssName("bes-id")).value.trim();
-		if (!id) {
-			status.textContent = "Enter an invocation ID or select a saved run.";
-			return;
-		}
-		const address = this.backendInput_(goog.getCssName("bes-backend")).value.trim();
-		selectInvocationInUrl("invocation", id);
-		await this.followInvocation(address, id);
 	}
 
 	/**
 	 * @param {string} address
 	 * @param {string} id
+	 * @param {function(string, boolean, boolean):void} onStatus
 	 */
-	async followInvocation(address, id) {
-		const status = this.getElement_(goog.getCssName("bes-connection"));
+	async followInvocation(address, id, onStatus) {
 		this.stopBackend_();
 		const generation = this.loadGeneration_;
-		status.textContent = "Connecting…";
 		try {
 			const source = await openInvocationBackend(address);
 			if (generation !== this.loadGeneration_) {
@@ -3471,22 +3585,16 @@ class BuildEventViewerComponent extends Component {
 				return;
 			}
 			this.source_ = source;
-			if (!this.embedded_) rememberViewerBackend("invocation", address);
-			this.progress_ = new InvocationProgress();
-			this.local_ = false;
+			this.progress_ = new InvocationProgress(id);
 			this.connected_ = false;
 			this.clockStoppedAt_ = null;
 			this.resetResults_();
-			this.buildStartMillis_ = null;
-			this.fileName_ = id;
-			this.fileSize_ = 0;
 			this.lastCursor_ = "0";
 			this.renderSummary_();
-			this.getElement_(CSS_STATUS).textContent = "";
 			this.cacheTimer_ = setInterval(() => this.refreshCacheStats_(source, id), 1500);
 			source.watch(id, () => this.lastCursor_,
 				(/** string */ cursor, /** string */ data, /** number= */ receivedAt, /** number= */ sentAt) => {
-					if (generation === this.loadGeneration_) this.receiveBuildEvent_(source, id, cursor, data, receivedAt, sentAt);
+					if (generation === this.loadGeneration_) this.receiveBuildEvent_(source, id, cursor, data, receivedAt || 0, sentAt || 0, onStatus);
 			}, (/** string */ message, /** boolean */ connected, /** boolean= */ closed) => {
 				if (generation !== this.loadGeneration_) return;
 				if (closed) {
@@ -3496,12 +3604,12 @@ class BuildEventViewerComponent extends Component {
 					this.clockStoppedAt_ = connected ? null : this.clockStoppedAt_ ?? Date.now();
 					this.renderSummary_();
 				}
-				status.textContent = message;
+				onStatus(message, connected, Boolean(closed));
 			});
 		} catch (_error) {
 			if (generation !== this.loadGeneration_) return;
 			this.stopBackend_();
-			status.textContent = "Could not connect. Check the backend URL or Iroh viewer ticket.";
+			onStatus("Could not connect. Check the backend URL or Iroh viewer ticket.", false, true);
 		}
 	}
 
@@ -3515,14 +3623,14 @@ class BuildEventViewerComponent extends Component {
 	 * @param {string} id
 	 * @param {string} cursor
 	 * @param {string} data
-	 * @param {number=} receivedAt
-	 * @param {number=} sentAt
+	 * @param {number} receivedAt
+	 * @param {number} sentAt
+	 * @param {function(string, boolean, boolean):void} onStatus
 	 */
-	receiveBuildEvent_(source, id, cursor, data, receivedAt = 0, sentAt = 0) {
+	receiveBuildEvent_(source, id, cursor, data, receivedAt, sentAt, onStatus) {
 		const last = this.lastCursor_;
 		if (!/^[1-9][0-9]*$/.test(cursor) || cursor.length < last.length ||
 			(cursor.length === last.length && cursor <= last)) return;
-		const status = this.getElement_(goog.getCssName("bes-connection"));
 		try {
 			const bytes = base64.decodeStringToUint8Array(data);
 			const event = BuildEvent.deserializeBinary(bytes);
@@ -3534,11 +3642,6 @@ class BuildEventViewerComponent extends Component {
 				this.cacheTimer_ = 0;
 				this.refreshCacheStats_(source, id, true);
 			}
-			this.fileSize_ += bytes.length;
-			if (event.getPayloadCase() === BuildEvent.PayloadCase.STARTED) {
-				this.buildStartMillis_ = eventTimestampMillis(event);
-			}
-			status.textContent = "Following " + id + " · " + this.progress_.history.length + " events";
 			if (!this.renderTimer_) {
 				this.renderTimer_ = setTimeout(() => {
 					this.renderTimer_ = 0;
@@ -3547,7 +3650,7 @@ class BuildEventViewerComponent extends Component {
 			}
 		} catch (_error) {
 			this.disconnectBackend_();
-			status.textContent = "Could not decode a backend build event.";
+			onStatus("Could not decode a backend build event.", false, true);
 		}
 	}
 
@@ -3557,8 +3660,6 @@ class BuildEventViewerComponent extends Component {
 		this.stopBackend_();
 		if (renderPending) this.renderResults_();
 		else this.renderSummary_();
-		this.getElement_(goog.getCssName("bes-connection")).textContent =
-			"Disconnected";
 	}
 
 	/** @private */
@@ -3594,80 +3695,12 @@ class BuildEventViewerComponent extends Component {
 		super.disposeInternal();
 	}
 
-	/**
-	 * @private
-	 * @param {!events.BrowserEvent} e
-	 */
-	handleDrop_(e) {
-		this.getElement_(CSS_DROP_ZONE).classList.remove("is-dragging");
-		const transfer = /** @type {!DragEvent} */ (
-			e.getBrowserEvent()
-		).dataTransfer;
-		if (transfer && transfer.files && transfer.files.length) {
-			this.loadFile_(transfer.files[0]);
-		}
-	}
-
-	/**
-	 * @private
-	 * @param {!events.BrowserEvent} e
-	 */
-	handleDropZoneKeyDown_(e) {
-		const key = /** @type {!KeyboardEvent} */ (e.getBrowserEvent()).key;
-		if (this.getElement_(CSS_SUMMARY).getAttribute("role") === "button" &&
-			(key === "Enter" || key === " ")) {
-			e.preventDefault();
-			/** @type {!HTMLInputElement} */ (this.getElement_(CSS_FILE_INPUT)).click();
-		}
-	}
-
-	/**
-	 * @private
-	 * @param {!File} file
-	 */
-	async loadFile_(file) {
-		const status = this.getElement_(CSS_STATUS);
-		if (file.size > MAX_FILE_BYTES) {
-			status.textContent =
-				"File is too large. The current limit is " +
-				formatBytes(MAX_FILE_BYTES) +
-				".";
-			status.className = "mt-3 flash flash-error " + goog.getCssName("status");
-			return;
-		}
-		if (this.source_) this.disconnectBackend_();
-		const generation = ++this.loadGeneration_;
-		status.textContent = "Reading " + file.name + "…";
-		status.className = "sr-only " + goog.getCssName("status");
-		try {
-			const bytes = new Uint8Array(await file.arrayBuffer());
-			if (this.isDisposed() || generation !== this.loadGeneration_) return;
-			const fileEvents = /** @type {!Array<!BuildEvent>} */ (
-				decodeDelimitedMessages(bytes, (message) =>
-					BuildEvent.deserializeBinary(message),
-				)
-			);
-			if (!fileEvents.length) throw new Error("The file contains no events.");
-			this.resetResults_();
-			this.progress_ = new InvocationProgress();
-			for (const event of fileEvents) this.progress_.add(event);
-			this.local_ = true;
-			selectInvocationInUrl("invocation", "");
-			this.fileName_ = file.name;
-			this.fileSize_ = file.size;
-			this.buildStartMillis_ = this.progress_.started ? eventTimestampMillis(this.progress_.started) : null;
-			status.textContent = "";
-			status.className = goog.getCssName("status");
-			this.renderResults_();
-			getApplication(this).toastSuccess(
-				"Loaded " + this.progress_.history.length + " events from " + file.name + ".",
-			);
-		} catch (_error) {
-			if (this.isDisposed() || generation !== this.loadGeneration_) return;
-			status.textContent =
-				"Could not read this build event file. The file may be truncated or invalid.";
-			status.className = "mt-3 flash flash-error " + goog.getCssName("status");
-		}
+	/** @param {!InvocationProgress} invocation */
+	showReplay(invocation) {
+		this.stopBackend_();
+		this.resetResults_();
+		this.progress_ = invocation;
+		this.renderResults_();
 	}
 
 	/** @private */
@@ -3699,7 +3732,7 @@ class BuildEventViewerComponent extends Component {
 		const url = URL.createObjectURL(blob);
 		const link = document.createElement("a");
 		link.href = url;
-		link.download = this.fileName_ + ".log";
+		link.download = (this.progress_.file?.name || this.progress_.sourceId) + ".log";
 		link.click();
 		setTimeout(() => URL.revokeObjectURL(url), 1000);
 	}
@@ -3721,6 +3754,7 @@ class BuildEventViewerComponent extends Component {
 				break;
 			case 3:
 				this.renderMetrics_();
+				this.renderCacheStats_();
 				break;
 		}
 	}
@@ -3770,6 +3804,7 @@ class BuildEventViewerComponent extends Component {
 		this.renderedPathLogs_ = null;
 		this.renderedPathTime_ = null;
 		this.getElement_(CSS_RESULTS).classList.add("d-none");
+		this.getElement_(goog.getCssName("bes-tabs")).classList.add("d-none");
 		this.getElement_(goog.getCssName("bes-log-body")).hidden = true;
 		this.selectTab_(0, true);
 		const stats = this.getElement_(goog.getCssName("bes-build-stats"));
@@ -3832,16 +3867,8 @@ class BuildEventViewerComponent extends Component {
 	/** @private */
 	renderResults_() {
 		this.renderSummary_();
-		this.renderInlineLog_();
-		this.renderStatCards_();
-		const results = this.getElement_(CSS_RESULTS);
-		if (results.classList.contains("d-none")) {
-			const source = /** @type {!HTMLDetailsElement} */ (
-				this.getElement_(goog.getCssName("bes-source"))
-			);
-			source.open = false;
-			results.classList.remove("d-none");
-		}
+		this.getElement_(CSS_RESULTS).classList.remove("d-none");
+		this.getElement_(goog.getCssName("bes-tabs")).classList.remove("d-none");
 		this.renderTab_();
 	}
 
@@ -3873,6 +3900,8 @@ class BuildEventViewerComponent extends Component {
 
 	/** @private */
 	renderOverview_() {
+		this.renderInlineLog_();
+		this.renderStatCards_();
 		this.renderOverviewCriticalPath_();
 		const pending = this.frontier_ ? this.frontier_.update(this.progress_) : 0;
 		const received = this.progress_.history.length + " received";
@@ -3880,7 +3909,6 @@ class BuildEventViewerComponent extends Component {
 			? "Stream ended · " + (pending ? pending + " unreceived · " : "") + received
 			: pending + " expected · " + received;
 		this.renderMnemonicBreakdown_();
-		this.renderCacheStats_();
 	}
 
 	/** @private */
@@ -3932,7 +3960,7 @@ class BuildEventViewerComponent extends Component {
 			const summary = await source.get(id);
 			if (generation !== this.loadGeneration_) return;
 			this.cacheSummary_ = summary;
-			if (this.activeTab_ === 0 && this.progress_.history.length) this.renderCacheStats_();
+			if (this.activeTab_ === 3 && this.progress_.history.length) this.renderCacheStats_();
 		} catch (_error) {
 			// BES replay can continue independently of the summary request.
 		} finally {
@@ -4029,7 +4057,7 @@ class BuildEventViewerComponent extends Component {
 
 	/** @private */
 	renderTests_() {
-		const ended = !!this.progress_.finished || !!this.progress_.last || this.local_;
+		const ended = !!this.progress_.finished || !!this.progress_.last || !!this.progress_.file;
 		const key = this.progress_.tests.length + "/" + ended;
 		if (key === this.testsRenderKey_) return;
 		this.testsRenderKey_ = key;
@@ -4098,18 +4126,18 @@ class BuildEventViewerComponent extends Component {
 	 */
 	createTestGroup_(group, ended, open) {
 		const details = /** @type {!HTMLDetailsElement} */ (document.createElement("details"));
-		details.className = "Box Box--condensed mb-2";
+		details.className = "bes-data-details";
 		details.open = open;
 		details.setAttribute("data-test-key", group.key);
 		const payload = group.summary && group.summary.getTestSummary();
 		const summary = document.createElement("summary");
-		summary.className = "Box-header";
+		const badge = testStatusLabel(payload ? payload.getOverallStatus() : 0,
+			ended ? "Summary unavailable" : "Awaiting summary");
+		badge.classList.add("mr-2");
 		const name = document.createElement("span");
-		name.className = "bes-test-target text-bold mr-2";
+		name.className = "bes-test-target text-bold";
 		name.textContent = group.label || "Unnamed test";
-		summary.appendChild(name);
-		summary.appendChild(testStatusLabel(payload ? payload.getOverallStatus() : 0,
-			ended ? "Summary unavailable" : "Awaiting summary"));
+		summary.append(badge, name);
 		const duration = payload && payload.getTotalRunDuration();
 		const meta = document.createElement("span");
 		meta.className = "ml-2 text-small color-fg-muted";
@@ -4123,7 +4151,7 @@ class BuildEventViewerComponent extends Component {
 		details.appendChild(summary);
 
 		const body = document.createElement("div");
-		body.className = "Box-body overflow-auto";
+		body.className = "overflow-auto pb-2";
 		details.appendChild(body);
 		if (!group.attempts.length) {
 			body.textContent = "No individual test attempts were reported.";
@@ -4173,7 +4201,7 @@ class BuildEventViewerComponent extends Component {
 	 */
 	dataTabMessage_(message) {
 		const empty = /** @type {!HTMLElement} */ (document.createElement("p"));
-		empty.className = "Box p-3 color-fg-muted";
+		empty.className = "color-fg-muted";
 		empty.textContent = message;
 		return empty;
 	}
@@ -4183,7 +4211,7 @@ class BuildEventViewerComponent extends Component {
 		const body = this.getElement_(goog.getCssName("bes-metrics"));
 		const metrics = this.progress_.metrics;
 		if (!metrics) {
-			const ended = this.progress_.finished || this.progress_.last || this.local_;
+			const ended = this.progress_.finished || this.progress_.last || this.progress_.file;
 			const message = ended ? "No build metrics were reported." : "Waiting for build metrics…";
 			if (body.textContent !== message) {
 				dom.removeChildren(body);
@@ -4342,7 +4370,6 @@ class BuildEventViewerComponent extends Component {
 	 */
 	createBuildMetricsDetail_(metrics, expanded = true) {
 		const root = /** @type {!HTMLElement} */ (document.createElement("div"));
-		root.className = "mt-3";
 		const object = /** @type {!Object<string, *>} */ (
 			BuildMetrics.toObject(false, metrics)
 		);
@@ -4355,15 +4382,15 @@ class BuildEventViewerComponent extends Component {
 			const section = /** @type {!HTMLDetailsElement} */ (
 				document.createElement("details")
 			);
-			section.className = "Box mb-2";
+			section.className = "bes-data-details";
 			const label = BUILD_METRIC_CATEGORIES[key] || metricLabel(key);
 			section.open = expanded && label === "Timing";
 			const summary = document.createElement("summary");
-			summary.className = "Box-header text-bold";
+			summary.className = "text-bold";
 			summary.textContent = label;
 			section.appendChild(summary);
 			const body = document.createElement("div");
-			body.className = "Box-body p-0 overflow-auto";
+			body.className = "overflow-auto";
 			body.appendChild(createMetricTable(metric));
 			section.appendChild(body);
 			root.appendChild(section);
@@ -4376,7 +4403,7 @@ class BuildEventViewerComponent extends Component {
 		const logs = this.progress_.toolLogs;
 		const duration = criticalPathMillis(this.progress_.metrics);
 		const ended = this.progress_.finished || this.progress_.last;
-		if (!ended && !this.local_) return;
+		if (!ended && !this.progress_.file) return;
 		if (this.renderedPathLogs_ === logs && this.renderedPathTime_ === duration) return;
 		this.renderedPathLogs_ = logs;
 		this.renderedPathTime_ = duration;
@@ -4398,11 +4425,10 @@ class BuildEventViewerComponent extends Component {
 		if (duration !== null) criticalPath.timeMillis = duration;
 		if (!content && duration === null) return null;
 		const root = /** @type {!HTMLElement} */ (document.createElement("section"));
-		root.className = "Box Box--condensed my-3";
 		const header = document.createElement("div");
-		header.className = "Box-header d-flex flex-items-center";
+		header.className = "d-flex flex-items-center mb-2";
 		const title = document.createElement("h3");
-		title.className = "Box-title flex-auto";
+		title.className = "h3 flex-auto";
 		title.textContent = "Critical path";
 		const total = document.createElement("span");
 		total.className = "text-mono text-small";
@@ -4411,10 +4437,10 @@ class BuildEventViewerComponent extends Component {
 		header.appendChild(total);
 		root.appendChild(header);
 		const body = document.createElement("div");
-		body.className = "Box-body p-0 overflow-auto";
+		body.className = "overflow-auto";
 		if (!criticalPath.items.length) {
 			const unavailable = document.createElement("p");
-			unavailable.className = "Box-body color-fg-muted mb-0";
+			unavailable.className = "color-fg-muted mb-0";
 			unavailable.textContent = "Action breakdown unavailable.";
 			root.appendChild(unavailable);
 			return root;
@@ -4757,13 +4783,11 @@ class BuildEventViewerComponent extends Component {
 
 	/** @private */
 	renderSummary_() {
-		if (!this.fileName_) return;
+		const id = this.progress_.invocationId();
+		if (!id) return;
 		const section = this.getElement_(CSS_SUMMARY);
 		const restoreCommandFocus = this.commandToggle_ === document.activeElement;
 		if (this.commandObserver_) this.commandObserver_.disconnect();
-		section.removeAttribute("role");
-		section.removeAttribute("tabindex");
-		section.removeAttribute("aria-describedby");
 		dom.removeChildren(section);
 		const overview = document.createElement("div");
 		overview.className = "bes-invocation-overview";
@@ -4772,9 +4796,9 @@ class BuildEventViewerComponent extends Component {
 		command.id = this.getId() + "-command";
 		const startedEvent = this.progress_.started;
 		const started = startedEvent && startedEvent.getStarted();
+		const start = startedEvent ? eventTimestampMillis(startedEvent) : null;
 		const finishedEvent = this.progress_.finished;
-		const finished = finishedEvent && finishedEvent.getFinished();
-		const id = (started && started.getUuid()) || (!this.local_ ? this.fileName_ : "");
+		const file = this.progress_.file;
 		const headingId = this.getElement_(goog.getCssName("bes-heading-id"));
 		headingId.textContent = id;
 		headingId.title = id;
@@ -4791,38 +4815,38 @@ class BuildEventViewerComponent extends Component {
 		this.commandHeading_ = command;
 		this.commandToggle_ = toggle;
 		const badge = this.getElement_(goog.getCssName("bes-heading-state"));
-		const exit = finished && finished.getExitCode();
 		const failure = invocationFailure(this.progress_);
-		/** @type {!InvocationStatus} */
-		let status;
-		if (exit) {
-			status = invocationExitStatus(exit.getName(), exit.getCode());
-		} else if (failure) {
-			status = invocationStatus("Failed", "failure");
-		} else if (finished) {
-			status = invocationStatus("Finished", "neutral");
-		} else if (this.progress_.last || this.local_) {
-			status = invocationStatus("Incomplete", "warning");
-		} else if (!this.source_ && this.progress_.history.length) {
-			status = invocationStatus("Disconnected", "neutral");
-		} else if (!this.connected_ && this.progress_.history.length) {
-			status = invocationStatus("Reconnecting", "warning");
-		} else if (this.progress_.history.length) {
-			status = invocationStatus("Building", "running");
-		} else {
-			status = invocationStatus("Waiting for events", "neutral");
+		let status = replayResultStatus(this.progress_, failure);
+		if (!status) {
+			if (!this.source_ && this.progress_.history.length) {
+				status = invocationStatus("Disconnected", "neutral");
+			} else if (!this.connected_ && this.progress_.history.length) {
+				status = invocationStatus("Reconnecting", "warning");
+			} else if (this.progress_.history.length) {
+				status = invocationStatus("Building", "running");
+			} else {
+				status = invocationStatus("Waiting for events", "neutral");
+			}
 		}
 		badge.className = "bes-invocation-state text-small text-bold " + goog.getCssName("bes-heading-state") +
 			" " + status.color;
 		badge.textContent = status.label;
 		badge.title = status.title;
 		const icon = this.getElement_(goog.getCssName("bes-heading-icon"));
-		dom.removeChildren(icon);
-		icon.appendChild(renderInvocationStatusIcon(status));
+		// Keep the spinner mounted across build event updates so its rotation continues.
+		if (icon.firstElementChild?.getAttribute("title") !== status.title) {
+			dom.removeChildren(icon);
+			icon.appendChild(renderInvocationStatusIcon(status));
+		}
 		const elapsed = this.getElement_(goog.getCssName("bes-heading-elapsed"));
 		elapsed.hidden = false;
 		overview.appendChild(dom.createDom("div", "bes-invocation-command-block", command, toggle));
 		this.renderFailureSummary_(failure);
+		const workspace = started?.getWorkspaceDirectory();
+		if (workspace) {
+			overview.appendChild(dom.createDom("p", {"class": "bes-invocation-workspace text-small", "title": workspace},
+				dom.createDom("span", "color-fg-muted mr-2", "Workspace"), " ", dom.createDom("code", null, workspace)));
+		}
 
 		const metadata = this.progress_.metadata;
 		const info = document.createElement("dl");
@@ -4830,15 +4854,14 @@ class BuildEventViewerComponent extends Component {
 		/** @type {!Array<!Array<string|null|undefined>>} */
 		const entries = [
 			["Bazel version", started && started.getBuildToolVersion()],
-			["Started", this.buildStartMillis_ === null ? "" : new Date(this.buildStartMillis_).toISOString()],
+			["Started", start === null ? "" : new Date(start).toISOString()],
 			["User", (started && started.getUser()) || metadata.get("BUILD_USER")],
 			["Host", (started && started.getHost()) || metadata.get("BUILD_HOST")],
-			["Workspace", started && started.getWorkspaceDirectory()],
 			["Repository", metadata.get("REPO_URL")],
 			["Branch", metadata.get("BRANCH_NAME")],
 			["Commit", metadata.get("COMMIT_SHA")],
 			["Role", metadata.get("ROLE")],
-			["BEP file", this.local_ ? this.fileName_ + " · " + formatBytes(this.fileSize_) : ""],
+			["BEP file", file ? file.name + " · " + formatBytes(file.size) : ""],
 		];
 		for (const entry of entries) {
 			const value = entry[1];
@@ -4862,11 +4885,10 @@ class BuildEventViewerComponent extends Component {
 
 		clearInterval(this.clockTimer_);
 		this.clockTimer_ = 0;
-		const start = this.buildStartMillis_;
 		const finish = finishedEvent ? eventTimestampMillis(finishedEvent) : null;
-		const active = !finishedEvent && !this.progress_.last && !this.local_ && this.connected_;
+		const active = !finishedEvent && !this.progress_.last && !file && this.connected_;
 		const updateClock = () => {
-			const end = finish ?? (finishedEvent || this.progress_.last || this.local_
+			const end = finish ?? (finishedEvent || this.progress_.last || file
 				? null
 				: active ? Date.now() : this.clockStoppedAt_);
 			if (start === null || end === null) {

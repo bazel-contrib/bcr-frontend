@@ -226,11 +226,75 @@ func (s *sqliteStorage) initialize(ctx context.Context) error {
 		if _, err := tx.ExecContext(ctx, "PRAGMA user_version = 5"); err != nil {
 			return err
 		}
+		fallthrough
 	case 5:
+		if _, err := tx.ExecContext(ctx, `ALTER TABLE build_metrics ADD COLUMN actions_total INTEGER;
+			ALTER TABLE build_metrics ADD COLUMN targets_configured INTEGER;
+			ALTER TABLE build_metrics ADD COLUMN output_bytes INTEGER;
+			PRAGMA user_version = 6`); err != nil {
+			return err
+		}
+		if err := backfillBuildMetrics(ctx, tx); err != nil {
+			return err
+		}
+	case 6:
 	default:
 		return fmt.Errorf("unsupported invocation database schema version %d", version)
 	}
 	return tx.Commit()
+}
+
+func buildMetricCounts(metrics *beppb.BuildMetrics) (actionsTotal, targetsConfigured, outputBytes *int64) {
+	// Bazel can omit the action count when analysis was fully cached.
+	if total := metrics.GetBuildGraphMetrics().GetActionCount(); total > 0 {
+		actionsTotal = proto.Int64(int64(total))
+	}
+	if targets := metrics.GetTargetMetrics(); targets != nil {
+		targetsConfigured = proto.Int64(targets.GetTargetsConfigured())
+	}
+	if outputs := metrics.GetArtifactMetrics().GetOutputArtifactsSeen(); outputs != nil {
+		outputBytes = proto.Int64(outputs.GetSizeInBytes())
+	}
+	return
+}
+
+func backfillBuildMetrics(ctx context.Context, tx *sql.Tx) error {
+	rows, err := tx.QueryContext(ctx, `SELECT m.cursor, e.payload FROM build_metrics m JOIN events e USING (cursor)`)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	type projection struct {
+		cursor                        int64
+		actionsTotal, targets, output *int64
+	}
+	var builds []projection
+	for rows.Next() {
+		var entry projection
+		var data []byte
+		if err := rows.Scan(&entry.cursor, &data); err != nil {
+			return err
+		}
+		var event pb.InvocationEvent
+		if err := proto.Unmarshal(data, &event); err != nil {
+			return err
+		}
+		entry.actionsTotal, entry.targets, entry.output = buildMetricCounts(decodeBEP(event.GetOrderedEvent()).GetBuildMetrics())
+		builds = append(builds, entry)
+	}
+	if err := rows.Err(); err != nil {
+		return err
+	}
+	if err := rows.Close(); err != nil {
+		return err
+	}
+	for _, entry := range builds {
+		if _, err := tx.ExecContext(ctx, `UPDATE build_metrics SET actions_total = ?, targets_configured = ?,
+			output_bytes = ? WHERE cursor = ?`, entry.actionsTotal, entry.targets, entry.output, entry.cursor); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func backfillExitCodeNames(ctx context.Context, tx *sql.Tx) error {
@@ -596,9 +660,12 @@ func projectSQLiteFacts(ctx context.Context, tx *sql.Tx, cursor int64, invocatio
 		if summary := metrics.ActionSummary; summary != nil {
 			actions = summary.ActionsExecuted
 		}
+		actionsTotal, targetsConfigured, outputBytes := buildMetricCounts(metrics)
 		_, err := tx.ExecContext(ctx, `INSERT INTO build_metrics
-			(cursor, invocation_id, wall_ms, cpu_ms, analysis_ms, execution_ms, critical_path_ms, actions_executed)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?)`, cursor, invocationID, wall, cpu, analysis, execution, criticalPath, actions)
+			(cursor, invocation_id, wall_ms, cpu_ms, analysis_ms, execution_ms, critical_path_ms, actions_executed,
+			 actions_total, targets_configured, output_bytes)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, cursor, invocationID, wall, cpu, analysis, execution,
+			criticalPath, actions, actionsTotal, targetsConfigured, outputBytes)
 		return err
 	}
 	return nil

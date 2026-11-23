@@ -25,21 +25,40 @@ func summarizeGroup(invocations []*pb.Invocation) *pb.InvocationGroupMetrics {
 		case pb.InvocationState_INVOCATION_STATE_IN_PROGRESS:
 			metrics.RunningCount++
 		case pb.InvocationState_INVOCATION_STATE_COMPLETE:
+			build := &pb.GroupBuildSample{
+				InvocationId: invocation.GetInvocationId(),
+				StartedAt:    invocation.GetStartedAt(),
+				Status:       invocation.GetResult().GetExitCodeName(),
+			}
+			if build.StartedAt == nil {
+				build.StartedAt = invocation.GetCreatedAt()
+			}
+			if build.Status == "" {
+				build.Status = "UNKNOWN"
+			}
 			if result := invocation.GetResult(); result != nil && result.ExitCode != nil {
 				if result.GetExitCode() == 0 {
 					metrics.SucceededCount++
+					if build.Status == "UNKNOWN" {
+						build.Status = "SUCCESS"
+					}
 				} else {
 					metrics.FailedCount++
+					if build.Status == "UNKNOWN" {
+						build.Status = "FAILED"
+					}
 				}
 			}
 			if invocation.StartedAt != nil && invocation.FinishedAt != nil {
 				duration := invocation.FinishedAt.AsTime().Sub(invocation.StartedAt.AsTime())
 				if duration >= 0 {
 					millis := duration.Milliseconds()
+					build.DurationMs = proto.Int64(millis)
 					durations = append(durations, millis)
 					totalDuration += float64(millis)
 				}
 			}
+			metrics.Builds = append(metrics.Builds, build)
 		}
 	}
 	if hasBazelHits {
@@ -74,6 +93,9 @@ func (s *sqliteStorage) GroupMetrics(ctx context.Context, name string) (*pb.Invo
 		return nil, err
 	}
 	metrics := summarizeGroup(invocations)
+	if err := readGroupBuildSamples(ctx, tx, name, metrics.Builds); err != nil {
+		return nil, err
+	}
 	cache := metrics.Cache
 	err = tx.QueryRowContext(ctx, `SELECT
 		coalesce(sum(CASE WHEN m.result = 'hit' THEN m.count END), 0),
@@ -91,6 +113,37 @@ func (s *sqliteStorage) GroupMetrics(ctx context.Context, name string) (*pb.Invo
 		return nil, err
 	}
 	return metrics, tx.Commit()
+}
+
+func readGroupBuildSamples(ctx context.Context, tx *sql.Tx, name string, builds []*pb.GroupBuildSample) error {
+	byID := make(map[string]*pb.GroupBuildSample, len(builds))
+	for _, build := range builds {
+		byID[build.InvocationId] = build
+	}
+	rows, err := tx.QueryContext(ctx, `SELECT i.id, m.wall_ms, m.cpu_ms, m.execution_ms, m.critical_path_ms,
+		m.actions_executed, m.actions_total, m.targets_configured, m.output_bytes
+	FROM invocations i JOIN build_metrics m ON m.cursor = (
+		SELECT max(cursor) FROM build_metrics WHERE invocation_id = i.id
+	)
+	WHERE i.invocation_group = ? AND i.state = ?`, name, pb.InvocationState_INVOCATION_STATE_COMPLETE)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var id string
+		var wall, cpu, execution, path, executed, total, configured, output *int64
+		if err := rows.Scan(&id, &wall, &cpu, &execution, &path, &executed, &total, &configured, &output); err != nil {
+			return err
+		}
+		build := byID[id]
+		if build.DurationMs == nil {
+			build.DurationMs = wall
+		}
+		build.CpuMs, build.ExecutionMs, build.CriticalPathMs = cpu, execution, path
+		build.ActionsExecuted, build.ActionsTotal, build.TargetsConfigured, build.OutputBytes = executed, total, configured, output
+	}
+	return rows.Err()
 }
 
 func groupTestMetrics(ctx context.Context, tx *sql.Tx, name string) (*pb.GroupTestMetrics, error) {

@@ -290,6 +290,7 @@ closure_js_library(
         "source_archive_files.js",
         "syntax.js",
         "targets.js",
+        "invocation_charts.js",
         "invocation_transport.js",
         "tools.js",
         "treeview.js",
