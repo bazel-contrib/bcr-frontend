@@ -196,3 +196,17 @@ $ bazel run //app/bcr:release
 releaseserver: Starting server on http://localhost:8080
 releaseserver: Press Ctrl+C to stop
 ```
+
+now let's work on the invocation tool UI.  The layout for the bezel tool can used used a reference, but not a defniteive one.
+
+The header should display the invication fundamentals, what the inovocation target is, relevant metadata, etc.  It should update current build time, overall build status...
+
+The section under that can be the progress text, made to look like a terminal.  Keep the height on this bounded, so it can'd dominate the display.
+
+The section below is the progress.  Study the build event protocol, specifically how it indicates "next" expected items in the wrapper build events.
+
+We want to build a display that represents the "frontier" of the build at the top, pushing down cmpleted items, sort of like how a typewriter does it, with the paper scrolling down.  Use small colorized dots or squares to represent the expected next events, by type.  Action events should be colorized by menominic.  Use the bezel tool for collor references for those.  Also use buildbuddy and nativelink for inspiration.
+
+Ultimately, the "page" of the build should read like braille, where the beginnig of the build is at the end of the page, and the final state is a single event at the top.  Ideally we can also draw lines between parent and child, unless it becomes too busy.
+
+If html elements are too memory intensive, we could consider WebGL or canvas. 
