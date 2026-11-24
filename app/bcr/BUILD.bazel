@@ -9,6 +9,7 @@ load(
     "closure_js_template_library",
     "closure_js_test",
 )
+load("@stackb_rules_closure//closure/protobuf:defs.bzl", "closure_jspb_library")
 load("//rules:css_purge.bzl", "css_purge")
 load("//rules:deploy.bzl", "cloudflare_deploy")
 load("//rules:ghpages.bzl", "ghpages_deploy")
@@ -143,6 +144,7 @@ closure_css_binary(
 closure_js_template_library(
     name = "soy",
     srcs = [
+        "action_query.soy",
         "app.soy",
         "maintainers.soy",
         "octicons.soy",
@@ -261,9 +263,23 @@ closure_js_library(
     srcs = [":ui_version_src"],
 )
 
+# Bazel's build.proto and the frontend's Stardoc views both use the
+# stardoc_output namespace. Link the frontend's existing bindings once.
+closure_jspb_library(
+    name = "action_query_js_proto",
+    srcs = [
+        "@bazelapis//src/main/protobuf:analysis_v2_closure.js",
+        "@bazelapis//src/main/protobuf:build_closure.js",
+    ],
+    suppress = ["checkTypes"],
+    deps = ["//stardoc_output:stardoc_output_js"],
+)
+
 closure_js_library(
     name = "app",
     srcs = [
+        "action_colors.js",
+        "action_query.js",
         "app.js",
         "bazel.js",
         "bazel_flags.js",
@@ -298,6 +314,7 @@ closure_js_library(
         ":shiki",
     ],
     deps = [
+        ":action_query_js_proto",
         ":autocompletematcher",
         ":common",
         ":registry",

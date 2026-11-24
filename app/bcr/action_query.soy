@@ -1,0 +1,97 @@
+{namespace soy.bcrfrontend.actionQuery}
+
+import {octiconFile16} from 'app/bcr/octicons.soy';
+import {sectionHeader} from 'app/bcr/registry.soy';
+
+{template actionQuery}
+  <div class="PageLayout PageLayout--panePos-start PageLayout--hasPaneDivider PageLayout--responsive-stackRegions PageLayout--responsive-panePos-start">
+    <div class="PageLayout-columns">
+      <div class="PageLayout-pane action-query-sidebar">
+        <h1 class="h2 mb-2">Action Query</h1>
+        <p class="color-fg-muted">Explore Bazel actions and the files that connect them.</p>
+        <pre class="action-query-command"><code>bazel aquery 'deps(//pkg:target)' --output=proto > actions.pb</code></pre>
+        <p class="text-small color-fg-muted" id="action-query-summary" role="status"></p>
+        <section class="mb-3" id="action-query-filters" aria-label="Mnemonics" hidden>
+          {sectionHeader(title: 'Mnemonics')}
+          <p class="text-small color-fg-muted mb-2">Uncheck a mnemonic to hide its actions. Forks and merges become dots.</p>
+          <div class="action-query-mnemonics" id="action-query-mnemonics"></div>
+        </section>
+        <section id="action-query-selection" aria-label="Selected action" hidden>
+          <h3 class="h3 mb-2" id="action-query-selection-title">Selected action</h3>
+          <div id="action-query-details" aria-live="polite"></div>
+        </section>
+        <section class="bes-events-side-section" aria-label="Keyboard Shortcuts">
+          {sectionHeader(title: 'Keyboard Shortcuts')}
+          {actionQueryShortcut(label: 'Previous action or package', key: '[')}
+          {actionQueryShortcut(label: 'Next action or package', key: ']')}
+          {actionQueryShortcut(label: 'Pan focused canvas', key: 'Arrow keys')}
+          {actionQueryShortcut(label: 'Zoom focused canvas', key: '+ / −')}
+        </section>
+      </div>
+      <div class="PageLayout-content action-query-content" id="action-query-content">
+        <input type="file" class="d-none" id="action-query-file" aria-label="Choose a binary action query file">
+        <div class="action-query-drop" id="action-query-drop">
+          <span class="color-fg-muted">{octiconFile16()}</span>
+          <strong>Drop a binary aquery file</strong>
+          <button type="button" class="btn btn-outline btn-sm" id="action-query-choose">Choose file</button>
+        </div>
+        <div id="action-query-view" hidden>
+          <div class="action-query-toolbar mb-2">
+            <div id="action-query-zoom">
+              <div class="BtnGroup" role="group" aria-label="Graph zoom">
+                <button type="button" class="btn btn-sm BtnGroup-item" id="action-query-zoom-out" aria-label="Zoom out">−</button>
+                <button type="button" class="btn btn-sm BtnGroup-item" id="action-query-zoom-in" aria-label="Zoom in">+</button>
+                <button type="button" class="btn btn-sm BtnGroup-item" id="action-query-fit">Fit graph</button>
+              </div>
+            </div>
+            <div class="action-query-toolbar-actions">
+              <select class="form-select select-sm" id="action-query-layout" aria-label="Graph view">
+                <option value="actions">Actions</option>
+                <option value="packages">Packages</option>
+              </select>
+              <select class="form-select select-sm" id="action-query-placement" aria-label="Graph layout">
+                <option value="ranked">Ranked</option>
+                <option value="force-directed">Force-directed</option>
+              </select>
+              <button type="button" class="btn btn-sm" id="action-query-fullscreen">Full screen</button>
+              <button type="button" class="btn btn-sm" id="action-query-replace">Open another file</button>
+            </div>
+          </div>
+          <p class="text-small color-fg-muted mb-2" id="action-query-layout-status" role="status" hidden></p>
+          <div id="action-query-graph">
+            <canvas id="action-query-canvas" class="action-query-canvas" tabindex="0" aria-label="Action dependency graph"
+                aria-describedby="action-query-help" aria-keyshortcuts="[ ]"></canvas>
+            <p class="text-small color-fg-muted mt-2 mb-0" id="action-query-help">
+              Arrows point from producers to consumers. Click a node to show its direct connections below. Click empty canvas to clear the selection.
+            </p>
+          </div>
+          <section class="mt-3" id="action-query-subgraph" aria-labelledby="action-query-subgraph-title" hidden>
+            <div class="action-query-toolbar flex-items-center mb-2">
+              <h2 class="h4" id="action-query-subgraph-title">Selected connections</h2>
+              <div class="BtnGroup" role="group" aria-label="Selected connections zoom">
+                <button type="button" class="btn btn-sm BtnGroup-item" id="action-query-subgraph-zoom-out" aria-label="Zoom out on selected connections">−</button>
+                <button type="button" class="btn btn-sm BtnGroup-item" id="action-query-subgraph-zoom-in" aria-label="Zoom in on selected connections">+</button>
+                <button type="button" class="btn btn-sm BtnGroup-item" id="action-query-subgraph-fit">Fit selection</button>
+              </div>
+            </div>
+            <canvas id="action-query-subgraph-canvas" class="action-query-canvas" tabindex="0"
+                aria-label="Selected dependency subgraph" aria-keyshortcuts="[ ]"></canvas>
+          </section>
+          <p class="Box p-3 color-fg-muted" id="action-query-filter-empty" hidden>All actions are hidden. Check a mnemonic to show actions again.</p>
+        </div>
+        <p class="text-small mt-2 mb-0" id="action-query-status" role="status" hidden></p>
+      </div>
+      <dialog class="action-query-fullscreen" id="action-query-fullscreen-dialog" aria-label="Action Query canvas"></dialog>
+    </div>
+  </div>
+{/template}
+
+{template actionQueryShortcut}
+  {@param label: string}
+  {@param key: string}
+  <div class="d-flex flex-items-center mb-2 text-small">
+    <span class="color-fg-muted">{$label}</span>
+    <span class="dotted-leader" aria-hidden="true"></span>
+    <kbd>{$key}</kbd>
+  </div>
+{/template}
