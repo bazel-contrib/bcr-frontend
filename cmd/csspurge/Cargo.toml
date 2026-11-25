@@ -5,7 +5,7 @@ edition = "2021"
 
 [dependencies]
 clap = { version = "4", features = ["derive"] }
-lightningcss = "=1.0.0-alpha.71"
+lightningcss = "=1.0.0-alpha.72"
 parcel_selectors = "0.28"
 
 [[bin]]
