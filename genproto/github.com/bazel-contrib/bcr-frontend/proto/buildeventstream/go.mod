@@ -1,9 +1,9 @@
 module github.com/bazel-contrib/bcr-frontend/proto/buildeventstream
 go 1.25.0
-# bazel_tools/proto/buildeventstream_/github.com/bazel-contrib/bcr-frontend/proto/buildeventstream/build_event_stream.pb.go
-# bazel_tools/proto/buildeventstream_/github.com/bazel-contrib/bcr-frontend/proto/buildeventstream/package_load_metrics.pb.go
-# bazel_tools/proto/buildeventstream_/github.com/bazel-contrib/bcr-frontend/proto/buildeventstream/action_cache.pb.go
-# bazel_tools/proto/buildeventstream_/github.com/bazel-contrib/bcr-frontend/proto/buildeventstream/command_line.pb.go
-# bazel_tools/proto/buildeventstream_/github.com/bazel-contrib/bcr-frontend/proto/buildeventstream/invocation_policy.pb.go
-# bazel_tools/proto/buildeventstream_/github.com/bazel-contrib/bcr-frontend/proto/buildeventstream/option_filters.pb.go
-# bazel_tools/proto/buildeventstream_/github.com/bazel-contrib/bcr-frontend/proto/buildeventstream/strategy_policy.pb.go
+// bazel_tools/proto/buildeventstream_/github.com/bazel-contrib/bcr-frontend/proto/buildeventstream/build_event_stream.pb.go
+// bazel_tools/proto/buildeventstream_/github.com/bazel-contrib/bcr-frontend/proto/buildeventstream/package_load_metrics.pb.go
+// bazel_tools/proto/buildeventstream_/github.com/bazel-contrib/bcr-frontend/proto/buildeventstream/action_cache.pb.go
+// bazel_tools/proto/buildeventstream_/github.com/bazel-contrib/bcr-frontend/proto/buildeventstream/command_line.pb.go
+// bazel_tools/proto/buildeventstream_/github.com/bazel-contrib/bcr-frontend/proto/buildeventstream/invocation_policy.pb.go
+// bazel_tools/proto/buildeventstream_/github.com/bazel-contrib/bcr-frontend/proto/buildeventstream/option_filters.pb.go
+// bazel_tools/proto/buildeventstream_/github.com/bazel-contrib/bcr-frontend/proto/buildeventstream/strategy_policy.pb.go
