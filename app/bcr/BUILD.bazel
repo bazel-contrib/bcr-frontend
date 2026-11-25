@@ -146,6 +146,7 @@ closure_js_template_library(
     srcs = [
         "action_query.soy",
         "app.soy",
+        "execution_log.soy",
         "maintainers.soy",
         "octicons.soy",
         "packages.soy",
@@ -288,6 +289,9 @@ closure_js_library(
         "contentcomponent.js",
         "contentselect.js",
         "documentation.js",
+        "execution_log.js",
+        "execution_log_graph.js",
+        "execution_log_metrics.js",
         "format.js",
         "githubsourcefile.js",
         "home.js",
@@ -295,6 +299,7 @@ closure_js_library(
         "main.js",
         "maintainers.js",
         "markdown.js",
+        "mnemonic_filters.js",
         "modules.js",
         "mvs_tree.js",
         "packages.js",
@@ -326,6 +331,7 @@ closure_js_library(
         "//build/stack/bazel/symbol/v1:sympb_js",
         "//build/stack/starlark/v1beta1:v1beta1_js",
         "//stardoc_output:stardoc_output_js",
+        "@bazelapis//src/main/protobuf:spawn_js_proto",
         "@stackb_rules_closure//closure/goog/array",
         "@stackb_rules_closure//closure/goog/asserts",
         "@stackb_rules_closure//closure/goog/crypt:base64",
@@ -457,6 +463,9 @@ RELEASE_SRCS = [
     ":robots_txt",
     ":sitemap_xml",
     "invocation_iroh.mjs",
+    # Unmodified browser bundle and license from the fzstd 0.1.1 npm release.
+    "vendor/fzstd-0.1.1.js",
+    "vendor/fzstd-0.1.1.LICENSE",
 ] + glob([
     "iroh_wasm/bcr_invocation_iroh.js",
     "iroh_wasm/bcr_invocation_iroh_bg.wasm",

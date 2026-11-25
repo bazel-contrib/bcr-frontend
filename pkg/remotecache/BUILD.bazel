@@ -2,7 +2,7 @@ load("@rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
     name = "remotecache",
-    srcs = ["cache.go", "file.go", "proxy.go"],
+    srcs = ["archive.go", "cache.go", "file.go", "lru.go", "proxy.go"],
     importpath = "github.com/bazel-contrib/bcr-frontend/pkg/remotecache",
     visibility = ["//visibility:public"],
     deps = [
@@ -21,7 +21,7 @@ go_library(
 
 go_test(
     name = "remotecache_test",
-    srcs = ["cache_test.go"],
+    srcs = ["cache_test.go", "lru_test.go"],
     embed = [":remotecache"],
     deps = [
         "//build/stack/bazel/invocation/v1:invocation",

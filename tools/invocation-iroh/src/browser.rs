@@ -36,22 +36,24 @@ impl InvocationClient {
         })
     }
 
-    pub async fn list(&self) -> Result<String, JsError> {
-        self.summary(Operation::List).await.map_err(js_error)
+    pub async fn list(&self, token: Option<String>) -> Result<String, JsError> {
+        self.summary(token.map_or(Operation::List, |token| Operation::ListPage { token }))
+            .await
+            .map_err(js_error)
     }
 
     pub async fn list_groups(&self) -> Result<String, JsError> {
         self.summary(Operation::ListGroups).await.map_err(js_error)
     }
 
-    pub async fn list_group(&self, name: String) -> Result<String, JsError> {
-        self.summary(Operation::ListGroup { name })
+    pub async fn list_group(&self, name: String, token: Option<String>) -> Result<String, JsError> {
+        self.summary(Operation::ListGroup { name, token })
             .await
             .map_err(js_error)
     }
 
-    pub async fn group_metrics(&self, name: String) -> Result<String, JsError> {
-        self.summary(Operation::GroupMetrics { name })
+    pub async fn group_metrics(&self, name: String, days: Option<u32>) -> Result<String, JsError> {
+        self.summary(Operation::GroupMetrics { name, days })
             .await
             .map_err(js_error)
     }

@@ -23,11 +23,25 @@ func (s *Store) Handler(origin string) http.Handler {
 		writeInvocationJSON(w, result, err)
 	})
 	mux.HandleFunc("GET /api/invocation-groups/{name}/metrics", func(w http.ResponseWriter, r *http.Request) {
-		result, err := s.GetInvocationGroupMetrics(r.Context(), &pb.GetInvocationGroupMetricsRequest{InvocationGroup: r.PathValue("name")})
+		days, err := queryInt(r, "window_days")
+		if err != nil {
+			writeInvocationJSON(w, nil, err)
+			return
+		}
+		result, err := s.GetInvocationGroupMetrics(r.Context(), &pb.GetInvocationGroupMetricsRequest{
+			InvocationGroup: r.PathValue("name"), WindowDays: days,
+		})
 		writeInvocationJSON(w, result, err)
 	})
 	mux.HandleFunc("GET /api/invocations", func(w http.ResponseWriter, r *http.Request) {
-		result, err := s.ListInvocations(r.Context(), &pb.ListInvocationsRequest{InvocationGroup: r.URL.Query().Get("group")})
+		size, err := queryInt(r, "page_size")
+		if err != nil {
+			writeInvocationJSON(w, nil, err)
+			return
+		}
+		result, err := s.ListInvocations(r.Context(), &pb.ListInvocationsRequest{
+			InvocationGroup: r.URL.Query().Get("group"), PageSize: size, PageToken: r.URL.Query().Get("page_token"),
+		})
 		writeInvocationJSON(w, result, err)
 	})
 	mux.HandleFunc("GET /api/invocations/{id}", func(w http.ResponseWriter, r *http.Request) {
@@ -48,12 +62,26 @@ func (s *Store) Handler(origin string) http.Handler {
 	})
 }
 
+func queryInt(r *http.Request, key string) (int32, error) {
+	value := r.URL.Query().Get(key)
+	if value == "" {
+		return 0, nil
+	}
+	number, err := strconv.ParseInt(value, 10, 32)
+	if err != nil {
+		return 0, status.Errorf(codes.InvalidArgument, "invalid %s", key)
+	}
+	return int32(number), nil
+}
+
 func writeInvocationJSON(w http.ResponseWriter, result proto.Message, err error) {
 	if err != nil {
 		code := http.StatusInternalServerError
 		switch status.Code(err) {
 		case codes.InvalidArgument:
 			code = http.StatusBadRequest
+		case codes.Unavailable:
+			code = http.StatusServiceUnavailable
 		case codes.NotFound:
 			code = http.StatusNotFound
 		}
@@ -87,6 +115,9 @@ func (s *Store) serveEvents(w http.ResponseWriter, r *http.Request) {
 	events, next, changed, err := s.batch(r.Context(), r.PathValue("id"), cursor)
 	if err != nil {
 		code := http.StatusInternalServerError
+		if status.Code(err) == codes.Unavailable {
+			code = http.StatusServiceUnavailable
+		}
 		if status.Code(err) == codes.OutOfRange {
 			code = http.StatusBadRequest
 		}

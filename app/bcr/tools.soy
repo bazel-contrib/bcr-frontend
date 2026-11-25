@@ -71,6 +71,14 @@ import {sectionHeader} from 'app/bcr/registry.soy';
         </span>
         {octiconChevronRight16(fill: 'var(--color-fg-muted)')}
       </a>
+      <a href="/tools/execution-log" class="Box-row d-flex flex-items-center color-fg-default no-underline">
+        <span class="mr-3">{octiconTools16()}</span>
+        <span class="flex-auto">
+          <span class="text-bold d-block">Execution Log</span>
+          <span class="color-fg-muted text-small">Inspect actions and cache hits from a compact Bazel execution log.</span>
+        </span>
+        {octiconChevronRight16(fill: 'var(--color-fg-muted)')}
+      </a>
     </div>
   </div>
 {/template}
@@ -82,14 +90,14 @@ import {sectionHeader} from 'app/bcr/registry.soy';
       <div class="PageLayout-pane bes-events-sidebar">
         <h1 class="h2 mb-2">Build Events</h1>
         <p class="color-fg-muted mb-0">Upload a build events file or connect to a{sp}
-          <a href="https://github.com/bazel-contrib/bcr-frontend/releases">build event stream backend</a>.</p>
+          <a href="https://github.com/bazel-contrib/bcr-frontend">build event stream backend</a>.</p>
         <nav class="SideNav bes-events-nav" aria-label="Build event views">
-          <a class="SideNav-item {css('igroup-current-tab')}" id="igroup-nav-current" href="#igroup-panel-current"
+          <a class="SideNav-item {css('igroup-current-tab')}" id="igroup-nav-current" href="/tools/invocations"
               data-view="current" aria-current="location">Current</a>
-          <a class="SideNav-item" id="igroup-nav-runs" href="#igroup-panel-runs" data-view="runs">Runs</a>
-          <a class="SideNav-item" id="igroup-nav-metrics" href="#igroup-panel-metrics" data-view="metrics">Metrics</a>
-          <a class="SideNav-item" id="igroup-nav-tests" href="#igroup-panel-tests" data-view="tests">Tests</a>
-          <a class="SideNav-item" id="igroup-nav-usage" href="#igroup-panel-usage" data-view="usage">Usage</a>
+          <a class="SideNav-item" id="igroup-nav-runs" href="/tools/invocations/-/runs" data-view="runs">Runs</a>
+          <a class="SideNav-item" id="igroup-nav-metrics" href="/tools/invocations/-/metrics" data-view="metrics">Metrics</a>
+          <a class="SideNav-item" id="igroup-nav-tests" href="/tools/invocations/-/tests" data-view="tests">Tests</a>
+          <a class="SideNav-item" id="igroup-nav-usage" href="/tools/invocations/-/usage" data-view="usage">Usage</a>
         </nav>
         <section class="bes-events-side-section" aria-label="Backend">
           {sectionHeader(title: 'Backend')}
@@ -127,7 +135,7 @@ import {sectionHeader} from 'app/bcr/registry.soy';
             <input type="file" class="d-none {css('igroup-file-input')}" aria-label="Choose a binary build event file">
             <p class="text-small mb-0 {css('igroup-upload-status')}" role="status" hidden></p>
           </div>
-          <a class="d-inline-block mt-2" id="igroup-nav-uploads" href="#igroup-panel-uploads" data-view="uploads">Uploads</a>
+          <a class="d-inline-block mt-2" id="igroup-nav-uploads" href="/tools/invocations/-/uploads" data-view="uploads">Uploads</a>
         </section>
         <section class="bes-events-side-section" aria-label="Keyboard Shortcuts">
           {sectionHeader(title: 'Keyboard Shortcuts')}
@@ -141,6 +149,14 @@ import {sectionHeader} from 'app/bcr/registry.soy';
       </div>
       <div class="PageLayout-content bes-events-content">
         <div class="Box mb-3 d-none {css('igroup-list')}"></div>
+        <div class="mb-3 {css('igroup-window-control')}" hidden>
+          <label for="igroup-time-range">Time range</label>
+          <select id="igroup-time-range" class="form-select select-sm ml-2 {css('igroup-window')}">
+            <option value="7">Last 7 days</option>
+            <option value="30" selected>Last 30 days</option>
+            <option value="90">Last 90 days</option>
+          </select>
+        </div>
         <div class="{css('igroup-content')}">
           <div role="region" id="igroup-panel-current" aria-labelledby="igroup-nav-current" tabindex="0">
             <p class="bes-group-empty {css('igroup-status')}" role="status">Connect to a backend and choose a group to follow builds.</p>
@@ -153,6 +169,10 @@ import {sectionHeader} from 'app/bcr/registry.soy';
                 <thead><tr><th scope="col">Status</th><th scope="col">Invocation</th><th scope="col">Command</th><th scope="col">Time</th></tr></thead>
                 <tbody class="{css('igroup-runs')}"></tbody>
               </table>
+            </div>
+            <div class="mt-2">
+              <button type="button" class="btn btn-sm {css('igroup-older-runs')}" hidden>Load older runs</button>
+              <span class="text-small color-fg-muted ml-2 {css('igroup-page-status')}" role="status"></span>
             </div>
           </div>
           <div role="region" id="igroup-panel-metrics" aria-labelledby="igroup-nav-metrics" tabindex="0" hidden>
@@ -192,7 +212,7 @@ import {sectionHeader} from 'app/bcr/registry.soy';
   {@param label: string}
   {@param key: string}
   {@param altKeyLabel: string}
-  <a class="Link--primary d-flex flex-items-center mb-2 text-small" href="#igroup-panel-{$view}" data-view="{$view}"
+  <a class="Link--primary d-flex flex-items-center mb-2 text-small" href="/tools/invocations/-/{$view}" data-view="{$view}"
       data-shortcut="Digit{$key}" aria-keyshortcuts="Alt+Shift+{$key}">
     <span class="color-fg-muted">{$label}</span>
     <span class="dotted-leader" aria-hidden="true"></span>
@@ -213,17 +233,22 @@ import {sectionHeader} from 'app/bcr/registry.soy';
         <span aria-hidden="true">→</span>
         <div><strong>Browser viewer</strong><span>Follows runs and shows group metrics</span></div>
       </figure>
+      <p>Run these commands from the root of the source checkout.</p>
       <ol class="bes-group-setup">
         <li>
-          <h3 class="h4">Start the backend</h3>
-          <pre><code>besserver \{\n}
+          <h3 class="h4">Build and start the backend</h3>
+          <pre><code>{'bazel build //cmd/besserver'}{\n}
+          {'"$(bazel info bazel-bin)/cmd/besserver/besserver_/besserver"'} \{\n}
           {'  '}--listen=localhost:1973 --http_listen=localhost:1974 \{\n}
           {'  '}--frontend_origin=https://registry.bazel.build --sqlite=invocations.sqlite</code></pre>
         </li>
         <li>
-          <h3 class="h4">Start the Iroh companion for remote viewing</h3>
-          <p>Run it on the backend machine.</p>
-          <pre><code>invocation-iroh --backend-port 1974 --key-file ./iroh.key</code></pre>
+          <h3 class="h4">Build and start the Iroh companion for remote viewing</h3>
+          <p>On the backend machine, open another terminal in the same checkout. The build uses Rust 1.95.0.</p>
+          <pre><code>cargo +1.95.0 build --locked --release \{\n}
+          {'  '}--manifest-path tools/invocation-iroh/Cargo.toml \{\n}
+          {'  '}--target-dir tools/invocation-iroh/target --bin invocation-iroh{\n}
+          ./tools/invocation-iroh/target/release/invocation-iroh --backend-port 1974 --key-file ./iroh.key</code></pre>
           <p>The companion creates <code>iroh.key</code> if it is missing. Reuse the same key file across restarts to keep a stable Iroh address.</p>
           <p>The printed Iroh ticket looks like <code>bcr-iroh-v1:eyJlbmRwb2ludCI6…</code>. Paste the full ticket into <strong>Backend URL or iroh ticket</strong> in the Backend form.</p>
           <p>The browser uses the relay address in the ticket to reach the companion and presents the ticket’s access credential. The companion reads group data and streams build events from the backend’s local HTTP API.</p>
@@ -240,7 +265,7 @@ import {sectionHeader} from 'app/bcr/registry.soy';
         </li>
       </ol>
       <details>
-        <summary class="text-small color-fg-muted">Run from a source checkout</summary>
+        <summary class="text-small color-fg-muted">Run the backend with Bazel or develop the viewer locally</summary>
         <p class="mt-2 mb-0">To run the backend with Bazel, use <code>{'bazel run //cmd/besserver --'}</code> followed by the same flags. For local viewer development, set <code>--frontend_origin=http://localhost:8080</code> and run:</p>
         <pre><code>{'bazel run //app/bcr:release --//app/bcr:release_type=dummy'}</code></pre>
       </details>
@@ -332,7 +357,11 @@ import {sectionHeader} from 'app/bcr/registry.soy';
       </div>
 
       <div role="tabpanel" id="bes-panel-terminal" aria-labelledby="bes-tab-terminal" tabindex="0" hidden>
-        <div class="d-flex flex-justify-end mb-2">
+        <div class="bes-terminal-tools mb-2">
+          <input type="search" class="form-control input-sm {css('bes-log-search')}" placeholder="Search terminal"
+                 aria-label="Search terminal" aria-describedby="bes-log-search-result"
+                 title="Enter for next match. Shift+Enter for previous match.">
+          <span id="bes-log-search-result" class="text-small color-fg-muted {css('bes-log-search-result')}" role="status"></span>
           <button type="button" class="btn btn-sm {css('bes-download-log')}" disabled>Download log</button>
         </div>
         <div class="bes-terminal bes-terminal-full {css('bes-log-full')}" tabindex="0"

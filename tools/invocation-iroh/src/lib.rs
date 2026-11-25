@@ -46,11 +46,27 @@ pub struct Request {
 #[derive(Serialize, Deserialize)]
 pub enum Operation {
     List,
+    ListPage {
+        token: String,
+    },
     ListGroups,
-    ListGroup { name: String },
-    GroupMetrics { name: String },
-    Get { id: String },
-    Watch { id: String, after: u64 },
+    ListGroup {
+        name: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        token: Option<String>,
+    },
+    GroupMetrics {
+        name: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        days: Option<u32>,
+    },
+    Get {
+        id: String,
+    },
+    Watch {
+        id: String,
+        after: u64,
+    },
 }
 
 pub fn valid_group_name(name: &str) -> bool {

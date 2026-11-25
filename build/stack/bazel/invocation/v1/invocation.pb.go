@@ -891,6 +891,8 @@ type ListInvocationsRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// An empty value lists invocations across all groups and ungrouped runs.
 	InvocationGroup string `protobuf:"bytes,1,opt,name=invocation_group,json=invocationGroup,proto3" json:"invocation_group,omitempty"`
+	PageSize        int32  `protobuf:"varint,2,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
+	PageToken       string `protobuf:"bytes,3,opt,name=page_token,json=pageToken,proto3" json:"page_token,omitempty"`
 	unknownFields   protoimpl.UnknownFields
 	sizeCache       protoimpl.SizeCache
 }
@@ -932,11 +934,27 @@ func (x *ListInvocationsRequest) GetInvocationGroup() string {
 	return ""
 }
 
+func (x *ListInvocationsRequest) GetPageSize() int32 {
+	if x != nil {
+		return x.PageSize
+	}
+	return 0
+}
+
+func (x *ListInvocationsRequest) GetPageToken() string {
+	if x != nil {
+		return x.PageToken
+	}
+	return ""
+}
+
 type ListInvocationsResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Invocations   []*Invocation          `protobuf:"bytes,1,rep,name=invocations,proto3" json:"invocations,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state            protoimpl.MessageState `protogen:"open.v1"`
+	Invocations      []*Invocation          `protobuf:"bytes,1,rep,name=invocations,proto3" json:"invocations,omitempty"`
+	NextPageToken    string                 `protobuf:"bytes,2,opt,name=next_page_token,json=nextPageToken,proto3" json:"next_page_token,omitempty"`
+	ActiveInvocation *Invocation            `protobuf:"bytes,3,opt,name=active_invocation,json=activeInvocation,proto3" json:"active_invocation,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
 }
 
 func (x *ListInvocationsResponse) Reset() {
@@ -972,6 +990,20 @@ func (*ListInvocationsResponse) Descriptor() ([]byte, []int) {
 func (x *ListInvocationsResponse) GetInvocations() []*Invocation {
 	if x != nil {
 		return x.Invocations
+	}
+	return nil
+}
+
+func (x *ListInvocationsResponse) GetNextPageToken() string {
+	if x != nil {
+		return x.NextPageToken
+	}
+	return ""
+}
+
+func (x *ListInvocationsResponse) GetActiveInvocation() *Invocation {
+	if x != nil {
+		return x.ActiveInvocation
 	}
 	return nil
 }
@@ -1145,8 +1177,10 @@ func (x *InvocationEvent) GetOrderedEvent() *build.OrderedBuildEvent {
 type GetInvocationGroupMetricsRequest struct {
 	state           protoimpl.MessageState `protogen:"open.v1"`
 	InvocationGroup string                 `protobuf:"bytes,1,opt,name=invocation_group,json=invocationGroup,proto3" json:"invocation_group,omitempty"`
-	unknownFields   protoimpl.UnknownFields
-	sizeCache       protoimpl.SizeCache
+	// Rolling window measured by server receipt time. Defaults to 30 days.
+	WindowDays    int32 `protobuf:"varint,2,opt,name=window_days,json=windowDays,proto3" json:"window_days,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *GetInvocationGroupMetricsRequest) Reset() {
@@ -1186,7 +1220,14 @@ func (x *GetInvocationGroupMetricsRequest) GetInvocationGroup() string {
 	return ""
 }
 
-// All-time aggregates for one invocation group.
+func (x *GetInvocationGroupMetricsRequest) GetWindowDays() int32 {
+	if x != nil {
+		return x.WindowDays
+	}
+	return 0
+}
+
+// Aggregates for one invocation group within the requested window.
 type InvocationGroupMetrics struct {
 	state             protoimpl.MessageState `protogen:"open.v1"`
 	InvocationCount   int64                  `protobuf:"varint,1,opt,name=invocation_count,json=invocationCount,proto3" json:"invocation_count,omitempty"`
@@ -1723,11 +1764,16 @@ const file_build_stack_bazel_invocation_v1_invocation_proto_rawDesc = "" +
 	"\x04name\x18\x01 \x01(\tR\x04name\"\x1d\n" +
 	"\x1bListInvocationGroupsRequest\"h\n" +
 	"\x1cListInvocationGroupsResponse\x12H\n" +
-	"\x06groups\x18\x01 \x03(\v20.build.stack.bazel.invocation.v1.InvocationGroupR\x06groups\"C\n" +
+	"\x06groups\x18\x01 \x03(\v20.build.stack.bazel.invocation.v1.InvocationGroupR\x06groups\"\x7f\n" +
 	"\x16ListInvocationsRequest\x12)\n" +
-	"\x10invocation_group\x18\x01 \x01(\tR\x0finvocationGroup\"h\n" +
+	"\x10invocation_group\x18\x01 \x01(\tR\x0finvocationGroup\x12\x1b\n" +
+	"\tpage_size\x18\x02 \x01(\x05R\bpageSize\x12\x1d\n" +
+	"\n" +
+	"page_token\x18\x03 \x01(\tR\tpageToken\"\xea\x01\n" +
 	"\x17ListInvocationsResponse\x12M\n" +
-	"\vinvocations\x18\x01 \x03(\v2+.build.stack.bazel.invocation.v1.InvocationR\vinvocations\";\n" +
+	"\vinvocations\x18\x01 \x03(\v2+.build.stack.bazel.invocation.v1.InvocationR\vinvocations\x12&\n" +
+	"\x0fnext_page_token\x18\x02 \x01(\tR\rnextPageToken\x12X\n" +
+	"\x11active_invocation\x18\x03 \x01(\v2+.build.stack.bazel.invocation.v1.InvocationR\x10activeInvocation\";\n" +
 	"\x14GetInvocationRequest\x12#\n" +
 	"\rinvocation_id\x18\x01 \x01(\tR\finvocationId\"`\n" +
 	"\x16WatchInvocationRequest\x12#\n" +
@@ -1738,9 +1784,11 @@ const file_build_stack_bazel_invocation_v1_invocation_proto_rawDesc = "" +
 	"\vreceived_at\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\n" +
 	"receivedAt\x12\x1c\n" +
 	"\tlifecycle\x18\x03 \x01(\bR\tlifecycle\x12P\n" +
-	"\rordered_event\x18\x04 \x01(\v2+.google.devtools.build.v1.OrderedBuildEventR\forderedEvent\"M\n" +
+	"\rordered_event\x18\x04 \x01(\v2+.google.devtools.build.v1.OrderedBuildEventR\forderedEvent\"n\n" +
 	" GetInvocationGroupMetricsRequest\x12)\n" +
-	"\x10invocation_group\x18\x01 \x01(\tR\x0finvocationGroup\"\x9a\x05\n" +
+	"\x10invocation_group\x18\x01 \x01(\tR\x0finvocationGroup\x12\x1f\n" +
+	"\vwindow_days\x18\x02 \x01(\x05R\n" +
+	"windowDays\"\x9a\x05\n" +
 	"\x16InvocationGroupMetrics\x12)\n" +
 	"\x10invocation_count\x18\x01 \x01(\x03R\x0finvocationCount\x12#\n" +
 	"\rrunning_count\x18\x02 \x01(\x03R\frunningCount\x12'\n" +
@@ -1873,28 +1921,29 @@ var file_build_stack_bazel_invocation_v1_invocation_proto_depIdxs = []int32{
 	23, // 13: build.stack.bazel.invocation.v1.RemoteCacheStats.observed_at:type_name -> google.protobuf.Timestamp
 	8,  // 14: build.stack.bazel.invocation.v1.ListInvocationGroupsResponse.groups:type_name -> build.stack.bazel.invocation.v1.InvocationGroup
 	2,  // 15: build.stack.bazel.invocation.v1.ListInvocationsResponse.invocations:type_name -> build.stack.bazel.invocation.v1.Invocation
-	23, // 16: build.stack.bazel.invocation.v1.InvocationEvent.received_at:type_name -> google.protobuf.Timestamp
-	24, // 17: build.stack.bazel.invocation.v1.InvocationEvent.ordered_event:type_name -> google.devtools.build.v1.OrderedBuildEvent
-	19, // 18: build.stack.bazel.invocation.v1.InvocationGroupMetrics.cache:type_name -> build.stack.bazel.invocation.v1.GroupCacheMetrics
-	20, // 19: build.stack.bazel.invocation.v1.InvocationGroupMetrics.tests:type_name -> build.stack.bazel.invocation.v1.GroupTestMetrics
-	18, // 20: build.stack.bazel.invocation.v1.InvocationGroupMetrics.builds:type_name -> build.stack.bazel.invocation.v1.GroupBuildSample
-	23, // 21: build.stack.bazel.invocation.v1.GroupBuildSample.started_at:type_name -> google.protobuf.Timestamp
-	21, // 22: build.stack.bazel.invocation.v1.GroupTestMetrics.flaky_targets:type_name -> build.stack.bazel.invocation.v1.GroupFlakyTarget
-	9,  // 23: build.stack.bazel.invocation.v1.InvocationService.ListInvocationGroups:input_type -> build.stack.bazel.invocation.v1.ListInvocationGroupsRequest
-	16, // 24: build.stack.bazel.invocation.v1.InvocationService.GetInvocationGroupMetrics:input_type -> build.stack.bazel.invocation.v1.GetInvocationGroupMetricsRequest
-	11, // 25: build.stack.bazel.invocation.v1.InvocationService.ListInvocations:input_type -> build.stack.bazel.invocation.v1.ListInvocationsRequest
-	13, // 26: build.stack.bazel.invocation.v1.InvocationService.GetInvocation:input_type -> build.stack.bazel.invocation.v1.GetInvocationRequest
-	14, // 27: build.stack.bazel.invocation.v1.InvocationService.WatchInvocation:input_type -> build.stack.bazel.invocation.v1.WatchInvocationRequest
-	10, // 28: build.stack.bazel.invocation.v1.InvocationService.ListInvocationGroups:output_type -> build.stack.bazel.invocation.v1.ListInvocationGroupsResponse
-	17, // 29: build.stack.bazel.invocation.v1.InvocationService.GetInvocationGroupMetrics:output_type -> build.stack.bazel.invocation.v1.InvocationGroupMetrics
-	12, // 30: build.stack.bazel.invocation.v1.InvocationService.ListInvocations:output_type -> build.stack.bazel.invocation.v1.ListInvocationsResponse
-	2,  // 31: build.stack.bazel.invocation.v1.InvocationService.GetInvocation:output_type -> build.stack.bazel.invocation.v1.Invocation
-	15, // 32: build.stack.bazel.invocation.v1.InvocationService.WatchInvocation:output_type -> build.stack.bazel.invocation.v1.InvocationEvent
-	28, // [28:33] is the sub-list for method output_type
-	23, // [23:28] is the sub-list for method input_type
-	23, // [23:23] is the sub-list for extension type_name
-	23, // [23:23] is the sub-list for extension extendee
-	0,  // [0:23] is the sub-list for field type_name
+	2,  // 16: build.stack.bazel.invocation.v1.ListInvocationsResponse.active_invocation:type_name -> build.stack.bazel.invocation.v1.Invocation
+	23, // 17: build.stack.bazel.invocation.v1.InvocationEvent.received_at:type_name -> google.protobuf.Timestamp
+	24, // 18: build.stack.bazel.invocation.v1.InvocationEvent.ordered_event:type_name -> google.devtools.build.v1.OrderedBuildEvent
+	19, // 19: build.stack.bazel.invocation.v1.InvocationGroupMetrics.cache:type_name -> build.stack.bazel.invocation.v1.GroupCacheMetrics
+	20, // 20: build.stack.bazel.invocation.v1.InvocationGroupMetrics.tests:type_name -> build.stack.bazel.invocation.v1.GroupTestMetrics
+	18, // 21: build.stack.bazel.invocation.v1.InvocationGroupMetrics.builds:type_name -> build.stack.bazel.invocation.v1.GroupBuildSample
+	23, // 22: build.stack.bazel.invocation.v1.GroupBuildSample.started_at:type_name -> google.protobuf.Timestamp
+	21, // 23: build.stack.bazel.invocation.v1.GroupTestMetrics.flaky_targets:type_name -> build.stack.bazel.invocation.v1.GroupFlakyTarget
+	9,  // 24: build.stack.bazel.invocation.v1.InvocationService.ListInvocationGroups:input_type -> build.stack.bazel.invocation.v1.ListInvocationGroupsRequest
+	16, // 25: build.stack.bazel.invocation.v1.InvocationService.GetInvocationGroupMetrics:input_type -> build.stack.bazel.invocation.v1.GetInvocationGroupMetricsRequest
+	11, // 26: build.stack.bazel.invocation.v1.InvocationService.ListInvocations:input_type -> build.stack.bazel.invocation.v1.ListInvocationsRequest
+	13, // 27: build.stack.bazel.invocation.v1.InvocationService.GetInvocation:input_type -> build.stack.bazel.invocation.v1.GetInvocationRequest
+	14, // 28: build.stack.bazel.invocation.v1.InvocationService.WatchInvocation:input_type -> build.stack.bazel.invocation.v1.WatchInvocationRequest
+	10, // 29: build.stack.bazel.invocation.v1.InvocationService.ListInvocationGroups:output_type -> build.stack.bazel.invocation.v1.ListInvocationGroupsResponse
+	17, // 30: build.stack.bazel.invocation.v1.InvocationService.GetInvocationGroupMetrics:output_type -> build.stack.bazel.invocation.v1.InvocationGroupMetrics
+	12, // 31: build.stack.bazel.invocation.v1.InvocationService.ListInvocations:output_type -> build.stack.bazel.invocation.v1.ListInvocationsResponse
+	2,  // 32: build.stack.bazel.invocation.v1.InvocationService.GetInvocation:output_type -> build.stack.bazel.invocation.v1.Invocation
+	15, // 33: build.stack.bazel.invocation.v1.InvocationService.WatchInvocation:output_type -> build.stack.bazel.invocation.v1.InvocationEvent
+	29, // [29:34] is the sub-list for method output_type
+	24, // [24:29] is the sub-list for method input_type
+	24, // [24:24] is the sub-list for extension type_name
+	24, // [24:24] is the sub-list for extension extendee
+	0,  // [0:24] is the sub-list for field type_name
 }
 
 func init() { file_build_stack_bazel_invocation_v1_invocation_proto_init() }

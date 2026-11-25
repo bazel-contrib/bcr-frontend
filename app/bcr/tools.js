@@ -19,6 +19,8 @@ const { Component, Route } = goog.require("stack.ui");
 const ActionQuery = goog.require("bcrfrontend.ActionQuery");
 const { mnemonicColor } = goog.require("bcrfrontend.actionColors");
 const { ContentSelect } = goog.require("bcrfrontend.ContentSelect");
+const ExecutionLog = goog.require("bcrfrontend.ExecutionLog");
+const { formatRelativeShort } = goog.require("bcrfrontend.format");
 const { getApplication } = goog.require("bcrfrontend.common");
 const { GroupBuildChart } = goog.require("bcrfrontend.invocationCharts");
 const { InvocationBackend, openInvocationBackend } = goog.require("bcrfrontend.invocationTransport");
@@ -238,6 +240,9 @@ function frontierId(id) {
 /** @typedef {{name: string, size: number, uploadedAt: number}} */
 let InvocationFile;
 
+const COLLECTION_COMPLETE = "INVOCATION_STATE_COMPLETE";
+const COLLECTION_INCOMPLETE = "INVOCATION_STATE_INCOMPLETE";
+
 class InvocationProgress {
 	/**
 	 * @param {string=} sourceId Backend lookup ID or a synthetic ID for a local replay.
@@ -254,6 +259,10 @@ class InvocationProgress {
 		this.marks_ = new Map();
 		/** @type {?FrontierMark} */
 		this.last = null;
+		/** @type {string} */
+		this.collectionState = "";
+		/** @type {?number} */
+		this.collectionEndedAt = null;
 		/** @type {?BuildEvent} */
 		this.started = null;
 		/** @type {?BuildEvent} */
@@ -406,9 +415,14 @@ class InvocationProgress {
 
 	/** @return {number} */
 	frontierNow() {
-		return this.frontierEndedAt_ ?? (this.serverNow_
+		return this.collectionEndedAt ?? this.frontierEndedAt_ ?? (this.serverNow_
 			? this.serverNow_ + performance.now() - this.serverObservedAt_
 			: Date.now());
+	}
+
+	/** @return {boolean} */
+	collectionEnded() {
+		return !!this.last || this.collectionState === COLLECTION_COMPLETE || this.collectionState === COLLECTION_INCOMPLETE;
 	}
 
 	/**
@@ -873,6 +887,18 @@ function renderTerminalText(value, style = defaultTerminalStyle()) {
 	return root;
 }
 
+/** @typedef {{start: number, end: number, number: number}} */
+let TerminalMatch;
+
+const TERMINAL_SEARCH_HIGHLIGHT = "bes-terminal-match";
+
+/** @return {?Map<string, !Highlight>} */
+function terminalHighlights() {
+	// HighlightRegistry is map-like, but the Closure externs omit its set/delete methods.
+	const registry = /** @type {?Object} */ (window.CSS?.highlights || null);
+	return /** @type {?Map<string, !Highlight>} */ (registry);
+}
+
 class InvocationTerminal {
 	/** @param {!HTMLElement} root */
 	constructor(root) {
@@ -884,10 +910,15 @@ class InvocationTerminal {
 		this.partial_ = "";
 		/** @private @type {!TerminalStyle} */
 		this.style_ = defaultTerminalStyle();
+		/** @private */ this.query_ = "";
+		/** @private */ this.matchOffset_ = -1;
 		this.reset();
 	}
 
 	reset() {
+		this.clearHighlight();
+		this.query_ = "";
+		this.matchOffset_ = -1;
 		this.cursor_ = 0;
 		this.partial_ = "";
 		this.style_ = defaultTerminalStyle();
@@ -897,9 +928,12 @@ class InvocationTerminal {
 		this.root.appendChild(this.tail_);
 	}
 
-	/** @param {!Array<string>} chunks */
+	/**
+	 * @param {!Array<string>} chunks
+	 * @return {boolean} Whether the terminal content changed.
+	 */
 	update(chunks) {
-		if (this.cursor_ === chunks.length) return;
+		if (this.cursor_ === chunks.length) return false;
 		const follow = this.cursor_ === 0 ||
 			this.root.scrollHeight - this.root.scrollTop - this.root.clientHeight <= 8;
 		let pending = this.partial_;
@@ -915,6 +949,78 @@ class InvocationTerminal {
 		const lastLine = renderTerminalText(formatTerminalText(this.partial_), style);
 		while (lastLine.firstChild) this.tail_.appendChild(lastLine.firstChild);
 		if (follow) this.root.scrollTop = this.root.scrollHeight;
+		return true;
+	}
+
+	clearHighlight() {
+		terminalHighlights()?.delete(TERMINAL_SEARCH_HIGHLIGHT);
+	}
+
+	/**
+	 * @param {string} query
+	 * @param {number=} direction
+	 * @param {boolean=} reveal
+	 * @return {string} A summary of the current match.
+	 */
+	search(query, direction = 0, reveal = true) {
+		this.clearHighlight();
+		if (query !== this.query_) {
+			this.query_ = query;
+			this.matchOffset_ = -1;
+			direction = 0;
+		}
+		if (!query) return "";
+		if (!this.cursor_) return "No matches";
+		const text = this.root.textContent || "";
+		const pattern = new RegExp(query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "giu");
+		/** @type {?TerminalMatch} */ let first = null;
+		/** @type {?TerminalMatch} */ let last = null;
+		/** @type {?TerminalMatch} */ let active = null;
+		let count = 0;
+		for (const result of text.matchAll(pattern)) {
+			const start = Number(result.index);
+			const match = {start, end: start + result[0].length, number: ++count};
+			if (!first) first = match;
+			last = match;
+			if (direction < 0 ? start < this.matchOffset_ :
+				!active && start >= this.matchOffset_ + (direction > 0 ? 1 : 0)) active = match;
+		}
+		active = active || (direction < 0 ? last : first);
+		if (!active) {
+			this.matchOffset_ = -1;
+			return "No matches";
+		}
+		this.matchOffset_ = active.start;
+		this.highlightMatch_(active.start, active.end, reveal);
+		return active.number.toLocaleString() + " of " + count.toLocaleString();
+	}
+
+	/**
+	 * @private
+	 * @param {number} start
+	 * @param {number} end
+	 * @param {boolean} reveal
+	 */
+	highlightMatch_(start, end, reveal) {
+		const range = /** @type {!Range} */ (document.createRange());
+		const walker = document.createTreeWalker(this.root, NodeFilter.SHOW_TEXT);
+		let offset = 0;
+		for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+			const next = offset + (node.nodeValue || "").length;
+			if (offset <= start && start < next) range.setStart(node, start - offset);
+			if (end <= next) {
+				range.setEnd(node, end - offset);
+				break;
+			}
+			offset = next;
+		}
+		// A document selection can steal focus from the search input as the user types.
+		if (typeof Highlight === "function") terminalHighlights()?.set(TERMINAL_SEARCH_HIGHLIGHT, new Highlight(range));
+		if (reveal) {
+			const match = range.getBoundingClientRect();
+			const viewport = this.root.getBoundingClientRect();
+			this.root.scrollTop += match.top - viewport.top - (this.root.clientHeight - match.height) / 2;
+		}
 	}
 
 	/**
@@ -1594,6 +1700,11 @@ class ToolsSelect extends ContentSelect {
 			this.select(name, route);
 			return;
 		}
+		if (name === "execution-log") {
+			this.addTab(name, new ExecutionLog(this.dom_));
+			this.select(name, route);
+			return;
+		}
 		super.selectFail(name, route);
 	}
 }
@@ -1706,45 +1817,56 @@ function rememberViewerBackend(scope, address) {
 const INVOCATION_PATH = "/tools/invocation";
 const GROUP_INVOCATIONS_PATH = "/tools/invocations";
 const GROUP_VIEW_ID_PREFIX = "igroup-panel-";
+const GROUP_VIEWS = new Set(["current", "runs", "metrics", "tests", "usage", "uploads"]);
+const NO_GROUP = "-";
 
 /**
- * @param {!URL} url
- * @param {string} base
- * @return {!Array<string>}
+ * @param {!Array<string>} parts Encoded path segments after /tools.
+ * @return {?{group: string, id: string, view: string}}
  */
-function viewerPathParts(url, base) {
-	if (!url.pathname.startsWith(base + "/")) return [];
+function parseViewerPath(parts) {
 	try {
-		return url.pathname.slice(base.length + 1).split("/").filter(Boolean).map(decodeURIComponent);
+		const [tool, first = "", second = "", third = ""] = parts.map(decodeURIComponent);
+		if (tool === "invocation" && parts.length <= 3 && (!second || GROUP_VIEWS.has(second))) {
+			return {group: "", id: first, view: second};
+		}
+		if (tool !== "invocations" || parts.length > 4 || (third && !GROUP_VIEWS.has(third))) return null;
+		if (first === NO_GROUP) {
+			return !third && GROUP_VIEWS.has(second) ? {group: "", id: "", view: second} : null;
+		}
+		if (!third && GROUP_VIEWS.has(second)) return {group: first, id: "", view: second};
+		return {group: first, id: second, view: third};
 	} catch (_error) {
-		return [];
+		return null;
 	}
 }
 
 /**
  * @param {!URL} url
- * @param {string} base
- * @param {...string} parts
+ * @return {{group: string, id: string, view: string}}
  */
-function setViewerPath(url, base, ...parts) {
+function viewerLocation(url) {
+	return parseViewerPath(url.pathname.split("/").filter(Boolean).slice(1)) || {group: "", id: "", view: ""};
+}
+
+/**
+ * @param {!URL} url
+ * @param {string} group
+ * @param {string} id
+ * @param {string} view
+ */
+function setViewerPath(url, group, id, view) {
+	if (!group && !id && view === "current") view = "";
+	const base = id && !group ? INVOCATION_PATH : GROUP_INVOCATIONS_PATH;
+	/** @type {!Array<string>} */
+	const parts = [group || (!id && view ? NO_GROUP : ""), id, view || (group && GROUP_VIEWS.has(id) ? "current" : "")];
 	url.pathname = base + parts.filter(Boolean).map((part) => "/" + encodeURIComponent(part)).join("");
+	url.hash = "";
 }
 
 /** @param {!URL} url */
 function replaceViewerLocation(url) {
 	if (url.href !== window.location.href) window.history.replaceState(window.history.state, "", url.href);
-}
-
-/**
- * @param {string} base
- * @param {string} id
- * @param {string=} group
- */
-function selectInvocationInUrl(base, id, group = "") {
-	const url = new URL(window.location.href);
-	if (url.pathname !== base && !url.pathname.startsWith(base + "/")) return;
-	setViewerPath(url, base, group, id);
-	replaceViewerLocation(url);
 }
 
 /**
@@ -1754,7 +1876,8 @@ function selectInvocationInUrl(base, id, group = "") {
 function groupFollowMode(url) {
 	const mode = url.searchParams.get("follow");
 	if (mode === "auto" || mode === "off" || mode === "manual") return mode;
-	return viewerPathParts(url, GROUP_INVOCATIONS_PATH)[1] ? "manual" : "auto";
+	const {group, id} = viewerLocation(url);
+	return group && id ? "manual" : "auto";
 }
 
 /** @typedef {{label: string, kind: string, color: string, title: string}} */
@@ -1812,6 +1935,37 @@ function invocationExitStatus(name, code) {
 }
 
 /**
+ * @param {?Object<string, *>} summary
+ * @return {?InvocationStatus}
+ */
+function storedExitStatus(summary) {
+	const result = /** @type {?Object<string, *>} */ (summary?.["result"] || null);
+	const name = String(result?.["exitCodeName"] || "");
+	const code = result?.["exitCode"];
+	return name || typeof code === "number" ? invocationExitStatus(name, typeof code === "number" ? code : null) : null;
+}
+
+/**
+ * @param {?InvocationStatus} result
+ * @return {!InvocationStatus}
+ */
+function incompleteStatus(result) {
+	const status = invocationStatus("Incomplete", "warning");
+	status.title = "Incomplete build event stream" + (result ? " · Build result: " + result.title : "");
+	return status;
+}
+
+/**
+ * @param {?Object<string, *>} summary
+ * @param {string} field
+ * @return {?number}
+ */
+function summaryTime(summary, field) {
+	const value = Date.parse(String(summary?.[field] || ""));
+	return Number.isFinite(value) ? value : null;
+}
+
+/**
  * @param {!InvocationProgress} invocation
  * @param {?InvocationFailure=} failure
  * @return {?InvocationStatus}
@@ -1847,6 +2001,14 @@ class InvocationGroupsComponent extends Component {
 		this.viewer_ = null;
 		/** @private @type {!Array<!Object<string, *>>} */
 		this.runs_ = [];
+		/** @private @type {!Array<!Object<string, *>>} */ this.olderRuns_ = [];
+		/** @private @type {?Object<string, *>} */ this.activeRun_ = null;
+		/** @private @type {?Object<string, *>} */ this.watchedRun_ = null;
+		/** @private */ this.nextPage_ = "";
+		/** @private */ this.historyExpanded_ = false;
+		/** @private */ this.pageInFlight_ = false;
+		/** @private */ this.windowDays_ = 30;
+		/** @private */ this.metricsRequest_ = 0;
 		/** @private @type {?Set<string>} */
 		this.seenRuns_ = null;
 		/** @private */ this.generation_ = 0;
@@ -1856,6 +2018,7 @@ class InvocationGroupsComponent extends Component {
 		/** @private */ this.watchedId_ = "";
 		/** @private */ this.requestedId_ = "";
 		/** @private */ this.historyKey_ = "";
+		/** @private */ this.historyClock_ = 0;
 		/** @private */ this.activeView_ = "current";
 		/** @private */ this.metricsInFlight_ = false;
 		/** @private */ this.lastMetricsRead_ = 0;
@@ -1875,12 +2038,16 @@ class InvocationGroupsComponent extends Component {
 	/** @override */
 	enterDocument() {
 		super.enterDocument();
+		this.historyClock_ = setInterval(() => {
+			if (this.activeView_ === "runs") this.refreshHistoryTimes_();
+		}, 30000);
 		const groupInput = this.input_(goog.getCssName("igroup-name"));
 		const showLast = this.input_(goog.getCssName("igroup-show-last"));
 		this.getHandler().listen(showLast, "change", () => {
 			const url = new URL(window.location.href);
 			url.searchParams.set("showLast", showLast.checked ? "1" : "0");
 			replaceViewerLocation(url);
+			this.updateViewLinks_(url);
 		});
 		const follow = this.input_(goog.getCssName("igroup-follow"));
 		this.getHandler().listen(follow, "change", () => {
@@ -1889,12 +2056,23 @@ class InvocationGroupsComponent extends Component {
 			if (follow.checked) this.returnToGroup_();
 			this.renderGroupStatus_();
 		});
+		const windowSelect = this.groupElement_(goog.getCssName("igroup-window"));
+		this.getHandler().listen(windowSelect, "change", () => {
+			this.windowDays_ = Number((/** @type {!HTMLSelectElement} */ (windowSelect)).value);
+			this.metricsRequest_++;
+			this.metricsInFlight_ = false;
+			this.lastMetricsRead_ = 0;
+			if (this.group_ && this.seenRuns_) this.setMetricsMessage_("Loading metrics…");
+			this.refreshMetrics_();
+		});
+		this.getHandler().listen(this.groupElement_(goog.getCssName("igroup-older-runs")), "click",
+			() => this.loadOlderRuns_());
 		const root = this.getElementStrict();
 		this.getHandler().listen(root, "click", (/** !events.BrowserEvent */ event) => {
 			const link = (/** @type {!Element} */ (event.target)).closest("a[data-view]");
 			if (!link || event.button !== 0 || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
 			event.preventDefault();
-			this.selectView_(link.getAttribute("data-view") || "", true);
+			this.navigateView_(link.getAttribute("data-view") || "");
 		});
 		this.getHandler().listen(this, "keydown", (/** !events.BrowserEvent */ event) => {
 			const key = /** @type {!KeyboardEvent} */ (event.getBrowserEvent());
@@ -1904,7 +2082,7 @@ class InvocationGroupsComponent extends Component {
 			const link = root.querySelector('[data-shortcut="' + key.code + '"]');
 			if (!link) return;
 			event.preventDefault();
-			this.selectView_(link.getAttribute("data-view") || "", true);
+			this.navigateView_(link.getAttribute("data-view") || "");
 		});
 		this.getHandler().listen(this.groupElement_(goog.getCssName("igroup-form")), "submit", (/** !events.BrowserEvent */ event) => {
 			event.preventDefault();
@@ -1955,9 +2133,7 @@ class InvocationGroupsComponent extends Component {
 	/** @private @param {string} id */
 	openRun_(id) {
 		if (this.followMode_() === "auto") this.setFollowMode_("manual");
-		this.watch_(id);
-		this.renderGroupStatus_();
-		this.selectView_("current", true);
+		this.navigateView_("current", id);
 	}
 
 	/**
@@ -1984,6 +2160,7 @@ class InvocationGroupsComponent extends Component {
 		url.searchParams.set("follow", mode);
 		this.input_(goog.getCssName("igroup-follow")).checked = mode === "auto";
 		replaceViewerLocation(url);
+		this.updateViewLinks_(url);
 	}
 
 	/**
@@ -1991,12 +2168,12 @@ class InvocationGroupsComponent extends Component {
 	 * @param {!Route} route
 	 */
 	goDown(route) {
-		const count = route.unmatchedPath().length;
-		if (count > (viewerPathParts(new URL(window.location.href), INVOCATION_PATH).length ? 1 : 2)) {
+		const tail = route.unmatchedPath();
+		if (!parseViewerPath([route.at(route.index() - 1) || "", ...tail])) {
 			super.goDown(route);
 			return;
 		}
-		this.goHere(route.advance(count));
+		this.goHere(route.advance(tail.length));
 	}
 
 	/**
@@ -2005,31 +2182,33 @@ class InvocationGroupsComponent extends Component {
 	 */
 	goHere(route) {
 		super.goHere(route);
-		const groupInput = this.input_(goog.getCssName("igroup-name"));
 		const url = new URL(window.location.href);
+		const location = parseViewerPath(route.path().slice(2));
+		if (!location) return;
+		const {group, id, view} = location;
 		this.syncGroupOptions_(url);
 		replaceViewerLocation(url);
-		const panelId = url.hash.slice(1);
-		this.selectView_(panelId.startsWith(GROUP_VIEW_ID_PREFIX) ? panelId.slice(GROUP_VIEW_ID_PREFIX.length) : "current");
-		const parts = viewerPathParts(url, GROUP_INVOCATIONS_PATH);
-		const group = parts[0] || "";
-		const id = parts[1] || "";
-		groupInput.value = group;
-		const singleId = viewerPathParts(url, INVOCATION_PATH)[0];
-		const remembered = (group && readViewerBackend("group." + group)) || readViewerBackend("invocation");
-		if (remembered) this.input_(goog.getCssName("igroup-backend")).value = remembered;
-		if (singleId) {
-			if (remembered && (this.group_ || this.watchedId_ !== singleId || !this.backend_)) this.openGroup_();
-			else if (!this.watchedId_) this.groupElement_(goog.getCssName("igroup-status")).textContent =
-				"Connect to a backend to open this invocation.";
+		this.updateViewLinks_(url);
+		this.selectView_(view || "current");
+		const sameGroup = group === this.group_;
+		const sameRun = id === (this.requestedId_ || this.watchedId_);
+		if (sameGroup && this.backend_ && id && !sameRun &&
+			(!group || this.runs_.concat(this.olderRuns_).some((/** !Object<string, *> */ run) => run["invocationId"] === id))) {
+			this.watch_(id);
+			this.renderGroupStatus_();
 			return;
 		}
-		if (group !== this.group_ || (group && (!this.backend_ || id !== (this.requestedId_ || this.watchedId_)))) {
-			this.openGroup_();
+		if (sameGroup && sameRun && this.backend_) {
+			if (this.seenRuns_) this.renderGroupStatus_();
+			return;
 		}
-		else if (this.seenRuns_) {
-			if (!this.requestedId_) this.selectActiveRun_();
-			this.renderGroupStatus_();
+		this.input_(goog.getCssName("igroup-name")).value = group;
+		const remembered = (group && readViewerBackend("group." + group)) || readViewerBackend("invocation");
+		if (remembered) this.input_(goog.getCssName("igroup-backend")).value = remembered;
+		if (((group || id) && this.input_(goog.getCssName("igroup-backend")).value.trim()) || !sameGroup || this.watchedId_) {
+			this.openGroup_();
+		} else if (id) {
+			this.groupElement_(goog.getCssName("igroup-status")).textContent = "Connect to a backend to open this invocation.";
 		}
 	}
 
@@ -2042,6 +2221,8 @@ class InvocationGroupsComponent extends Component {
 
 	/** @override */
 	exitDocument() {
+		clearInterval(this.historyClock_);
+		this.historyClock_ = 0;
 		this.uploadGeneration_++;
 		this.closeGroup_();
 		super.exitDocument();
@@ -2065,8 +2246,17 @@ class InvocationGroupsComponent extends Component {
 		this.address_ = this.input_(goog.getCssName("igroup-backend")).value.trim();
 		this.group_ = this.input_(goog.getCssName("igroup-name")).value.trim();
 		const url = new URL(window.location.href);
-		const singleId = this.group_ ? "" : viewerPathParts(url, INVOCATION_PATH)[0] || "";
+		const path = viewerLocation(url);
+		const singleId = !this.group_ && !path.group ? path.id : "";
 		this.runs_ = [];
+		this.olderRuns_ = [];
+		this.activeRun_ = null;
+		this.watchedRun_ = null;
+		this.historyExpanded_ = false;
+		this.pageInFlight_ = false;
+		(/** @type {!HTMLButtonElement} */ (this.groupElement_(goog.getCssName("igroup-older-runs")))).disabled = false;
+		this.nextPage_ = "";
+		this.groupElement_(goog.getCssName("igroup-page-status")).textContent = "";
 		this.seenRuns_ = null;
 		this.historyKey_ = "";
 		this.groupElement_(goog.getCssName("igroup-list")).classList.add("d-none");
@@ -2079,13 +2269,13 @@ class InvocationGroupsComponent extends Component {
 			this.setBackendStatus_("Disconnected", "", "Enter a valid group name.");
 			return;
 		}
-		const parts = viewerPathParts(url, GROUP_INVOCATIONS_PATH);
-		const sameGroup = this.group_ !== "" && parts[0] === this.group_;
+		const sameGroup = this.group_ !== "" && path.group === this.group_;
 		if (!sameGroup && groupFollowMode(url) === "manual") url.searchParams.set("follow", "auto");
 		this.syncGroupOptions_(url);
-		this.requestedId_ = sameGroup ? parts[1] || "" : "";
-		if (!singleId) setViewerPath(url, GROUP_INVOCATIONS_PATH, this.group_, this.requestedId_);
+		this.requestedId_ = sameGroup ? path.id : "";
+		if (!singleId) setViewerPath(url, this.group_, this.requestedId_, path.view);
 		replaceViewerLocation(url);
+		this.updateViewLinks_(url);
 		this.setBackendStatus_("Connecting", "Label--accent", "Opening the invocation backend…");
 		try {
 			const backend = await openInvocationBackend(this.address_);
@@ -2099,7 +2289,7 @@ class InvocationGroupsComponent extends Component {
 				this.watch_(singleId);
 				const result = await backend.list();
 				if (generation !== this.generation_) return;
-				this.runs_ = /** @type {!Array<!Object<string, *>>} */ (result["invocations"] || []);
+				this.setRunPage_(result);
 				this.renderHistory_();
 				this.renderGroupStatus_();
 			} else if (this.group_) {
@@ -2117,8 +2307,7 @@ class InvocationGroupsComponent extends Component {
 					// A ticket scoped to one invocation can list its run but cannot list groups.
 				}
 				if (generation !== this.generation_) return;
-				this.runs_ = /** @type {!Array<!Object<string, *>>} */ (
-					runsResult["invocations"] || []);
+				this.setRunPage_(runsResult);
 				rememberViewerBackend("invocation", this.address_);
 				this.setBackendStatus_("Connected", "Label--success", groups.length ? "Choose a group or open an invocation from Runs."
 					: this.runs_.length ? "Open an invocation from Runs." : "Enter a group name to wait for its first build.");
@@ -2179,15 +2368,29 @@ class InvocationGroupsComponent extends Component {
 			const transport = this.address_.startsWith("bcr-iroh-v1:") ? "Iroh" : "HTTP";
 			this.setBackendStatus_("Connected", "Label--success", "Connected over " + transport +
 				" · Watching group ", this.group_);
-			this.runs_ = /** @type {!Array<!Object<string, *>>} */ (result["invocations"] || []);
+			this.setRunPage_(result);
 			const seen = this.seenRuns_;
 			const newestUnseen = seen && this.runs_.find((run) => !seen.has(String(run["invocationId"])));
 			this.seenRuns_ = new Set(this.runs_.map((run) => String(run["invocationId"])));
 			this.renderHistory_();
-			if (!this.viewingUpload_ && this.requestedId_) {
-				if (this.runs_.some((run) => run["invocationId"] === this.requestedId_)) {
-					this.watch_(this.requestedId_);
+			const requested = this.requestedId_;
+			const watched = this.watchedId_;
+			const lookup = requested || watched;
+			this.watchedRun_ = lookup ? this.runs_.find((run) => run["invocationId"] === lookup) ||
+				(this.activeRun_?.["invocationId"] === lookup ? this.activeRun_ : null) : null;
+			if (lookup && !this.watchedRun_ && !this.viewingUpload_) {
+				try {
+					const found = await backend.get(lookup);
+					if (generation !== this.generation_) return;
+					if (found["invocationGroup"] === this.group_ && (this.requestedId_ || this.watchedId_) === lookup)
+						this.watchedRun_ = found;
+				} catch (_error) {
+					if (generation !== this.generation_) return;
+					// A link can arrive before its first build event.
 				}
+			}
+			if (!this.viewingUpload_ && this.requestedId_) {
+				if (this.watchedRun_?.["invocationId"] === this.requestedId_) this.watch_(this.requestedId_);
 			} else if (!this.viewingUpload_) {
 				this.selectActiveRun_(newestUnseen ? String(newestUnseen["invocationId"]) : "");
 				if (!seen && !this.watchedId_ && new URL(window.location.href).searchParams.get("showLast") !== "0") {
@@ -2207,12 +2410,37 @@ class InvocationGroupsComponent extends Component {
 		this.pollTimer_ = setTimeout(() => this.pollGroup_(backend, generation), 2000);
 	}
 
+	/** @private @param {!URL} url */
+	updateViewLinks_(url) {
+		const {group, id} = viewerLocation(url);
+		const destination = new URL(url.href);
+		for (const link of this.getElementStrict().querySelectorAll("a[data-view]")) {
+			setViewerPath(destination, group, id, link.getAttribute("data-view") || "");
+			link.setAttribute("href", destination.pathname + destination.search);
+		}
+	}
+
 	/**
 	 * @private
 	 * @param {string} view
-	 * @param {boolean=} navigate
+	 * @param {string=} invocationId
 	 */
-	selectView_(view, navigate = false) {
+	navigateView_(view, invocationId) {
+		if (!GROUP_VIEWS.has(view)) return;
+		const url = new URL(window.location.href);
+		const {group, id} = viewerLocation(url);
+		setViewerPath(url, group, invocationId ?? id, view);
+		getApplication(this).setLocation(url.pathname.split("/").filter(Boolean));
+		const panel = this.getElementStrict().querySelector("#" + GROUP_VIEW_ID_PREFIX + view);
+		if (panel instanceof HTMLElement && !panel.hidden) {
+			panel.focus({preventScroll: true});
+			const top = panel.getBoundingClientRect().top;
+			if (top < 0 || top >= window.innerHeight) panel.scrollIntoView({block: "start"});
+		}
+	}
+
+	/** @private @param {string} view */
+	selectView_(view) {
 		const content = this.groupElement_(goog.getCssName("igroup-content"));
 		const panels = content.querySelectorAll(":scope > [id]");
 		let selected = null;
@@ -2221,24 +2449,12 @@ class InvocationGroupsComponent extends Component {
 		}
 		if (!selected) return;
 		this.activeView_ = view;
+		if (view === "runs") this.refreshHistoryTimes_();
+		this.groupElement_(goog.getCssName("igroup-window-control")).hidden = view !== "metrics" && view !== "tests";
 		for (const panel of panels) /** @type {!HTMLElement} */ (panel).hidden = panel !== selected;
 		for (const link of this.getElementStrict().querySelectorAll('a[id][data-view]')) {
 			if (link.getAttribute("data-view") === view) link.setAttribute("aria-current", "location");
 			else link.removeAttribute("aria-current");
-		}
-		if (navigate) {
-			const url = new URL(window.location.href);
-			url.hash = view === "current" ? "" : selected.id;
-			replaceViewerLocation(url);
-			selected.focus({preventScroll: true});
-			const top = selected.getBoundingClientRect().top;
-			if (top < 0 || top >= window.innerHeight) selected.scrollIntoView({block: "start"});
-		}
-		const mode = this.followMode_();
-		if (navigate && view === "runs" && this.group_ && (this.viewingUpload_ || this.requestedId_ || mode === "manual")) {
-			if (mode === "manual") this.setFollowMode_("auto");
-			this.returnToGroup_();
-			this.renderGroupStatus_();
 		}
 		this.refreshMetrics_();
 	}
@@ -2250,7 +2466,12 @@ class InvocationGroupsComponent extends Component {
 			if (this.watchedId_) this.watch_(this.watchedId_);
 			else this.stopWatching_();
 		}
-		selectInvocationInUrl(GROUP_INVOCATIONS_PATH, this.watchedId_, this.group_);
+		if (this.group_) {
+			const url = new URL(window.location.href);
+			setViewerPath(url, this.group_, this.watchedId_, viewerLocation(url).view);
+			replaceViewerLocation(url);
+			this.updateViewLinks_(url);
+		}
 		this.selectActiveRun_();
 	}
 
@@ -2260,15 +2481,18 @@ class InvocationGroupsComponent extends Component {
 		if (!backend || !this.seenRuns_ || (this.activeView_ !== "metrics" && this.activeView_ !== "tests") ||
 			this.metricsInFlight_ || Date.now() - this.lastMetricsRead_ < 10000) return;
 		const generation = this.generation_;
+		const request = ++this.metricsRequest_;
+		/** @type {function():boolean} */
+		const current = () => generation === this.generation_ && request === this.metricsRequest_;
 		this.metricsInFlight_ = true;
 		this.lastMetricsRead_ = Date.now();
 		try {
-			const metrics = await backend.groupMetrics(this.group_);
-			if (generation === this.generation_) this.renderMetrics_(metrics);
+			const metrics = await backend.groupMetrics(this.group_, this.windowDays_);
+			if (current()) this.renderMetrics_(metrics);
 		} catch (_error) {
-			if (generation === this.generation_) this.setMetricsMessage_("Could not load group metrics.");
+			if (current()) this.setMetricsMessage_("Could not load group metrics.");
 		} finally {
-			if (generation === this.generation_) this.metricsInFlight_ = false;
+			if (current()) this.metricsInFlight_ = false;
 		}
 	}
 
@@ -2306,7 +2530,7 @@ class InvocationGroupsComponent extends Component {
 		const time = (field) => metrics[field] == null ? "—" : formatElapsed(Number(metrics[field]));
 		const total = count("invocationCount");
 		if (!total) {
-			this.setMetricsMessage_("Waiting for the first build to report group metrics.");
+			this.setMetricsMessage_("No builds in this time range.");
 			return;
 		}
 		const running = count("runningCount");
@@ -2317,7 +2541,7 @@ class InvocationGroupsComponent extends Component {
 			(status) => status === "UNKNOWN" ? invocationStatus(status, "unknown").color : invocationExitStatus(status, null).color,
 			(id) => {
 				const url = new URL(window.location.href);
-				setViewerPath(url, GROUP_INVOCATIONS_PATH, this.group_, id);
+				setViewerPath(url, this.group_, id, "current");
 				url.searchParams.set("follow", "manual");
 				return url.pathname + url.search;
 			},
@@ -2326,7 +2550,7 @@ class InvocationGroupsComponent extends Component {
 		if (this.buildChart_.element.parentElement !== body) {
 			dom.removeChildren(body);
 			body.append(dom.createDom("section", "bes-group-totals",
-				dom.createDom("h3", "h5 mb-2", "All-time totals"), this.buildSummary_), this.buildChart_.element);
+				dom.createDom("h3", "h5 mb-2", "Window totals"), this.buildSummary_), this.buildChart_.element);
 		}
 		this.buildChart_.setBuilds(/** @type {!Array<!Object<string, *>>} */ (metrics["builds"] || []));
 		renderGroupMetricList(this.buildSummary_, [
@@ -2416,9 +2640,8 @@ class InvocationGroupsComponent extends Component {
 	 */
 	selectActiveRun_(newestUnseen = "") {
 		const running = "INVOCATION_STATE_IN_PROGRESS";
-		if (this.viewingUpload_ || this.followMode_() !== "auto" || this.runs_.some((run) =>
-			run["invocationId"] === this.watchedId_ && run["state"] === running)) return;
-		const next = this.runs_.find((run) => run["state"] === running);
+		if (this.viewingUpload_ || this.followMode_() !== "auto" || this.watchedRun_?.["state"] === running) return;
+		const next = this.activeRun_ || this.runs_.find((run) => run["state"] === running);
 		if (next) this.watch_(String(next["invocationId"]));
 		// A short build can start and finish between two group polls.
 		else if (newestUnseen) this.watch_(newestUnseen);
@@ -2431,11 +2654,17 @@ class InvocationGroupsComponent extends Component {
 	watch_(id) {
 		this.requestedId_ = "";
 		const url = new URL(window.location.href);
-		setViewerPath(url, this.group_ ? GROUP_INVOCATIONS_PATH : INVOCATION_PATH, this.group_, id);
+		setViewerPath(url, this.group_, id, viewerLocation(url).view);
 		replaceViewerLocation(url);
+		this.updateViewLinks_(url);
 		if (id === this.watchedId_ && !this.viewingUpload_) return;
 		this.viewingUpload_ = false;
 		this.watchedId_ = id;
+		if (this.watchedRun_?.["invocationId"] !== id) {
+			this.watchedRun_ = this.runs_.find((run) => run["invocationId"] === id) ||
+				(this.activeRun_?.["invocationId"] === id ? this.activeRun_ : null) ||
+				this.olderRuns_.find((run) => run["invocationId"] === id) || null;
+		}
 		const viewer = this.showViewer_();
 		/** @type {function(string, boolean, boolean):void} */
 		const onStatus = (message, connected, closed) => {
@@ -2443,7 +2672,16 @@ class InvocationGroupsComponent extends Component {
 			this.setBackendStatus_(connected ? "Connected" : closed ? "Connection failed" : "Retrying",
 				connected ? "Label--success" : closed ? "Label--danger" : "Label--attention", message);
 		};
-		viewer.followInvocation(this.address_, id, onStatus);
+		viewer.followInvocation(this.address_, id, onStatus, (summary) => {
+			if (this.group_ || this.watchedId_ !== id) return;
+			this.watchedRun_ = summary;
+			const index = this.runs_.findIndex((run) => run["invocationId"] === id);
+			if (index !== -1) {
+				this.runs_[index] = summary;
+				this.renderHistory_();
+			}
+			this.renderGroupStatus_();
+		});
 	}
 
 	/** @private @return {!BuildEventViewerComponent} */
@@ -2468,7 +2706,7 @@ class InvocationGroupsComponent extends Component {
 
 	/** @private */
 	renderGroupStatus_() {
-		const current = this.runs_.find((run) => run["invocationId"] === this.watchedId_);
+		const current = this.watchedRun_;
 		const status = this.groupElement_(goog.getCssName("igroup-status"));
 		status.hidden = this.viewingUpload_ || Boolean(this.watchedId_);
 		const message = current ? "" : this.requestedId_ ? "Waiting for invocation " + this.requestedId_
@@ -2497,23 +2735,68 @@ class InvocationGroupsComponent extends Component {
 		list.classList.toggle("d-none", !groups.length);
 	}
 
+	/** @private @param {!Object<string, *>} result */
+	setRunPage_(result) {
+		const runs = /** @type {!Array<!Object<string, *>>} */ (result["invocations"] || []);
+		if (this.historyExpanded_) {
+			const currentIds = new Set(runs.map((run) => String(run["invocationId"])));
+			this.olderRuns_ = this.runs_.concat(this.olderRuns_).filter(
+				(/** !Object<string, *> */ run) => !currentIds.has(String(run["invocationId"])));
+		} else {
+			this.nextPage_ = String(result["nextPageToken"] || "");
+		}
+		this.runs_ = runs;
+		this.activeRun_ = /** @type {?Object<string, *>} */ (result["activeInvocation"] || null);
+	}
+
+	/** @private */
+	async loadOlderRuns_() {
+		const backend = this.backend_;
+		if (!backend || !this.nextPage_ || this.pageInFlight_) return;
+		const generation = this.generation_;
+		const button = /** @type {!HTMLButtonElement} */ (this.groupElement_(goog.getCssName("igroup-older-runs")));
+		const message = this.groupElement_(goog.getCssName("igroup-page-status"));
+		this.historyExpanded_ = true;
+		this.pageInFlight_ = true;
+		button.disabled = true;
+		message.textContent = "Loading older runs…";
+		try {
+			const result = this.group_ ? await backend.listGroup(this.group_, this.nextPage_) : await backend.list(this.nextPage_);
+			if (generation !== this.generation_) return;
+			const rows = /** @type {!Array<!Object<string, *>>} */ (result["invocations"] || []);
+			const seen = new Set(this.runs_.concat(this.olderRuns_).map(
+				(/** !Object<string, *> */ run) => String(run["invocationId"])));
+			this.olderRuns_.push(...rows.filter((run) => !seen.has(String(run["invocationId"]))));
+			this.nextPage_ = String(result["nextPageToken"] || "");
+			this.renderHistory_();
+			message.textContent = this.nextPage_ ? "" : "All runs loaded.";
+		} catch (_error) {
+			if (generation === this.generation_) message.textContent = "Could not load older runs.";
+		} finally {
+			if (generation === this.generation_) {
+				this.pageInFlight_ = false;
+				button.disabled = false;
+			}
+		}
+	}
+
 	/** @private */
 	renderHistory_() {
+		this.groupElement_(goog.getCssName("igroup-older-runs")).hidden = !this.nextPage_;
+		const runs = /** @type {!Array<!Object<string, *>>} */ (this.runs_.concat(this.olderRuns_));
 		/** @type {!Array<{id: string, command: string, status: !InvocationStatus, time: string,
 		 *     timeLabel: string, title: string, file: string}>} */
-		const rows = this.runs_.map((run) => {
+		const rows = runs.map((run) => {
 			const id = String(run["invocationId"]);
 			const command = ["bazel", run["command"], ...(/** @type {!Array<string>} */ (run["targetPatterns"] || []))]
 				.filter(Boolean).join(" ");
-			const result = /** @type {?Object<string, *>} */ (run["result"] || null);
-			const exit = result && result["exitCode"];
-			const name = String(result && result["exitCodeName"] || "");
-			const status = name || typeof exit === "number" ? invocationExitStatus(name, typeof exit === "number" ? exit : null)
-				: run["state"] === "INVOCATION_STATE_IN_PROGRESS" ? invocationStatus("Running", "running")
-				: run["state"] === "INVOCATION_STATE_INCOMPLETE" ? invocationStatus("Incomplete", "warning")
-				: invocationStatus("Finished", "neutral");
-			const time = String(run["finishedAt"] || run["startedAt"] || run["createdAt"] || "");
-			const timeLabel = run["finishedAt"] ? "Finished" : run["startedAt"] ? "Started" : "Recorded";
+			const result = storedExitStatus(run);
+			const status = run["state"] === COLLECTION_INCOMPLETE ? incompleteStatus(result)
+				: result || (run["state"] === "INVOCATION_STATE_IN_PROGRESS" ? invocationStatus("Running", "running")
+				: invocationStatus("Finished", "neutral"));
+			const last = run["state"] === COLLECTION_INCOMPLETE ? run["lastEventAt"] : null;
+			const time = String(run["finishedAt"] || last || run["startedAt"] || run["createdAt"] || "");
+			const timeLabel = run["finishedAt"] ? "Finished" : last ? "Last event" : run["startedAt"] ? "Started" : "Recorded";
 			return {id, command, status, time, timeLabel, title: id, file: ""};
 		});
 		const key = JSON.stringify(rows);
@@ -2523,7 +2806,16 @@ class InvocationGroupsComponent extends Component {
 		this.groupElement_(goog.getCssName("igroup-runs-table")).hidden = !rows.length;
 		if (key === this.historyKey_) return;
 		this.historyKey_ = key;
-		this.renderInvocationRows_(this.groupElement_(goog.getCssName("igroup-runs")), rows);
+		this.renderInvocationRows_(this.groupElement_(goog.getCssName("igroup-runs")), rows, true);
+	}
+
+	/** @private */
+	refreshHistoryTimes_() {
+		const list = this.groupElement_(goog.getCssName("igroup-runs"));
+		for (const time of list.querySelectorAll("time[datetime]")) {
+			const label = formatRelativeShort(time.getAttribute("datetime") || "");
+			if (time.textContent !== label) time.textContent = label;
+		}
 	}
 
 	/**
@@ -2531,18 +2823,21 @@ class InvocationGroupsComponent extends Component {
 	 * @param {!HTMLElement} list
 	 * @param {!Array<{id: string, command: string, status: !InvocationStatus, time: string,
 	 *     timeLabel: string, title: string, file: string}>} rows
+	 * @param {boolean=} relativeTime
 	 */
-	renderInvocationRows_(list, rows) {
+	renderInvocationRows_(list, rows, relativeTime = false) {
 		const focused = document.activeElement?.getAttribute("data-invocation-id");
 		dom.removeChildren(list);
-		const dates = new Intl.DateTimeFormat(undefined, {dateStyle: "medium", timeStyle: "short"});
+		const dates = new Intl.DateTimeFormat(undefined, {dateStyle: "medium", timeStyle: relativeTime ? "long" : "short"});
 		for (const row of rows) {
 			const command = dom.createDom("code", {"class": "bes-group-run-command", "title": row.command}, row.command);
 			const file = row.file ? dom.createDom("span", {"class": "bes-group-run-command text-small color-fg-muted", "title": row.file}, row.file) : null;
 			const date = new Date(row.time);
-			const displayedTime = row.time && Number.isFinite(date.getTime()) ? row.timeLabel + " " + dates.format(date) : "";
-			const time = displayedTime ? dom.createDom("time",
-				{"class": "bes-group-run-time color-fg-muted", "datetime": row.time, "title": displayedTime}, displayedTime) : null;
+			const timestamp = row.time && Number.isFinite(date.getTime()) ? row.timeLabel + " " + dates.format(date) : "";
+			const time = timestamp ? dom.createDom("time",
+				{"class": "bes-group-run-time color-fg-muted", "title": timestamp},
+				relativeTime ? formatRelativeShort(row.time) : timestamp) : null;
+			if (time) time.setAttribute("datetime", row.time);
 			const button = dom.createDom("button", {
 				"type": "button", "class": "btn-link branch-name bes-group-run-id", "data-invocation-id": row.id, "title": row.title,
 			}, row.title);
@@ -2608,7 +2903,7 @@ class InvocationGroupsComponent extends Component {
 		this.viewingUpload_ = true;
 		this.showViewer_().showReplay(invocation);
 		this.renderGroupStatus_();
-		this.selectView_("current", true);
+		this.navigateView_("current");
 	}
 
 	/**
@@ -3122,6 +3417,11 @@ class InvocationFrontier {
 			this.scroll.scrollLeft = 0;
 			this.canvas.title = "";
 		} else if (this.received_ === progress.history.length) {
+			if (progress.collectionEnded()) {
+				this.stopClock();
+				this.draw();
+				if (this.selected_) this.inspect(this.selected_);
+			}
 			return this.layout_.columns[0].length;
 		}
 		this.progress_ = progress;
@@ -3132,7 +3432,7 @@ class InvocationFrontier {
 			this.inspect(this.selected_);
 			if (!this.layout_.cells.has(this.selected_)) this.selected_ = null;
 		}
-		const running = !progress.last && this.layout_.columns[0].some((mark) => mark && mark.announcedAt !== null);
+		const running = !progress.collectionEnded() && this.layout_.columns[0].some((mark) => mark && mark.announcedAt !== null);
 		if (running && !this.clock_) {
 			this.clock_ = setInterval(() => {
 				this.draw();
@@ -3499,6 +3799,8 @@ class BuildEventViewerComponent extends Component {
 		this.cacheRefreshQueued_ = false;
 		/** @private @type {?Object<string, *>} */
 		this.cacheSummary_ = null;
+		/** @private @type {?function(!Object<string, *>):void} */
+		this.onSummary_ = null;
 
 		/** @private @type {?number} */
 		this.clockStoppedAt_ = null;
@@ -3530,8 +3832,9 @@ class BuildEventViewerComponent extends Component {
 	 * @param {string} address
 	 * @param {string} id
 	 * @param {function(string, boolean, boolean):void} onStatus
+	 * @param {function(!Object<string, *>):void} onSummary
 	 */
-	async followInvocation(address, id, onStatus) {
+	async followInvocation(address, id, onStatus, onSummary) {
 		this.stopBackend_();
 		const generation = this.loadGeneration_;
 		try {
@@ -3541,6 +3844,7 @@ class BuildEventViewerComponent extends Component {
 				return;
 			}
 			this.source_ = source;
+			this.onSummary_ = onSummary;
 			this.progress_ = new InvocationProgress(id);
 			this.connected_ = false;
 			this.clockStoppedAt_ = null;
@@ -3548,6 +3852,7 @@ class BuildEventViewerComponent extends Component {
 			this.lastCursor_ = "0";
 			this.renderSummary_();
 			this.cacheTimer_ = setInterval(() => this.refreshCacheStats_(source, id), 1500);
+			void this.refreshCacheStats_(source, id);
 			source.watch(id, () => this.lastCursor_,
 				(/** string */ cursor, /** string */ data, /** number= */ receivedAt, /** number= */ sentAt) => {
 					if (generation === this.loadGeneration_) this.receiveBuildEvent_(source, id, cursor, data, receivedAt || 0, sentAt || 0, onStatus);
@@ -3570,6 +3875,7 @@ class BuildEventViewerComponent extends Component {
 	}
 
 	stopFollowing() {
+		this.terminal_?.clearHighlight();
 		this.stopBackend_();
 	}
 
@@ -3594,8 +3900,6 @@ class BuildEventViewerComponent extends Component {
 			const arrival = receivedAt > 0 && Number.isFinite(receivedAt) ? receivedAt : this.progress_.frontierNow();
 			this.progress_.add(event, arrival, sentAt);
 			if (event.getLastMessage()) {
-				clearInterval(this.cacheTimer_);
-				this.cacheTimer_ = 0;
 				this.refreshCacheStats_(source, id, true);
 			}
 			if (!this.renderTimer_) {
@@ -3628,6 +3932,7 @@ class BuildEventViewerComponent extends Component {
 		this.cacheRefreshQueued_ = false;
 		if (this.source_) this.source_.close();
 		this.source_ = null;
+		this.onSummary_ = null;
 		this.connected_ = false;
 		this.clockStoppedAt_ = this.clockStoppedAt_ ?? Date.now();
 		clearInterval(this.clockTimer_);
@@ -3666,6 +3971,27 @@ class BuildEventViewerComponent extends Component {
 		bindViewerTabs(this.getHandler(), tabs, (index) => this.selectTab_(index));
 		this.getHandler().listen(this.getElement_(goog.getCssName("bes-download-log")),
 			events.EventType.CLICK, () => this.downloadLog_());
+		const search = this.getElement_(goog.getCssName("bes-log-search"));
+		this.getHandler().listen(search, "input", () => this.searchTerminal_());
+		this.getHandler().listen(search, "keydown", (/** !events.BrowserEvent */ event) => {
+			event.stopPropagation();
+			if (event.key !== "Enter") return;
+			event.preventDefault();
+			this.searchTerminal_(event.shiftKey ? -1 : 1);
+		});
+	}
+
+	/**
+	 * @private
+	 * @param {number=} direction
+	 * @param {boolean=} reveal
+	 */
+	searchTerminal_(direction = 0, reveal = true) {
+		if (!this.terminal_) return;
+		const input = /** @type {!HTMLInputElement} */ (this.getElement_(goog.getCssName("bes-log-search")));
+		const result = this.getElement_(goog.getCssName("bes-log-search-result"));
+		const message = this.terminal_.search(input.value, direction, reveal);
+		if (result.textContent !== message) result.textContent = message;
 	}
 
 	/**
@@ -3674,10 +4000,14 @@ class BuildEventViewerComponent extends Component {
 	 * @param {boolean=} skipRender
 	 */
 	selectTab_(index, skipRender = false) {
+		if (this.activeTab_ === 1 && index !== 1) this.terminal_?.clearHighlight();
 		this.activeTab_ = index;
 		showViewerTab(this.getElement_(goog.getCssName("bes-tabs")),
 			this.getElement_(CSS_RESULTS), index);
-		if (!skipRender) this.renderTab_();
+		if (!skipRender) {
+			this.renderTab_();
+			if (index === 1) this.searchTerminal_(0, false);
+		}
 	}
 
 	/** @private */
@@ -3700,7 +4030,7 @@ class BuildEventViewerComponent extends Component {
 				this.renderOverview_();
 				break;
 			case 1:
-				if (this.terminal_) this.terminal_.update(this.progress_.logChunks);
+				if (this.terminal_?.update(this.progress_.logChunks)) this.searchTerminal_(0, false);
 				/** @type {!HTMLButtonElement} */ (
 					this.getElement_(goog.getCssName("bes-download-log"))
 				).disabled = this.progress_.logChunks.length === 0;
@@ -3767,6 +4097,8 @@ class BuildEventViewerComponent extends Component {
 		dom.removeChildren(stats);
 		stats.hidden = true;
 		if (this.terminal_) this.terminal_.reset();
+		/** @type {!HTMLInputElement} */ (this.getElement_(goog.getCssName("bes-log-search"))).value = "";
+		this.getElement_(goog.getCssName("bes-log-search-result")).textContent = "";
 		dom.removeChildren(this.getElement_(goog.getCssName("bes-critical-path")));
 		dom.removeChildren(this.getElement_(goog.getCssName("bes-tests")));
 		dom.removeChildren(this.getElement_(goog.getCssName("bes-metrics")));
@@ -3787,7 +4119,7 @@ class BuildEventViewerComponent extends Component {
 		const label = frontierMarkLabel(mark);
 		const state = mark.event
 			? (mark === this.progress_.last ? "Final event" : "Received")
-			: this.progress_.last ? "Unreceived" : "Expected";
+			: this.progress_.collectionEnded() ? "Unreceived" : "Expected";
 		const parents = mark.parents.length;
 		const children = mark.children.length;
 		const text = state + " · " + label + " · " + parents + (parents === 1 ? " parent" : " parents") +
@@ -3797,7 +4129,7 @@ class BuildEventViewerComponent extends Component {
 		const wait = mark.event ? null : frontierWait(mark, this.progress_.frontierNow());
 		timer.hidden = wait === null;
 		if (wait !== null) {
-			timer.textContent = (this.progress_.last ? "Waited " : "Waiting ") + formatFrontierWait(wait);
+			timer.textContent = (this.progress_.collectionEnded() ? "Waited " : "Waiting ") + formatFrontierWait(wait);
 			timer.setAttribute("datetime", "PT" + wait + "S");
 		}
 		if (this.inspected_ === mark && this.inspectedEvent_ === mark.event) return;
@@ -3861,7 +4193,7 @@ class BuildEventViewerComponent extends Component {
 		this.renderOverviewCriticalPath_();
 		const pending = this.frontier_ ? this.frontier_.update(this.progress_) : 0;
 		const received = this.progress_.history.length + " received";
-		this.getElement_(goog.getCssName("bes-frontier-count")).textContent = this.progress_.last
+		this.getElement_(goog.getCssName("bes-frontier-count")).textContent = this.progress_.collectionEnded()
 			? "Stream ended · " + (pending ? pending + " unreceived · " : "") + received
 			: pending + " expected · " + received;
 		this.renderMnemonicBreakdown_();
@@ -3869,7 +4201,7 @@ class BuildEventViewerComponent extends Component {
 
 	/** @private */
 	renderMnemonicBreakdown_() {
-		const key = this.progress_.receivedActions + "/" + Boolean(this.progress_.last);
+		const key = this.progress_.receivedActions + "/" + this.progress_.collectionEnded();
 		if (key === this.mnemonicRenderKey_) return;
 		this.mnemonicRenderKey_ = key;
 		const body = this.getElement_(goog.getCssName("bes-frontier-mnemonics"));
@@ -3877,7 +4209,7 @@ class BuildEventViewerComponent extends Component {
 		const counts = this.progress_.mnemonics;
 		if (!counts.size) {
 			body.appendChild(dom.createDom("p", "color-fg-muted text-small mb-0",
-				this.progress_.last ? "No action events received." : "Waiting for action events."));
+				this.progress_.collectionEnded() ? "No action events received." : "Waiting for action events."));
 			return;
 		}
 		const list = dom.createDom("ul", "bes-mnemonic-counts");
@@ -3915,7 +4247,25 @@ class BuildEventViewerComponent extends Component {
 		try {
 			const summary = await source.get(id);
 			if (generation !== this.loadGeneration_) return;
+			const previous = this.cacheSummary_;
 			this.cacheSummary_ = summary;
+			const state = String(summary["state"] || "");
+			const ended = state === COLLECTION_COMPLETE || state === COLLECTION_INCOMPLETE;
+			const endedAt = ended ? summaryTime(summary, "lastEventAt") : null;
+			const changed = state !== this.progress_.collectionState || endedAt !== this.progress_.collectionEndedAt ||
+				JSON.stringify(previous?.["result"] || null) !== JSON.stringify(summary["result"] || null);
+			this.progress_.collectionState = state;
+			this.progress_.collectionEndedAt = endedAt;
+			if (ended && this.activeTab_ !== 0) this.frontier_?.stopClock();
+			if (state === COLLECTION_COMPLETE) {
+				clearInterval(this.cacheTimer_);
+				this.cacheTimer_ = 0;
+			}
+			if (changed) {
+				this.onSummary_?.(summary);
+				if (this.progress_.history.length) this.renderResults_();
+				else this.renderSummary_();
+			}
 			if (this.activeTab_ === 3 && this.progress_.history.length) this.renderCacheStats_();
 		} catch (_error) {
 			// BES replay can continue independently of the summary request.
@@ -3958,7 +4308,7 @@ class BuildEventViewerComponent extends Component {
 		/** @type {!Array<!Array<string>>} */
 		const entries = [];
 		entries.push(["Remote hits reported by Bazel", hits === null
-			? (this.source_ && !this.progress_.last ? "Awaiting build metrics" : "Unavailable")
+			? (this.source_ && !this.progress_.collectionEnded() ? "Awaiting build metrics" : "Unavailable")
 			: hits.toLocaleString()]);
 		const lookup = counts.get("ac_lookup");
 		if (lookup) {
@@ -4013,7 +4363,7 @@ class BuildEventViewerComponent extends Component {
 
 	/** @private */
 	renderTests_() {
-		const ended = !!this.progress_.finished || !!this.progress_.last || !!this.progress_.file;
+		const ended = !!this.progress_.finished || this.progress_.collectionEnded() || !!this.progress_.file;
 		const key = this.progress_.tests.length + "/" + ended;
 		if (key === this.testsRenderKey_) return;
 		this.testsRenderKey_ = key;
@@ -4167,7 +4517,7 @@ class BuildEventViewerComponent extends Component {
 		const body = this.getElement_(goog.getCssName("bes-metrics"));
 		const metrics = this.progress_.metrics;
 		if (!metrics) {
-			const ended = this.progress_.finished || this.progress_.last || this.progress_.file;
+			const ended = this.progress_.finished || this.progress_.collectionEnded() || this.progress_.file;
 			const message = ended ? "No build metrics were reported." : "Waiting for build metrics…";
 			if (body.textContent !== message) {
 				dom.removeChildren(body);
@@ -4358,7 +4708,7 @@ class BuildEventViewerComponent extends Component {
 	renderOverviewCriticalPath_() {
 		const logs = this.progress_.toolLogs;
 		const duration = criticalPathMillis(this.progress_.metrics);
-		const ended = this.progress_.finished || this.progress_.last;
+		const ended = this.progress_.finished || this.progress_.collectionEnded();
 		if (!ended && !this.progress_.file) return;
 		if (this.renderedPathLogs_ === logs && this.renderedPathTime_ === duration) return;
 		this.renderedPathLogs_ = logs;
@@ -4752,7 +5102,7 @@ class BuildEventViewerComponent extends Component {
 		command.id = this.getId() + "-command";
 		const startedEvent = this.progress_.started;
 		const started = startedEvent && startedEvent.getStarted();
-		const start = startedEvent ? eventTimestampMillis(startedEvent) : null;
+		const start = (startedEvent ? eventTimestampMillis(startedEvent) : null) ?? summaryTime(this.cacheSummary_, "startedAt");
 		const finishedEvent = this.progress_.finished;
 		const file = this.progress_.file;
 		const headingId = this.getElement_(goog.getCssName("bes-heading-id"));
@@ -4772,7 +5122,12 @@ class BuildEventViewerComponent extends Component {
 		this.commandToggle_ = toggle;
 		const badge = this.getElement_(goog.getCssName("bes-heading-state"));
 		const failure = invocationFailure(this.progress_);
-		let status = replayResultStatus(this.progress_, failure);
+		const stored = storedExitStatus(this.cacheSummary_);
+		const outcome = finishedEvent || failure ? replayResultStatus(this.progress_, failure) : stored;
+		const state = this.progress_.collectionState;
+		let status = state === COLLECTION_INCOMPLETE ? incompleteStatus(outcome)
+			: outcome || (state === COLLECTION_COMPLETE ? invocationStatus("Complete", "neutral")
+				: replayResultStatus(this.progress_, failure));
 		if (!status) {
 			if (!this.source_ && this.progress_.history.length) {
 				status = invocationStatus("Disconnected", "neutral");
@@ -4841,22 +5196,26 @@ class BuildEventViewerComponent extends Component {
 
 		clearInterval(this.clockTimer_);
 		this.clockTimer_ = 0;
-		const finish = finishedEvent ? eventTimestampMillis(finishedEvent) : null;
-		const active = !finishedEvent && !this.progress_.last && !file && this.connected_;
+		const finish = (finishedEvent ? eventTimestampMillis(finishedEvent) : null) ?? summaryTime(this.cacheSummary_, "finishedAt");
+		const observedEnd = this.progress_.collectionEndedAt;
+		const observedStart = observedEnd === null ? null : summaryTime(this.cacheSummary_, "createdAt");
+		const active = finish === null && !finishedEvent && !this.progress_.collectionEnded() && !file && this.connected_;
 		const updateClock = () => {
-			const end = finish ?? (finishedEvent || this.progress_.last || file
-				? null
-				: active ? Date.now() : this.clockStoppedAt_);
-			if (start === null || end === null) {
+			const end = finish ?? observedEnd ?? (finishedEvent || this.progress_.collectionEnded() || file
+				? null : active ? Date.now() : this.clockStoppedAt_);
+			const beginning = finish === null ? observedStart ?? start : start;
+			if (beginning === null || end === null) {
 				elapsed.textContent = "—";
 				elapsed.removeAttribute("datetime");
+				elapsed.removeAttribute("title");
 				return;
 			}
-			const duration = Math.max(0, end - start);
+			const duration = Math.max(0, end - beginning);
 			const minutes = Math.floor(duration / 60000);
 			const seconds = (duration % 60000 / 1000).toFixed(3);
 			elapsed.textContent = minutes ? minutes + "m " + seconds.padStart(6, "0") + "s" : seconds + "s";
 			elapsed.setAttribute("datetime", "PT" + duration / 1000 + "S");
+			elapsed.title = finish === null && observedStart !== null ? "From the first to the last received event" : "";
 		};
 		updateClock();
 		if (active && start !== null) this.clockTimer_ = setInterval(updateClock, 250);

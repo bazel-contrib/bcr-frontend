@@ -120,3 +120,28 @@ func TestProxyFileCacheAndMetrics(t *testing.T) {
 		}
 	}
 }
+
+func TestArchiveByteStreamRoundTrip(t *testing.T) {
+	cache, err := NewFileCache(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	conn := connectCache(t, NewServer(cache, nil, nil))
+	archive, err := NewBlobArchive(conn, "archives/build-events")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	blob := make([]byte, 3<<20)
+	digest := fmt.Sprintf("%x", sha256.Sum256(blob))
+	for range 2 {
+		if err := archive.Put(ctx, digest, blob); err != nil {
+			t.Fatal(err)
+		}
+	}
+	read, err := archive.Get(ctx, digest, int64(len(blob)))
+	if err != nil || sha256.Sum256(read) != sha256.Sum256(blob) {
+		t.Fatalf("archive read: %d bytes, %v", len(read), err)
+	}
+}

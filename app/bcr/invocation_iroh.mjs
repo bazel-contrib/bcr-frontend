@@ -76,10 +76,10 @@ function openBackend(ticket) {
 	}
 
 	return {
-		list: async () => JSON.parse(await (await client()).list()),
+		list: async (token) => JSON.parse(await (await client()).list(token || undefined)),
 		listGroups: () => readGroup((transport) => transport.list_groups()),
-		listGroup: (name) => readGroup((transport) => transport.list_group(name)),
-		groupMetrics: (name) => readGroup((transport) => transport.group_metrics(name)),
+		listGroup: (name, token) => readGroup((transport) => transport.list_group(name, token || undefined)),
+		groupMetrics: (name, days) => readGroup((transport) => transport.group_metrics(name, days)),
 		get: async (id) => JSON.parse(await (await client()).get(id)),
 		watch: (...args) => void follow(...args),
 		close: () => {

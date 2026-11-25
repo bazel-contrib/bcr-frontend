@@ -12,6 +12,7 @@ const soy = goog.require("goog.soy");
 const { Component } = goog.require("stack.ui");
 const { actionQuery } = goog.require("soy.bcrfrontend.actionQuery");
 const { mnemonicColor } = goog.require("bcrfrontend.actionColors");
+const { renderMnemonicFilters } = goog.require("bcrfrontend.mnemonicFilters");
 
 const MAX_FILE_BYTES = 256 * 1024 * 1024;
 const NODE_WIDTH = 186;
@@ -898,7 +899,8 @@ class ActionQuery extends Component {
 		this.filename_ = file.name;
 		this.suppressed_.clear();
 		this.selected_ = -1;
-		this.renderMnemonics_(graph);
+		renderMnemonicFilters(this.queryElement_("action-query-mnemonics"), graph.nodes.map((node) => node.action.getMnemonic()));
+		this.queryElement_("action-query-filters").hidden = !graph.nodes.length;
 
 		const count = graph.nodes.length;
 		const drop = this.queryElement_("action-query-drop");
@@ -910,36 +912,6 @@ class ActionQuery extends Component {
 		status.textContent = count ? "" : file.name + " contains no actions.";
 		this.updateGraph_(graph);
 		if (count && focusGraph) this.canvas_?.focus({preventScroll: true});
-	}
-
-	/**
-	 * @private
-	 * @param {!ActionGraph} graph
-	 */
-	renderMnemonics_(graph) {
-		/** @type {!Map<string, number>} */
-		const counts = new Map();
-		for (const node of graph.nodes) {
-			const mnemonic = node.action.getMnemonic();
-			counts.set(mnemonic, (counts.get(mnemonic) || 0) + 1);
-		}
-		const list = this.queryElement_("action-query-mnemonics");
-		dom.removeChildren(list);
-		/** @type {!Array<string>} */
-		const names = Array.from(counts.keys());
-		names.sort((a, b) =>
-			(counts.get(b) || 0) - (counts.get(a) || 0) || a.localeCompare(b));
-		for (const mnemonic of names) {
-			const input = dom.createDom("input", {"type": "checkbox", "value": mnemonic});
-			input.checked = true;
-			const swatch = dom.createDom("span", {"class": "action-query-swatch", "aria-hidden": "true"});
-			if (mnemonic) swatch.style.backgroundColor = mnemonicColor(mnemonic);
-			const name = dom.createDom("span", null, mnemonic || "(No mnemonic)");
-			const count = dom.createDom("span", "color-fg-muted", (counts.get(mnemonic) || 0).toLocaleString());
-			list.appendChild(dom.createDom("label", "action-query-mnemonic text-small", input, swatch, name, count));
-		}
-		this.queryElement_("action-query-filters").hidden = !names.length;
-		list.scrollTop = 0;
 	}
 
 	/**

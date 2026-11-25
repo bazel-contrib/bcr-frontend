@@ -56,8 +56,12 @@ async function proxyInvocationApi(t, port) {
 	let watchPaused;
 	let resumeWatch = () => {};
 	const cursors = [];
+	const metricWindows = [];
+	let pageSize;
 	const server = createServer(async (request, response) => {
 		const url = new URL(request.url, "http://127.0.0.1:" + port);
+		if (url.pathname.endsWith("/metrics")) metricWindows.push(url.searchParams.get("window_days"));
+		if (pageSize && url.pathname === "/api/invocations") url.searchParams.set("page_size", pageSize);
 		if (url.pathname.endsWith("/events")) {
 			cursors.push(url.searchParams.get("after"));
 			activeWatch = response;
@@ -81,6 +85,8 @@ async function proxyInvocationApi(t, port) {
 	return {
 		port: server.address().port,
 		cursors,
+		metricWindows,
+		limitPages(size) { pageSize = size; },
 		interruptWatch() {
 			watchPaused = new Promise((resolve) => { resumeWatch = resolve; });
 			activeWatch.destroy();
@@ -198,7 +204,7 @@ test("browser Iroh viewer follows real Bazel events and invocation groups", { ti
 	const macShortcuts = filePage.getByRole("region", { name: "Keyboard Shortcuts" });
 	assert.equal(await macShortcuts.locator("kbd", { hasText: /^Option$/ }).count(), 6);
 	assert.equal(await filePage.getByRole("link", { name: "build event stream backend", exact: true }).getAttribute("href"),
-		"https://github.com/bazel-contrib/bcr-frontend/releases");
+		"https://github.com/bazel-contrib/bcr-frontend");
 	await filePage.getByText("Upload a build events file or connect to a build event stream backend.", { exact: true }).waitFor();
 	const fileInput = filePage.getByLabel("Choose a binary build event file");
 	const uploadsTab = filePage.getByRole("region", { name: "Upload", exact: true }).getByRole("link", { name: "Uploads", exact: true });
@@ -331,7 +337,12 @@ test("browser Iroh viewer follows real Bazel events and invocation groups", { ti
 	await page.keyboard.press("Alt+Shift+Digit5");
 	const usage = page.getByRole("region", { name: "Usage", exact: true });
 	await usage.getByRole("figure", { name: "Build event flow from Bazel to the viewer" }).waitFor();
-	for (const snippet of ["besserver", "invocation-iroh --backend-port", "--build_metadata=igroup=release"]) {
+	for (const snippet of [
+		"bazel build //cmd/besserver",
+		"cargo +1.95.0 build --locked --release",
+		"invocation-iroh --backend-port",
+		"--build_metadata=igroup=release",
+	]) {
 		await usage.locator("pre:visible").filter({ hasText: snippet }).waitFor();
 	}
 	assert.match(await usage.innerText(), /bcr-iroh-v1:eyJlbmRwb2ludCI6…/);
@@ -387,25 +398,30 @@ test("browser Iroh viewer follows real Bazel events and invocation groups", { ti
 		assert.equal(new URL(page.url()).pathname, "/tools/invocations/release/" + firstRun.id);
 		assert.equal(new URL(page.url()).searchParams.get("follow"), "auto");
 		const activeFrontier = page.getByRole("region", { name: "Build frontier" });
-		const waitTimer = activeFrontier.locator('time[aria-label="Time waiting for event"]');
-		await activeFrontier.locator("canvas").click({ position: { x: 25, y: 35 } });
-		await waitTimer.waitFor();
-		await page.waitForFunction(() => {
-			const timer = document.querySelector('time[aria-label="Time waiting for event"]:not([hidden])');
-			return timer && Number(timer.getAttribute("datetime")?.slice(2, -1)) >= 2;
-		});
+		const inspectWaitingEvent = async () => {
+			await activeFrontier.getByText(/^[1-9]\d* expected · /).waitFor();
+			const canvas = await activeFrontier.locator("canvas").elementHandle();
+			await page.waitForFunction((canvas) => {
+				const timer = document.querySelector('time[aria-label="Time waiting for event"]:not([hidden])');
+				if (timer && Number(timer.getAttribute("datetime")?.slice(2, -1)) >= 2) return true;
+				// A new event can replace the selected node while the build is running.
+				canvas.dispatchEvent(new KeyboardEvent("keydown", {key: "Home", bubbles: true, cancelable: true}));
+				return false;
+			}, canvas, {polling: 200});
+		};
+		await inspectWaitingEvent();
 		await page.reload();
 		await invocationHeading(firstRun.id).waitFor();
 		await buildStatus.getByText("Building", { exact: true }).waitFor();
-		await activeFrontier.locator("canvas").press("Home");
-		assert.ok(Number((await waitTimer.getAttribute("datetime")).slice(2, -1)) >= 2);
+		await inspectWaitingEvent();
 		nextRun = startGroupedBuild();
 		await runsTab.click();
 		const runningRow = runs.getByRole("row", { name: new RegExp(nextRun.id) });
 		await runningRow.getByRole("img", { name: "Running", exact: true }).waitFor();
 		await runningRow.locator(".color-fg-attention .bes-invocation-spinner").waitFor();
 		await runningRow.getByText("bazel build //:hello", { exact: true }).waitFor();
-		assert.match(await runningRow.locator("time").innerText(), /^Started /);
+		assert.equal(await runningRow.locator("time").innerText(), "just now");
+		assert.match(await runningRow.locator("time").getAttribute("title"), /^Started /);
 		assert.equal(await runningRow.evaluate(row => getComputedStyle(row).display), "table-row");
 		assert.ok(!(await invocationHeading(firstRun.id).isVisible()));
 		await currentTab.click();
@@ -436,12 +452,12 @@ test("browser Iroh viewer follows real Bazel events and invocation groups", { ti
 	assert.equal(await savedIcon.getAttribute("title"), "SUCCESS (0)");
 	assert.equal(await savedRow.locator("td").first().innerText(), "");
 	assert.equal(await savedRow.locator(".color-fg-success svg").count(), 1);
-	assert.match(await savedRow.locator("time").innerText(), /^Finished /);
+	assert.match(await savedRow.locator("time").getAttribute("title"), /^Finished /);
 	assert.equal(await savedRow.locator("time").evaluate((time) => getComputedStyle(time).whiteSpace), "nowrap");
 	await savedRow.getByRole("button", { name: firstRun.id }).press("Enter");
 	await invocationHeading(firstRun.id).waitFor();
 	const selected = new URL(page.url());
-	assert.equal(selected.pathname, "/tools/invocations/release/" + firstRun.id);
+	assert.equal(selected.pathname, "/tools/invocations/release/" + firstRun.id + "/current");
 	assert.equal(selected.searchParams.has("group"), false);
 	assert.equal(selected.searchParams.has("invocation"), false);
 	assert.equal(selected.searchParams.get("follow"), "manual");
@@ -450,9 +466,19 @@ test("browser Iroh viewer follows real Bazel events and invocation groups", { ti
 	await page.goto(firstRunUrl);
 	await invocationHeading(firstRun.id).waitFor();
 	assert.equal(await followBuilds.isChecked(), false);
-	await runsTab.click();
-	assert.equal(new URL(page.url()).searchParams.get("follow"), "auto");
-	assert.ok(await followBuilds.isChecked());
+	for (const [view, link] of [["runs", runsTab], ["metrics", groupView("Metrics")], ["tests", groupView("Tests")], ["current", lastTab]]) {
+		await link.click();
+		assert.equal(new URL(page.url()).pathname, selected.pathname.replace(/current$/, view));
+		await page.reload();
+		await page.waitForFunction((view) => {
+			const panel = document.getElementById("igroup-panel-" + view);
+			return panel && !panel.hidden;
+		}, view);
+		assert.equal(await link.getAttribute("aria-current"), "location");
+		assert.equal(new URL(page.url()).searchParams.get("follow"), "manual");
+		if (view === "current") await invocationHeading(firstRun.id).waitFor();
+	}
+	await followBuilds.check();
 	await lastTab.click();
 	const longTargets = Array.from({length: 16}, (_, index) => "long_invocation_command_target_" + index);
 	await appendFile(join(dir, "BUILD.bazel"),
@@ -507,7 +533,9 @@ test("browser Iroh viewer follows real Bazel events and invocation groups", { ti
 	await page.setViewportSize({width: 1280, height: 720});
 	await groupView("Metrics").click();
 	const builds = page.getByRole("region", { name: "Metrics", exact: true });
+	await page.getByLabel("Time range", { exact: true }).selectOption("7");
 	await builds.getByText("Average build time", { exact: true }).waitFor();
+	assert.equal(api.metricWindows.at(-1), "7");
 	const invocationCount = builds.locator("dl > div").filter({ has: page.getByText("Invocations", { exact: true }) });
 	assert.equal(await invocationCount.locator("dd").innerText(), "3");
 	assert.ok(await builds.locator(".bes-group-totals + .bes-group-chart").isVisible());
@@ -525,7 +553,7 @@ test("browser Iroh viewer follows real Bazel events and invocation groups", { ti
 	assert.equal(await metricBars.count(), 3);
 	assert.match(await metricBars.first().getAttribute("title"), new RegExp(shortRun.id));
 	const newestBuildBar = builds.getByRole("link", { name: new RegExp(shortRun.id + ".*Build time") });
-	assert.match(await newestBuildBar.getAttribute("href"), new RegExp("/tools/invocations/release/" + shortRun.id + "\\?follow=manual"));
+	assert.match(await newestBuildBar.getAttribute("href"), new RegExp("/tools/invocations/release/" + shortRun.id + "/current\\?follow=manual"));
 	assert.ok(await builds.locator(".bes-chart-separator").first().isVisible());
 	assert.ok(await metricBars.first().evaluate((bar) => parseFloat(bar.style.width) > 0));
 	const barValue = (title) => Number(title.match(/ · Build time · ([\d,.]+) s/)[1].replaceAll(",", ""));
@@ -550,7 +578,7 @@ test("browser Iroh viewer follows real Bazel events and invocation groups", { ti
 	assert.ok(await builds.getByLabel("Metric 4", { exact: true }).locator('option', { hasText: "Output size" }).isDisabled());
 	await newestBuildBar.press("Enter");
 	await invocationHeading(shortRun.id).waitFor();
-	assert.equal(new URL(page.url()).pathname, "/tools/invocations/release/" + shortRun.id);
+	assert.equal(new URL(page.url()).pathname, "/tools/invocations/release/" + shortRun.id + "/current");
 	assert.equal(new URL(page.url()).searchParams.get("follow"), "manual");
 	await followBuilds.check();
 	await groupView("Metrics").click();
@@ -632,7 +660,22 @@ test("browser Iroh viewer follows real Bazel events and invocation groups", { ti
 	assert.match(await workspace.innerText(), /^Workspace /);
 	assert.ok((await invocationTabs.boundingBox()).y < overviewOrder[0].y);
 	await openTerminal.click();
-	assert.match(await page.getByRole("tabpanel", { name: "Terminal" }).innerText(), /missing test symbol/);
+	const terminalPanel = page.getByRole("tabpanel", { name: "Terminal" });
+	assert.match(await terminalPanel.innerText(), /missing test symbol/);
+	const terminalSearch = terminalPanel.getByRole("searchbox", { name: "Search terminal" });
+	await terminalSearch.pressSequentially("FIXTURE.C:7");
+	await terminalPanel.getByRole("status").getByText(/^1 of \d+$/).waitFor();
+	assert.equal(await page.evaluate(() => [...CSS.highlights.get("bes-terminal-match")][0].toString()), "fixture.c:7");
+	assert.equal(await terminalSearch.evaluate((input) => document.activeElement === input), true);
+	await terminalSearch.press("Shift+Enter");
+	const lastMatch = await terminalPanel.getByRole("status").innerText();
+	assert.match(lastMatch, /^(\d+) of \1$/);
+	await terminalSearch.press("Enter");
+	await terminalPanel.getByRole("status").getByText(/^1 of \d+$/).waitFor();
+	await terminalSearch.fill("missing-needle-for-terminal-search");
+	await terminalPanel.getByRole("status").getByText("No matches").waitFor();
+	await terminalSearch.fill("");
+	assert.equal(await page.evaluate(() => CSS.highlights.has("bes-terminal-match")), false);
 	assert.equal(await inlineLog.isVisible(), false);
 	assert.equal(await statistics.isVisible(), false);
 	assert.ok(await invocationTabs.isVisible());
@@ -690,12 +733,25 @@ test("browser Iroh viewer follows real Bazel events and invocation groups", { ti
 	await connectGroup.click();
 	await backendStatus.getByText(/Watching group saved/).waitFor();
 	assert.equal(await backendStatus.locator("code").innerText(), "--build_metadata=igroup=saved");
-	const savedGroupPath = new URL(page.url()).pathname;
+	const savedRunPath = "/tools/invocations/saved/" + id;
+	await page.waitForURL((url) => url.pathname === savedRunPath + "/metrics");
 	await page.getByLabel("Choose a binary build event file").setInputFiles(binaryEvents);
 	await page.getByText(/events\.bep ·/).waitFor();
-	assert.equal(new URL(page.url()).pathname, savedGroupPath);
+	assert.equal(new URL(page.url()).pathname, savedRunPath + "/current");
 	await backendStatus.getByText(/Watching group saved/).waitFor();
 	await page.getByRole("region", { name: "Upload", exact: true }).getByRole("link", { name: "Uploads", exact: true }).click();
 	await page.getByRole("table", { name: "Uploaded invocations" }).getByRole("button", { name: id, exact: true }).waitFor();
+	api.limitPages(2);
+	await backendForm.getByLabel("Group", { exact: true }).fill("release");
+	await connectGroup.click();
+	await backendStatus.getByText(/Watching group release/).waitFor();
+	await runsTab.click();
+	const older = page.getByRole("button", { name: "Load older runs" });
+	await older.waitFor();
+	assert.equal(await runs.locator("tbody tr").count(), 2);
+	await older.click();
+	await page.getByText("All runs loaded.", { exact: true }).waitFor();
+	assert.equal(await runs.locator("tbody tr").count(), 4);
+	await runs.getByRole("button", { name: firstRun.id, exact: true }).waitFor();
 	assert.deepEqual(errors, []);
 });

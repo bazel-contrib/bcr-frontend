@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	re "github.com/bazelbuild/remote-apis/build/bazel/remote/execution/v2"
 	"github.com/bazelbuild/remote-apis/build/bazel/semver"
@@ -32,7 +33,8 @@ type fileCache struct {
 	re.UnimplementedCapabilitiesServer
 	bs.UnimplementedByteStreamServer
 
-	root string
+	root   string
+	budget *diskBudget
 }
 
 // NewFileCache stores SHA-256 blobs and action results in separate on-disk namespaces.
@@ -101,27 +103,131 @@ func (f *fileCache) newTemp(path string) (*os.File, error) {
 	return file, fileError(err)
 }
 
-func publishFile(file *os.File, path string) error {
+func (f *fileCache) publishFile(file *os.File, path string, size int64) error {
 	if err := file.Sync(); err != nil {
 		return fileError(err)
 	}
 	if err := file.Close(); err != nil {
 		return fileError(err)
 	}
-	return fileError(os.Rename(file.Name(), path))
+	if f.budget == nil {
+		return fileError(os.Rename(file.Name(), path))
+	}
+	b := f.budget
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	old := b.entries[path]
+	if old != nil && old.Value.(*diskEntry).pins > 0 {
+		return status.Error(codes.ResourceExhausted, "cache entry is being read")
+	}
+	if err := os.Rename(file.Name(), path); err != nil {
+		return fileError(err)
+	}
+	if old != nil {
+		b.forget(old)
+	}
+	now := time.Now()
+	_ = os.Chtimes(path, now, now)
+	b.add(&diskEntry{path: path, size: size})
+	b.reserved -= size
+	return nil
+}
+
+type cacheUpload struct {
+	cache *fileCache
+	file  *os.File
+	path  string
+	cost  int64
+}
+
+func (f *fileCache) startUpload(path string, size int64) (*cacheUpload, error) {
+	upload := &cacheUpload{cache: f, path: path}
+	if f.budget != nil {
+		upload.cost = f.budget.cost(size)
+		if err := f.budget.reserve(upload.cost); err != nil {
+			return nil, err
+		}
+	}
+	file, err := f.newTemp(path)
+	if err != nil {
+		upload.release()
+		return nil, err
+	}
+	upload.file = file
+	return upload, nil
+}
+
+func (u *cacheUpload) release() {
+	if u.file != nil {
+		u.file.Close()
+		os.Remove(u.file.Name())
+	}
+	if u.cost != 0 {
+		b := u.cache.budget
+		b.mu.Lock()
+		b.reserved -= u.cost
+		b.mu.Unlock()
+	}
+}
+
+func (u *cacheUpload) publish() error {
+	if err := u.cache.publishFile(u.file, u.path, u.cost); err != nil {
+		return err
+	}
+	u.cost = 0
+	return nil
 }
 
 func (f *fileCache) writeFile(path string, data []byte) error {
-	file, err := f.newTemp(path)
+	upload, err := f.startUpload(path, int64(len(data)))
 	if err != nil {
 		return err
 	}
-	defer os.Remove(file.Name())
-	defer file.Close()
-	if _, err := file.Write(data); err != nil {
+	defer upload.release()
+	if _, err := upload.file.Write(data); err != nil {
 		return fileError(err)
 	}
-	return publishFile(file, path)
+	return upload.publish()
+}
+
+func (f *fileCache) open(path string) (*os.File, func(), error) {
+	b := f.budget
+	var entry *diskEntry
+	if b != nil {
+		b.mu.Lock()
+		defer b.mu.Unlock()
+		elem := b.entries[path]
+		if elem == nil {
+			return nil, nil, fileError(os.ErrNotExist)
+		}
+		entry = elem.Value.(*diskEntry)
+		b.touch(elem)
+	}
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, nil, fileError(err)
+	}
+	if entry != nil {
+		entry.pins++
+	}
+	return file, func() {
+		file.Close()
+		if entry != nil {
+			b.mu.Lock()
+			entry.pins--
+			b.mu.Unlock()
+		}
+	}, nil
+}
+
+func (f *fileCache) readFile(path string) ([]byte, error) {
+	file, closeFile, err := f.open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer closeFile()
+	data, err := io.ReadAll(file)
+	return data, fileError(err)
 }
 
 func (f *fileCache) hasBlob(instance string, digest *re.Digest) error {
@@ -131,7 +237,18 @@ func (f *fileCache) hasBlob(instance string, digest *re.Digest) error {
 	if digest.SizeBytes == 0 {
 		return nil
 	}
-	info, err := os.Stat(f.path(instance, "cas", digest))
+	path := f.path(instance, "cas", digest)
+	if f.budget != nil {
+		b := f.budget
+		b.mu.Lock()
+		defer b.mu.Unlock()
+		elem := b.entries[path]
+		if elem == nil {
+			return fileError(os.ErrNotExist)
+		}
+		b.touch(elem)
+	}
+	info, err := os.Stat(path)
 	if err != nil {
 		return fileError(err)
 	}
@@ -145,20 +262,19 @@ func (f *fileCache) readBlob(instance string, digest *re.Digest) ([]byte, error)
 	if err := f.hasBlob(instance, digest); err != nil || digest.SizeBytes == 0 {
 		return nil, err
 	}
-	data, err := os.ReadFile(f.path(instance, "cas", digest))
-	return data, fileError(err)
+	return f.readFile(f.path(instance, "cas", digest))
 }
 
-func (f *fileCache) GetActionResult(_ context.Context, req *re.GetActionResultRequest) (*re.ActionResult, error) {
+func (f *fileCache) GetActionResult(ctx context.Context, req *re.GetActionResultRequest) (*re.ActionResult, error) {
 	if err := checkFunction(req.DigestFunction); err != nil {
 		return nil, err
 	}
 	if err := checkDigest(req.ActionDigest); err != nil {
 		return nil, err
 	}
-	data, err := os.ReadFile(f.path(req.InstanceName, "ac", req.ActionDigest))
+	data, err := f.readFile(f.path(req.InstanceName, "ac", req.ActionDigest))
 	if err != nil {
-		return nil, fileError(err)
+		return nil, err
 	}
 	result := new(re.ActionResult)
 	if err := proto.Unmarshal(data, result); err != nil {
@@ -170,12 +286,8 @@ func (f *fileCache) GetActionResult(_ context.Context, req *re.GetActionResultRe
 		}
 	}
 	for _, dir := range result.OutputDirectories {
-		for _, digest := range []*re.Digest{dir.GetTreeDigest(), dir.GetRootDirectoryDigest()} {
-			if digest != nil {
-				if err := f.hasBlob(req.InstanceName, digest); err != nil {
-					return nil, err
-				}
-			}
+		if err := f.checkOutputDirectory(ctx, req.InstanceName, dir); err != nil {
+			return nil, err
 		}
 	}
 	for _, digest := range []*re.Digest{result.StdoutDigest, result.StderrDigest} {
@@ -186,6 +298,69 @@ func (f *fileCache) GetActionResult(_ context.Context, req *re.GetActionResultRe
 		}
 	}
 	return result, nil
+}
+
+// The tree blob can survive eviction of the files it describes.
+func (f *fileCache) checkOutputDirectory(ctx context.Context, instance string, output *re.OutputDirectory) error {
+	checkFiles := func(directory *re.Directory) error {
+		if err := ctx.Err(); err != nil {
+			return status.FromContextError(err).Err()
+		}
+		for _, file := range directory.GetFiles() {
+			if err := f.hasBlob(instance, file.GetDigest()); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+	if digest := output.GetTreeDigest(); digest != nil {
+		data, err := f.readBlob(instance, digest)
+		if err != nil {
+			return err
+		}
+		tree := new(re.Tree)
+		if err := proto.Unmarshal(data, tree); err != nil {
+			return status.Error(codes.DataLoss, "invalid CAS output tree")
+		}
+		if err := checkFiles(tree.GetRoot()); err != nil {
+			return err
+		}
+		for _, child := range tree.GetChildren() {
+			if err := checkFiles(child); err != nil {
+				return err
+			}
+		}
+	}
+	root := output.GetRootDirectoryDigest()
+	if root == nil {
+		return nil
+	}
+	pending := []*re.Digest{root}
+	seen := make(map[string]bool)
+	for len(pending) > 0 {
+		digest := pending[len(pending)-1]
+		pending = pending[:len(pending)-1]
+		key := digest.GetHash() + "/" + strconv.FormatInt(digest.GetSizeBytes(), 10)
+		if seen[key] {
+			continue
+		}
+		seen[key] = true
+		data, err := f.readBlob(instance, digest)
+		if err != nil {
+			return err
+		}
+		directory := new(re.Directory)
+		if err := proto.Unmarshal(data, directory); err != nil {
+			return status.Error(codes.DataLoss, "invalid CAS output directory")
+		}
+		if err := checkFiles(directory); err != nil {
+			return err
+		}
+		for _, child := range directory.GetDirectories() {
+			pending = append(pending, child.GetDigest())
+		}
+	}
+	return nil
 }
 
 func (f *fileCache) UpdateActionResult(_ context.Context, req *re.UpdateActionResultRequest) (*re.ActionResult, error) {
@@ -286,6 +461,12 @@ func (f *fileCache) writeBlob(instance string, blob *re.BatchUpdateBlobsRequest_
 	}
 	if digest.SizeBytes == 0 {
 		return nil
+	}
+	if f.budget != nil {
+		err := f.hasBlob(instance, digest)
+		if status.Code(err) != codes.NotFound {
+			return err
+		}
 	}
 	return f.writeFile(f.path(instance, "cas", digest), blob.Data)
 }
@@ -390,11 +571,11 @@ func (f *fileCache) Read(req *bs.ReadRequest, stream bs.ByteStream_ReadServer) e
 	if digest.SizeBytes == 0 {
 		return nil
 	}
-	file, err := os.Open(f.path(instance, "cas", digest))
+	file, closeFile, err := f.open(f.path(instance, "cas", digest))
 	if err != nil {
-		return fileError(err)
+		return err
 	}
-	defer file.Close()
+	defer closeFile()
 	remaining := digest.SizeBytes - req.ReadOffset
 	if req.ReadLimit > 0 {
 		remaining = min(remaining, req.ReadLimit)
@@ -444,14 +625,13 @@ func (f *fileCache) Write(stream bs.ByteStream_WriteServer) error {
 		return err
 	}
 	path := f.path(instance, "cas", digest)
-	file, err := f.newTemp(path)
+	upload, err := f.startUpload(path, digest.SizeBytes)
 	if err != nil {
 		return err
 	}
-	defer os.Remove(file.Name())
-	defer file.Close()
+	defer upload.release()
 	hash := sha256.New()
-	writer := io.MultiWriter(file, hash)
+	writer := io.MultiWriter(upload.file, hash)
 	var offset int64
 	for {
 		if req.ResourceName != "" && req.ResourceName != name {
@@ -479,7 +659,7 @@ func (f *fileCache) Write(stream bs.ByteStream_WriteServer) error {
 	if offset != digest.SizeBytes || hex.EncodeToString(hash.Sum(nil)) != digest.Hash {
 		return status.Error(codes.InvalidArgument, "uploaded data does not match its digest")
 	}
-	if err := publishFile(file, path); err != nil {
+	if err := upload.publish(); err != nil {
 		return err
 	}
 	return stream.SendAndClose(&bs.WriteResponse{CommittedSize: offset})

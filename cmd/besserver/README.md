@@ -65,7 +65,8 @@ Bazel appends the invocation ID to the results URL. Use a trailing slash
 and match the group in the URL to the group in `--build_metadata`. The
 resulting `/tools/invocations/<group>/<id>` link opens that run directly.
 
-The group views show all-time metrics:
+Metrics and Tests share a rolling window based on when the server first
+received each invocation. The viewer defaults to 30 days.
 
 - **Metrics** shows invocation counts and outcomes, success rate, and
   average, median, and 95th-percentile duration for completed builds with timing.
@@ -199,11 +200,49 @@ and tenant filtering are pending. Raw event payloads are retained, including
 their client-supplied metadata. Summaries populate command, tool version,
 workspace, timestamps, result, user, host, and selected source-control metadata.
 
-The legacy journal reconstructs its in-memory event index at startup. Retention,
-invocation-list pagination, journal-to-SQLite migration, and timed finalization
-of interrupted uploads are pending. Completion means all observed
+The legacy journal reconstructs its in-memory event index at startup.
+Journal-to-SQLite migration and timed finalization of interrupted uploads
+are pending. Completion means all observed
 tool streams have terminal markers and contiguous sequence numbers. Stored runs
 remain available across restarts when the same database or journal is used.
+
+An invocation with an ended attempt and missing tool events is marked incomplete.
+An abandoned publisher has five minutes to reconnect before its invocation is
+marked incomplete. Configure the grace period with `--incomplete_after` such as
+`--incomplete_after=10m`. A live publishing connection protects a quiet build.
+Late events can still restore completeness when all terminal sequences arrive.
+
+The invocation list returns 100 runs by default, newest first. Follow
+the response's `nextPageToken` with `page_token` to request the next page, or
+choose **Load older runs** in the viewer. The API accepts `page_size` up to
+200 and `window_days` from 1 to 90 for group metrics.
+
+### Archive old build events
+
+Configure a dedicated private REAPI CAS instance with durable storage and eviction
+disabled. This example uses the file-backed cache in the same process:
+
+```sh
+besserver --sqlite=invocations.sqlite \
+  --cache_listen=127.0.0.1:1975 --cache_dir=/var/lib/bcr/archive-cache \
+  --archive_cache=grpc://127.0.0.1:1975 --archive_instance=build-events \
+  --archive_after=720h
+```
+
+To use a separate CAS server, set `--archive_cache` to its `grpc://` or
+`grpcs://` address and omit the local cache listener and directory. Bazel can
+continue using its normal build cache. Back up both SQLite and the archive
+instance. Replay depends on the archived blobs after the local copy is cleared,
+so keep the same cache instance or migrate the blobs before changing it.
+
+The service archives completed invocations after their last event reaches the
+configured age. It writes gzip-compressed chunks via ByteStream, reads them
+back to verify the digest, and then clears the SQLite payloads in a transaction.
+The database retains summaries, metrics, test facts, original cursors, and
+event deduplication keys. Replay reads archived chunks transparently. SQLite
+reuses the freed pages for future writes. To stop offloading new events while
+keeping archived replay available, omit `--archive_after` and retain the
+cache address and instance flags.
 
 The browser coalesces timeline redraws in 250 ms batches and preserves the event
 filters and selection as events arrive. Disconnect displays any pending events
@@ -218,10 +257,11 @@ API can read both Bazel's remote hit count and the observed cache traffic.
 bazel run //cmd/besserver -- \
   --sqlite=invocations.sqlite \
   --cache_listen=localhost:1975 \
-  --cache_dir=./remote-cache
+  --cache_dir=./remote-cache \
+  --cache_max_bytes=10737418240
 ```
 
-To proxy an existing Bazel gRPC cache, replace `--cache_dir` with
+To proxy an existing Bazel gRPC cache, omit `--cache_max_bytes` and replace `--cache_dir` with
 `--cache_upstream=grpcs://cache.example.com:443`. The proxy forwards Bazel's
 request metadata, instance namespace, and custom headers to the configured
 upstream. Use the plaintext frontend on a trusted listener. The existing BES
@@ -245,4 +285,14 @@ counts are independent. Transfer sizes are observed cache blob payload bytes.
 The file backend uses separate AC and CAS namespaces per instance, validates
 SHA-256 uploads, and publishes completed writes atomically. It supports
 uncompressed transfers and discards interrupted uploads so clients can retry
-from offset zero. Manage the cache directory's capacity externally.
+from offset zero.
+
+Set `--cache_max_bytes` to bound stored files and in-flight uploads across both
+namespaces and all instance names. File sizes are rounded up to the filesystem
+block size. When an upload would exceed the budget, the cache removes the
+least recently used entries until projected usage is at or below 90%, where
+possible. Open downloads are pinned until they complete. Recency survives
+restarts. An action result whose output blobs were evicted is a cache miss.
+Use a dedicated directory for this cache. The default budget of zero leaves
+eviction disabled. Keep build-event archives on a separate, non-evicting cache
+directory and listener.

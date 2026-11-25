@@ -273,6 +273,86 @@ func checkBuildScopedLifecycle(t *testing.T, store *Store) {
 	}
 }
 
+func checkIncompleteLifecycle(t *testing.T, store *Store) {
+	ctx := context.Background()
+	req := &pb.GetInvocationRequest{InvocationId: "invocation"}
+	assertState := func(want pb.InvocationState) *pb.Invocation {
+		t.Helper()
+		inv, err := store.GetInvocation(ctx, req)
+		if err != nil || inv.GetState() != want {
+			t.Fatalf("state = %s, want %s: %v", inv.GetState(), want, err)
+		}
+		return inv
+	}
+	appendEvent := func(event *buildpb.OrderedBuildEvent, lifecycle bool) {
+		t.Helper()
+		if err := store.Append(event, lifecycle); err != nil {
+			t.Fatal(err)
+		}
+	}
+	grace := 5 * time.Minute
+	release := store.BeginPublish(req.InvocationId)
+	appendEvent(testEvent(t, 1), false)
+	initial := assertState(pb.InvocationState_INVOCATION_STATE_IN_PROGRESS)
+	now := time.Now()
+	sweep := func(at time.Time, want int) {
+		t.Helper()
+		if got, err := store.ExpireIncomplete(ctx, at, grace); err != nil || got != want {
+			t.Fatalf("expired %d, want %d: %v", got, want, err)
+		}
+	}
+	sweep(now.Add(time.Hour), 0)
+	release()
+	sweep(now.Add(time.Minute), 0)
+	sweep(now.Add(time.Hour), 1)
+	expired := assertState(pb.InvocationState_INVOCATION_STATE_INCOMPLETE)
+	if !proto.Equal(initial.LastEventAt, expired.LastEventAt) || expired.FinishedAt != nil || expired.Result != nil {
+		t.Fatalf("expiry changed recorded times or outcome: %v", expired)
+	}
+	appendEvent(testEvent(t, 2), false)
+	assertState(pb.InvocationState_INVOCATION_STATE_INCOMPLETE)
+	last := testEvent(t, 3)
+	payload, err := anypb.New(&beppb.BuildEvent{LastMessage: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	last.Event.Event = &buildpb.BuildEvent_BazelEvent{BazelEvent: payload}
+	appendEvent(last, false)
+	assertState(pb.InvocationState_INVOCATION_STATE_COMPLETE)
+	sweep(now.Add(time.Hour), 0)
+}
+
+func checkExplicitIncomplete(t *testing.T, store *Store) {
+	ctx := context.Background()
+	for i, lifecycle := range []bool{true, false} {
+		start := testEvent(t, 1)
+		start.StreamId.InvocationId += strconv.Itoa(i)
+		if err := store.Append(start, false); err != nil {
+			t.Fatal(err)
+		}
+		end := testEvent(t, 2)
+		end.StreamId = start.StreamId
+		if lifecycle {
+			end.Event.Event = &buildpb.BuildEvent_InvocationAttemptFinished_{
+				InvocationAttemptFinished: &buildpb.BuildEvent_InvocationAttemptFinished{},
+			}
+		} else {
+			end.Event.Event = &buildpb.BuildEvent_ComponentStreamFinished{
+				ComponentStreamFinished: &buildpb.BuildEvent_BuildComponentStreamFinished{
+					Type: buildpb.BuildEvent_BuildComponentStreamFinished_EXPIRED,
+				},
+			}
+		}
+		if err := store.Append(end, lifecycle); err != nil {
+			t.Fatal(err)
+		}
+		inv, err := store.GetInvocation(ctx, &pb.GetInvocationRequest{InvocationId: start.StreamId.InvocationId})
+		if err != nil || inv.GetState() != pb.InvocationState_INVOCATION_STATE_INCOMPLETE {
+			t.Fatalf("explicit incomplete: %v, %v", inv, err)
+		}
+	}
+}
+
 func TestStorageService(t *testing.T) {
 	backends := []struct {
 		name string
@@ -295,6 +375,8 @@ func TestStorageService(t *testing.T) {
 		{"browser_replay_live", checkBrowserReplayAndLive},
 		{"completion_waits_for_gap", checkCompletionWaitsForMissingSequence},
 		{"build_scoped_lifecycle", checkBuildScopedLifecycle},
+		{"detached_timeout_and_late_completion", checkIncompleteLifecycle},
+		{"explicit_incomplete", checkExplicitIncomplete},
 	}
 	for _, backend := range backends {
 		for _, check := range checks {

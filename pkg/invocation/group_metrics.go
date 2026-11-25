@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"slices"
+	"time"
 
 	pb "github.com/bazel-contrib/bcr-frontend/build/stack/bazel/invocation/v1"
 	beppb "github.com/bazel-contrib/bcr-frontend/proto/buildeventstream"
@@ -74,26 +75,28 @@ func summarizeGroup(invocations []*pb.Invocation) *pb.InvocationGroupMetrics {
 	return metrics
 }
 
-func (s *journalStorage) GroupMetrics(ctx context.Context, name string) (*pb.InvocationGroupMetrics, error) {
+func (s *journalStorage) GroupMetrics(ctx context.Context, name string, since time.Time) (*pb.InvocationGroupMetrics, error) {
 	invocations, err := s.ListByGroup(ctx, name)
 	if err != nil {
 		return nil, err
 	}
-	return summarizeGroup(invocations), nil
+	recent := slices.DeleteFunc(invocations, func(inv *pb.Invocation) bool { return inv.GetCreatedAt().AsTime().Before(since) })
+	return summarizeGroup(recent), nil
 }
 
-func (s *sqliteStorage) GroupMetrics(ctx context.Context, name string) (*pb.InvocationGroupMetrics, error) {
+func (s *sqliteStorage) GroupMetrics(ctx context.Context, name string, since time.Time) (*pb.InvocationGroupMetrics, error) {
 	tx, err := s.db.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
 	if err != nil {
 		return nil, err
 	}
 	defer tx.Rollback()
-	invocations, err := listSQLiteInvocations(ctx, tx, sqliteInvocationsByGroup, name)
+	invocations, err := listSQLiteInvocations(ctx, tx, `SELECT summary FROM invocations
+		WHERE invocation_group = ? AND created_us >= ? ORDER BY created_us DESC, id`, name, since.UnixMicro())
 	if err != nil {
 		return nil, err
 	}
 	metrics := summarizeGroup(invocations)
-	if err := readGroupBuildSamples(ctx, tx, name, metrics.Builds); err != nil {
+	if err := readGroupBuildSamples(ctx, tx, name, since.UnixMicro(), metrics.Builds); err != nil {
 		return nil, err
 	}
 	cache := metrics.Cache
@@ -103,19 +106,19 @@ func (s *sqliteStorage) GroupMetrics(ctx context.Context, name string) (*pb.Invo
 		coalesce(sum(CASE WHEN m.result = 'error' THEN m.count END), 0),
 		count(DISTINCT m.invocation_id)
 	FROM invocations i JOIN remote_cache_metrics m ON m.invocation_id = i.id
-	WHERE i.invocation_group = ? AND m.operation = 'ac_lookup'`, name).Scan(
+	WHERE i.invocation_group = ? AND i.created_us >= ? AND m.operation = 'ac_lookup'`, name, since.UnixMicro()).Scan(
 		&cache.ActionCacheHits, &cache.ActionCacheMisses, &cache.ActionCacheErrors, &cache.ActionCacheInvocationCount)
 	if err != nil {
 		return nil, err
 	}
-	metrics.Tests, err = groupTestMetrics(ctx, tx, name)
+	metrics.Tests, err = groupTestMetrics(ctx, tx, name, since.UnixMicro())
 	if err != nil {
 		return nil, err
 	}
 	return metrics, tx.Commit()
 }
 
-func readGroupBuildSamples(ctx context.Context, tx *sql.Tx, name string, builds []*pb.GroupBuildSample) error {
+func readGroupBuildSamples(ctx context.Context, tx *sql.Tx, name string, since int64, builds []*pb.GroupBuildSample) error {
 	byID := make(map[string]*pb.GroupBuildSample, len(builds))
 	for _, build := range builds {
 		byID[build.InvocationId] = build
@@ -125,7 +128,7 @@ func readGroupBuildSamples(ctx context.Context, tx *sql.Tx, name string, builds 
 	FROM invocations i JOIN build_metrics m ON m.cursor = (
 		SELECT max(cursor) FROM build_metrics WHERE invocation_id = i.id
 	)
-	WHERE i.invocation_group = ? AND i.state = ?`, name, pb.InvocationState_INVOCATION_STATE_COMPLETE)
+	WHERE i.invocation_group = ? AND i.created_us >= ? AND i.state = ?`, name, since, pb.InvocationState_INVOCATION_STATE_COMPLETE)
 	if err != nil {
 		return err
 	}
@@ -146,16 +149,16 @@ func readGroupBuildSamples(ctx context.Context, tx *sql.Tx, name string, builds 
 	return rows.Err()
 }
 
-func groupTestMetrics(ctx context.Context, tx *sql.Tx, name string) (*pb.GroupTestMetrics, error) {
+func groupTestMetrics(ctx context.Context, tx *sql.Tx, name string, since int64) (*pb.GroupTestMetrics, error) {
 	rows, err := tx.QueryContext(ctx, `WITH latest AS (
 		SELECT max(t.cursor) AS cursor
 		FROM invocations i JOIN test_summaries t ON t.invocation_id = i.id
-		WHERE i.invocation_group = ?
+		WHERE i.invocation_group = ? AND i.created_us >= ?
 		GROUP BY t.invocation_id, t.label, t.configuration
 	)
 	SELECT t.label, count(*), sum(t.status = ?) AS flaky_count, sum(t.status IN (?, ?))
 	FROM latest JOIN test_summaries t USING (cursor)
-	GROUP BY t.label ORDER BY flaky_count DESC, t.label`, name, beppb.TestStatus_FLAKY, beppb.TestStatus_FAILED, beppb.TestStatus_TIMEOUT)
+	GROUP BY t.label ORDER BY flaky_count DESC, t.label`, name, since, beppb.TestStatus_FLAKY, beppb.TestStatus_FAILED, beppb.TestStatus_TIMEOUT)
 	if err != nil {
 		return nil, err
 	}

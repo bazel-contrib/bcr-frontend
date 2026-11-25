@@ -116,6 +116,12 @@ impl ViewerApi {
                 || "/api/invocations".to_owned(),
                 |id| format!("/api/invocations/{id}"),
             ),
+            Operation::ListPage { token } => {
+                if self.scope.is_some() || !valid_page_token(token) {
+                    return reply(send, 400, b"invalid page token").await;
+                }
+                format!("/api/invocations?page_token={token}")
+            }
             Operation::ListGroups
             | Operation::ListGroup { .. }
             | Operation::GroupMetrics { .. } => {
@@ -123,11 +129,22 @@ impl ViewerApi {
                     return reply(send, 403, b"group queries require an unscoped ticket").await;
                 }
                 match &request.operation {
-                    Operation::ListGroup { name } if valid_group_name(name) => {
-                        format!("/api/invocations?group={name}")
+                    Operation::ListGroup { name, token } if valid_group_name(name) => {
+                        if let Some(token) = token {
+                            if !valid_page_token(token) {
+                                return reply(send, 400, b"invalid page token").await;
+                            }
+                            format!("/api/invocations?group={name}&page_token={token}")
+                        } else {
+                            format!("/api/invocations?group={name}")
+                        }
                     }
-                    Operation::GroupMetrics { name } if valid_group_name(name) => {
-                        format!("/api/invocation-groups/{name}/metrics")
+                    Operation::GroupMetrics { name, days } if valid_group_name(name) => {
+                        if let Some(days) = days {
+                            format!("/api/invocation-groups/{name}/metrics?window_days={days}")
+                        } else {
+                            format!("/api/invocation-groups/{name}/metrics")
+                        }
                     }
                     Operation::ListGroups => "/api/invocation-groups".to_owned(),
                     _ => return reply(send, 400, b"invalid invocation group name").await,
@@ -194,6 +211,14 @@ impl ViewerApi {
         }
         reply(send, status, &body).await
     }
+}
+
+fn valid_page_token(token: &str) -> bool {
+    !token.is_empty()
+        && token.len() <= 768
+        && token
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || byte == b'-' || byte == b'_')
 }
 
 async fn reply(send: &mut SendStream, status: u16, body: &[u8]) -> Result<()> {

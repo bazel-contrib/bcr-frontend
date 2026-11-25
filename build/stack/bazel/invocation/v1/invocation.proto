@@ -156,9 +156,13 @@ message ListInvocationGroupsResponse {
 message ListInvocationsRequest {
   // An empty value lists invocations across all groups and ungrouped runs.
   string invocation_group = 1;
+  int32 page_size = 2;
+  string page_token = 3;
 }
 message ListInvocationsResponse {
   repeated Invocation invocations = 1;
+  string next_page_token = 2;
+  Invocation active_invocation = 3;
 }
 message GetInvocationRequest {
   string invocation_id = 1;
@@ -178,9 +182,11 @@ message InvocationEvent {
 
 message GetInvocationGroupMetricsRequest {
   string invocation_group = 1;
+  // Rolling window measured by server receipt time. Defaults to 30 days.
+  int32 window_days = 2;
 }
 
-// All-time aggregates for one invocation group.
+// Aggregates for one invocation group within the requested window.
 message InvocationGroupMetrics {
   int64 invocation_count = 1;
   int64 running_count = 2;

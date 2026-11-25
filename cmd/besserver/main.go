@@ -26,6 +26,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/encoding/prototext"
@@ -73,6 +74,12 @@ func (s *publishServer) PublishLifecycleEvent(ctx context.Context, req *buildpb.
 }
 
 func (s *publishServer) PublishBuildToolEventStream(stream buildpb.PublishBuildEvent_PublishBuildToolEventStreamServer) error {
+	publishers := make(map[string]func())
+	defer func() {
+		for _, release := range publishers {
+			release()
+		}
+	}()
 	for {
 		req, err := stream.Recv()
 		if err == io.EOF {
@@ -86,6 +93,10 @@ func (s *publishServer) PublishBuildToolEventStream(stream buildpb.PublishBuildE
 			return err
 		}
 		if s.store != nil {
+			id := event.StreamId.GetInvocationId()
+			if id != "" && event.StreamId.GetComponent() == buildpb.StreamId_TOOL && publishers[id] == nil {
+				publishers[id] = s.store.BeginPublish(id)
+			}
 			if err := s.store.AppendContext(stream.Context(), event, false); err != nil {
 				return err
 			}
@@ -106,10 +117,18 @@ func run() error {
 	origin := flag.String("frontend_origin", "http://localhost:8080", "allowed BCR frontend origin")
 	journal := flag.String("journal", "", "use a legacy event journal at this path")
 	database := flag.String("sqlite", "", "path to the SQLite event database (default invocations.sqlite)")
+	incompleteAfter := flag.Duration("incomplete_after", 5*time.Minute, "grace period before an abandoned invocation is marked incomplete")
 	cacheListen := flag.String("cache_listen", "", "optional address for the plaintext instrumented remote cache")
 	cacheDir := flag.String("cache_dir", "", "file-backed remote cache directory")
+	cacheMaxBytes := flag.Int64("cache_max_bytes", 0, "local cache disk budget in bytes (0 disables eviction)")
+	archiveAfter := flag.Duration("archive_after", 0, "archive completed runs after this age (for example 720h)")
+	archiveCache := flag.String("archive_cache", "", "non-evicting archive cache URL (grpc:// or grpcs://)")
+	archiveInstance := flag.String("archive_instance", "", "dedicated REAPI CAS instance for archived events")
 	cacheUpstream := flag.String("cache_upstream", "", "upstream remote cache URL (grpc:// or grpcs://)")
 	flag.Parse()
+	if *incompleteAfter <= 0 {
+		return errors.New("--incomplete_after must be positive")
+	}
 	if flag.NArg() != 0 {
 		return fmt.Errorf("unexpected positional arguments: %v", flag.Args())
 	}
@@ -119,8 +138,27 @@ func run() error {
 	if (*cacheListen != "") != (*cacheDir != "" || *cacheUpstream != "") || (*cacheDir != "" && *cacheUpstream != "") {
 		return errors.New("--cache_listen requires exactly one of --cache_dir or --cache_upstream")
 	}
+	if *cacheMaxBytes < 0 || (*cacheMaxBytes > 0 && *cacheDir == "") {
+		return errors.New("--cache_max_bytes must be nonnegative and requires --cache_dir when set")
+	}
 	if *cacheListen != "" && *journal != "" {
 		return errors.New("instrumented remote cache requires SQLite storage")
+	}
+	if *archiveAfter < 0 || (*archiveAfter > 0 && *archiveCache == "") ||
+		((*archiveCache == "") != (*archiveInstance == "")) || (*archiveCache != "" && *journal != "") {
+		return errors.New("archival requires SQLite, --archive_cache and --archive_instance; use --archive_after to enable offloading")
+	}
+	var archive invocation.BlobArchive
+	if *archiveCache != "" {
+		conn, err := dialCache(*archiveCache)
+		if err != nil {
+			return fmt.Errorf("archive cache: %w", err)
+		}
+		defer conn.Close()
+		archive, err = remotecache.NewBlobArchive(conn, *archiveInstance)
+		if err != nil {
+			return err
+		}
 	}
 	listener, err := net.Listen("tcp", *listen)
 	if err != nil {
@@ -137,7 +175,7 @@ func run() error {
 			path = "invocations.sqlite"
 		}
 		var storage invocation.Storage
-		storage, err = invocation.OpenSQLite(path)
+		storage, err = invocation.OpenSQLiteWithArchive(path, archive)
 		if err == nil {
 			store = invocation.NewStore(storage)
 		}
@@ -146,20 +184,25 @@ func run() error {
 		return err
 	}
 	defer store.Close()
+	if _, err := store.ExpireIncomplete(context.Background(), time.Now(), *incompleteAfter); err != nil {
+		return fmt.Errorf("expire abandoned invocations at startup: %w", err)
+	}
 	httpListener, err := net.Listen("tcp", *httpListen)
 	if err != nil {
 		return err
 	}
 	defer httpListener.Close()
 	logger := log.New(os.Stderr, "besserver: ", log.LstdFlags)
-	server := grpc.NewServer()
+	server := grpc.NewServer(grpc.KeepaliveParams(keepalive.ServerParameters{
+		Time: time.Minute, Timeout: 20 * time.Second,
+	}))
 	buildpb.RegisterPublishBuildEventServer(server, &publishServer{logger: logger, store: store})
 	invocationpb.RegisterInvocationServiceServer(server, store)
 	httpServer := &http.Server{Handler: store.Handler(*origin), ReadHeaderTimeout: 10 * time.Second}
 	serveErrors := make(chan error, 3)
 	var cacheServer *grpc.Server
 	if *cacheListen != "" {
-		backend, cleanup, err := cacheBackend(*cacheDir, *cacheUpstream)
+		backend, cleanup, err := cacheBackend(*cacheDir, *cacheUpstream, *cacheMaxBytes)
 		if err != nil {
 			return err
 		}
@@ -171,18 +214,44 @@ func run() error {
 		defer cacheListener.Close()
 		cacheServer = remotecache.NewServer(backend, store.ObserveRemoteCache, logger)
 		go func() { serveErrors <- cacheServer.Serve(cacheListener) }()
+		if *cacheMaxBytes > 0 {
+			logger.Printf("remote cache disk budget: %d bytes (LRU)", *cacheMaxBytes)
+		}
 		logger.Printf("remote cache listening on %s (Bazel --remote_cache=grpc://%s)", cacheListener.Addr(), cacheListener.Addr())
 	}
 	go func() { serveErrors <- server.Serve(listener) }()
 	go func() { serveErrors <- httpServer.Serve(httpListener) }()
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+	if *archiveAfter > 0 {
+		done := make(chan struct{})
+		archiveCtx, cancel := context.WithCancel(ctx)
+		defer func() {
+			cancel()
+			<-done
+		}()
+		go func() {
+			defer close(done)
+			archiveRuns(archiveCtx, store, *archiveAfter, logger)
+		}()
+	}
 	logger.Printf("BES listening on %s (Bazel --bes_backend=grpc://%s)", listener.Addr(), listener.Addr())
 	logger.Printf("invocation API listening on http://%s", httpListener.Addr())
 	var serveErr error
-	select {
-	case <-ctx.Done():
-	case serveErr = <-serveErrors:
+	sweep := time.NewTicker(min(30*time.Second, max(time.Millisecond, *incompleteAfter/2)))
+	defer sweep.Stop()
+serving:
+	for {
+		select {
+		case <-ctx.Done():
+			break serving
+		case serveErr = <-serveErrors:
+			break serving
+		case <-sweep.C:
+			if _, err := store.ExpireIncomplete(ctx, time.Now(), *incompleteAfter); err != nil && ctx.Err() == nil {
+				logger.Printf("expire abandoned invocations: %v", err)
+			}
+		}
 	}
 	// Close browser subscriptions before waiting for the gRPC streams to drain.
 	httpServer.Close()
@@ -203,15 +272,51 @@ func run() error {
 	return serveErr
 }
 
-func cacheBackend(dir, upstream string) (remotecache.Backend, func(), error) {
+func archiveRuns(ctx context.Context, store *invocation.Store, age time.Duration, logger *log.Logger) {
+	ticker := time.NewTicker(time.Minute)
+	defer ticker.Stop()
+	for ctx.Err() == nil {
+		writeCtx, cancel := context.WithTimeout(ctx, time.Minute)
+		archived, err := store.ArchiveBefore(writeCtx, time.Now().Add(-age))
+		cancel()
+		if err != nil && ctx.Err() == nil {
+			logger.Printf("archive build events: %v", err)
+		}
+		if archived && err == nil {
+			continue
+		}
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+		}
+	}
+}
+
+func cacheBackend(dir, upstream string, maxBytes int64) (remotecache.Backend, func(), error) {
+	if maxBytes > 0 {
+		backend, err := remotecache.NewBoundedFileCache(dir, maxBytes)
+		if err != nil {
+			return nil, nil, err
+		}
+		return backend, func() { backend.Close() }, nil
+	}
 	if dir != "" {
 		backend, err := remotecache.NewFileCache(dir)
 		return backend, func() {}, err
 	}
+	conn, err := dialCache(upstream)
+	if err != nil {
+		return nil, nil, err
+	}
+	return remotecache.NewProxy(conn), func() { conn.Close() }, nil
+}
+
+func dialCache(upstream string) (*grpc.ClientConn, error) {
 	endpoint, err := url.Parse(upstream)
 	if err != nil || endpoint.Hostname() == "" || endpoint.User != nil ||
 		(endpoint.Path != "" && endpoint.Path != "/") || endpoint.RawQuery != "" || endpoint.Fragment != "" {
-		return nil, nil, errors.New("invalid --cache_upstream, expected grpc://host[:port] or grpcs://host[:port]")
+		return nil, errors.New("expected grpc://host[:port] or grpcs://host[:port]")
 	}
 	var transport credentials.TransportCredentials
 	port := endpoint.Port()
@@ -227,16 +332,12 @@ func cacheBackend(dir, upstream string) (remotecache.Backend, func(), error) {
 			port = "443"
 		}
 	default:
-		return nil, nil, errors.New("upstream cache scheme must be grpc or grpcs")
+		return nil, errors.New("cache scheme must be grpc or grpcs")
 	}
 	target := net.JoinHostPort(endpoint.Hostname(), port)
-	conn, err := grpc.NewClient(target, grpc.WithTransportCredentials(transport),
+	return grpc.NewClient(target, grpc.WithTransportCredentials(transport),
 		grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(remotecache.MaxMessageBytes),
 			grpc.MaxCallSendMsgSize(remotecache.MaxMessageBytes)))
-	if err != nil {
-		return nil, nil, err
-	}
-	return remotecache.NewProxy(conn), func() { conn.Close() }, nil
 }
 
 func main() {

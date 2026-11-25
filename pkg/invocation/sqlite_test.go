@@ -22,6 +22,14 @@ import (
 
 // Discard projections added after schema version 5 when testing older migrations.
 const dropBuildMetricCounts = `
+	DROP INDEX invocations_group_active;
+	DROP INDEX test_summaries_invocation;
+	DROP INDEX events_hot;
+	DROP INDEX invocations_archive_due;
+	ALTER TABLE invocations DROP COLUMN updated_us;
+	ALTER TABLE events DROP COLUMN ordered_hash;
+	ALTER TABLE events DROP COLUMN archive_cursor;
+	DROP TABLE event_archives;
 	ALTER TABLE build_metrics DROP COLUMN actions_total;
 	ALTER TABLE build_metrics DROP COLUMN targets_configured;
 	ALTER TABLE build_metrics DROP COLUMN output_bytes;
@@ -77,6 +85,47 @@ func TestSQLiteBackfillsExitCodeName(t *testing.T) {
 		t.Fatal(err)
 	}
 	checkResult()
+}
+
+func TestSQLiteKeepsIncompleteStateAndBuildResultAfterRestart(t *testing.T) {
+	ctx := context.Background()
+	path := filepath.Join(t.TempDir(), "events.sqlite")
+	storage, err := OpenSQLite(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	store := NewStore(storage)
+	event := testEvent(t, 1)
+	finish := timestamppb.Now()
+	payload, err := anypb.New(&beppb.BuildEvent{Payload: &beppb.BuildEvent_Finished{
+		Finished: &beppb.BuildFinished{
+			FinishTime: finish,
+			ExitCode:   &beppb.BuildFinished_ExitCode{Name: "SUCCESS"},
+		},
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	event.Event.Event = &buildpb.BuildEvent_BazelEvent{BazelEvent: payload}
+	if err := store.Append(event, false); err != nil {
+		t.Fatal(err)
+	}
+	if count, err := store.ExpireIncomplete(ctx, time.Now().Add(time.Hour), time.Minute); err != nil || count != 1 {
+		t.Fatalf("expire count %d: %v", count, err)
+	}
+	if err := store.Close(); err != nil {
+		t.Fatal(err)
+	}
+	storage, err = OpenSQLite(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer storage.Close()
+	inv, err := storage.Get(ctx, event.StreamId.InvocationId)
+	if err != nil || inv.GetState() != pb.InvocationState_INVOCATION_STATE_INCOMPLETE ||
+		inv.GetResult().GetExitCodeName() != "SUCCESS" || !proto.Equal(inv.GetFinishedAt(), finish) {
+		t.Fatalf("stored invocation: %v, %v", inv, err)
+	}
 }
 
 func TestSQLiteDurableEventsAndFacts(t *testing.T) {

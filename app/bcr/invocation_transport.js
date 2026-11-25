@@ -6,10 +6,10 @@ let EventCallback;
 /** @typedef {function(string, boolean, boolean=):void} */
 let StatusCallback;
 
-/** @typedef {{list: function(): !Promise<!Object<string, *>>,
+/** @typedef {{list: function(string=): !Promise<!Object<string, *>>,
  *     listGroups: function(): !Promise<!Object<string, *>>,
- *     listGroup: function(string): !Promise<!Object<string, *>>,
- *     groupMetrics: function(string): !Promise<!Object<string, *>>,
+ *     listGroup: function(string, string=): !Promise<!Object<string, *>>,
+ *     groupMetrics: function(string, number=): !Promise<!Object<string, *>>,
  *     get: function(string): !Promise<!Object<string, *>>,
  *     watch: function(string, function():string, !EventCallback, !StatusCallback):void,
  *     close: function():void}} */
@@ -49,10 +49,10 @@ async function openInvocationBackend(address) {
 		const factory = /** @type {!IrohFactory} */ (await loadIrohModule());
 		const external = factory(address);
 		return {
-			list: /** @type {function():!Promise<!Object<string, *>>} */ (external["list"]),
+			list: /** @type {function(string=):!Promise<!Object<string, *>>} */ (external["list"]),
 			listGroups: /** @type {function():!Promise<!Object<string, *>>} */ (external["listGroups"]),
-			listGroup: /** @type {function(string):!Promise<!Object<string, *>>} */ (external["listGroup"]),
-			groupMetrics: /** @type {function(string):!Promise<!Object<string, *>>} */ (external["groupMetrics"]),
+			listGroup: /** @type {function(string, string=):!Promise<!Object<string, *>>} */ (external["listGroup"]),
+			groupMetrics: /** @type {function(string, number=):!Promise<!Object<string, *>>} */ (external["groupMetrics"]),
 			get: /** @type {function(string):!Promise<!Object<string, *>>} */ (external["get"]),
 			watch: /** @type {function(string, function():string, !EventCallback, !StatusCallback):void} */ (external["watch"]),
 			close: /** @type {function():void} */ (external["close"]),
@@ -107,10 +107,12 @@ async function openInvocationBackend(address) {
 		});
 	}
 	return {
-		list: () => read("/invocations"),
+		list: (/** string= */ token) => read("/invocations" + (token ? "?page_token=" + encodeURIComponent(token) : "")),
 		listGroups: () => read("/invocation-groups"),
-		listGroup: (/** string */ name) => read("/invocations?group=" + encodeURIComponent(name)),
-		groupMetrics: (/** string */ name) => read("/invocation-groups/" + encodeURIComponent(name) + "/metrics"),
+		listGroup: (/** string */ name, /** string= */ token) => read("/invocations?group=" + encodeURIComponent(name) +
+			(token ? "&page_token=" + encodeURIComponent(token) : "")),
+		groupMetrics: (/** string */ name, /** number= */ days) => read("/invocation-groups/" + encodeURIComponent(name) +
+			"/metrics" + (days ? "?window_days=" + days : "")),
 		get: (/** string */ id) => read("/invocations/" + encodeURIComponent(id)),
 		watch: watch,
 		close: () => {

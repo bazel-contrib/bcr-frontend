@@ -1,6 +1,7 @@
 package invocation
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"errors"
@@ -116,14 +117,35 @@ CREATE INDEX invocations_group_created ON invocations(invocation_group, created_
 PRAGMA user_version = 3;
 `
 
+const sqliteArchiveSchema = `
+CREATE TABLE event_archives (
+    cursor INTEGER PRIMARY KEY REFERENCES events(cursor),
+    digest TEXT NOT NULL,
+    size INTEGER NOT NULL
+);
+ALTER TABLE events ADD COLUMN archive_cursor INTEGER REFERENCES event_archives(cursor);
+ALTER TABLE events ADD COLUMN ordered_hash BLOB;
+ALTER TABLE invocations ADD COLUMN updated_us INTEGER NOT NULL DEFAULT 0;
+CREATE INDEX invocations_archive_due ON invocations(state, updated_us, id);
+CREATE INDEX events_hot ON events(invocation_id, cursor) WHERE archive_cursor IS NULL;
+CREATE INDEX invocations_group_active ON invocations(invocation_group, state, created_us DESC, id);
+CREATE INDEX test_summaries_invocation ON test_summaries(invocation_id, label, configuration, cursor);
+PRAGMA user_version = 7;
+`
+
 type sqliteStorage struct {
-	db   *sql.DB
-	lock *os.File
+	archive BlobArchive
+	db      *sql.DB
+	lock    *os.File
 }
 
 // OpenSQLite opens a local database. One service owns live notifications for
 // the database, while other processes can query it using SQLite readers.
 func OpenSQLite(path string) (Storage, error) {
+	return OpenSQLiteWithArchive(path, nil)
+}
+
+func OpenSQLiteWithArchive(path string, archive BlobArchive) (Storage, error) {
 	absolute, err := filepath.Abs(path)
 	if err != nil {
 		return nil, err
@@ -167,7 +189,7 @@ func OpenSQLite(path string) (Storage, error) {
 		return nil, err
 	}
 	db.SetMaxOpenConns(1)
-	storage := &sqliteStorage{db: db, lock: lock}
+	storage := &sqliteStorage{db: db, lock: lock, archive: archive}
 	if err := storage.initialize(context.Background()); err != nil {
 		storage.Close()
 		return nil, err
@@ -237,11 +259,33 @@ func (s *sqliteStorage) initialize(ctx context.Context) error {
 		if err := backfillBuildMetrics(ctx, tx); err != nil {
 			return err
 		}
+		fallthrough
 	case 6:
+		if _, err := tx.ExecContext(ctx, sqliteArchiveSchema); err != nil {
+			return err
+		}
+		if err := backfillArchiveTimestamps(ctx, tx); err != nil {
+			return err
+		}
+	case 7:
 	default:
 		return fmt.Errorf("unsupported invocation database schema version %d", version)
 	}
 	return tx.Commit()
+}
+
+func backfillArchiveTimestamps(ctx context.Context, tx *sql.Tx) error {
+	runs, err := listSQLiteInvocations(ctx, tx, "SELECT summary FROM invocations")
+	if err != nil {
+		return err
+	}
+	for _, run := range runs {
+		if _, err := tx.ExecContext(ctx, "UPDATE invocations SET updated_us = ? WHERE id = ?",
+			run.GetUpdatedAt().AsTime().UnixMicro(), run.GetInvocationId()); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func buildMetricCounts(metrics *beppb.BuildMetrics) (actionsTotal, targetsConfigured, outputBytes *int64) {
@@ -496,17 +540,27 @@ func (s *sqliteStorage) Append(ctx context.Context, ordered *buildpb.OrderedBuil
 	defer tx.Rollback()
 	id := ordered.StreamId
 	key := []any{id.InvocationId, id.BuildId, id.Component, lifecycle, ordered.SequenceNumber}
-	var prior []byte
-	err = tx.QueryRowContext(ctx, `SELECT payload FROM events WHERE invocation_id = ?
-		AND build_id = ? AND component = ? AND lifecycle = ? AND sequence = ?`, key...).Scan(&prior)
+	var prior, hash []byte
+	err = tx.QueryRowContext(ctx, `SELECT payload, ordered_hash FROM events WHERE invocation_id = ?
+		AND build_id = ? AND component = ? AND lifecycle = ? AND sequence = ?`, key...).Scan(&prior, &hash)
 	switch {
 	case err == nil:
-		var existing pb.InvocationEvent
-		if err := proto.Unmarshal(prior, &existing); err != nil {
-			return false, err
-		}
-		if proto.Equal(existing.OrderedEvent, ordered) {
-			return false, nil
+		if hash != nil {
+			retry, err := orderedDigest(ordered)
+			if err != nil {
+				return false, err
+			}
+			if bytes.Equal(hash, retry) {
+				return false, nil
+			}
+		} else {
+			var existing pb.InvocationEvent
+			if err := proto.Unmarshal(prior, &existing); err != nil {
+				return false, err
+			}
+			if proto.Equal(existing.OrderedEvent, ordered) {
+				return false, nil
+			}
 		}
 		return false, status.Error(codes.AlreadyExists, "stream sequence already contains a different event")
 	case !errors.Is(err, sql.ErrNoRows):
@@ -565,6 +619,7 @@ func updateSQLiteSummary(ctx context.Context, tx *sql.Tx, event *pb.InvocationEv
 	}
 	previousGroup := inv.InvocationGroup
 	applySummary(inv, bep)
+	finalizeAttempt(inv, event)
 	if inv.InvocationGroup != previousGroup {
 		if err := ensureInvocationGroup(ctx, tx, inv.InvocationGroup); err != nil {
 			return err
@@ -582,14 +637,14 @@ func updateSQLiteSummary(ctx context.Context, tx *sql.Tx, event *pb.InvocationEv
 		return err
 	}
 	_, err = tx.ExecContext(ctx, `INSERT INTO invocations
-		(id, created_us, repo, branch, commit_sha, command, state, exit_code, exit_code_name, duration_ms, summary, invocation_group)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULLIF(?, ''), ?, ?, NULLIF(?, ''))
-		ON CONFLICT(id) DO UPDATE SET repo=excluded.repo, branch=excluded.branch,
+		(id, created_us, updated_us, repo, branch, commit_sha, command, state, exit_code, exit_code_name, duration_ms, summary, invocation_group)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULLIF(?, ''), ?, ?, NULLIF(?, ''))
+		ON CONFLICT(id) DO UPDATE SET updated_us=excluded.updated_us, repo=excluded.repo, branch=excluded.branch,
 		commit_sha=excluded.commit_sha, command=excluded.command, state=excluded.state,
 		exit_code=excluded.exit_code, exit_code_name=excluded.exit_code_name,
 		duration_ms=excluded.duration_ms, summary=excluded.summary,
 		invocation_group=excluded.invocation_group`,
-		inv.InvocationId, inv.CreatedAt.AsTime().UnixMicro(), inv.SourceControl.GetRepositoryUrl(),
+		inv.InvocationId, inv.CreatedAt.AsTime().UnixMicro(), inv.UpdatedAt.AsTime().UnixMicro(), inv.SourceControl.GetRepositoryUrl(),
 		inv.SourceControl.GetBranch(), inv.SourceControl.GetCommitSha(), inv.Command,
 		inv.State, exitCode, inv.GetResult().GetExitCodeName(), duration, summary, inv.InvocationGroup)
 	return err
@@ -601,7 +656,14 @@ func updateSQLiteStream(ctx context.Context, tx *sql.Tx, inv *pb.Invocation, ord
   VALUES (?, ?) ON CONFLICT DO NOTHING`, id.InvocationId, id.BuildId); err != nil {
 		return err
 	}
-	if lastBEP || ordered.Event.GetComponentStreamFinished() != nil {
+	ended := ordered.Event.GetComponentStreamFinished()
+	if ended.GetType() == buildpb.BuildEvent_BuildComponentStreamFinished_EXPIRED {
+		if _, err := tx.ExecContext(ctx, `UPDATE tool_streams SET terminal_sequence = 0, missing_through_terminal = NULL
+			WHERE invocation_id = ? AND build_id = ?`, id.InvocationId, id.BuildId); err != nil {
+			return err
+		}
+		inv.State = pb.InvocationState_INVOCATION_STATE_INCOMPLETE
+	} else if lastBEP || ended != nil {
 		// Positive sequence numbers and the unique stream key let us count the
 		// missing entries once, then decrement for each new event within the range.
 		if _, err := tx.ExecContext(ctx, `UPDATE tool_streams SET terminal_sequence = ?,
@@ -623,11 +685,46 @@ func updateSQLiteStream(ctx context.Context, tx *sql.Tx, inv *pb.Invocation, ord
 	)`, id.InvocationId).Scan(&incomplete); err != nil {
 		return err
 	}
-	inv.State = pb.InvocationState_INVOCATION_STATE_IN_PROGRESS
 	if !incomplete {
 		inv.State = pb.InvocationState_INVOCATION_STATE_COMPLETE
+	} else if inv.State != pb.InvocationState_INVOCATION_STATE_INCOMPLETE {
+		inv.State = pb.InvocationState_INVOCATION_STATE_IN_PROGRESS
 	}
 	return nil
+}
+
+func (s *sqliteStorage) ExpireIncomplete(ctx context.Context, now, cutoff time.Time, protected func(string) bool) (int, error) {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return 0, err
+	}
+	defer tx.Rollback()
+	runs, err := listSQLiteInvocations(ctx, tx, `SELECT summary FROM invocations
+		WHERE state = ? AND updated_us <= ?`, pb.InvocationState_INVOCATION_STATE_IN_PROGRESS, cutoff.UnixMicro())
+	if err != nil {
+		return 0, err
+	}
+	count := 0
+	for _, run := range runs {
+		if protected(run.InvocationId) || run.GetLastEventAt().AsTime().After(cutoff) {
+			continue
+		}
+		run.State = pb.InvocationState_INVOCATION_STATE_INCOMPLETE
+		run.UpdatedAt = timestamppb.New(now)
+		summary, err := proto.Marshal(run)
+		if err != nil {
+			return 0, err
+		}
+		if _, err := tx.ExecContext(ctx, `UPDATE invocations SET state = ?, updated_us = ?, summary = ? WHERE id = ?`,
+			run.State, now.UnixMicro(), summary, run.InvocationId); err != nil {
+			return 0, err
+		}
+		count++
+	}
+	if err := tx.Commit(); err != nil {
+		return 0, err
+	}
+	return count, nil
 }
 
 func projectSQLiteFacts(ctx context.Context, tx *sql.Tx, cursor int64, invocationID string, bep *beppb.BuildEvent) error {
@@ -701,6 +798,32 @@ func (s *sqliteStorage) ListByGroup(ctx context.Context, group string) ([]*pb.In
 	return listSQLiteInvocations(ctx, s.db, sqliteInvocationsByGroup, group)
 }
 
+func (s *sqliteStorage) ListPage(ctx context.Context, group string, limit int, cursor pageCursor) (*pb.ListInvocationsResponse, error) {
+	query := "SELECT summary FROM invocations WHERE 1=1"
+	var args []any
+	if group != "" {
+		query += " AND invocation_group = ?"
+		args = append(args, group)
+	}
+	if cursor.ID != "" {
+		query += " AND created_us <= ? AND (created_us < ? OR id > ?)"
+		args = append(args, cursor.CreatedUS, cursor.CreatedUS, cursor.ID)
+	}
+	rows, err := listSQLiteInvocations(ctx, s.db, query+" ORDER BY created_us DESC, id LIMIT ?", append(args, limit+1)...)
+	if err != nil {
+		return nil, err
+	}
+	var active *pb.Invocation
+	if group != "" && cursor.ID == "" {
+		active, err = scanInvocation(s.db.QueryRowContext(ctx, `SELECT summary FROM invocations WHERE invocation_group = ?
+			AND state = ? ORDER BY created_us DESC, id LIMIT 1`, group, pb.InvocationState_INVOCATION_STATE_IN_PROGRESS))
+		if err != nil && !errors.Is(err, sql.ErrNoRows) {
+			return nil, err
+		}
+	}
+	return pageResponse(group, limit, rows, active), nil
+}
+
 func listSQLiteInvocations(ctx context.Context, reader interface {
 	QueryContext(context.Context, string, ...any) (*sql.Rows, error)
 }, query string, args ...any) ([]*pb.Invocation, error) {
@@ -753,8 +876,9 @@ func (s *sqliteStorage) Replay(ctx context.Context, id string, after uint64, lim
 	if after > highWater {
 		return nil, after, status.Error(codes.OutOfRange, "cursor exceeds event store")
 	}
-	rows, err := tx.QueryContext(ctx, `SELECT cursor, payload FROM events
-		WHERE invocation_id = ? AND cursor > ? ORDER BY cursor LIMIT ?`, id, after, limit)
+	rows, err := tx.QueryContext(ctx, `SELECT e.cursor, e.payload, a.digest, a.size FROM events e
+		LEFT JOIN event_archives a ON a.cursor = e.archive_cursor
+		WHERE e.invocation_id = ? AND e.cursor > ? ORDER BY e.cursor LIMIT ?`, id, after, limit)
 	if err != nil {
 		return nil, after, err
 	}
@@ -763,8 +887,29 @@ func (s *sqliteStorage) Replay(ctx context.Context, id string, after uint64, lim
 	for rows.Next() {
 		var cursor uint64
 		var data []byte
-		if err := rows.Scan(&cursor, &data); err != nil {
+		var digest sql.NullString
+		var size sql.NullInt64
+		if err := rows.Scan(&cursor, &data, &digest, &size); err != nil {
 			return nil, after, err
+		}
+		if digest.Valid {
+			if len(events) > 0 {
+				break // Return the hot prefix first.
+			}
+			if err := rows.Close(); err != nil {
+				return nil, after, err
+			}
+			if err := tx.Commit(); err != nil {
+				return nil, after, err
+			}
+			events, err := s.replayArchive(ctx, digest.String, size.Int64, after, limit)
+			if err != nil {
+				return nil, after, err
+			}
+			if len(events) == 0 || events[0].GetCursor() != cursor {
+				return nil, after, status.Error(codes.DataLoss, "archive is missing the expected replay cursor")
+			}
+			return events, events[len(events)-1].GetCursor(), nil
 		}
 		event := new(pb.InvocationEvent)
 		if err := proto.Unmarshal(data, event); err != nil {
@@ -776,8 +921,8 @@ func (s *sqliteStorage) Replay(ctx context.Context, id string, after uint64, lim
 	if err := rows.Err(); err != nil {
 		return nil, after, err
 	}
-	if len(events) == limit {
-		highWater = events[len(events)-1].Cursor
+	if len(events) > 0 {
+		highWater = events[len(events)-1].GetCursor()
 	}
 	return events, highWater, nil
 }

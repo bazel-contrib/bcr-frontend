@@ -14,6 +14,7 @@ import (
 	"sort"
 	"sync"
 	"syscall"
+	"time"
 
 	pb "github.com/bazel-contrib/bcr-frontend/build/stack/bazel/invocation/v1"
 	buildpb "github.com/bazel-contrib/bcr-frontend/proto/build"
@@ -176,6 +177,32 @@ func (s *journalStorage) index(event *pb.InvocationEvent) {
 	inv.UpdatedAt, inv.LastEventAt = event.ReceivedAt, event.ReceivedAt
 	s.trackStreams(inv, event)
 	applySummary(inv, decodeBEP(event.OrderedEvent))
+	finalizeAttempt(inv, event)
+}
+
+func finalizeAttempt(inv *pb.Invocation, event *pb.InvocationEvent) {
+	if inv.State == pb.InvocationState_INVOCATION_STATE_IN_PROGRESS &&
+		event.OrderedEvent.GetEvent().GetInvocationAttemptFinished() != nil {
+		inv.State = pb.InvocationState_INVOCATION_STATE_INCOMPLETE
+	}
+}
+
+func (s *journalStorage) ExpireIncomplete(ctx context.Context, now, cutoff time.Time, protected func(string) bool) (int, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if err := ctx.Err(); err != nil {
+		return 0, err
+	}
+	count := 0
+	for id, inv := range s.summaries {
+		if inv.State == pb.InvocationState_INVOCATION_STATE_IN_PROGRESS &&
+			!inv.GetLastEventAt().AsTime().After(cutoff) && !protected(id) {
+			inv.State = pb.InvocationState_INVOCATION_STATE_INCOMPLETE
+			inv.UpdatedAt = timestamppb.New(now)
+			count++
+		}
+	}
+	return count, nil
 }
 
 func decodeBEP(ordered *buildpb.OrderedBuildEvent) *beppb.BuildEvent {
@@ -291,7 +318,10 @@ func (s *journalStorage) trackStreams(inv *pb.Invocation, event *pb.InvocationEv
 		progress.contiguous++
 		delete(progress.pending, progress.contiguous)
 	}
-	if ordered.Event.GetComponentStreamFinished() != nil {
+	if ended := ordered.Event.GetComponentStreamFinished(); ended.GetType() == buildpb.BuildEvent_BuildComponentStreamFinished_EXPIRED {
+		progress.terminal = 0
+		inv.State = pb.InvocationState_INVOCATION_STATE_INCOMPLETE
+	} else if ended != nil {
 		progress.terminal = ordered.SequenceNumber
 	}
 	if payload := ordered.Event.GetBazelEvent(); payload != nil {
@@ -300,12 +330,15 @@ func (s *journalStorage) trackStreams(inv *pb.Invocation, event *pb.InvocationEv
 			progress.terminal = ordered.SequenceNumber
 		}
 	}
-	inv.State = pb.InvocationState_INVOCATION_STATE_COMPLETE
 	for _, stream := range streams {
 		if stream.terminal == 0 || stream.contiguous < stream.terminal {
-			inv.State = pb.InvocationState_INVOCATION_STATE_IN_PROGRESS
+			if inv.State != pb.InvocationState_INVOCATION_STATE_INCOMPLETE {
+				inv.State = pb.InvocationState_INVOCATION_STATE_IN_PROGRESS
+			}
+			return
 		}
 	}
+	inv.State = pb.InvocationState_INVOCATION_STATE_COMPLETE
 }
 
 func (s *journalStorage) List(_ context.Context) ([]*pb.Invocation, error) {
@@ -314,6 +347,26 @@ func (s *journalStorage) List(_ context.Context) ([]*pb.Invocation, error) {
 
 func (s *journalStorage) ListByGroup(_ context.Context, group string) ([]*pb.Invocation, error) {
 	return s.list(group)
+}
+
+func (s *journalStorage) ListPage(ctx context.Context, group string, limit int, cursor pageCursor) (*pb.ListInvocationsResponse, error) {
+	runs, err := s.ListByGroup(ctx, group)
+	if err != nil {
+		return nil, err
+	}
+	var active *pb.Invocation
+	var page []*pb.Invocation
+	for _, run := range runs {
+		if group != "" && cursor.ID == "" && active == nil && run.State == pb.InvocationState_INVOCATION_STATE_IN_PROGRESS {
+			active = run
+		}
+		created := run.GetCreatedAt().AsTime().UnixMicro()
+		if len(page) <= limit && (cursor.ID == "" || created < cursor.CreatedUS ||
+			(created == cursor.CreatedUS && run.GetInvocationId() > cursor.ID)) {
+			page = append(page, run)
+		}
+	}
+	return pageResponse(group, limit, page, active), nil
 }
 
 func (s *journalStorage) list(group string) ([]*pb.Invocation, error) {
@@ -326,7 +379,7 @@ func (s *journalStorage) list(group string) ([]*pb.Invocation, error) {
 		}
 	}
 	sort.Slice(result, func(i, j int) bool {
-		if result[i].CreatedAt.AsTime().Equal(result[j].CreatedAt.AsTime()) {
+		if result[i].CreatedAt.AsTime().UnixMicro() == result[j].CreatedAt.AsTime().UnixMicro() {
 			return result[i].InvocationId < result[j].InvocationId
 		}
 		return result[i].CreatedAt.AsTime().After(result[j].CreatedAt.AsTime())
