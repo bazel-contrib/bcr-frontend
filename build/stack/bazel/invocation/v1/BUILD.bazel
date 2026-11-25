@@ -1,0 +1,54 @@
+load("@build_stack_rules_proto//rules:proto_compiled_sources.bzl", "proto_compiled_sources")
+load("@rules_go//go:def.bzl", "go_library")
+load("@rules_proto//proto:defs.bzl", "proto_library")
+
+proto_library(
+    name = "invocation_proto",
+    srcs = ["invocation.proto"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "@protobufapis//google/protobuf:timestamp_proto",
+        "@googleapis//google/devtools/build/v1:publish_build_event_proto",
+    ],
+)
+
+proto_compiled_sources(
+    name = "invocation_go_compiled_sources",
+    srcs = ["invocation.pb.go", "invocation_grpc.pb.go"],
+    output_mappings = [
+        "invocation.pb.go=github.com/bazel-contrib/bcr-frontend/build/stack/bazel/invocation/v1/invocation.pb.go",
+        "invocation_grpc.pb.go=github.com/bazel-contrib/bcr-frontend/build/stack/bazel/invocation/v1/invocation_grpc.pb.go",
+    ],
+    plugins = [
+        "@build_stack_rules_proto//plugin/golang/protobuf:protoc-gen-go",
+        "@build_stack_rules_proto//plugin/grpc/grpc-go:protoc-gen-go-grpc",
+    ],
+    options = {
+        "@build_stack_rules_proto//plugin/golang/protobuf:protoc-gen-go": [
+            "Mgoogle/devtools/build/v1/build_events.proto=github.com/bazel-contrib/bcr-frontend/proto/build",
+            "Mgoogle/devtools/build/v1/publish_build_event.proto=github.com/bazel-contrib/bcr-frontend/proto/build",
+        ],
+        "@build_stack_rules_proto//plugin/grpc/grpc-go:protoc-gen-go-grpc": [
+            "Mgoogle/devtools/build/v1/build_events.proto=github.com/bazel-contrib/bcr-frontend/proto/build",
+            "Mgoogle/devtools/build/v1/publish_build_event.proto=github.com/bazel-contrib/bcr-frontend/proto/build",
+        ],
+    },
+    proto = "invocation_proto",
+    visibility = ["//visibility:public"],
+)
+
+go_library(
+    name = "invocation",
+    srcs = ["invocation.pb.go", "invocation_grpc.pb.go"],
+    importpath = "github.com/bazel-contrib/bcr-frontend/build/stack/bazel/invocation/v1",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//bazel_tools/proto:publish_build_event",
+        "@org_golang_google_grpc//:grpc",
+        "@org_golang_google_grpc//codes",
+        "@org_golang_google_grpc//status",
+        "@org_golang_google_protobuf//reflect/protoreflect",
+        "@org_golang_google_protobuf//runtime/protoimpl",
+        "@org_golang_google_protobuf//types/known/timestamppb",
+    ],
+)

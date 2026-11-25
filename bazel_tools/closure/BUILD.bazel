@@ -1,0 +1,7 @@
+exports_files(["closure_jspb_library.star"])
+
+filegroup(
+    name = "starlark",
+    srcs = ["closure_jspb_library.star"],
+    visibility = ["//visibility:public"],
+)

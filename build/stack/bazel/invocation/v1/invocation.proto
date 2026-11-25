@@ -1,0 +1,207 @@
+syntax = "proto3";
+
+package build.stack.bazel.invocation.v1;
+
+import "google/protobuf/timestamp.proto";
+import "google/devtools/build/v1/publish_build_event.proto";
+
+option go_package = "github.com/bazel-contrib/bcr-frontend/build/stack/bazel/invocation/v1;invocationpb";
+
+// Summary of one Bazel command, updated as build events arrive. Raw events and
+// console output are stored separately and associated through invocation_id.
+// An invocation may contain several BES component streams. Each stream has its
+// own sequence numbers, so sequence numbers alone cannot identify an event.
+// Bazel's Build Event Service supplies stream identity and the event envelope.
+// BuildBuddy's invocation model is a reference for the summary and replay API:
+// https://github.com/buildbuddy-io/buildbuddy/blob/master/proto/invocation.proto
+message Invocation {
+  reserved 3 to 7, 24 to 26;
+  reserved "correlated_invocations_id", "parent_invocation_id", "user_id",
+      "group_id", "visibility", "tags", "build_metadata", "ci";
+
+  // Client-generated Bazel invocation UUID, from BES StreamId.invocation_id
+  // and BuildStarted.uuid. Also matches REAPI RequestMetadata.tool_invocation_id.
+  string invocation_id = 1;
+  // BES StreamId.build_id identifies a build that may have multiple invocations.
+  string build_id = 2;
+
+  InvocationState state = 8;
+  InvocationResult result = 9;
+
+  // Server receipt times. created_at is the first accepted event, updated_at
+  // is the latest summary update, and last_event_at is the latest event receipt.
+  google.protobuf.Timestamp created_at = 10;
+  google.protobuf.Timestamp updated_at = 11;
+  google.protobuf.Timestamp last_event_at = 12;
+  // Client-reported build times from BuildStarted and BuildFinished.
+  google.protobuf.Timestamp started_at = 13;
+  google.protobuf.Timestamp finished_at = 14;
+
+  // Client-reported OS username and hostname. These are display metadata.
+  string build_user = 15;
+  string host = 16;
+  string command = 17;
+  repeated string target_patterns = 18;
+  string bazel_version = 19;
+  string workspace_directory = 20;
+  string working_directory = 21;
+
+  SourceControl source_control = 22;
+  // Client-reported role such as CI or developer.
+  string role = 23;
+
+  // Bazel runner accounting. Absent if the event did not report this signal.
+  optional int64 bazel_remote_cache_hits = 27;
+  // RPC observations recorded by the instrumented cache frontend.
+  RemoteCacheStats remote_cache = 28;
+  // User-supplied analytics grouping from Bazel's igroup build metadata.
+  string invocation_group = 29;
+}
+
+message RemoteCacheStats {
+  repeated RemoteCacheMetric metrics = 1;
+  google.protobuf.Timestamp observed_at = 2;
+}
+
+message RemoteCacheMetric {
+  // Stable names such as ac_lookup, ac_write, cas_presence, cas_read, cas_write.
+  string operation = 1;
+  // hit, miss, ok or error. CAS batches and existence checks count blobs.
+  // transfer rows account for batch payload bytes without incrementing counts.
+  string result = 2;
+  int64 count = 3;
+  // Cache data payload bytes observed at the frontend, excluding framing.
+  int64 transferred_bytes = 4;
+}
+
+// State of event collection, independent of the command's exit status.
+enum InvocationState {
+  INVOCATION_STATE_UNSPECIFIED = 0;
+  INVOCATION_STATE_IN_PROGRESS = 1;
+  // All observed build-tool streams have finished with contiguous events.
+  INVOCATION_STATE_COMPLETE = 2;
+  // Collection was finalized with missing events, for example after a timeout.
+  // A transient disconnect alone does not finalize collection.
+  INVOCATION_STATE_INCOMPLETE = 3;
+}
+
+// Present when a BuildFinished event has supplied a result, even if other
+// events are still missing. An absent result means the outcome is unknown.
+message InvocationResult {
+  // Numeric Bazel exit code. Presence distinguishes success (0) from unknown.
+  optional int32 exit_code = 1;
+  // Symbolic Bazel exit code name, for example SUCCESS or BUILD_FAILURE.
+  string exit_code_name = 2;
+}
+
+message SourceControl {
+  reserved 4;
+  reserved "change_id";
+
+  string repository_url = 1;
+  string commit_sha = 2;
+  string branch = 3;
+}
+
+// Query and follow invocations accepted by this server.
+service InvocationService {
+  rpc ListInvocationGroups(ListInvocationGroupsRequest) returns (ListInvocationGroupsResponse);
+  rpc GetInvocationGroupMetrics(GetInvocationGroupMetricsRequest) returns (InvocationGroupMetrics);
+  rpc ListInvocations(ListInvocationsRequest) returns (ListInvocationsResponse);
+  rpc GetInvocation(GetInvocationRequest) returns (Invocation);
+  // Replays events after the cursor, then follows newly accepted events.
+  rpc WatchInvocation(WatchInvocationRequest) returns (stream InvocationEvent);
+}
+
+message InvocationGroup {
+  string name = 1;
+}
+message ListInvocationGroupsRequest {}
+message ListInvocationGroupsResponse {
+  repeated InvocationGroup groups = 1;
+}
+message ListInvocationsRequest {
+  // An empty value lists invocations across all groups and ungrouped runs.
+  string invocation_group = 1;
+  int32 page_size = 2;
+  string page_token = 3;
+}
+message ListInvocationsResponse {
+  repeated Invocation invocations = 1;
+  string next_page_token = 2;
+  Invocation active_invocation = 3;
+}
+message GetInvocationRequest {
+  string invocation_id = 1;
+}
+message WatchInvocationRequest {
+  string invocation_id = 1;
+  // Server journal offset. Zero starts at the first recorded event.
+  uint64 after_cursor = 2;
+}
+message InvocationEvent {
+  // Monotonic journal position, distinct from the per-stream BES sequence.
+  uint64 cursor = 1;
+  google.protobuf.Timestamp received_at = 2;
+  bool lifecycle = 3;
+  google.devtools.build.v1.OrderedBuildEvent ordered_event = 4;
+}
+
+message GetInvocationGroupMetricsRequest {
+  string invocation_group = 1;
+  // Rolling window measured by server receipt time. Defaults to 30 days.
+  int32 window_days = 2;
+}
+
+// Aggregates for one invocation group within the requested window.
+message InvocationGroupMetrics {
+  int64 invocation_count = 1;
+  int64 running_count = 2;
+  int64 succeeded_count = 3;
+  int64 failed_count = 4;
+  int64 timing_sample_count = 5;
+  optional double average_duration_ms = 6;
+  optional double median_duration_ms = 7;
+  optional int64 p95_duration_ms = 8;
+  GroupCacheMetrics cache = 9;
+  GroupTestMetrics tests = 10;
+  repeated GroupBuildSample builds = 11;
+}
+
+// A completed invocation. Optional measurements distinguish missing data from zero.
+message GroupBuildSample {
+  string invocation_id = 1;
+  google.protobuf.Timestamp started_at = 2;
+  string status = 3;
+  optional int64 duration_ms = 4;
+  optional int64 cpu_ms = 5;
+  optional int64 execution_ms = 6;
+  optional int64 critical_path_ms = 7;
+  optional int64 actions_executed = 8;
+  optional int64 actions_total = 9;
+  optional int64 targets_configured = 10;
+  optional int64 output_bytes = 11;
+}
+
+message GroupCacheMetrics {
+  int64 action_cache_hits = 1;
+  int64 action_cache_misses = 2;
+  int64 action_cache_errors = 3;
+  int64 action_cache_invocation_count = 4;
+  optional int64 bazel_remote_cache_hits = 5;
+}
+
+message GroupTestMetrics {
+  // Latest summary per invocation, target label, and configuration.
+  int64 summary_count = 1;
+  int64 flaky_count = 2;
+  int64 failed_or_timed_out_count = 3;
+  // Up to ten targets, ordered by flaky summaries descending.
+  repeated GroupFlakyTarget flaky_targets = 4;
+}
+
+message GroupFlakyTarget {
+  string label = 1;
+  int64 summary_count = 2;
+  int64 flaky_count = 3;
+}
