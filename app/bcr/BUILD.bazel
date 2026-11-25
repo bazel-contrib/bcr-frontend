@@ -476,10 +476,9 @@ RELEASE_SRCS = [
     "vendor/fzstd-0.1.1-bounded.js",
     "vendor/fzstd-0.1.1.LICENSE",
     "@mermaid//:license",
-] + glob([
     "iroh_wasm/bcr_invocation_iroh.js",
     "iroh_wasm/bcr_invocation_iroh_bg.wasm",
-]) + select({
+] + select({
     ":is_debug_release": ["bcr.js.map"],
     "//conditions:default": [],
 })

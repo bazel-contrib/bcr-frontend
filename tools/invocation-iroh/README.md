@@ -100,9 +100,13 @@ RUSTUP_TOOLCHAIN=1.95.0 tools/invocation-iroh/build-browser.sh
 bazel build //app/bcr:release
 ```
 
-The build helper generates the optional Iroh WASM assets under
-`app/bcr/iroh_wasm`. The normal frontend release includes them when present.
-A clean GitHub Pages deployment builds these assets before packaging the site.
+The build helper regenerates the JavaScript bindings and WASM binary in
+`app/bcr/iroh_wasm`. GitHub Pages deploys package the checked-in files.
+The **Update Iroh Browser Module** workflow refreshes them when the Iroh
+crate or build script changes on `main`. If the files change, it commits
+them to `main` and starts the GitHub Pages deploy. Run it manually with
+`gh workflow run update-iroh-browser.yml --ref main` to rebuild and deploy
+on demand.
 A hosted deployment needs to serve the generated JavaScript and WebAssembly
 assets and permit WebSocket connections to its Iroh relay.
 

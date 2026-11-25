@@ -119,17 +119,6 @@ jobs:
           --
           ${{ steps.gazelle.outputs.extra_flags }}
 
-      - name: Build the Iroh browser module
-        env:
-          RUSTUP_TOOLCHAIN: "1.95.0"
-        run: |
-          rustup toolchain install "$RUSTUP_TOOLCHAIN" --profile minimal --target wasm32-unknown-unknown
-          bindgen_root="$HOME/.cache/bcr-frontend/wasm-bindgen-0.2.130"
-          cargo install --locked --version 0.2.130 --root "$bindgen_root" wasm-bindgen-cli
-          PATH="$bindgen_root/bin:$PATH" tools/invocation-iroh/build-browser.sh
-          test -s app/bcr/iroh_wasm/bcr_invocation_iroh.js
-          test -s app/bcr/iroh_wasm/bcr_invocation_iroh_bg.wasm
-
       - name: Deploy to GitHub Pages
         run: >-
           bazelisk

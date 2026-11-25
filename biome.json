@@ -14,6 +14,7 @@
 			"app/**/*.html",
 			"!app/bcr/primer.css",
 			"!app/bcr/primer.unminified.css",
+			"!app/bcr/iroh_wasm/**",
 			"!**/*.soy"
 		]
 	},
