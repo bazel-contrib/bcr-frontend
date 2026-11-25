@@ -137,6 +137,7 @@ jobs:
           --bazelrc=.bazelrc
           run
           --config=ci
+          --build_metadata=igroup=bcr-frontend-deploy
           --//app/bcr:release_type=production
           --//app/bcr:prerender_modules=on
           //app/bcr:ghpages
