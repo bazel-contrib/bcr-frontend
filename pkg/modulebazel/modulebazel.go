@@ -152,12 +152,13 @@ func addOverride(dep *bzpb.ModuleDependency, moduleName string, overrides map[st
 	case "git_override":
 		dep.Override.Override = &bzpb.ModuleDependencyOverride_GitOverride{
 			GitOverride: &bzpb.GitOverride{
-				Commit:     overrideRule.AttrString("commit"),
-				Remote:     overrideRule.AttrString("remote"),
-				Branch:     overrideRule.AttrString("branch"),
-				PatchStrip: parseInt32(overrideRule.AttrString("patch_strip")),
-				Patches:    overrideRule.AttrStrings("patches"),
-				Tag:        overrideRule.AttrString("tag"),
+				Commit:      overrideRule.AttrString("commit"),
+				Remote:      overrideRule.AttrString("remote"),
+				Branch:      overrideRule.AttrString("branch"),
+				PatchStrip:  parseInt32(overrideRule.AttrString("patch_strip")),
+				Patches:     overrideRule.AttrStrings("patches"),
+				Tag:         overrideRule.AttrString("tag"),
+				StripPrefix: overrideRule.AttrString("strip_prefix"),
 			},
 		}
 	case "archive_override":
@@ -167,6 +168,7 @@ func addOverride(dep *bzpb.ModuleDependency, moduleName string, overrides map[st
 				PatchStrip:  parseInt32(overrideRule.AttrString("patch_strip")),
 				Patches:     overrideRule.AttrStrings("patches"),
 				PatchArgs:   overrideRule.AttrStrings("patch_args"),
+				PatchCmds:   overrideRule.AttrStrings("patch_cmds"),
 				Sha256:      overrideRule.AttrString("sha256"),
 				StripPrefix: overrideRule.AttrString("strip_prefix"),
 				Urls:        overrideRule.AttrStrings("urls"),
@@ -177,6 +179,7 @@ func addOverride(dep *bzpb.ModuleDependency, moduleName string, overrides map[st
 			SingleVersionOverride: &bzpb.SingleVersionOverride{
 				PatchStrip: parseInt32(overrideRule.AttrString("patch_strip")),
 				Patches:    overrideRule.AttrStrings("patches"),
+				PatchCmds:  overrideRule.AttrStrings("patch_cmds"),
 				Version:    overrideRule.AttrString("version"),
 				Registry:   overrideRule.AttrString("registry"),
 			},

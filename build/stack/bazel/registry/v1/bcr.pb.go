@@ -1686,6 +1686,7 @@ type GitOverride struct {
 	Remote        string                 `protobuf:"bytes,4,opt,name=remote,proto3" json:"remote,omitempty"`
 	Branch        string                 `protobuf:"bytes,5,opt,name=branch,proto3" json:"branch,omitempty"`
 	Tag           string                 `protobuf:"bytes,6,opt,name=tag,proto3" json:"tag,omitempty"`
+	StripPrefix   string                 `protobuf:"bytes,7,opt,name=strip_prefix,json=stripPrefix,proto3" json:"strip_prefix,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1755,6 +1756,20 @@ func (x *GitOverride) GetBranch() string {
 	return ""
 }
 
+func (x *GitOverride) GetTag() string {
+	if x != nil {
+		return x.Tag
+	}
+	return ""
+}
+
+func (x *GitOverride) GetStripPrefix() string {
+	if x != nil {
+		return x.StripPrefix
+	}
+	return ""
+}
+
 type ArchiveOverride struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Integrity     string                 `protobuf:"bytes,1,opt,name=integrity,proto3" json:"integrity,omitempty"`
@@ -1764,6 +1779,7 @@ type ArchiveOverride struct {
 	Urls          []string               `protobuf:"bytes,5,rep,name=urls,proto3" json:"urls,omitempty"`
 	PatchArgs     []string               `protobuf:"bytes,6,rep,name=patch_args,json=patchArgs,proto3" json:"patch_args,omitempty"`
 	Sha256        string                 `protobuf:"bytes,7,opt,name=sha256,proto3" json:"sha256,omitempty"`
+	PatchCmds     []string               `protobuf:"bytes,8,rep,name=patch_cmds,json=patchCmds,proto3" json:"patch_cmds,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1847,12 +1863,20 @@ func (x *ArchiveOverride) GetSha256() string {
 	return ""
 }
 
+func (x *ArchiveOverride) GetPatchCmds() []string {
+	if x != nil {
+		return x.PatchCmds
+	}
+	return nil
+}
+
 type SingleVersionOverride struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	PatchStrip    int32                  `protobuf:"varint,1,opt,name=patch_strip,json=patchStrip,proto3" json:"patch_strip,omitempty"`
 	Patches       []string               `protobuf:"bytes,2,rep,name=patches,proto3" json:"patches,omitempty"`
 	Version       string                 `protobuf:"bytes,3,opt,name=version,proto3" json:"version,omitempty"`
 	Registry      string                 `protobuf:"bytes,4,opt,name=registry,proto3" json:"registry,omitempty"`
+	PatchCmds     []string               `protobuf:"bytes,5,rep,name=patch_cmds,json=patchCmds,proto3" json:"patch_cmds,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1913,6 +1937,13 @@ func (x *SingleVersionOverride) GetRegistry() string {
 		return x.Registry
 	}
 	return ""
+}
+
+func (x *SingleVersionOverride) GetPatchCmds() []string {
+	if x != nil {
+		return x.PatchCmds
+	}
+	return nil
 }
 
 type LocalPathOverride struct {
@@ -2851,14 +2882,16 @@ const file_build_stack_bazel_registry_v1_bcr_proto_rawDesc = "" +
 	"\boverride\x18\x06 \x01(\v27.build.stack.bazel.registry.v1.ModuleDependencyOverrideR\boverride\x12\x1e\n" +
 	"\n" +
 	"unresolved\x18\a \x01(\bR\n" +
-	"unresolved\"\x90\x01\n" +
+	"unresolved\"\xc5\x01\n" +
 	"\vGitOverride\x12\x16\n" +
 	"\x06commit\x18\x01 \x01(\tR\x06commit\x12\x1f\n" +
 	"\vpatch_strip\x18\x02 \x01(\x05R\n" +
 	"patchStrip\x12\x18\n" +
 	"\apatches\x18\x03 \x03(\tR\apatches\x12\x16\n" +
 	"\x06remote\x18\x04 \x01(\tR\x06remote\x12\x16\n" +
-	"\x06branch\x18\x05 \x01(\tR\x06branch\"\xd8\x01\n" +
+	"\x06branch\x18\x05 \x01(\tR\x06branch\x12\x10\n" +
+	"\x03tag\x18\x06 \x01(\tR\x03tag\x12!\n" +
+	"\fstrip_prefix\x18\a \x01(\tR\vstripPrefix\"\xf7\x01\n" +
 	"\x0fArchiveOverride\x12\x1c\n" +
 	"\tintegrity\x18\x01 \x01(\tR\tintegrity\x12\x1f\n" +
 	"\vpatch_strip\x18\x02 \x01(\x05R\n" +
@@ -2868,13 +2901,17 @@ const file_build_stack_bazel_registry_v1_bcr_proto_rawDesc = "" +
 	"\x04urls\x18\x05 \x03(\tR\x04urls\x12\x1d\n" +
 	"\n" +
 	"patch_args\x18\x06 \x03(\tR\tpatchArgs\x12\x16\n" +
-	"\x06sha256\x18\a \x01(\tR\x06sha256\"\x88\x01\n" +
+	"\x06sha256\x18\a \x01(\tR\x06sha256\x12\x1d\n" +
+	"\n" +
+	"patch_cmds\x18\b \x03(\tR\tpatchCmds\"\xa7\x01\n" +
 	"\x15SingleVersionOverride\x12\x1f\n" +
 	"\vpatch_strip\x18\x01 \x01(\x05R\n" +
 	"patchStrip\x12\x18\n" +
 	"\apatches\x18\x02 \x03(\tR\apatches\x12\x18\n" +
 	"\aversion\x18\x03 \x01(\tR\aversion\x12\x1a\n" +
-	"\bregistry\x18\x04 \x01(\tR\bregistry\"'\n" +
+	"\bregistry\x18\x04 \x01(\tR\bregistry\x12\x1d\n" +
+	"\n" +
+	"patch_cmds\x18\x05 \x03(\tR\tpatchCmds\"'\n" +
 	"\x11LocalPathOverride\x12\x12\n" +
 	"\x04path\x18\x01 \x01(\tR\x04path\"\xef\a\n" +
 	"\tPresubmit\x12^\n" +

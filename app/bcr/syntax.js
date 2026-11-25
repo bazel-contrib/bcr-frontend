@@ -21,6 +21,7 @@ function getEffectiveColorMode(ownerDocument) {
 
 	return colorMode; // 'light' or 'dark'
 }
+exports.getEffectiveColorMode = getEffectiveColorMode;
 
 /**
  * @param {!Element} preEl The element to highlight, typically PRE

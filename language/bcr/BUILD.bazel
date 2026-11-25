@@ -78,6 +78,7 @@ go_test(
     embed = [":bcr"],
     deps = [
         "//build/stack/bazel/registry/v1:registry",
+        "//pkg/modulebazel",
         "@bazel_gazelle//rule",
     ],
 )

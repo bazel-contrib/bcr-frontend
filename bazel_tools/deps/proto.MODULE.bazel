@@ -1,0 +1,128 @@
+# -------------------------------------------------------------------
+# Configuration: Protobuf Deps
+# -------------------------------------------------------------------
+
+proto_repository = use_extension("@build_stack_rules_proto//extensions:proto_repository.bzl", "proto_repository")
+proto_repository.archive(
+    name = "protobufapis",
+    build_directives = [
+        "gazelle:exclude testdata",
+        "gazelle:exclude google/protobuf/compiler/ruby",
+        "gazelle:exclude google/protobuf/bridge",
+        "gazelle:exclude google/protobuf/util/internal/testdata",
+        "gazelle:proto_language closure enable true",
+    ],
+    build_file_generation = "clean",
+    build_file_proto_mode = "file",
+    cfgs = ["//:rules_proto_config.yaml"],
+    deleted_files = [
+        "google/protobuf/*test*.proto",
+        "google/protobuf/*unittest*.proto",
+        "google/protobuf/late*.proto",
+        "google/protobuf/sample*.proto",
+        "google/protobuf/cpp_features.proto",
+        "google/protobuf/internal_options.proto",
+        "google/protobuf/compiler/cpp/*test*.proto",
+        "google/protobuf/util/*test*.proto",
+        "google/protobuf/util/*unittest*.proto",
+        "google/protobuf/util/json_format*.proto",
+    ],
+    sha256 = "bb1fd58473c47c747a3f00fc45ced1d562bba4bf645db07cc889fe86dee279ca",
+    strip_prefix = "protobuf-4fbd1111a292d04746c732573025e3251de0bb9c/src",
+    urls = ["https://github.com/protocolbuffers/protobuf/archive/4fbd1111a292d04746c732573025e3251de0bb9c.tar.gz"],
+)
+
+# Commit: 60e1300d4a0b60b85b3df167ddc4062ac7cc4f44
+# Date: 2025-09-08 18:27:45 +0000 UTC
+# URL: https://github.com/googleapis/googleapis/commit/60e1300d4a0b60b85b3df167ddc4062ac7cc4f44
+#
+# feat: release initial client libraries for Cloud Location Finder (https://cloud.google.com/location-finder)
+#
+# Clients can now use this v1 client library via the following methods: ListCloudLocations, GetCloudLocation, SearchCloudLocations
+#
+# PiperOrigin-RevId: 804516757
+# Size: 11515047 (12 MB)
+proto_repository.archive(
+    name = "googleapis",
+    build_directives = [
+        "gazelle:exclude google/ads/googleads/v19/services",
+        "gazelle:exclude google/ads/googleads/v20/services",
+        "gazelle:exclude google/ads/googleads/v21/services",
+        "gazelle:exclude google/ads/googleads/v7/services",
+        "gazelle:exclude google/ads/googleads/v8/services",
+        "gazelle:exclude google/cloud/recommendationengine/v1beta1",
+        "gazelle:exclude google/devtools/containeranalysis/v1beta1",
+        "gazelle:exclude google/example",
+        "gazelle:exclude google/maps/weather/v1",
+        "gazelle:proto_language closure enable true",
+    ],
+    build_file_generation = "clean",
+    build_file_proto_mode = "file",
+    cfgs = ["//:rules_proto_config.yaml"],
+    imports = ["@protobufapis//:imports.csv"],
+    reresolve_known_proto_imports = True,
+    sha256 = "b1f729e116312e1bed9a6c0b812e8d6071755dcf93ff4f665c07bbf517dd61a6",
+    strip_prefix = "googleapis-60e1300d4a0b60b85b3df167ddc4062ac7cc4f44",
+    urls = ["https://github.com/googleapis/googleapis/archive/60e1300d4a0b60b85b3df167ddc4062ac7cc4f44.tar.gz"],
+)
+
+# Release: v2.12.0
+# TargetCommitish: main
+# Date: 2026-02-12 19:19:26 +0000 UTC
+# URL: https://github.com/bazelbuild/remote-apis/releases/tag/v2.12.0
+# Size: 148685 (149 kB)
+proto_repository.archive(
+    name = "remoteapis",
+    build_directives = [
+        "gazelle:exclude third_party",
+        "gazelle:proto_language closure enable true",
+    ],
+    build_file_generation = "clean",
+    build_file_proto_mode = "file",
+    cfgs = ["//:rules_proto_config.yaml"],
+    imports = [
+        "@googleapis//:imports.csv",
+        "@protobufapis//:imports.csv",
+    ],
+    sha256 = "2679719b77b8c4665592e813118c81ef43bc9e2fa305512771e723a7b1fe896b",
+    strip_prefix = "remote-apis-2.12.0",
+    urls = ["https://github.com/bazelbuild/remote-apis/archive/v2.12.0.tar.gz"],
+)
+
+# Release: 9.2.0
+# TargetCommitish: master
+# Date: 2026-07-13 18:10:42 +0000 UTC
+# URL: https://github.com/bazelbuild/bazel/releases/tag/9.2.0
+# Size: 42465919 (42 MB)
+proto_repository.archive(
+    name = "bazelapis",
+    build_directives = [
+        "gazelle:exclude src/java_tools/import_deps_checker/javatests/com/google/devtools/build/importdeps/testdata",
+        "gazelle:exclude src/tools/android/java/com/google/devtools/build/android",
+        "gazelle:exclude third_party",
+        "gazelle:proto_language closure enable true",
+    ],
+    build_file_generation = "clean",
+    build_file_proto_mode = "file",
+    # Kept explicit so toggling it while developing the custom Starlark
+    # generator invalidates stale generated BUILD files.
+    debug_mode = True,
+    cfgs = ["//:rules_proto_config.yaml"],
+    imports = [
+        "@googleapis//:imports.csv",
+        "@protobufapis//:imports.csv",
+        "@remoteapis//:imports.csv",
+    ],
+    sha256 = "fd2382f6a84fc00df819b9e26c5435bf38338362c43b7e0834dbfc38cb8f850e",
+    strip_prefix = "bazel-9.2.0",
+    urls = ["https://github.com/bazelbuild/bazel/archive/9.2.0.tar.gz"],
+)
+use_repo(
+    proto_repository,
+    "bazelapis",
+    "googleapis",
+    "protobufapis",
+    "remoteapis",
+)
+
+inject_repo(proto_repository, "bcr-frontend", "stackb_rules_closure")

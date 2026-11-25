@@ -2,18 +2,18 @@
 # Dependencies
 # -------------------------------------------------------------------
 
-bazel_dep(name = "bazel_skylib", version = "1.9.0", dev_dependency = True)
+bazel_dep(name = "bazel_skylib", version = "1.9.2", dev_dependency = True)
 bazel_dep(name = "build_stack_rules_proto", version = "4.1.1", dev_dependency = True)
 bazel_dep(name = "buildifier_prebuilt", version = "8.5.1.2", dev_dependency = True)
 bazel_dep(name = "gazelle", version = "0.51.0", dev_dependency = True, repo_name = "bazel_gazelle")
 bazel_dep(name = "rules_browsers", version = "0.4.0", dev_dependency = True)
-bazel_dep(name = "rules_go", version = "0.59.0", dev_dependency = True)
-bazel_dep(name = "rules_java", version = "8.16.1", dev_dependency = True)
+bazel_dep(name = "rules_go", version = "0.65.0", dev_dependency = True)
+bazel_dep(name = "rules_java", version = "9.9.0", dev_dependency = True)
 bazel_dep(name = "rules_multitool", version = "1.11.1", dev_dependency = True)
 bazel_dep(name = "rules_proto", version = "7.1.0", dev_dependency = True)
-bazel_dep(name = "rules_rs", version = "0.0.20", dev_dependency = True)
-bazel_dep(name = "rules_rust_wasm_bindgen", version = "0.68.1", dev_dependency = True)
-bazel_dep(name = "rules_rust", version = "0.68.1", dev_dependency = True)
+bazel_dep(name = "rules_rs", version = "0.0.30", dev_dependency = True)
+bazel_dep(name = "rules_rust_wasm_bindgen", version = "0.75.0", dev_dependency = True)
+bazel_dep(name = "rules_rust", version = "0.75.0", dev_dependency = True)
 bazel_dep(name = "rules_tsickle", version = "1.1.0", dev_dependency = True)
 bazel_dep(name = "stackb_rules_closure", version = "1.0.0", dev_dependency = True)
 bazel_dep(name = "stackb_ui_js", version = "1.0.0", dev_dependency = True)
@@ -30,36 +30,24 @@ browsers.chrome()
 # Overrides
 # -------------------------------------------------------------------
 
-# Commit: ab383bb888085a9851568bf9f248a37a63b8b851
-# Date: 2026-05-19 05:30:35 +0000 UTC
-# URL: https://github.com/stackb/rules_proto/commit/ab383bb888085a9851568bf9f248a37a63b8b851
+single_version_override(
+    module_name = "closure-templates",
+    patch_strip = 1,
+    patches = ["//bazel_tools/deps:closure-templates-check-return-value.patch"],
+    version = "1.0.1",
+)
+
+# Commit: c7c3ea2365197bc319c59cc55f44d2680be7677e
+# Date: 2026-09-08 19:36:25 +0000 UTC
+# URL: https://github.com/stackb/rules_proto/commit/c7c3ea2365197bc319c59cc55f44d2680be7677e
 #
-# starlark_repository: capture upstream BUILD files as starlark_package targets (#423)
-#
-# Adds a new "preserve" build_file_generation mode that runs cmd/preserve_packages
-# between fetch_repo and gazelle. The tool mirrors fetch_repo -clean semantics
-# (deletes WORKSPACE / MODULE.bazel / etc.) but renames BUILD and BUILD.bazel to
-# BUILD.package and BUILD.bazel.package so the upstream package layout is
-# preserved as opaque files rather than discarded.
-#
-# The starlarkrepository gazelle extension grows a parallel pair of kinds
-# alongside starlark_module / starlark_module_library:
-#
-#   - starlark_package: one per BUILD*.package, src points at the preserved file.
-#     Name is the dot-sanitized filename (BUILD.package -> BUILD_package) to
-#     avoid clashing with starlark_module names derived from .bzl files.
-#   - starlark_package_library: emitted at the configured root, named
-#     "starlark_packages" (not "packages", which would clash with packages.bzl).
-#     Its `packages` attr is populated in Resolve via the RuleIndex.
-#
-# starlark_repository.archive/.local default build_file_generation to "preserve"
-# so users get the new behavior automatically; they can still override.
-# Size: 4117603 (4.1 MB)
+# feat: add -starlarkrepository_canonical_repo_name to deal with //conditions:default labels
+# Size: 4135542 (4.1 MB)
 archive_override(
     module_name = "build_stack_rules_proto",
-    sha256 = "563a8ed2dc192b6e95d5633cd0a5ad0453867335eff42f7cb61711655a1b6842",
-    strip_prefix = "rules_proto-ab383bb888085a9851568bf9f248a37a63b8b851",
-    urls = ["https://github.com/stackb/rules_proto/archive/ab383bb888085a9851568bf9f248a37a63b8b851.tar.gz"],
+    sha256 = "c109fd8d2609f4029ddeb62099dc7b6c31364d8acd83147e6b4de2d6907c391b",
+    strip_prefix = "rules_proto-c7c3ea2365197bc319c59cc55f44d2680be7677e",
+    urls = ["https://github.com/stackb/rules_proto/archive/c7c3ea2365197bc319c59cc55f44d2680be7677e.tar.gz"],
 )
 
 # Commit: 8c7ea42b02671b60182ce298a1f386bee9960136

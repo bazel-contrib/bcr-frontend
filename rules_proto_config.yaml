@@ -1,3 +1,5 @@
+starlarkRules:
+  - "bazel_tools/closure/closure_jspb_library.star%closure_jspb_library"
 plugins:
   - name: protoc-gen-go
     implementation: golang:protobuf:protoc-gen-go
@@ -13,7 +15,7 @@ plugins:
       - "@org_golang_google_grpc//:go_default_library"
       - "@org_golang_google_grpc//codes"
       - "@org_golang_google_grpc//status"
-  - name: closure_js
+  - name: protoc-gen-closure-js
     implementation: builtin:js:closure
   - name: protoc-gen-grpc-js
     implementation: stackb:grpc.js:protoc-gen-grpc-js
@@ -37,11 +39,24 @@ rules:
       - "google/protobuf/([a-z]+).proto @org_golang_google_protobuf//types/known/${1}pb"
       - "google/protobuf/(field_mask).proto @org_golang_google_protobuf//types/known/fieldmaskpb"
       - "google/protobuf/(descriptor|plugin).proto @org_golang_google_protobuf//types/${1}pb"
+  - name: closure_jspb_library
+    implementation: bazel_tools/closure/closure_jspb_library.star%closure_jspb_library
+    visibility:
+      - //visibility:public
 languages:
   - name: go
     plugins:
       - protoc-gen-go
       - protoc-gen-go-grpc
     rules:
-      - proto_compiled_sources
+      - proto_compile
+      - proto_go_library
+    enabled: false
+  - name: closure
+    plugins:
+      - protoc-gen-closure-js
+      - protoc-gen-grpc-js
+    rules:
+      - proto_compile
+      - closure_jspb_library
     enabled: false

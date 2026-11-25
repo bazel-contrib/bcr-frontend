@@ -1,0 +1,384 @@
+{namespace soy.bcrfrontend.tools}
+
+import {
+  octiconAlert16,
+  octiconBeaker16,
+  octiconCheckCircleFill16,
+  octiconChevronRight16,
+  octiconCircle16,
+  octiconCircleSlash16,
+  octiconFile16,
+  octiconStop16,
+  octiconTerminal16,
+  octiconTools16,
+  octiconXCircleFill16
+} from 'app/bcr/octicons.soy';
+
+import {sectionHeader} from 'app/bcr/registry.soy';
+
+{template toolsSelect}
+  <div class="mt-3">
+    <div class="{css('content')}"></div>
+  </div>
+{/template}
+
+{template eventStatusIcon}
+  {@param success: bool}
+  {if $success}
+    <span class="d-flex color-fg-success" title="Successful" aria-label="Successful">
+      {octiconCheckCircleFill16()}
+    </span>
+  {else}
+    <span class="d-flex color-fg-danger" title="Failed" aria-label="Failed">
+      {octiconXCircleFill16()}
+    </span>
+  {/if}
+{/template}
+
+{template invocationResultGlyph}
+  {@param kind: string}
+  {switch $kind}
+    {case 'success'}{octiconCheckCircleFill16()}
+    {case 'failure'}{octiconXCircleFill16()}
+    {case 'tests'}{octiconBeaker16()}
+    {case 'interrupted'}{octiconStop16()}
+    {case 'input'}{octiconTerminal16()}
+    {case 'empty'}{octiconCircleSlash16()}
+    {case 'infrastructure', 'warning'}{octiconAlert16()}
+    {case 'running'}<span class="bes-invocation-spinner" aria-hidden="true"></span>
+    {default}{octiconCircle16()}
+  {/switch}
+{/template}
+
+{template toolsCatalog}
+  <div>
+    <h1 class="h2 mb-3">Tools</h1>
+    <p class="color-fg-muted mb-3">Browser-based utilities for working with Bazel data.</p>
+    <div class="Box">
+      <a href="/tools/invocations" class="Box-row d-flex flex-items-center color-fg-default no-underline">
+        <span class="mr-3">{octiconTools16()}</span>
+        <span class="flex-auto">
+          <span class="text-bold d-block">Build Events</span>
+          <span class="color-fg-muted text-small">Open a build event file, follow live invocations, or view group metrics.</span>
+        </span>
+        {octiconChevronRight16(fill: 'var(--color-fg-muted)')}
+      </a>
+      <a href="/tools/action-query" class="Box-row d-flex flex-items-center color-fg-default no-underline">
+        <span class="mr-3">{octiconTools16()}</span>
+        <span class="flex-auto">
+          <span class="text-bold d-block">Action Query</span>
+          <span class="color-fg-muted text-small">Explore the action graph from a Bazel aquery file.</span>
+        </span>
+        {octiconChevronRight16(fill: 'var(--color-fg-muted)')}
+      </a>
+      <a href="/tools/execution-log" class="Box-row d-flex flex-items-center color-fg-default no-underline">
+        <span class="mr-3">{octiconTools16()}</span>
+        <span class="flex-auto">
+          <span class="text-bold d-block">Execution Log</span>
+          <span class="color-fg-muted text-small">Inspect actions and cache hits from a compact Bazel execution log.</span>
+        </span>
+        {octiconChevronRight16(fill: 'var(--color-fg-muted)')}
+      </a>
+    </div>
+  </div>
+{/template}
+
+{template invocationGroups}
+  {@param altKeyLabel: string}
+  <div class="PageLayout PageLayout--panePos-start PageLayout--hasPaneDivider PageLayout--responsive-stackRegions PageLayout--responsive-panePos-start bes-events-layout">
+    <div class="PageLayout-columns">
+      <div class="PageLayout-pane bes-events-sidebar">
+        <h1 class="h2 mb-2">Build Events</h1>
+        <p class="color-fg-muted mb-0">Upload a build events file or connect to a{sp}
+          <a href="https://github.com/bazel-contrib/bcr-frontend">build event stream backend</a>.</p>
+        <nav class="SideNav bes-events-nav" aria-label="Build event views">
+          <a class="SideNav-item {css('igroup-current-tab')}" id="igroup-nav-current" href="/tools/invocations"
+              data-view="current" aria-current="location">Current</a>
+          <a class="SideNav-item" id="igroup-nav-runs" href="/tools/invocations/-/runs" data-view="runs">Runs</a>
+          <a class="SideNav-item" id="igroup-nav-metrics" href="/tools/invocations/-/metrics" data-view="metrics">Metrics</a>
+          <a class="SideNav-item" id="igroup-nav-tests" href="/tools/invocations/-/tests" data-view="tests">Tests</a>
+          <a class="SideNav-item" id="igroup-nav-usage" href="/tools/invocations/-/usage" data-view="usage">Usage</a>
+        </nav>
+        <section class="bes-events-side-section" aria-label="Backend">
+          {sectionHeader(title: 'Backend')}
+          <form class="bes-backend-form {css('igroup-form')}" aria-label="Backend">
+            <label>Backend URL or iroh ticket
+              <input class="form-control input-block {css('igroup-backend')}" type="text"
+                  autocomplete="off" spellcheck="false" value="http://localhost:1974">
+            </label>
+            <label>Group
+              <input class="form-control input-block {css('igroup-name')}" type="text"
+                  maxlength="128" pattern="[A-Za-z0-9][A-Za-z0-9._\-]*" placeholder="release">
+            </label>
+            <button type="submit" class="btn btn-primary btn-sm">Connect</button>
+            <div class="bes-backend-status text-small" role="status">
+              <span class="Label {css('igroup-backend-label')}">Disconnected</span>
+              <span class="color-fg-muted {css('igroup-backend-detail')}">Enter a backend address and connect.</span>
+            </div>
+            <div class="bes-group-controls text-small color-fg-muted">
+              <label class="bes-group-option" title="Open new group builds automatically. Opening a run pauses follow until you return to Runs.">
+                <input type="checkbox" class="{css('igroup-follow')}" checked> Follow
+              </label>
+              <label class="bes-group-option" title="Open the latest finished run when you connect and no active build is being followed.">
+                <input type="checkbox" class="{css('igroup-show-last')}" checked> Show last
+              </label>
+            </div>
+          </form>
+        </section>
+        <section class="bes-events-side-section" aria-label="Upload">
+          {sectionHeader(title: 'Upload')}
+          <div class="bes-upload-target" role="region" aria-label="Upload build events">
+            <span class="color-fg-muted">{octiconFile16()}</span>
+            <strong>Drop a build events file</strong>
+            <p class="text-small color-fg-muted mb-1">Use a file from <code>--build_event_binary_file</code>.</p>
+            <button type="button" class="btn btn-outline btn-sm {css('igroup-choose-file')}">Upload file</button>
+            <input type="file" class="d-none {css('igroup-file-input')}" aria-label="Choose a binary build event file">
+            <p class="text-small mb-0 {css('igroup-upload-status')}" role="status" hidden></p>
+          </div>
+          <a class="d-inline-block mt-2" id="igroup-nav-uploads" href="/tools/invocations/-/uploads" data-view="uploads">Uploads</a>
+        </section>
+        <section class="bes-events-side-section" aria-label="Keyboard Shortcuts">
+          {sectionHeader(title: 'Keyboard Shortcuts')}
+          {buildEventShortcut(view: 'current', label: 'Current / Last', key: '1', altKeyLabel: $altKeyLabel)}
+          {buildEventShortcut(view: 'runs', label: 'Runs', key: '2', altKeyLabel: $altKeyLabel)}
+          {buildEventShortcut(view: 'metrics', label: 'Metrics', key: '3', altKeyLabel: $altKeyLabel)}
+          {buildEventShortcut(view: 'tests', label: 'Tests', key: '4', altKeyLabel: $altKeyLabel)}
+          {buildEventShortcut(view: 'usage', label: 'Usage', key: '5', altKeyLabel: $altKeyLabel)}
+          {buildEventShortcut(view: 'uploads', label: 'Uploads', key: '6', altKeyLabel: $altKeyLabel)}
+        </section>
+      </div>
+      <div class="PageLayout-content bes-events-content">
+        <div class="Box mb-3 d-none {css('igroup-list')}"></div>
+        <div class="mb-3 {css('igroup-window-control')}" hidden>
+          <label for="igroup-time-range">Time range</label>
+          <select id="igroup-time-range" class="form-select select-sm ml-2 {css('igroup-window')}">
+            <option value="7">Last 7 days</option>
+            <option value="30" selected>Last 30 days</option>
+            <option value="90">Last 90 days</option>
+          </select>
+        </div>
+        <div class="{css('igroup-content')}">
+          <div role="region" id="igroup-panel-current" aria-labelledby="igroup-nav-current" tabindex="0">
+            <p class="bes-group-empty {css('igroup-status')}" role="status">Connect to a backend and choose a group to follow builds.</p>
+            <div class="d-none {css('igroup-viewer')}"></div>
+          </div>
+          <div role="region" id="igroup-panel-runs" aria-labelledby="igroup-nav-runs" tabindex="0" hidden>
+            <p class="bes-group-empty {css('igroup-runs-empty')}">Connect to a backend and choose a group to see its runs.</p>
+            <div class="bes-group-runs {css('igroup-runs-table')}" hidden>
+              <table class="bes-group-run-table" aria-label="Invocation runs">
+                <thead><tr><th scope="col">Status</th><th scope="col">Invocation</th><th scope="col">Command</th><th scope="col">Time</th></tr></thead>
+                <tbody class="{css('igroup-runs')}"></tbody>
+              </table>
+            </div>
+            <div class="mt-2">
+              <button type="button" class="btn btn-sm {css('igroup-older-runs')}" hidden>Load older runs</button>
+              <span class="text-small color-fg-muted ml-2 {css('igroup-page-status')}" role="status"></span>
+            </div>
+          </div>
+          <div role="region" id="igroup-panel-metrics" aria-labelledby="igroup-nav-metrics" tabindex="0" hidden>
+            <div class="{css('igroup-build-metrics')}">
+              <p class="bes-group-empty">Connect to a backend and choose a group to see build metrics.</p>
+            </div>
+            {sectionHeader(title: 'Cache', class: 'bes-group-cache-title')}
+            <div class="{css('igroup-cache-metrics')}">
+              <p class="bes-group-empty">Connect to a backend and choose a group to see cache metrics.</p>
+            </div>
+          </div>
+          <div role="region" id="igroup-panel-tests" aria-labelledby="igroup-nav-tests" tabindex="0" hidden>
+            <div class="{css('igroup-test-metrics')}">
+              <p class="bes-group-empty">Connect to a backend and choose a group to see test results.</p>
+            </div>
+          </div>
+          <div role="region" id="igroup-panel-uploads" aria-labelledby="igroup-nav-uploads" tabindex="0" hidden>
+            <p class="bes-group-empty {css('igroup-uploads-empty')}">Upload a build events file to see it here.</p>
+            <div class="bes-group-runs {css('igroup-uploads-table')}" hidden>
+              <table class="bes-group-run-table" aria-label="Uploaded invocations">
+                <thead><tr><th scope="col">Status</th><th scope="col">Invocation</th><th scope="col">Command</th><th scope="col">Time</th></tr></thead>
+                <tbody class="{css('igroup-uploads')}"></tbody>
+              </table>
+            </div>
+          </div>
+          <div role="region" id="igroup-panel-usage" aria-labelledby="igroup-nav-usage" tabindex="0" hidden>
+            {invocationGroupUsage()}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+{/template}
+
+{template buildEventShortcut}
+  {@param view: string}
+  {@param label: string}
+  {@param key: string}
+  {@param altKeyLabel: string}
+  <a class="Link--primary d-flex flex-items-center mb-2 text-small" href="/tools/invocations/-/{$view}" data-view="{$view}"
+      data-shortcut="Digit{$key}" aria-keyshortcuts="Alt+Shift+{$key}">
+    <span class="color-fg-muted">{$label}</span>
+    <span class="dotted-leader" aria-hidden="true"></span>
+    <span><kbd>{$altKeyLabel}</kbd> <kbd>Shift</kbd> <kbd>{$key}</kbd></span>
+  </a>
+{/template}
+
+{template invocationGroupUsage}
+  <section>
+    {sectionHeader(title: 'How Invocation Groups work')}
+    <div class="bes-group-usage">
+      <figure class="bes-group-architecture" aria-label="Build event flow from Bazel to the viewer">
+        <div><strong>Bazel</strong><span>Publishes build events over gRPC</span></div>
+        <span aria-hidden="true">→</span>
+        <div><strong>BES backend</strong><span>Stores events and group metrics in SQLite</span></div>
+        <span aria-hidden="true">→</span>
+        <div><strong>HTTP and event stream</strong><span>or Rust companion via Iroh relay</span></div>
+        <span aria-hidden="true">→</span>
+        <div><strong>Browser viewer</strong><span>Follows runs and shows group metrics</span></div>
+      </figure>
+      <p>Run these commands from the root of the source checkout.</p>
+      <ol class="bes-group-setup">
+        <li>
+          <h3 class="h4">Build and start the backend</h3>
+          <pre><code>{'bazel build //cmd/besserver'}{\n}
+          {'"$(bazel info bazel-bin)/cmd/besserver/besserver_/besserver"'} \{\n}
+          {'  '}--listen=localhost:1973 --http_listen=localhost:1974 \{\n}
+          {'  '}--frontend_origin=https://registry.bazel.build --sqlite=invocations.sqlite</code></pre>
+        </li>
+        <li>
+          <h3 class="h4">Build and start the Iroh companion for remote viewing</h3>
+          <p>On the backend machine, open another terminal in the same checkout. The build uses Rust 1.95.0.</p>
+          <pre><code>cargo +1.95.0 build --locked --release \{\n}
+          {'  '}--manifest-path tools/invocation-iroh/Cargo.toml \{\n}
+          {'  '}--target-dir tools/invocation-iroh/target --bin invocation-iroh{\n}
+          ./tools/invocation-iroh/target/release/invocation-iroh --backend-port 1974 --key-file ./iroh.key</code></pre>
+          <p>The companion creates <code>iroh.key</code> if it is missing. Reuse the same key file across restarts to keep a stable Iroh address.</p>
+          <p>The printed Iroh ticket looks like <code>bcr-iroh-v1:eyJlbmRwb2ludCI6…</code>. Paste the full ticket into <strong>Backend URL or iroh ticket</strong> in the Backend form.</p>
+          <p>The browser uses the relay address in the ticket to reach the companion and presents the ticket’s access credential. The companion reads group data and streams build events from the backend’s local HTTP API.</p>
+        </li>
+        <li>
+          <h3 class="h4">Publish a grouped build</h3>
+          <p>Use an address reachable from Bazel for <code>--bes_backend</code>. Publishing all actions includes successful actions in the event graph.</p>
+          <pre><code>{'bazel build //path:target'} \{\n}
+          {'  '}--bes_backend=grpc://localhost:1973 \{\n}
+          {'  '}--bes_results_url=https://registry.bazel.build/tools/invocations/release/ \{\n}
+          {'  '}--build_metadata=igroup=release \{\n}
+          {'  '}--build_event_publish_all_actions</code></pre>
+          <p>Bazel appends the invocation ID to the results URL. Keep the trailing slash and match the group in the URL to the group in <code>--build_metadata</code>.</p>
+        </li>
+      </ol>
+      <details>
+        <summary class="text-small color-fg-muted">Run the backend with Bazel or develop the viewer locally</summary>
+        <p class="mt-2 mb-0">To run the backend with Bazel, use <code>{'bazel run //cmd/besserver --'}</code> followed by the same flags. For local viewer development, set <code>--frontend_origin=http://localhost:8080</code> and run:</p>
+        <pre><code>{'bazel run //app/bcr:release --//app/bcr:release_type=dummy'}</code></pre>
+      </details>
+    </div>
+  </section>
+{/template}
+
+{template invocationViewer}
+  <div class="bes-invocation">
+    <header class="bes-invocation-heading">
+      <span class="bes-invocation-icon {css('bes-heading-icon')}" aria-hidden="true"></span>
+      <h2 class="bes-invocation-title"><code class="{css('bes-heading-id')}"></code></h2>
+      <div class="bes-tabs d-none {css('bes-tabs')}" role="tablist" aria-label="Invocation views">
+        <button type="button" role="tab" id="bes-tab-overview" aria-controls="bes-panel-overview"
+            aria-selected="true" tabindex="0">Overview</button>
+        <button type="button" role="tab" id="bes-tab-terminal" aria-controls="bes-panel-terminal"
+            aria-selected="false" tabindex="-1">Terminal</button>
+        <button type="button" role="tab" id="bes-tab-tests" aria-controls="bes-panel-tests"
+            aria-selected="false" tabindex="-1">Tests</button>
+        <button type="button" role="tab" id="bes-tab-metrics" aria-controls="bes-panel-metrics"
+            aria-selected="false" tabindex="-1">Metrics</button>
+      </div>
+      <div class="bes-invocation-timing">
+        <span class="bes-invocation-state text-small text-bold {css('bes-heading-state')}"></span>
+        <time class="text-mono bes-invocation-elapsed {css('bes-heading-elapsed')}" aria-label="Build elapsed time" hidden></time>
+      </div>
+    </header>
+    <div class="d-none {css('results')}">
+      <div role="tabpanel" id="bes-panel-overview" aria-labelledby="bes-tab-overview" tabindex="0">
+        <div class="{css('summary')}"></div>
+        <div class="bes-invocation-log {css('bes-log-body')}" hidden>
+          <div class="bes-terminal {css('bes-log')}" tabindex="0" role="region" aria-label="Build terminal output"></div>
+          <p class="px-3 py-1 mb-0 text-small color-fg-muted {css('bes-log-limit')}" hidden>Showing recent output</p>
+        </div>
+        <section class="bes-invocation-failure {css('bes-failure-body')}" aria-label="Build failure" hidden></section>
+        <section class="bes-build-stats {css('bes-build-stats')}" aria-label="Build statistics" hidden></section>
+        <div class="bes-overview-path {css('bes-critical-path')}"></div>
+
+        <section class="Box Box--condensed mb-3" aria-labelledby="bes-frontier-title">
+          <header class="Box-header">
+            <h2 class="Box-title" id="bes-frontier-title">Build frontier</h2>
+            <div class="d-flex flex-wrap flex-items-center flex-justify-between">
+              <span class="color-fg-muted text-small {css('bes-frontier-count')}"></span>
+              <span class="bes-frontier-key color-fg-muted text-small">
+                <span><span class="bes-frontier-outline"></span>Expected</span>
+                <span><span class="bes-frontier-solid"></span>Received</span>
+                <span><span class="bes-frontier-action"></span>Action</span>
+                <span><span class="bes-frontier-shared"></span>Shared dependency</span>
+              </span>
+            </div>
+          </header>
+          <div class="bes-frontier-stage">
+            <div class="{css('bes-frontier-scroll')}">
+              <canvas class="{css('bes-frontier-canvas')}" tabindex="0"
+                  aria-label="Build event graph. Dependencies flow right to left. Progress events occupy the top row and expected events the left column. Use arrow keys to inspect events."></canvas>
+              <div class="{css('bes-frontier-spacer')}" aria-hidden="true"></div>
+            </div>
+            <div class="bes-frontier-readers">
+              <span class="bes-frontier-arrival bes-frontier-arrival-success" aria-hidden="true"></span>
+              <span class="bes-frontier-arrival bes-frontier-arrival-failed" aria-hidden="true"></span>
+              <div class="bes-frontier-reader {css('bes-frontier-reader')}" role="group" aria-label="Last completed action">
+                <span class="bes-frontier-reader-dot" aria-hidden="true"></span>
+                <strong class="bes-frontier-reader-mnemonic">—</strong>
+                <code class="bes-frontier-reader-output color-fg-muted"></code>
+              </div>
+            </div>
+            <div class="bes-frontier-flights {css('bes-frontier-flights')}" aria-hidden="true"></div>
+          </div>
+          <div class="Box-body">
+            <h3 class="h5 mb-1">Received action mnemonics</h3>
+            <div class="{css('bes-frontier-mnemonics')}"></div>
+          </div>
+          <div class="Box-footer">
+            <div class="bes-event-heading">
+              <div class="bes-event-type {css('bes-frontier-type')}" hidden>
+                <span class="bes-event-swatch {css('bes-frontier-swatch')}" aria-hidden="true"></span>
+                <h3 class="h4 m-0 {css('bes-frontier-type-name')}"></h3>
+                <span class="{css('bes-frontier-outcome')}"></span>
+              </div>
+              <div class="bes-event-caption color-fg-muted text-small">
+                <div class="{css('bes-frontier-caption')}" aria-live="polite">Select a mark to inspect its event and connections.</div>
+                <time class="text-mono {css('bes-frontier-wait')}" aria-label="Time waiting for event" hidden></time>
+              </div>
+            </div>
+            <div class="{css('bes-frontier-detail')}"></div>
+          </div>
+        </section>
+
+      </div>
+
+      <div role="tabpanel" id="bes-panel-terminal" aria-labelledby="bes-tab-terminal" tabindex="0" hidden>
+        <div class="bes-terminal-tools mb-2">
+          <input type="search" class="form-control input-sm {css('bes-log-search')}" placeholder="Search terminal"
+                 aria-label="Search terminal" aria-describedby="bes-log-search-result"
+                 title="Enter for next match. Shift+Enter for previous match.">
+          <span id="bes-log-search-result" class="text-small color-fg-muted {css('bes-log-search-result')}" role="status"></span>
+          <button type="button" class="btn btn-sm {css('bes-download-log')}" disabled>Download log</button>
+        </div>
+        <div class="bes-terminal bes-terminal-full {css('bes-log-full')}" tabindex="0"
+             role="region" aria-label="Full build terminal output"></div>
+      </div>
+
+      <div role="tabpanel" id="bes-panel-tests" aria-labelledby="bes-tab-tests" tabindex="0" hidden>
+        <div class="{css('bes-tests')}"></div>
+      </div>
+
+      <div role="tabpanel" id="bes-panel-metrics" aria-labelledby="bes-tab-metrics" tabindex="0" hidden>
+        <div class="{css('bes-metrics')}"></div>
+        <section class="mt-4">
+          {sectionHeader(title: 'Remote cache')}
+          <div class="{css('bes-cache-stats')}"></div>
+        </section>
+      </div>
+    </div>
+  </div>
+{/template}
