@@ -15,9 +15,7 @@ const {
 	octiconReport16,
 	octiconStop16,
 } = goog.require("octicons");
-const { getEffectiveColorMode, highlight } = goog.require(
-	"bcrfrontend.syntax",
-);
+const { getEffectiveColorMode, highlight } = goog.require("bcrfrontend.syntax");
 const { setElementInnerHtml } = goog.require(
 	"google3.third_party.javascript.safevalues.dom.elements.element",
 );
@@ -136,7 +134,8 @@ async function formatMarkdown(el) {
  * Matches a GitHub alert marker such as "[!NOTE]" at the start of a
  * blockquote. The marker must be alone on its line.
  */
-const ALERT_MARKER = /^\s*\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\][ \t]*(?:\n|$)/i;
+const ALERT_MARKER =
+	/^\s*\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\][ \t]*(?:\n|$)/i;
 
 /**
  * Converts GitHub alert blockquotes ("> [!NOTE]", "> [!TIP]", ...) into
