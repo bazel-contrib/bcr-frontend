@@ -472,8 +472,8 @@ RELEASE_SRCS = [
     ":robots_txt",
     ":sitemap_xml",
     "invocation_iroh.mjs",
-    # Unmodified browser bundle and license from the fzstd 0.1.1 npm release.
-    "vendor/fzstd-0.1.1.js",
+    # fzstd 0.1.1 browser bundle with a bounded frame window and upstream license.
+    "vendor/fzstd-0.1.1-bounded.js",
     "vendor/fzstd-0.1.1.LICENSE",
 ] + glob([
     "iroh_wasm/bcr_invocation_iroh.js",

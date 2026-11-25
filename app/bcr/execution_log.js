@@ -58,7 +58,7 @@ function loadZstd() {
 	if (!decoderPromise) {
 		decoderPromise = new Promise((/** function(!ZstdDecoder):void */ resolve, /** function(!Error):void */ reject) => {
 			const script = document.createElement("script");
-			script.src = "/fzstd-0.1.1.js";
+			script.src = "/fzstd-0.1.1-bounded.js";
 			script.onload = () => {
 				const library = /** @type {?Object<string, *>} */ (window["fzstd"]);
 				const decoder = /** @type {?ZstdDecoder} */ (library?.["Decompress"]);

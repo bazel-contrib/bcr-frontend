@@ -115,6 +115,30 @@ func TestLRUReservationsAndPinnedReaders(t *testing.T) {
 	putCacheBlob(t, cache, "", []byte("fits after cancellation"))
 }
 
+func TestLRURejectsImpossibleReservationWithoutEviction(t *testing.T) {
+	cache, _ := boundedCache(t, 4)
+	defer cache.Close()
+	digests := make([]*re.Digest, 4)
+	for i := range digests {
+		digests[i] = putCacheBlob(t, cache, "", []byte{byte(i)})
+		if i < 2 {
+			_, closeReader, err := cache.open(cache.path("", "cas", digests[i]))
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer closeReader()
+		}
+	}
+	if err := cache.budget.reserve(3 * cache.budget.block); status.Code(err) != codes.ResourceExhausted {
+		t.Fatalf("reserve: %v", err)
+	}
+	for _, digest := range digests {
+		if err := cache.hasBlob("", digest); err != nil {
+			t.Fatalf("rejected reservation evicted %v: %v", digest, err)
+		}
+	}
+}
+
 func TestEvictedDirectoryFileMakesActionCacheMiss(t *testing.T) {
 	cache, _ := boundedCache(t, 4)
 	defer cache.Close()

@@ -261,8 +261,8 @@ bazel run //cmd/besserver -- \
 
 To proxy an existing Bazel gRPC cache, omit `--cache_max_bytes` and replace `--cache_dir` with
 `--cache_upstream=grpcs://cache.example.com:443`. The proxy forwards Bazel's
-request metadata, instance namespace, and custom headers to the configured
-upstream. Use the plaintext frontend on a trusted listener. The existing BES
+request metadata and instance namespace. Custom headers are forwarded to TLS
+upstreams. Use the plaintext frontend on a trusted listener. The existing BES
 service and cache frontend share a local trust boundary.
 
 Point Bazel at both listeners.

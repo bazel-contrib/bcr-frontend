@@ -1026,6 +1026,7 @@ class InvocationGroupsComponent extends Component {
 			this.openUpload_(invocation);
 			status.textContent = "Loaded " + file.name + ".";
 		} catch (_error) {
+			if (generation !== this.uploadGeneration_) return;
 			status.textContent = "Could not read this build event file. It may be truncated or invalid.";
 			status.classList.add("color-fg-danger");
 		}

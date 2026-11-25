@@ -22,7 +22,7 @@ use iroh::{
 use reqwest::Client;
 use subtle::ConstantTimeEq;
 use tokio::{
-    sync::Semaphore,
+    sync::{OwnedSemaphorePermit, Semaphore},
     time::{Instant, timeout, timeout_at},
 };
 
@@ -66,14 +66,14 @@ impl std::fmt::Debug for Viewer {
 
 impl ProtocolHandler for Viewer {
     async fn accept(&self, connection: Connection) -> Result<(), AcceptError> {
+        let request_slots = Arc::new(Semaphore::new(8));
         while let Ok((mut send, recv)) = connection.accept_bi().await {
-            let Ok(permit) = self.0.streams.clone().try_acquire_owned() else {
+            let Ok(permit) = request_slots.clone().try_acquire_owned() else {
                 let _ = send.reset(1u32.into());
                 continue;
             };
             let api = self.0.clone();
             tokio::spawn(async move {
-                let _permit = permit;
                 if api.expires <= Instant::now() {
                     let _ = timeout(
                         Duration::from_secs(5),
@@ -82,7 +82,7 @@ impl ProtocolHandler for Viewer {
                     .await;
                     return;
                 }
-                let _ = timeout_at(api.expires, api.serve(&mut send, recv)).await;
+                let _ = timeout_at(api.expires, api.serve(&mut send, recv, permit)).await;
                 // Expired, canceled and interrupted requests close this stream.
             });
         }
@@ -91,7 +91,12 @@ impl ProtocolHandler for Viewer {
 }
 
 impl ViewerApi {
-    async fn serve(&self, send: &mut SendStream, recv: RecvStream) -> Result<()> {
+    async fn serve(
+        &self,
+        send: &mut SendStream,
+        recv: RecvStream,
+        request_slot: OwnedSemaphorePermit,
+    ) -> Result<()> {
         let mut recv = recv;
         let request = match timeout(Duration::from_secs(10), recv.read_to_end(MAX_REQUEST)).await {
             Ok(Ok(data)) => serde_json::from_slice::<Request>(&data).ok(),
@@ -109,6 +114,10 @@ impl ViewerApi {
         {
             return reply(send, 403, b"connection ticket denied").await;
         }
+        let Ok(_stream_slot) = self.streams.try_acquire() else {
+            return reply(send, 503, b"viewer stream limit reached").await;
+        };
+        drop(request_slot);
 
         let scoped_list = matches!(request.operation, Operation::List) && self.scope.is_some();
         let path = match &request.operation {

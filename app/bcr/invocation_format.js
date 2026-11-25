@@ -4,6 +4,14 @@ goog.module("bcrfrontend.invocationFormat");
 const Timestamp = goog.require("proto.google.protobuf.Timestamp");
 
 /**
+ * @param {number} millis
+ * @return {?number}
+ */
+function validDateMillis(millis) {
+	return Number.isFinite(millis) && Math.abs(millis) <= 8640000000000000 ? millis : null;
+}
+
+/**
  * @param {?Timestamp} timestamp
  * @return {?number}
  */
@@ -11,7 +19,7 @@ function timestampMillis(timestamp) {
 	if (!timestamp) return null;
 	const seconds = Number(timestamp.getSeconds());
 	const nanos = timestamp.getNanos();
-	return seconds * 1000 + Math.floor(nanos / 1000000);
+	return validDateMillis(seconds * 1000 + Math.floor(nanos / 1000000));
 }
 
 /**
@@ -74,6 +82,7 @@ function summaryTime(summary, field) {
 }
 
 exports.timestampMillis = timestampMillis;
+exports.validDateMillis = validDateMillis;
 exports.formatElapsed = formatElapsed;
 exports.formatTimestamp = formatTimestamp;
 exports.formatDuration = formatDuration;

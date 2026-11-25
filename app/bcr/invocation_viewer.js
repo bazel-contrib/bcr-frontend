@@ -191,6 +191,11 @@ class BuildEventViewerComponent extends Component {
 	async followInvocation(address, id, onStatus, onSummary) {
 		this.stopBackend_();
 		const generation = this.loadGeneration_;
+		this.progress_ = new InvocationProgress(id);
+		this.clockStoppedAt_ = null;
+		this.resetResults_();
+		this.lastCursor_ = "0";
+		this.renderSummary_();
 		try {
 			const source = await openInvocationBackend(address);
 			if (generation !== this.loadGeneration_) {
@@ -199,12 +204,6 @@ class BuildEventViewerComponent extends Component {
 			}
 			this.source_ = source;
 			this.onSummary_ = onSummary;
-			this.progress_ = new InvocationProgress(id);
-			this.connected_ = false;
-			this.clockStoppedAt_ = null;
-			this.resetResults_();
-			this.lastCursor_ = "0";
-			this.renderSummary_();
 			this.cacheTimer_ = setInterval(() => this.refreshCacheStats_(source, id), 1500);
 			void this.refreshCacheStats_(source, id);
 			source.watch(id, () => this.lastCursor_,
@@ -224,7 +223,9 @@ class BuildEventViewerComponent extends Component {
 		} catch (_error) {
 			if (generation !== this.loadGeneration_) return;
 			this.stopBackend_();
-			onStatus("Could not connect. Check the backend URL or Iroh viewer ticket.", false, true);
+			const message = "Could not open invocation " + id + ". Check the backend URL or Iroh viewer ticket.";
+			this.getElement_(CSS_SUMMARY).appendChild(dom.createDom("p", {"class": "color-fg-danger", "role": "alert"}, message));
+			onStatus(message, false, true);
 		}
 	}
 

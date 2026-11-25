@@ -45,6 +45,7 @@ type streamProgress struct {
 type journalStorage struct {
 	mu        sync.Mutex
 	file      *os.File
+	writeErr  error
 	events    []*pb.InvocationEvent
 	summaries map[string]*pb.Invocation
 	streams   map[string]map[string]*streamProgress
@@ -126,6 +127,9 @@ func (s *journalStorage) Append(ctx context.Context, ordered *buildpb.OrderedBui
 	if err := ctx.Err(); err != nil {
 		return false, err
 	}
+	if s.writeErr != nil {
+		return false, s.writeErr
+	}
 	event := &pb.InvocationEvent{
 		Cursor:       uint64(len(s.events) + 1),
 		ReceivedAt:   timestamppb.Now(),
@@ -153,7 +157,8 @@ func (s *journalStorage) Append(ctx context.Context, ordered *buildpb.OrderedBui
 	if err != nil {
 		// Roll back a partial append so a retry cannot follow a corrupt record.
 		if truncateErr := s.file.Truncate(offset); truncateErr != nil {
-			return false, status.Errorf(codes.Internal, "journal write: %v, rollback: %v", err, truncateErr)
+			s.writeErr = status.Errorf(codes.Internal, "journal requires recovery after a failed append: write: %v, rollback: %v", err, truncateErr)
+			return false, s.writeErr
 		}
 		return false, status.Error(codes.Internal, err.Error())
 	}

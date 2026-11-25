@@ -9,7 +9,7 @@ const BuildMetrics = goog.require("proto.build_event_stream.BuildMetrics");
 const BuildToolLogs = goog.require("proto.build_event_stream.BuildToolLogs");
 const base64 = goog.require("goog.crypt.base64");
 const { TERMINAL_LIMIT, formatTerminalText, renderTerminalText } = goog.require("bcrfrontend.invocationTerminal");
-const { formatBytes, timestampMillis } = goog.require("bcrfrontend.invocationFormat");
+const { formatBytes, timestampMillis, validDateMillis } = goog.require("bcrfrontend.invocationFormat");
 const { mnemonicColor } = goog.require("bcrfrontend.actionColors");
 
 /** @const {!Array<string>} */
@@ -574,7 +574,7 @@ function eventTimestampMillis(event) {
 	switch (event.getPayloadCase()) {
 		case BuildEvent.PayloadCase.STARTED: {
 			const payload = event.getStarted();
-			return payload ? (timestampMillis(payload.getStartTime()) ?? (Number(payload.getStartTimeMillis()) || null)) : null;
+			return payload ? (timestampMillis(payload.getStartTime()) ?? (validDateMillis(Number(payload.getStartTimeMillis())) || null)) : null;
 		}
 		case BuildEvent.PayloadCase.ACTION: {
 			const payload = event.getAction();
@@ -590,7 +590,7 @@ function eventTimestampMillis(event) {
 		}
 		case BuildEvent.PayloadCase.FINISHED: {
 			const payload = event.getFinished();
-			return payload ? (timestampMillis(payload.getFinishTime()) ?? (Number(payload.getFinishTimeMillis()) || null)) : null;
+			return payload ? (timestampMillis(payload.getFinishTime()) ?? (validDateMillis(Number(payload.getFinishTimeMillis())) || null)) : null;
 		}
 		default:
 			return null;

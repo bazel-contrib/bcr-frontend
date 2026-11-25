@@ -62,7 +62,7 @@ func TestProxyFileCacheAndMetrics(t *testing.T) {
 	upstreamObserver, upstreamCounts := measure()
 	frontendObserver, frontendCounts := measure()
 	upstream := connectCache(t, NewServer(file, upstreamObserver, nil))
-	frontend := connectCache(t, NewServer(NewProxy(upstream), frontendObserver, nil))
+	frontend := connectCache(t, NewServer(NewProxy(upstream, false), frontendObserver, nil))
 	client := bs.NewByteStreamClient(frontend)
 	meta, err := proto.Marshal(&re.RequestMetadata{ToolInvocationId: "test-invocation"})
 	if err != nil {
@@ -118,6 +118,79 @@ func TestProxyFileCacheAndMetrics(t *testing.T) {
 				t.Fatalf("%v: got metrics %v", expected, counts)
 			}
 		}
+	}
+}
+
+type earlyWriteCache struct{ Backend }
+
+func (cache earlyWriteCache) Write(stream bs.ByteStream_WriteServer) error {
+	if values := metadata.ValueFromIncomingContext(stream.Context(), "authorization"); len(values) != 0 {
+		return status.Error(codes.PermissionDenied, "plaintext upstream received credentials")
+	}
+	if _, err := stream.Recv(); err != nil {
+		return err
+	}
+	return stream.SendAndClose(&bs.WriteResponse{CommittedSize: 42})
+}
+
+func TestProxyReturnsEarlyUploadResult(t *testing.T) {
+	file, err := NewFileCache(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	upstream := connectCache(t, NewServer(earlyWriteCache{file}, nil, nil))
+	frontend := connectCache(t, NewServer(NewProxy(upstream, false), nil, nil))
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	ctx = metadata.AppendToOutgoingContext(ctx, "authorization", "test-credential")
+	stream, err := bs.NewByteStreamClient(frontend).Write(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := stream.Send(&bs.WriteRequest{ResourceName: "already-stored", Data: []byte("chunk")}); err != nil {
+		t.Fatal(err)
+	}
+	// The server's response must arrive while the client still has its send side open.
+	response := new(bs.WriteResponse)
+	if err := stream.RecvMsg(response); err != nil || response.GetCommittedSize() != 42 {
+		t.Fatalf("response = %v, error = %v", response, err)
+	}
+}
+
+type shortIdleCache struct{ *fileCache }
+
+func (cache shortIdleCache) Write(stream bs.ByteStream_WriteServer) error {
+	return cache.writeUpload(stream, 100*time.Millisecond)
+}
+
+func TestStalledUploadReleasesCapacity(t *testing.T) {
+	cache, limit := boundedCache(t, 1)
+	defer cache.Close()
+	client := bs.NewByteStreamClient(connectCache(t, NewServer(shortIdleCache{cache}, nil, nil)))
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	content := make([]byte, limit)
+	resource := fmt.Sprintf("uploads/test/blobs/%x/%d", sha256.Sum256(content), len(content))
+	stream, err := client.Write(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := stream.Send(&bs.WriteRequest{ResourceName: resource, Data: content[:1]}); err != nil {
+		t.Fatal(err)
+	}
+	if err := stream.RecvMsg(new(bs.WriteResponse)); status.Code(err) != codes.DeadlineExceeded {
+		t.Fatalf("stalled upload: %v", err)
+	}
+	stream, err = client.Write(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := stream.Send(&bs.WriteRequest{ResourceName: resource, Data: content, FinishWrite: true}); err != nil {
+		t.Fatal(err)
+	}
+	response, err := stream.CloseAndRecv()
+	if err != nil || response.GetCommittedSize() != limit {
+		t.Fatalf("replacement upload: %v, %v", response, err)
 	}
 }
 

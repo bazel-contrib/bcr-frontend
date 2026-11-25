@@ -24,6 +24,7 @@ import (
 const (
 	maxBatchBytes = 4 << 20
 	blobChunkSize = 256 << 10
+	uploadIdle    = 30 * time.Second
 	emptySHA256   = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
 )
 
@@ -314,7 +315,7 @@ func (f *fileCache) checkOutputDirectory(ctx context.Context, instance string, o
 		return nil
 	}
 	if digest := output.GetTreeDigest(); digest != nil {
-		data, err := f.readBlob(instance, digest)
+		data, err := f.readOutputDirectoryBlob(instance, digest)
 		if err != nil {
 			return err
 		}
@@ -345,7 +346,7 @@ func (f *fileCache) checkOutputDirectory(ctx context.Context, instance string, o
 			continue
 		}
 		seen[key] = true
-		data, err := f.readBlob(instance, digest)
+		data, err := f.readOutputDirectoryBlob(instance, digest)
 		if err != nil {
 			return err
 		}
@@ -361,6 +362,14 @@ func (f *fileCache) checkOutputDirectory(ctx context.Context, instance string, o
 		}
 	}
 	return nil
+}
+
+// Directory metadata is decoded in memory, unlike ByteStream payloads.
+func (f *fileCache) readOutputDirectoryBlob(instance string, digest *re.Digest) ([]byte, error) {
+	if digest.GetSizeBytes() > MaxMessageBytes {
+		return nil, status.Error(codes.NotFound, "cached output directory metadata exceeds the decoding limit")
+	}
+	return f.readBlob(instance, digest)
 }
 
 func (f *fileCache) UpdateActionResult(_ context.Context, req *re.UpdateActionResultRequest) (*re.ActionResult, error) {
@@ -607,6 +616,10 @@ func (f *fileCache) QueryWriteStatus(_ context.Context, req *bs.QueryWriteStatus
 }
 
 func (f *fileCache) Write(stream bs.ByteStream_WriteServer) error {
+	return f.writeUpload(stream, uploadIdle)
+}
+
+func (f *fileCache) writeUpload(stream bs.ByteStream_WriteServer, idle time.Duration) error {
 	req, err := stream.Recv()
 	if err == io.EOF {
 		return status.Error(codes.InvalidArgument, "missing ByteStream upload")
@@ -633,6 +646,7 @@ func (f *fileCache) Write(stream bs.ByteStream_WriteServer) error {
 	hash := sha256.New()
 	writer := io.MultiWriter(upload.file, hash)
 	var offset int64
+	deadline := time.Now().Add(idle)
 	for {
 		if req.ResourceName != "" && req.ResourceName != name {
 			return status.Error(codes.InvalidArgument, "upload resource changed")
@@ -645,10 +659,13 @@ func (f *fileCache) Write(stream bs.ByteStream_WriteServer) error {
 			return fileError(err)
 		}
 		offset += int64(n)
+		if n != 0 {
+			deadline = time.Now().Add(idle)
+		}
 		if req.FinishWrite {
 			break
 		}
-		req, err = stream.Recv()
+		req, err = receiveUploadChunk(stream, time.Until(deadline))
 		if err == io.EOF {
 			return status.Error(codes.InvalidArgument, "upload ended before finish_write")
 		}
@@ -663,4 +680,27 @@ func (f *fileCache) Write(stream bs.ByteStream_WriteServer) error {
 		return err
 	}
 	return stream.SendAndClose(&bs.WriteResponse{CommittedSize: offset})
+}
+
+func receiveUploadChunk(stream bs.ByteStream_WriteServer, remaining time.Duration) (*bs.WriteRequest, error) {
+	type received struct {
+		request *bs.WriteRequest
+		err     error
+	}
+	result := make(chan received, 1)
+	timer := time.NewTimer(remaining)
+	defer timer.Stop()
+	go func() {
+		request, err := stream.Recv()
+		result <- received{request, err}
+	}()
+	select {
+	case message := <-result:
+		return message.request, message.err
+	case <-timer.C:
+		// Returning from the RPC also cancels the pending receive.
+		return nil, status.Error(codes.DeadlineExceeded, "cache upload stopped making progress")
+	case <-stream.Context().Done():
+		return nil, status.FromContextError(stream.Context().Err()).Err()
+	}
 }

@@ -1,6 +1,16 @@
-import init, { InvocationClient } from "./bcr_invocation_iroh.js";
-
 let wasmReady;
+let wasmAttempt = 0;
+
+async function loadWasm() {
+	const loader = new URL(import.meta.url);
+	loader.searchParams.set("wasmAttempt", String(wasmAttempt++));
+	const bindings = new URL("./bcr_invocation_iroh.js", loader);
+	const binary = new URL("./bcr_invocation_iroh_bg.wasm", loader);
+	bindings.search = binary.search = loader.search;
+	const {default: init, InvocationClient} = await import(bindings.href);
+	await init({module_or_path: binary});
+	return InvocationClient;
+}
 
 function openBackend(ticket) {
 	let closed = false;
@@ -10,9 +20,12 @@ function openBackend(ticket) {
 
 	function client() {
 		if (closed) return Promise.reject(new Error("Connection closed."));
-		wasmReady ??= init();
+		wasmReady ??= loadWasm().catch((error) => {
+			wasmReady = undefined;
+			throw error;
+		});
 		if (!connection) {
-			const pending = wasmReady.then(() => InvocationClient.dial(ticket));
+			const pending = wasmReady.then((InvocationClient) => InvocationClient.dial(ticket));
 			connection = pending;
 			pending.catch(() => {
 				if (connection === pending) connection = undefined;

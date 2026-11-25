@@ -186,6 +186,18 @@ func (b *diskBudget) makeRoom(size int64) error {
 	if b.used <= available {
 		return nil
 	}
+	// A rejected upload must not discard entries when active reads make it
+	// impossible to reclaim enough space.
+	needed := b.used - available
+	for elem := b.lru.Front(); elem != nil && needed > 0; elem = elem.Next() {
+		entry := elem.Value.(*diskEntry)
+		if entry.pins == 0 {
+			needed -= entry.size
+		}
+	}
+	if needed > 0 {
+		return status.Error(codes.ResourceExhausted, "cache capacity is reserved by active reads or uploads")
+	}
 	// Once full, leave 10% of the budget free when possible. A large upload
 	// may require a lower target, and pinned readers may prevent reaching it.
 	goal := min(available, b.limit-b.limit/10-b.reserved-size)
@@ -199,9 +211,6 @@ func (b *diskBudget) makeRoom(size int64) error {
 			b.forget(elem)
 		}
 		elem = next
-	}
-	if b.used > available {
-		return status.Error(codes.ResourceExhausted, "cache capacity is reserved by active reads or uploads")
 	}
 	return nil
 }

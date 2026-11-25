@@ -1,5 +1,7 @@
 goog.module("bcrfrontend.invocationTransport");
 
+const { commitSha } = goog.require("bcrfrontend.uiVersion");
+
 /** @typedef {function(string, string, number=, number=):void} */
 let EventCallback;
 
@@ -20,6 +22,7 @@ let IrohFactory;
 
 /** @type {?Promise<!IrohFactory>} */
 let irohModule = null;
+let irohAttempt = 0;
 
 /** @return {!Promise<!IrohFactory>} */
 function loadIrohModule() {
@@ -27,14 +30,21 @@ function loadIrohModule() {
 		irohModule = new Promise((/** function(!IrohFactory):void */ resolve, /** function(*):void */ reject) => {
 			const script = document.createElement("script");
 			script.type = "module";
-			script.src = "/invocation_iroh.mjs";
+			script.src = "/invocation_iroh.mjs?v=" + encodeURIComponent(commitSha) + "&attempt=" + irohAttempt++;
 			script.onload = () => {
 				const factory = /** @type {?IrohFactory} */ (window["bcrIrohInvocation"]);
 				if (factory) resolve(factory);
 				else reject(new Error("Iroh browser module did not initialize."));
+				script.remove();
 			};
-			script.onerror = () => reject(new Error("Iroh browser assets are unavailable."));
+			script.onerror = () => {
+				script.remove();
+				reject(new Error("Iroh browser assets are unavailable."));
+			};
 			document.head.appendChild(script);
+		}).catch((error) => {
+			irohModule = null;
+			throw error;
 		});
 	}
 	return irohModule;

@@ -8,6 +8,7 @@ import (
 	"log"
 	"net"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/bazel-contrib/bcr-frontend/pkg/invocation"
@@ -110,7 +111,7 @@ func cacheBackend(dir, upstream string, maxBytes int64) (remotecache.Backend, fu
 	if err != nil {
 		return nil, nil, err
 	}
-	return remotecache.NewProxy(conn), func() { conn.Close() }, nil
+	return remotecache.NewProxy(conn, strings.HasPrefix(strings.ToLower(upstream), "grpcs://")), func() { conn.Close() }, nil
 }
 
 func dialCache(upstream string) (*grpc.ClientConn, error) {

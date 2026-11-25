@@ -1136,7 +1136,33 @@ class ActionQuery extends Component {
 				details.appendChild(dom.createDom("pre", "action-query-command", args.join("\n")));
 			}
 		}
+		if (graph && node) {
+			this.renderConnections_(details, graph, "Producers", Array.from(node.inputs));
+			this.renderConnections_(details, graph, "Consumers", node.consumers);
+		}
 		this.scheduleDraw_();
+	}
+
+	/**
+	 * @private
+	 * @param {!HTMLElement} details
+	 * @param {!ActionGraph} graph
+	 * @param {string} title
+	 * @param {!Array<number>} connections
+	 */
+	renderConnections_(details, graph, title, connections) {
+		if (!connections.length) return;
+		const list = dom.createDom("ul", "pl-3 mb-2 text-small action-query-outputs");
+		for (const index of connections) {
+			const node = graph.nodes[index];
+			const label = [
+				graph.packageView ? "" : node.action.getMnemonic(),
+				node.target,
+				node.output,
+			].filter(Boolean).join(" · ");
+			list.appendChild(dom.createDom("li", null, label || "Action " + (index + 1)));
+		}
+		details.append(dom.createDom("h4", "h5", title), list);
 	}
 
 	/**
