@@ -419,7 +419,10 @@ html.bcr-refresh-available .bcr-refresh-indicator {
 .bes-upload-target:hover,
 .bes-upload-target:focus-within,
 .bes-events-layout.is-dragging .bes-upload-target {
-	border-color: var(--borderColor-accent-emphasis, var(--color-accent-emphasis));
+	border-color: var(
+		--borderColor-accent-emphasis,
+		var(--color-accent-emphasis)
+	);
 	background: var(--bgColor-accent-muted, var(--color-accent-subtle));
 }
 
@@ -433,7 +436,8 @@ html.bcr-refresh-available .bcr-refresh-indicator {
 
 .action-query-content.is-dragging,
 .execution-log-content.is-dragging {
-	outline: 2px dashed var(--borderColor-accent-emphasis, var(--color-accent-emphasis));
+	outline: 2px dashed
+		var(--borderColor-accent-emphasis, var(--color-accent-emphasis));
 	outline-offset: 4px;
 	border-radius: 6px;
 }
@@ -523,9 +527,18 @@ html:has(.action-query-fullscreen[open]) {
 }
 
 .action-query-canvas {
-	--action-query-border: var(--borderColor-default, var(--color-border-default));
-	--action-query-accent: var(--bgColor-accent-emphasis, var(--color-accent-emphasis));
-	--action-query-on-accent: var(--fgColor-onEmphasis, var(--color-fg-on-emphasis));
+	--action-query-border: var(
+		--borderColor-default,
+		var(--color-border-default)
+	);
+	--action-query-accent: var(
+		--bgColor-accent-emphasis,
+		var(--color-accent-emphasis)
+	);
+	--action-query-on-accent: var(
+		--fgColor-onEmphasis,
+		var(--color-fg-on-emphasis)
+	);
 	--action-query-node: var(--bgColor-default, var(--color-canvas-default));
 	--action-query-muted: var(--fgColor-muted, var(--color-fg-muted));
 	display: block;
@@ -727,10 +740,13 @@ html:has(.action-query-fullscreen[open]) {
 }
 
 .bes-critical-path-table tbody tr {
-	background-image: linear-gradient(to right,
+	background-image: linear-gradient(
+		to right,
 		transparent var(--bes-critical-path-start),
-		rgba(150, 104, 189, 0.26) var(--bes-critical-path-start) var(--bes-critical-path-end),
-		transparent var(--bes-critical-path-end));
+		rgba(150, 104, 189, 0.26) var(--bes-critical-path-start)
+			var(--bes-critical-path-end),
+		transparent var(--bes-critical-path-end)
+	);
 }
 
 .bes-critical-path-action {
@@ -950,7 +966,9 @@ html:has(.action-query-fullscreen[open]) {
 }
 
 @keyframes bes-invocation-spin {
-	to { transform: rotate(1turn); }
+	to {
+		transform: rotate(1turn);
+	}
 }
 
 .bes-invocation-timing {
@@ -1018,7 +1036,8 @@ html:has(.action-query-fullscreen[open]) {
 }
 
 .bes-events-layout.is-dragging .bes-events-content {
-	outline: 2px dashed var(--borderColor-accent-emphasis, var(--color-accent-emphasis));
+	outline: 2px dashed
+		var(--borderColor-accent-emphasis, var(--color-accent-emphasis));
 	outline-offset: 4px;
 }
 
@@ -1076,7 +1095,10 @@ html:has(.action-query-fullscreen[open]) {
 
 .bes-group-architecture {
 	display: grid;
-	grid-template-columns: minmax(0, 1fr) auto minmax(0, 1.2fr) auto minmax(0, 1.2fr) auto minmax(0, 1fr);
+	grid-template-columns: minmax(0, 1fr) auto minmax(0, 1.2fr) auto minmax(
+			0,
+			1.2fr
+		) auto minmax(0, 1fr);
 	gap: 8px;
 	align-items: center;
 	margin: 0;
@@ -1609,8 +1631,15 @@ html:has(.action-query-fullscreen[open]) {
 	display: flex;
 	align-items: stretch;
 	height: 18px;
-	background-color: var(--bgColor-muted, var(--color-canvas-subtle, transparent));
-	background-image: linear-gradient(to right, var(--borderColor-muted, var(--color-border-muted)) 1px, transparent 1px);
+	background-color: var(
+		--bgColor-muted,
+		var(--color-canvas-subtle, transparent)
+	);
+	background-image: linear-gradient(
+		to right,
+		var(--borderColor-muted, var(--color-border-muted)) 1px,
+		transparent 1px
+	);
 	background-size: 25% 100%;
 	border-radius: 3px;
 	overflow: hidden;
@@ -1622,7 +1651,8 @@ html:has(.action-query-fullscreen[open]) {
 }
 
 .bes-chart-segment + .bes-chart-segment {
-	box-shadow: inset 1px 0 var(--bgColor-default, var(--color-canvas-default, transparent));
+	box-shadow: inset 1px 0
+		var(--bgColor-default, var(--color-canvas-default, transparent));
 }
 
 a.bes-chart-segment:hover,
@@ -1645,7 +1675,8 @@ a.bes-chart-segment:focus-visible {
 
 .execution-log-toolbar [role="tab"][aria-selected="true"] {
 	font-weight: 600;
-	box-shadow: inset 0 -2px var(--borderColor-accent-emphasis, var(--color-accent-emphasis));
+	box-shadow: inset 0 -2px
+		var(--borderColor-accent-emphasis, var(--color-accent-emphasis));
 }
 
 .execution-log-field-values {
@@ -1691,12 +1722,18 @@ a.bes-chart-segment:focus-visible {
 
 .execution-log-waterfall {
 	--waterfall-content-height: 29px;
-	--waterfall-height: min(clamp(16rem, 63vh, 48rem), var(--waterfall-content-height));
+	--waterfall-height: min(
+		clamp(16rem, 63vh, 48rem),
+		var(--waterfall-content-height)
+	);
 	--waterfall-paper: var(--bgColor-default, var(--color-canvas-default));
 	--waterfall-ruler: var(--bgColor-muted, var(--color-canvas-subtle));
 	--waterfall-line: var(--borderColor-muted, var(--color-border-muted));
 	--waterfall-muted: var(--fgColor-muted, var(--color-fg-muted));
-	--waterfall-highlight: var(--bgColor-accent-muted, var(--color-accent-subtle));
+	--waterfall-highlight: var(
+		--bgColor-accent-muted,
+		var(--color-accent-subtle)
+	);
 	position: relative;
 	height: var(--waterfall-height);
 	overflow-y: auto;
@@ -1726,7 +1763,8 @@ a.bes-chart-segment:focus-visible {
 }
 
 .execution-log-waterfall-canvas:focus-visible {
-	outline: 2px solid var(--borderColor-accent-emphasis, var(--color-accent-emphasis));
+	outline: 2px solid
+		var(--borderColor-accent-emphasis, var(--color-accent-emphasis));
 	outline-offset: -2px;
 }
 

@@ -24,10 +24,22 @@ function formatTerminalText(value) {
 
 /** @const {!Array<string>} */
 const ANSI_COLORS = [
-	"#000000", "#cd3131", "#0dbc79", "#e5e510",
-	"#2472c8", "#bc3fbc", "#11a8cd", "#e5e5e5",
-	"#666666", "#f14c4c", "#23d18b", "#f5f543",
-	"#3b8eea", "#d670d6", "#29b8db", "#ffffff",
+	"#000000",
+	"#cd3131",
+	"#0dbc79",
+	"#e5e510",
+	"#2472c8",
+	"#bc3fbc",
+	"#11a8cd",
+	"#e5e5e5",
+	"#666666",
+	"#f14c4c",
+	"#23d18b",
+	"#f5f543",
+	"#3b8eea",
+	"#d670d6",
+	"#29b8db",
+	"#ffffff",
 ];
 
 /**
@@ -45,8 +57,15 @@ function ansi256Color(index) {
 	const red = Math.floor(value / 36);
 	const green = Math.floor((value % 36) / 6);
 	const blue = value % 6;
-	return "rgb(" + ansiCubeChannel(red) + ", " + ansiCubeChannel(green) +
-		", " + ansiCubeChannel(blue) + ")";
+	return (
+		"rgb(" +
+		ansiCubeChannel(red) +
+		", " +
+		ansiCubeChannel(green) +
+		", " +
+		ansiCubeChannel(blue) +
+		")"
+	);
 }
 
 /**
@@ -62,7 +81,7 @@ let TerminalStyle;
 
 /** @return {!TerminalStyle} */
 function defaultTerminalStyle() {
-	return {foreground: "", background: "", bold: false, dim: false};
+	return { foreground: "", background: "", bold: false, dim: false };
 }
 
 /**
@@ -74,7 +93,7 @@ function defaultTerminalStyle() {
  */
 function renderTerminalText(value, style = defaultTerminalStyle()) {
 	const root = /** @type {!HTMLElement} */ (document.createElement("div"));
-	let {foreground, background, bold, dim} = style;
+	let { foreground, background, bold, dim } = style;
 	let offset = 0;
 	/**
 	 * @param {string} text
@@ -161,14 +180,20 @@ function renderTerminalText(value, style = defaultTerminalStyle()) {
 				background = ANSI_COLORS[code - 100 + 8];
 			} else if (code === 49) {
 				background = "";
-			} else if ((code === 38 || code === 48) && codes[i + 1] === 5 &&
-				codes[i + 2] !== undefined) {
+			} else if (
+				(code === 38 || code === 48) &&
+				codes[i + 1] === 5 &&
+				codes[i + 2] !== undefined
+			) {
 				const color = ansi256Color(codes[i + 2]);
 				if (code === 38) foreground = color;
 				else background = color;
 				i += 2;
-			} else if ((code === 38 || code === 48) && codes[i + 1] === 2 &&
-				codes[i + 4] !== undefined) {
+			} else if (
+				(code === 38 || code === 48) &&
+				codes[i + 1] === 2 &&
+				codes[i + 4] !== undefined
+			) {
 				const red = Math.max(0, Math.min(255, codes[i + 2]));
 				const green = Math.max(0, Math.min(255, codes[i + 3]));
 				const blue = Math.max(0, Math.min(255, codes[i + 4]));
@@ -180,7 +205,7 @@ function renderTerminalText(value, style = defaultTerminalStyle()) {
 		}
 	}
 	appendText(value.slice(offset));
-	Object.assign(style, {foreground, background, bold, dim});
+	Object.assign(style, { foreground, background, bold, dim });
 	return root;
 }
 
@@ -231,19 +256,25 @@ class InvocationTerminal {
 	 */
 	update(chunks) {
 		if (this.cursor_ === chunks.length) return false;
-		const follow = this.cursor_ === 0 ||
-			this.root.scrollHeight - this.root.scrollTop - this.root.clientHeight <= 8;
+		const follow =
+			this.cursor_ === 0 ||
+			this.root.scrollHeight - this.root.scrollTop - this.root.clientHeight <=
+				8;
 		let pending = this.partial_;
 		while (this.cursor_ < chunks.length) {
 			pending += chunks[this.cursor_++];
-			if (pending.length >= TERMINAL_LIMIT) pending = this.appendLines_(pending);
+			if (pending.length >= TERMINAL_LIMIT)
+				pending = this.appendLines_(pending);
 		}
 		this.partial_ = this.appendLines_(pending);
 		dom.removeChildren(this.tail_);
 		const style = /** @type {!TerminalStyle} */ (
 			Object.assign(defaultTerminalStyle(), this.style_)
 		);
-		const lastLine = renderTerminalText(formatTerminalText(this.partial_), style);
+		const lastLine = renderTerminalText(
+			formatTerminalText(this.partial_),
+			style,
+		);
 		while (lastLine.firstChild) this.tail_.appendChild(lastLine.firstChild);
 		if (follow) this.root.scrollTop = this.root.scrollHeight;
 		return true;
@@ -269,18 +300,25 @@ class InvocationTerminal {
 		if (!query) return "";
 		if (!this.cursor_) return "No matches";
 		const text = this.root.textContent || "";
-		const pattern = new RegExp(query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "giu");
+		const pattern = new RegExp(
+			query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
+			"giu",
+		);
 		/** @type {?TerminalMatch} */ let first = null;
 		/** @type {?TerminalMatch} */ let last = null;
 		/** @type {?TerminalMatch} */ let active = null;
 		let count = 0;
 		for (const result of text.matchAll(pattern)) {
 			const start = Number(result.index);
-			const match = {start, end: start + result[0].length, number: ++count};
+			const match = { start, end: start + result[0].length, number: ++count };
 			if (!first) first = match;
 			last = match;
-			if (direction < 0 ? start < this.matchOffset_ :
-				!active && start >= this.matchOffset_ + (direction > 0 ? 1 : 0)) active = match;
+			if (
+				direction < 0
+					? start < this.matchOffset_
+					: !active && start >= this.matchOffset_ + (direction > 0 ? 1 : 0)
+			)
+				active = match;
 		}
 		active = active || (direction < 0 ? last : first);
 		if (!active) {
@@ -312,11 +350,16 @@ class InvocationTerminal {
 			offset = next;
 		}
 		// A document selection can steal focus from the search input as the user types.
-		if (typeof Highlight === "function") terminalHighlights()?.set(TERMINAL_SEARCH_HIGHLIGHT, new Highlight(range));
+		if (typeof Highlight === "function")
+			terminalHighlights()?.set(
+				TERMINAL_SEARCH_HIGHLIGHT,
+				new Highlight(range),
+			);
 		if (reveal) {
 			const match = range.getBoundingClientRect();
 			const viewport = this.root.getBoundingClientRect();
-			this.root.scrollTop += match.top - viewport.top - (this.root.clientHeight - match.height) / 2;
+			this.root.scrollTop +=
+				match.top - viewport.top - (this.root.clientHeight - match.height) / 2;
 		}
 	}
 
@@ -328,7 +371,10 @@ class InvocationTerminal {
 	appendLines_(text) {
 		const end = text.lastIndexOf("\n") + 1;
 		if (end === 0) return text;
-		const rendered = renderTerminalText(formatTerminalText(text.slice(0, end)), this.style_);
+		const rendered = renderTerminalText(
+			formatTerminalText(text.slice(0, end)),
+			this.style_,
+		);
 		const batch = document.createDocumentFragment();
 		while (rendered.firstChild) batch.appendChild(rendered.firstChild);
 		this.root.insertBefore(batch, this.tail_);

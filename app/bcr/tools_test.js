@@ -8,13 +8,28 @@ const BuildEventId = goog.require("proto.build_event_stream.BuildEventId");
 const BuildFinished = goog.require("proto.build_event_stream.BuildFinished");
 const BuildMetrics = goog.require("proto.build_event_stream.BuildMetrics");
 const FailureDetail = goog.require("proto.failure_details.FailureDetail");
-const NamedSetOfFiles = goog.require("proto.build_event_stream.NamedSetOfFiles");
+const NamedSetOfFiles = goog.require(
+	"proto.build_event_stream.NamedSetOfFiles",
+);
 const Progress = goog.require("proto.build_event_stream.Progress");
 const testSuite = goog.require("goog.testing.testSuite");
-const { FrontierMark, InvocationProgress, decodeDelimitedMessages, invocationFailure } = goog.require("bcrfrontend.invocationEvents");
-const { InvocationTerminal, formatTerminalText, renderTerminalText } = goog.require("bcrfrontend.invocationTerminal");
-const { createBuildStatCards, parseCriticalPath } = goog.require("bcrfrontend.invocationMetrics");
-const { expectedFrontierLabel, frontierFlightFrames, frontierWait, layoutFrontier } = goog.require("bcrfrontend.invocationFrontier");
+const {
+	FrontierMark,
+	InvocationProgress,
+	decodeDelimitedMessages,
+	invocationFailure,
+} = goog.require("bcrfrontend.invocationEvents");
+const { InvocationTerminal, formatTerminalText, renderTerminalText } =
+	goog.require("bcrfrontend.invocationTerminal");
+const { createBuildStatCards, parseCriticalPath } = goog.require(
+	"bcrfrontend.invocationMetrics",
+);
+const {
+	expectedFrontierLabel,
+	frontierFlightFrames,
+	frontierWait,
+	layoutFrontier,
+} = goog.require("bcrfrontend.invocationFrontier");
 goog.require("bcrfrontend.tools");
 goog.require("goog.testing.jsunit");
 
@@ -70,13 +85,15 @@ function finishedEvent(code, message) {
 
 testSuite({
 	testFrontierFlightsSpreadEightActionsFromTheSameOrigin() {
-		const origin = {x: 360, y: 70};
-		const target = {x: 14, y: 250};
+		const origin = { x: 360, y: 70 };
+		const target = { x: 14, y: 250 };
 		/** @type {!Set<string>} */
 		const midpoints = new Set();
 		for (let lane = 0; lane < 8; lane++) {
 			const frames = frontierFlightFrames(origin, target, lane);
-			const transforms = frames.map((frame) => /** @type {{transform: string}} */ (frame).transform);
+			const transforms = frames.map(
+				(frame) => /** @type {{transform: string}} */ (frame).transform,
+			);
 			assertEquals("translate(360px,70px)", transforms[0]);
 			assertEquals("translate(14px,250px)", transforms[transforms.length - 1]);
 			midpoints.add(transforms[7]);
@@ -111,20 +128,44 @@ testSuite({
 		metrics.setRemoteAnalysisCacheStatistics(cache);
 		/** @type {!Array<number>} */
 		const counts = [3, 5, 1, 16];
-		metrics.setWorkerMetricsList(counts.map((count, index) => {
-			const worker = new BuildMetrics.WorkerMetrics();
-			worker.setMnemonic("Scalac");
-			worker.setActionsExecuted(count);
-			worker.setWorkerIdsList(index === 0 ? [1, 2] : [index + 2]);
-			return worker;
-		}));
+		metrics.setWorkerMetricsList(
+			counts.map((count, index) => {
+				const worker = new BuildMetrics.WorkerMetrics();
+				worker.setMnemonic("Scalac");
+				worker.setActionsExecuted(count);
+				worker.setWorkerIdsList(index === 0 ? [1, 2] : [index + 2]);
+				return worker;
+			}),
+		);
 		const cards = createBuildStatCards(metrics);
-		assertArrayEquals(["9", "17"], Array.from(cards.querySelectorAll('[aria-label="Actions"] dd'), (value) => value.textContent));
-		assertEquals("12 · 2.0 KiB", cards.querySelector('[aria-label="Artifacts"] dd')?.textContent);
-		assertEquals("80.0%", cards.querySelector('[aria-label="Remote analysis cache"] dd')?.textContent);
-		assertEquals("50%", cards.querySelector(".bes-build-timing-wall")?.getAttribute("style")?.match(/50%/)?.[0]);
+		assertArrayEquals(
+			["9", "17"],
+			Array.from(
+				cards.querySelectorAll('[aria-label="Actions"] dd'),
+				(value) => value.textContent,
+			),
+		);
+		assertEquals(
+			"12 · 2.0 KiB",
+			cards.querySelector('[aria-label="Artifacts"] dd')?.textContent,
+		);
+		assertEquals(
+			"80.0%",
+			cards.querySelector('[aria-label="Remote analysis cache"] dd')
+				?.textContent,
+		);
+		assertEquals(
+			"50%",
+			cards
+				.querySelector(".bes-build-timing-wall")
+				?.getAttribute("style")
+				?.match(/50%/)?.[0],
+		);
 		const workers = cards.querySelectorAll('[aria-label="Scalac workers"] li');
-		assertArrayEquals(["3", "5", "1", "16"], Array.from(workers, (worker) => worker.textContent));
+		assertArrayEquals(
+			["3", "5", "1", "16"],
+			Array.from(workers, (worker) => worker.textContent),
+		);
 		assertEquals("Workers 1, 2 · 3 executed", workers[0].getAttribute("title"));
 	},
 
@@ -186,10 +227,12 @@ testSuite({
 		const right = progressEvent(3, [childId]);
 		left.setProgress(new Progress());
 		right.setProgress(new Progress());
-		progress.add(progressEvent(1, [
-			/** @type {!BuildEventId} */ (left.getId()),
-			/** @type {!BuildEventId} */ (right.getId()),
-		]));
+		progress.add(
+			progressEvent(1, [
+				/** @type {!BuildEventId} */ (left.getId()),
+				/** @type {!BuildEventId} */ (right.getId()),
+			]),
+		);
 		progress.add(left);
 		progress.add(right);
 		const before = layoutFrontier(progress);
@@ -215,7 +258,10 @@ testSuite({
 		assertFalse(after.cells.has(progress.history[1]));
 		assertFalse(after.cells.has(progress.history[2]));
 		assertEquals(1, after.cells.get(progress.history[0])?.column);
-		assertArrayEquals([progress.history[0]], after.parents.get(/** @type {!FrontierMark} */ (after.columns[0][0])));
+		assertArrayEquals(
+			[progress.history[0]],
+			after.parents.get(/** @type {!FrontierMark} */ (after.columns[0][0])),
+		);
 		assertEquals(1, progress.receivedActions);
 		assertEquals(1, progress.mnemonics.get("CppCompile")?.count);
 		assertEquals(expected.color, progress.mnemonics.get("CppCompile")?.color);
@@ -226,7 +272,10 @@ testSuite({
 		assertEquals(0, complete.columns[0].length);
 		assertEquals(progress.last, complete.columns[1][0]);
 		assertEquals(2, complete.cells.size);
-		assertArrayEquals([progress.history[0]], complete.parents.get(progress.history[4]));
+		assertArrayEquals(
+			[progress.history[0]],
+			complete.parents.get(progress.history[4]),
+		);
 	},
 
 	testFrontierSuppressesArtifactSetsAndTheirAnnouncersOnAnnouncement() {
@@ -236,9 +285,14 @@ testSuite({
 		const artifactId = new BuildEventId();
 		artifactId.setNamedSet(namedSet);
 		const next = progressEvent(3, []);
-		const announcer = progressEvent(2, [artifactId, /** @type {!BuildEventId} */ (next.getId())]);
+		const announcer = progressEvent(2, [
+			artifactId,
+			/** @type {!BuildEventId} */ (next.getId()),
+		]);
 		announcer.setProgress(new Progress());
-		progress.add(progressEvent(1, [/** @type {!BuildEventId} */ (announcer.getId())]));
+		progress.add(
+			progressEvent(1, [/** @type {!BuildEventId} */ (announcer.getId())]),
+		);
 		progress.add(announcer);
 		const pending = layoutFrontier(progress, 0);
 		assertFalse(pending.cells.has(progress.history[1]));
@@ -272,8 +326,12 @@ testSuite({
 		const started = new BuildEvent();
 		started.setId(startedId);
 		// Receive a branch before the progress events to test ordering within a depth.
-		started.setChildrenList([metricsId, /** @type {!BuildEventId} */ (first.getId()),
-			/** @type {!BuildEventId} */ (second.getId()), /** @type {!BuildEventId} */ (finished.getId())]);
+		started.setChildrenList([
+			metricsId,
+			/** @type {!BuildEventId} */ (first.getId()),
+			/** @type {!BuildEventId} */ (second.getId()),
+			/** @type {!BuildEventId} */ (finished.getId()),
+		]);
 		progress.add(started);
 		progress.add(metrics);
 		progress.add(first);
@@ -285,7 +343,10 @@ testSuite({
 		assertEquals(0, layout.cells.get(progress.history[2])?.row);
 		assertEquals(0, layout.cells.get(progress.history[3])?.row);
 		assertEquals(0, layout.cells.get(progress.history[4])?.row);
-		assertNotEquals(layout.cells.get(progress.history[2])?.column, layout.cells.get(progress.history[3])?.column);
+		assertNotEquals(
+			layout.cells.get(progress.history[2])?.column,
+			layout.cells.get(progress.history[3])?.column,
+		);
 	},
 
 	testExpectedFrontierShowsDetailsAndSortsByFirstAnnouncement() {
@@ -334,8 +395,10 @@ testSuite({
 		action.setId(actionId("lib.o"));
 		progress.add(action);
 		const output = new Progress();
-		output.setStderr("other.cc: error: unrelated\nERROR: CppLink //:lib failed: command failed\n" +
-			"\x1b[31mcollect2: fatal error: cannot find 'ld'\x1b[0m\nERROR: Build did NOT complete successfully\n");
+		output.setStderr(
+			"other.cc: error: unrelated\nERROR: CppLink //:lib failed: command failed\n" +
+				"\x1b[31mcollect2: fatal error: cannot find 'ld'\x1b[0m\nERROR: Build did NOT complete successfully\n",
+		);
 		const log = progressEvent(1, []);
 		log.setProgress(output);
 		progress.add(log);
@@ -344,7 +407,10 @@ testSuite({
 		const failure = invocationFailure(progress);
 		assertNotNull(failure);
 		assertEquals("CppLink · //:lib", failure && failure.context);
-		assertEquals("collect2: fatal error: cannot find 'ld'", failure && failure.message);
+		assertEquals(
+			"collect2: fatal error: cannot find 'ld'",
+			failure && failure.message,
+		);
 	},
 
 	testFailureUsesFinishedDetailAndIgnoresSuccessfulBuilds() {
@@ -405,7 +471,12 @@ testSuite({
 		const root = /** @type {!HTMLElement} */ (document.createElement("div"));
 		const terminal = new InvocationTerminal(root);
 		terminal.update(["first\n", "\x1b[31msecond\n", "par"]);
-		terminal.update(["first\n", "\x1b[31msecond\n", "par", "tial\rfinal\x1b[0m\n"]);
+		terminal.update([
+			"first\n",
+			"\x1b[31msecond\n",
+			"par",
+			"tial\rfinal\x1b[0m\n",
+		]);
 		assertEquals("first\nsecond\nfinal\n", root.textContent);
 		const colored = root.querySelectorAll("span[style]");
 		assertEquals(2, colored.length);
@@ -415,8 +486,8 @@ testSuite({
 	testParseCriticalPath() {
 		const path = parseCriticalPath(
 			"Critical Path: 0.06s, Remote (0.00% of the time)\n" +
-			"  0.01s action 'Compile foo'\n" +
-			"  0.05s action 'Link foo'",
+				"  0.01s action 'Compile foo'\n" +
+				"  0.05s action 'Link foo'",
 		);
 		assertEquals(60, path.timeMillis);
 		assertEquals(2, path.items.length);
@@ -427,8 +498,8 @@ testSuite({
 	testParseCriticalPathKeepsZeroDurationActions() {
 		const path = parseCriticalPath(
 			"Critical Path: 1,200.00s, Remote (0.00% of the time)\r\n" +
-			"  1,200.00s action 'Link app' \r\n" +
-			"  0.00s action 'Prepare inputs'\r\n",
+				"  1,200.00s action 'Link app' \r\n" +
+				"  0.00s action 'Prepare inputs'\r\n",
 		);
 		assertEquals(1200000, path.timeMillis);
 		assertEquals(2, path.items.length);

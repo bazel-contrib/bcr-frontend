@@ -16,15 +16,36 @@ function renderMnemonicFilters(list, entries) {
 	dom.removeChildren(list);
 	/** @type {!Array<string>} */
 	const mnemonics = Array.from(counts.keys());
-	mnemonics.sort((a, b) => (counts.get(b) || 0) - (counts.get(a) || 0) || a.localeCompare(b));
+	mnemonics.sort(
+		(a, b) => (counts.get(b) || 0) - (counts.get(a) || 0) || a.localeCompare(b),
+	);
 	for (const mnemonic of mnemonics) {
-		const input = dom.createDom("input", {"type": "checkbox", "value": mnemonic});
+		const input = dom.createDom("input", {
+			"type": "checkbox",
+			"value": mnemonic,
+		});
 		input.checked = true;
-		const swatch = dom.createDom("span", {"class": "action-query-swatch", "aria-hidden": "true"});
+		const swatch = dom.createDom("span", {
+			"class": "action-query-swatch",
+			"aria-hidden": "true",
+		});
 		if (mnemonic) swatch.style.backgroundColor = mnemonicColor(mnemonic);
 		const name = dom.createDom("span", null, mnemonic || "(No mnemonic)");
-		const count = dom.createDom("span", "color-fg-muted", (counts.get(mnemonic) || 0).toLocaleString());
-		list.appendChild(dom.createDom("label", "tool-mnemonic text-small", input, swatch, name, count));
+		const count = dom.createDom(
+			"span",
+			"color-fg-muted",
+			(counts.get(mnemonic) || 0).toLocaleString(),
+		);
+		list.appendChild(
+			dom.createDom(
+				"label",
+				"tool-mnemonic text-small",
+				input,
+				swatch,
+				name,
+				count,
+			),
+		);
 	}
 	list.scrollTop = 0;
 }

@@ -8,21 +8,41 @@ const BuildEventId = goog.require("proto.build_event_stream.BuildEventId");
 const BuildMetrics = goog.require("proto.build_event_stream.BuildMetrics");
 const BuildToolLogs = goog.require("proto.build_event_stream.BuildToolLogs");
 const base64 = goog.require("goog.crypt.base64");
-const { TERMINAL_LIMIT, formatTerminalText, renderTerminalText } = goog.require("bcrfrontend.invocationTerminal");
-const { formatBytes, timestampMillis, validDateMillis } = goog.require("bcrfrontend.invocationFormat");
+const { TERMINAL_LIMIT, formatTerminalText, renderTerminalText } = goog.require(
+	"bcrfrontend.invocationTerminal",
+);
+const { formatBytes, timestampMillis, validDateMillis } = goog.require(
+	"bcrfrontend.invocationFormat",
+);
 const { mnemonicColor } = goog.require("bcrfrontend.actionColors");
 
 /** @const {!Array<string>} */
 const TEST_STATUS_NAMES = [
-	"No status", "Passed", "Flaky", "Timed out", "Failed", "Incomplete",
-	"Remote failure", "Failed to build", "Stopped before testing",
+	"No status",
+	"Passed",
+	"Flaky",
+	"Timed out",
+	"Failed",
+	"Incomplete",
+	"Remote failure",
+	"Failed to build",
+	"Stopped before testing",
 ];
 
 /** @const {!Array<string>} */
 const ABORT_REASON_NAMES = [
-	"Unknown", "User interrupted", "Timed out", "Remote environment failure",
-	"Internal error", "Loading failure", "Analysis failure", "Skipped", "", "",
-	"Incomplete", "Out of memory",
+	"Unknown",
+	"User interrupted",
+	"Timed out",
+	"Remote environment failure",
+	"Internal error",
+	"Loading failure",
+	"Analysis failure",
+	"Skipped",
+	"",
+	"",
+	"Incomplete",
+	"Out of memory",
 ];
 
 /** @const {!Array<string>} */
@@ -71,11 +91,7 @@ function decodeDelimitedMessages(bytes, deserialize) {
 		try {
 			messages.push(deserialize(bytes.subarray(offset, end)));
 		} catch (_error) {
-			throw new Error(
-				"Invalid protobuf message at byte " +
-					offset +
-					".",
-			);
+			throw new Error("Invalid protobuf message at byte " + offset + ".");
 		}
 		offset = end;
 	}
@@ -88,31 +104,56 @@ function decodeDelimitedMessages(bytes, deserialize) {
  */
 function payloadCaseName(payloadCase) {
 	switch (payloadCase) {
-		case BuildEvent.PayloadCase.PROGRESS: return "Build progress";
-		case BuildEvent.PayloadCase.ABORTED: return "Aborted";
-		case BuildEvent.PayloadCase.STARTED: return "Build started";
-		case BuildEvent.PayloadCase.UNSTRUCTURED_COMMAND_LINE: return "Original command line";
-		case BuildEvent.PayloadCase.STRUCTURED_COMMAND_LINE: return "Structured command line";
-		case BuildEvent.PayloadCase.OPTIONS_PARSED: return "Options parsed";
-		case BuildEvent.PayloadCase.WORKSPACE_STATUS: return "Workspace status";
-		case BuildEvent.PayloadCase.FETCH: return "External fetch";
-		case BuildEvent.PayloadCase.CONFIGURATION: return "Build configuration";
-		case BuildEvent.PayloadCase.EXPANDED: return "Target pattern expanded";
-		case BuildEvent.PayloadCase.CONFIGURED: return "Target configured";
-		case BuildEvent.PayloadCase.ACTION: return "Action completed";
-		case BuildEvent.PayloadCase.NAMED_SET_OF_FILES: return "Artifact set";
-		case BuildEvent.PayloadCase.COMPLETED: return "Target completed";
-		case BuildEvent.PayloadCase.TEST_RESULT: return "Test result";
-		case BuildEvent.PayloadCase.TEST_PROGRESS: return "Test progress";
-		case BuildEvent.PayloadCase.TEST_SUMMARY: return "Test summary";
-		case BuildEvent.PayloadCase.TARGET_SUMMARY: return "Target summary";
-		case BuildEvent.PayloadCase.FINISHED: return "Build finished";
-		case BuildEvent.PayloadCase.BUILD_TOOL_LOGS: return "Build tool logs";
-		case BuildEvent.PayloadCase.BUILD_METRICS: return "Build metrics";
-		case BuildEvent.PayloadCase.WORKSPACE_INFO: return "Workspace configuration";
-		case BuildEvent.PayloadCase.BUILD_METADATA: return "Build metadata";
-		case BuildEvent.PayloadCase.CONVENIENCE_SYMLINKS_IDENTIFIED: return "Convenience symlinks";
-		case BuildEvent.PayloadCase.EXEC_REQUEST: return "Execution request";
+		case BuildEvent.PayloadCase.PROGRESS:
+			return "Build progress";
+		case BuildEvent.PayloadCase.ABORTED:
+			return "Aborted";
+		case BuildEvent.PayloadCase.STARTED:
+			return "Build started";
+		case BuildEvent.PayloadCase.UNSTRUCTURED_COMMAND_LINE:
+			return "Original command line";
+		case BuildEvent.PayloadCase.STRUCTURED_COMMAND_LINE:
+			return "Structured command line";
+		case BuildEvent.PayloadCase.OPTIONS_PARSED:
+			return "Options parsed";
+		case BuildEvent.PayloadCase.WORKSPACE_STATUS:
+			return "Workspace status";
+		case BuildEvent.PayloadCase.FETCH:
+			return "External fetch";
+		case BuildEvent.PayloadCase.CONFIGURATION:
+			return "Build configuration";
+		case BuildEvent.PayloadCase.EXPANDED:
+			return "Target pattern expanded";
+		case BuildEvent.PayloadCase.CONFIGURED:
+			return "Target configured";
+		case BuildEvent.PayloadCase.ACTION:
+			return "Action completed";
+		case BuildEvent.PayloadCase.NAMED_SET_OF_FILES:
+			return "Artifact set";
+		case BuildEvent.PayloadCase.COMPLETED:
+			return "Target completed";
+		case BuildEvent.PayloadCase.TEST_RESULT:
+			return "Test result";
+		case BuildEvent.PayloadCase.TEST_PROGRESS:
+			return "Test progress";
+		case BuildEvent.PayloadCase.TEST_SUMMARY:
+			return "Test summary";
+		case BuildEvent.PayloadCase.TARGET_SUMMARY:
+			return "Target summary";
+		case BuildEvent.PayloadCase.FINISHED:
+			return "Build finished";
+		case BuildEvent.PayloadCase.BUILD_TOOL_LOGS:
+			return "Build tool logs";
+		case BuildEvent.PayloadCase.BUILD_METRICS:
+			return "Build metrics";
+		case BuildEvent.PayloadCase.WORKSPACE_INFO:
+			return "Workspace configuration";
+		case BuildEvent.PayloadCase.BUILD_METADATA:
+			return "Build metadata";
+		case BuildEvent.PayloadCase.CONVENIENCE_SYMLINKS_IDENTIFIED:
+			return "Convenience symlinks";
+		case BuildEvent.PayloadCase.EXEC_REQUEST:
+			return "Execution request";
 	}
 	return "Unknown event";
 }
@@ -124,26 +165,40 @@ function payloadCaseName(payloadCase) {
  */
 function payloadCaseColor(payloadCase) {
 	switch (payloadCase) {
-		case BuildEvent.PayloadCase.PROGRESS: return "rgb(23, 178, 2)";
-		case BuildEvent.PayloadCase.ABORTED: return "rgb(255, 127, 0)";
-		case BuildEvent.PayloadCase.STARTED: return "rgb(166, 206, 227)";
+		case BuildEvent.PayloadCase.PROGRESS:
+			return "rgb(23, 178, 2)";
+		case BuildEvent.PayloadCase.ABORTED:
+			return "rgb(255, 127, 0)";
+		case BuildEvent.PayloadCase.STARTED:
+			return "rgb(166, 206, 227)";
 		case BuildEvent.PayloadCase.UNSTRUCTURED_COMMAND_LINE:
-		case BuildEvent.PayloadCase.STRUCTURED_COMMAND_LINE: return "rgb(177, 89, 40)";
-		case BuildEvent.PayloadCase.OPTIONS_PARSED: return "rgb(178, 223, 138)";
+		case BuildEvent.PayloadCase.STRUCTURED_COMMAND_LINE:
+			return "rgb(177, 89, 40)";
+		case BuildEvent.PayloadCase.OPTIONS_PARSED:
+			return "rgb(178, 223, 138)";
 		case BuildEvent.PayloadCase.WORKSPACE_STATUS:
-		case BuildEvent.PayloadCase.WORKSPACE_INFO: return "rgb(31, 120, 180)";
-		case BuildEvent.PayloadCase.CONFIGURED: return "rgb(251, 154, 153)";
+		case BuildEvent.PayloadCase.WORKSPACE_INFO:
+			return "rgb(31, 120, 180)";
+		case BuildEvent.PayloadCase.CONFIGURED:
+			return "rgb(251, 154, 153)";
 		case BuildEvent.PayloadCase.NAMED_SET_OF_FILES:
-		case BuildEvent.PayloadCase.FETCH: return "rgb(255, 127, 0)";
-		case BuildEvent.PayloadCase.ACTION: return "rgb(227, 26, 28)";
+		case BuildEvent.PayloadCase.FETCH:
+			return "rgb(255, 127, 0)";
+		case BuildEvent.PayloadCase.ACTION:
+			return "rgb(227, 26, 28)";
 		case BuildEvent.PayloadCase.TEST_RESULT:
 		case BuildEvent.PayloadCase.TEST_PROGRESS:
-		case BuildEvent.PayloadCase.TEST_SUMMARY: return "rgb(255, 255, 153)";
-		case BuildEvent.PayloadCase.FINISHED: return "rgb(106, 61, 154)";
+		case BuildEvent.PayloadCase.TEST_SUMMARY:
+			return "rgb(255, 255, 153)";
+		case BuildEvent.PayloadCase.FINISHED:
+			return "rgb(106, 61, 154)";
 		case BuildEvent.PayloadCase.BUILD_METRICS:
-		case BuildEvent.PayloadCase.BUILD_METADATA: return "rgb(25, 25, 25)";
-		case BuildEvent.PayloadCase.BUILD_TOOL_LOGS: return "rgb(166, 206, 227)";
-		default: return "rgb(202, 178, 214)";
+		case BuildEvent.PayloadCase.BUILD_METADATA:
+			return "rgb(25, 25, 25)";
+		case BuildEvent.PayloadCase.BUILD_TOOL_LOGS:
+			return "rgb(166, 206, 227)";
+		default:
+			return "rgb(202, 178, 214)";
 	}
 }
 
@@ -154,7 +209,9 @@ function payloadCaseColor(payloadCase) {
 function eventMarkColor(event) {
 	const action = event.getAction();
 	const mnemonic = action && action.getType();
-	return mnemonic ? mnemonicColor(mnemonic) : payloadCaseColor(event.getPayloadCase());
+	return mnemonic
+		? mnemonicColor(mnemonic)
+		: payloadCaseColor(event.getPayloadCase());
 }
 
 /** Maps announced ID cases to the payload palette. Their wire numbers differ.
@@ -163,10 +220,19 @@ function eventMarkColor(event) {
 const EXPECTED_PAYLOADS = new Map([
 	[BuildEventId.IdCase.PROGRESS, BuildEvent.PayloadCase.PROGRESS],
 	[BuildEventId.IdCase.STARTED, BuildEvent.PayloadCase.STARTED],
-	[BuildEventId.IdCase.UNSTRUCTURED_COMMAND_LINE, BuildEvent.PayloadCase.UNSTRUCTURED_COMMAND_LINE],
-	[BuildEventId.IdCase.STRUCTURED_COMMAND_LINE, BuildEvent.PayloadCase.STRUCTURED_COMMAND_LINE],
+	[
+		BuildEventId.IdCase.UNSTRUCTURED_COMMAND_LINE,
+		BuildEvent.PayloadCase.UNSTRUCTURED_COMMAND_LINE,
+	],
+	[
+		BuildEventId.IdCase.STRUCTURED_COMMAND_LINE,
+		BuildEvent.PayloadCase.STRUCTURED_COMMAND_LINE,
+	],
 	[BuildEventId.IdCase.OPTIONS_PARSED, BuildEvent.PayloadCase.OPTIONS_PARSED],
-	[BuildEventId.IdCase.WORKSPACE_STATUS, BuildEvent.PayloadCase.WORKSPACE_STATUS],
+	[
+		BuildEventId.IdCase.WORKSPACE_STATUS,
+		BuildEvent.PayloadCase.WORKSPACE_STATUS,
+	],
 	[BuildEventId.IdCase.FETCH, BuildEvent.PayloadCase.FETCH],
 	[BuildEventId.IdCase.CONFIGURATION, BuildEvent.PayloadCase.CONFIGURATION],
 	[BuildEventId.IdCase.PATTERN, BuildEvent.PayloadCase.EXPANDED],
@@ -184,7 +250,10 @@ const EXPECTED_PAYLOADS = new Map([
 	[BuildEventId.IdCase.BUILD_METRICS, BuildEvent.PayloadCase.BUILD_METRICS],
 	[BuildEventId.IdCase.WORKSPACE, BuildEvent.PayloadCase.WORKSPACE_INFO],
 	[BuildEventId.IdCase.BUILD_METADATA, BuildEvent.PayloadCase.BUILD_METADATA],
-	[BuildEventId.IdCase.CONVENIENCE_SYMLINKS_IDENTIFIED, BuildEvent.PayloadCase.CONVENIENCE_SYMLINKS_IDENTIFIED],
+	[
+		BuildEventId.IdCase.CONVENIENCE_SYMLINKS_IDENTIFIED,
+		BuildEvent.PayloadCase.CONVENIENCE_SYMLINKS_IDENTIFIED,
+	],
 	[BuildEventId.IdCase.EXEC_REQUEST, BuildEvent.PayloadCase.EXEC_REQUEST],
 	[BuildEventId.IdCase.UNCONFIGURED_LABEL, BuildEvent.PayloadCase.ABORTED],
 	[BuildEventId.IdCase.CONFIGURED_LABEL, BuildEvent.PayloadCase.ABORTED],
@@ -281,7 +350,9 @@ class InvocationProgress {
 			announcedAt: null,
 			parents: [],
 			children: [],
-			color: payloadCaseColor(id ? EXPECTED_PAYLOADS.get(id.getIdCase()) || 0 : 0),
+			color: payloadCaseColor(
+				id ? EXPECTED_PAYLOADS.get(id.getIdCase()) || 0 : 0,
+			),
 		};
 		if (key !== null) this.marks_.set(key, mark);
 		return mark;
@@ -306,7 +377,7 @@ class InvocationProgress {
 			const mnemonic = action.getType();
 			const tally = this.mnemonics.get(mnemonic);
 			if (tally) tally.count++;
-			else this.mnemonics.set(mnemonic, {count: 1, color: mark.color});
+			else this.mnemonics.set(mnemonic, { count: 1, color: mark.color });
 			this.receivedActions++;
 		}
 		if (sentAt > 0 && Number.isFinite(sentAt)) {
@@ -364,7 +435,9 @@ class InvocationProgress {
 			if (this.log.length > TERMINAL_LIMIT) {
 				const cutoff = this.log.length - TERMINAL_LIMIT;
 				const newline = this.log.indexOf("\n", cutoff);
-				this.log = this.log.slice(newline < 0 || newline === this.log.length - 1 ? cutoff : newline + 1);
+				this.log = this.log.slice(
+					newline < 0 || newline === this.log.length - 1 ? cutoff : newline + 1,
+				);
 				this.logTruncated = true;
 			}
 		}
@@ -376,22 +449,32 @@ class InvocationProgress {
 		}
 		const metadata = event.getBuildMetadata();
 		if (metadata) {
-			metadata.getMetadataMap().forEach(
-				(/** string */ value, /** string */ key) => this.addMetadata_(key, value),
-			);
+			metadata
+				.getMetadataMap()
+				.forEach((/** string */ value, /** string */ key) =>
+					this.addMetadata_(key, value),
+				);
 		}
 	}
 
 	/** @return {number} */
 	frontierNow() {
-		return this.collectionEndedAt ?? this.frontierEndedAt_ ?? (this.serverNow_
-			? this.serverNow_ + performance.now() - this.serverObservedAt_
-			: Date.now());
+		return (
+			this.collectionEndedAt ??
+			this.frontierEndedAt_ ??
+			(this.serverNow_
+				? this.serverNow_ + performance.now() - this.serverObservedAt_
+				: Date.now())
+		);
 	}
 
 	/** @return {boolean} */
 	collectionEnded() {
-		return !!this.last || this.collectionState === COLLECTION_COMPLETE || this.collectionState === COLLECTION_INCOMPLETE;
+		return (
+			!!this.last ||
+			this.collectionState === COLLECTION_COMPLETE ||
+			this.collectionState === COLLECTION_INCOMPLETE
+		);
 	}
 
 	/**
@@ -450,14 +533,18 @@ function eventOutcome(event) {
 		case BuildEvent.PayloadCase.TEST_SUMMARY: {
 			const payload = event.getTestSummary();
 			if (!payload || payload.getOverallStatus() === 0) return null;
-			return payload.getOverallStatus() === 1 || payload.getOverallStatus() === 2;
+			return (
+				payload.getOverallStatus() === 1 || payload.getOverallStatus() === 2
+			);
 		}
 		case BuildEvent.PayloadCase.TARGET_SUMMARY: {
 			const payload = event.getTargetSummary();
 			if (!payload) return null;
 			const testStatus = payload.getOverallTestStatus();
-			return payload.getOverallBuildSuccess() &&
-				(testStatus === 0 || testStatus === 1 || testStatus === 2);
+			return (
+				payload.getOverallBuildSuccess() &&
+				(testStatus === 0 || testStatus === 1 || testStatus === 2)
+			);
 		}
 		case BuildEvent.PayloadCase.FINISHED: {
 			const payload = event.getFinished();
@@ -478,7 +565,9 @@ let InvocationFailure;
  */
 function cleanFailureMessage(message) {
 	const limit = 3000;
-	const text = formatTerminalText(renderTerminalText(message.slice(0, limit)).textContent || "").trim();
+	const text = formatTerminalText(
+		renderTerminalText(message.slice(0, limit)).textContent || "",
+	).trim();
 	return message.length > limit ? text + "\n…" : text;
 }
 
@@ -491,10 +580,16 @@ function cleanFailureMessage(message) {
  * @return {string}
  */
 function consoleFailure(log, label, detail = "") {
-	const lines = formatTerminalText(renderTerminalText(log).textContent || "").split("\n");
-	const diagnostic = /^\s*(?:fatal )?error(?:\[[\w-]+\])?:\s|:\s+(?:fatal )?error(?:\[[\w-]+\])?:\s|\bundefined reference to\b|^panic:/;
-	const matchingAction = label ? lines.findIndex((line) =>
-		line.startsWith("ERROR:") && line.includes(label + " failed")) : -1;
+	const lines = formatTerminalText(
+		renderTerminalText(log).textContent || "",
+	).split("\n");
+	const diagnostic =
+		/^\s*(?:fatal )?error(?:\[[\w-]+\])?:\s|:\s+(?:fatal )?error(?:\[[\w-]+\])?:\s|\bundefined reference to\b|^panic:/;
+	const matchingAction = label
+		? lines.findIndex(
+				(line) => line.startsWith("ERROR:") && line.includes(label + " failed"),
+			)
+		: -1;
 	if (matchingAction >= 0) {
 		let firstOutput = "";
 		for (let i = matchingAction + 1; i < lines.length; i++) {
@@ -502,13 +597,19 @@ function consoleFailure(log, label, detail = "") {
 			if (/^(?:ERROR|INFO|WARNING|FAILED):/.test(line)) break;
 			if (diagnostic.test(line)) return cleanFailureMessage(line);
 			const text = line.trim();
-			if (!firstOutput && text !== label && text !== "@" + label) firstOutput = text;
+			if (!firstOutput && text !== label && text !== "@" + label)
+				firstOutput = text;
 		}
 		if (firstOutput) return cleanFailureMessage(firstOutput);
 	}
-	const specific = lines.find((line) => !line.startsWith("ERROR:") && diagnostic.test(line));
-	const bazelError = lines.find((line) =>
-		line.startsWith("ERROR:") && !/^ERROR: Build did not complete successfully/i.test(line));
+	const specific = lines.find(
+		(line) => !line.startsWith("ERROR:") && diagnostic.test(line),
+	);
+	const bazelError = lines.find(
+		(line) =>
+			line.startsWith("ERROR:") &&
+			!/^ERROR: Build did not complete successfully/i.test(line),
+	);
 	return cleanFailureMessage(specific || detail || bazelError || "");
 }
 
@@ -522,12 +623,20 @@ function invocationFailure(progress) {
 	const exit = finished.getExitCode();
 	if (exit ? exit.getCode() === 0 : !finished.hasFailureDetail()) return null;
 	const detail = finished.getFailureDetail()?.getMessage() || "";
-	const fallback = exit ? "Bazel exited with " +
-		(exit.getName() ? exit.getName() + " (" + exit.getCode() + ")" : "code " + exit.getCode()) + "."
+	const fallback = exit
+		? "Bazel exited with " +
+			(exit.getName()
+				? exit.getName() + " (" + exit.getCode() + ")"
+				: "code " + exit.getCode()) +
+			"."
 		: "Bazel reported a build failure.";
 
-	const actionMark = progress.history.find((mark) =>
-		mark.event && mark.event.hasAction() && eventOutcome(mark.event) === false);
+	const actionMark = progress.history.find(
+		(mark) =>
+			mark.event &&
+			mark.event.hasAction() &&
+			eventOutcome(mark.event) === false,
+	);
 	const action = actionMark?.event?.getAction();
 	if (action) {
 		const actionId = actionMark?.id?.getActionCompleted();
@@ -535,34 +644,63 @@ function invocationFailure(progress) {
 		const subject = label || actionId?.getPrimaryOutput() || "";
 		const context = [action.getType(), subject].filter(Boolean).join(" · ");
 		const stderr = action.getStderr()?.getContents_asU8();
-		const inlineError = stderr && stderr.length
-			? cleanFailureMessage(new TextDecoder().decode(stderr.subarray(0, 12000))) : "";
-		return {context, message: inlineError ||
-			consoleFailure(progress.log, label, action.getFailureDetail()?.getMessage() || detail) || fallback};
+		const inlineError =
+			stderr && stderr.length
+				? cleanFailureMessage(
+						new TextDecoder().decode(stderr.subarray(0, 12000)),
+					)
+				: "";
+		return {
+			context,
+			message:
+				inlineError ||
+				consoleFailure(
+					progress.log,
+					label,
+					action.getFailureDetail()?.getMessage() || detail,
+				) ||
+				fallback,
+		};
 	}
 
-	const failedTest = progress.history.find((mark) =>
-		mark.event && mark.event.hasTestSummary() && eventOutcome(mark.event) === false);
+	const failedTest = progress.history.find(
+		(mark) =>
+			mark.event &&
+			mark.event.hasTestSummary() &&
+			eventOutcome(mark.event) === false,
+	);
 	const testSummary = failedTest?.event?.getTestSummary();
 	if (testSummary) {
-		return {context: failedTest?.id?.getTestSummary()?.getLabel() || "",
-			message: "Test result: " + testStatusName(testSummary.getOverallStatus()) + "."};
+		return {
+			context: failedTest?.id?.getTestSummary()?.getLabel() || "",
+			message:
+				"Test result: " + testStatusName(testSummary.getOverallStatus()) + ".",
+		};
 	}
 
-	const target = progress.history.find((mark) => mark.event?.getCompleted()?.getFailureDetail());
-	const targetDetail = target?.event?.getCompleted()?.getFailureDetail()?.getMessage() || "";
+	const target = progress.history.find((mark) =>
+		mark.event?.getCompleted()?.getFailureDetail(),
+	);
+	const targetDetail =
+		target?.event?.getCompleted()?.getFailureDetail()?.getMessage() || "";
 	const abort = progress.history.find((mark) => {
 		const aborted = mark.event?.getAborted();
 		if (!aborted?.getDescription()) return false;
 		const reason = aborted.getReason();
-		return reason !== Aborted.AbortReason.SKIPPED && reason !== Aborted.AbortReason.NO_ANALYZE &&
-			reason !== Aborted.AbortReason.NO_BUILD && reason !== Aborted.AbortReason.INCOMPLETE;
+		return (
+			reason !== Aborted.AbortReason.SKIPPED &&
+			reason !== Aborted.AbortReason.NO_ANALYZE &&
+			reason !== Aborted.AbortReason.NO_BUILD &&
+			reason !== Aborted.AbortReason.INCOMPLETE
+		);
 	});
 	const abortDescription = abort?.event?.getAborted()?.getDescription() || "";
 	return {
 		context: target?.id?.getTargetCompleted()?.getLabel() || "",
-		message: cleanFailureMessage(targetDetail || detail || abortDescription) ||
-			consoleFailure(progress.log, "") || fallback,
+		message:
+			cleanFailureMessage(targetDetail || detail || abortDescription) ||
+			consoleFailure(progress.log, "") ||
+			fallback,
 	};
 }
 
@@ -574,7 +712,10 @@ function eventTimestampMillis(event) {
 	switch (event.getPayloadCase()) {
 		case BuildEvent.PayloadCase.STARTED: {
 			const payload = event.getStarted();
-			return payload ? (timestampMillis(payload.getStartTime()) ?? (validDateMillis(Number(payload.getStartTimeMillis())) || null)) : null;
+			return payload
+				? (timestampMillis(payload.getStartTime()) ??
+						(validDateMillis(Number(payload.getStartTimeMillis())) || null))
+				: null;
 		}
 		case BuildEvent.PayloadCase.ACTION: {
 			const payload = event.getAction();
@@ -590,7 +731,10 @@ function eventTimestampMillis(event) {
 		}
 		case BuildEvent.PayloadCase.FINISHED: {
 			const payload = event.getFinished();
-			return payload ? (timestampMillis(payload.getFinishTime()) ?? (validDateMillis(Number(payload.getFinishTimeMillis())) || null)) : null;
+			return payload
+				? (timestampMillis(payload.getFinishTime()) ??
+						(validDateMillis(Number(payload.getFinishTimeMillis())) || null))
+				: null;
 		}
 		default:
 			return null;
@@ -602,8 +746,7 @@ function eventTimestampMillis(event) {
  * @return {string}
  */
 function testStatusName(status) {
-	return TEST_STATUS_NAMES[status] ||
-		"Unknown (" + status + ")";
+	return TEST_STATUS_NAMES[status] || "Unknown (" + status + ")";
 }
 
 /**
@@ -619,8 +762,7 @@ function abortReasonName(reason) {
  * @return {string}
  */
 function testSizeName(size) {
-	return TEST_SIZE_NAMES[size] ||
-		"Unknown (" + size + ")";
+	return TEST_SIZE_NAMES[size] || "Unknown (" + size + ")";
 }
 
 /**
@@ -634,7 +776,8 @@ function fileSummary(file) {
 	const location = file.getUri() || file.getSymlinkTargetPath();
 	const parts = [path || file.getName() || "Unnamed file"];
 	if (location) parts.push(location);
-	if (Number(file.getLength())) parts.push(formatBytes(Number(file.getLength())));
+	if (Number(file.getLength()))
+		parts.push(formatBytes(Number(file.getLength())));
 	return parts.join(" · ");
 }
 
@@ -645,18 +788,28 @@ function fileSummary(file) {
 function buildEventIdSummary(id) {
 	if (!id) return "No event ID";
 	switch (id.getIdCase()) {
-		case BuildEventId.IdCase.STARTED: return "Build started";
-		case BuildEventId.IdCase.BUILD_FINISHED: return "Build finished";
-		case BuildEventId.IdCase.UNSTRUCTURED_COMMAND_LINE: return "Original command line";
-		case BuildEventId.IdCase.WORKSPACE_STATUS: return "Workspace status";
-		case BuildEventId.IdCase.OPTIONS_PARSED: return "Options parsed";
-		case BuildEventId.IdCase.BUILD_TOOL_LOGS: return "Build tool logs";
-		case BuildEventId.IdCase.BUILD_METRICS: return "Build metrics";
-		case BuildEventId.IdCase.WORKSPACE: return "Workspace configuration";
-		case BuildEventId.IdCase.BUILD_METADATA: return "Build metadata";
+		case BuildEventId.IdCase.STARTED:
+			return "Build started";
+		case BuildEventId.IdCase.BUILD_FINISHED:
+			return "Build finished";
+		case BuildEventId.IdCase.UNSTRUCTURED_COMMAND_LINE:
+			return "Original command line";
+		case BuildEventId.IdCase.WORKSPACE_STATUS:
+			return "Workspace status";
+		case BuildEventId.IdCase.OPTIONS_PARSED:
+			return "Options parsed";
+		case BuildEventId.IdCase.BUILD_TOOL_LOGS:
+			return "Build tool logs";
+		case BuildEventId.IdCase.BUILD_METRICS:
+			return "Build metrics";
+		case BuildEventId.IdCase.WORKSPACE:
+			return "Workspace configuration";
+		case BuildEventId.IdCase.BUILD_METADATA:
+			return "Build metadata";
 		case BuildEventId.IdCase.CONVENIENCE_SYMLINKS_IDENTIFIED:
 			return "Convenience symlinks";
-		case BuildEventId.IdCase.EXEC_REQUEST: return "Execution request";
+		case BuildEventId.IdCase.EXEC_REQUEST:
+			return "Execution request";
 		case BuildEventId.IdCase.UNKNOWN: {
 			const value = id.getUnknown();
 			return value ? value.getDetails() || "Unknown event" : "Unknown event";
@@ -681,7 +834,9 @@ function buildEventIdSummary(id) {
 		}
 		case BuildEventId.IdCase.TARGET_CONFIGURED: {
 			const value = id.getTargetConfigured();
-			return value ? "Configured target: " + value.getLabel() : "Target configured";
+			return value
+				? "Configured target: " + value.getLabel()
+				: "Target configured";
 		}
 		case BuildEventId.IdCase.PATTERN:
 		case BuildEventId.IdCase.PATTERN_SKIPPED: {
@@ -699,7 +854,9 @@ function buildEventIdSummary(id) {
 		}
 		case BuildEventId.IdCase.TARGET_COMPLETED: {
 			const value = id.getTargetCompleted();
-			return value ? "Completed target: " + value.getLabel() : "Target completed";
+			return value
+				? "Completed target: " + value.getLabel()
+				: "Target completed";
 		}
 		case BuildEventId.IdCase.ACTION_COMPLETED: {
 			const value = id.getActionCompleted();
@@ -725,11 +882,15 @@ function buildEventIdSummary(id) {
 		}
 		case BuildEventId.IdCase.UNCONFIGURED_LABEL: {
 			const value = id.getUnconfiguredLabel();
-			return value ? "Unconfigured label: " + value.getLabel() : "Unconfigured label";
+			return value
+				? "Unconfigured label: " + value.getLabel()
+				: "Unconfigured label";
 		}
 		case BuildEventId.IdCase.CONFIGURED_LABEL: {
 			const value = id.getConfiguredLabel();
-			return value ? "Configured label: " + value.getLabel() : "Configured label";
+			return value
+				? "Configured label: " + value.getLabel()
+				: "Configured label";
 		}
 	}
 	return "Unknown event ID";

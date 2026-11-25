@@ -5,7 +5,9 @@ const BuildEvent = goog.require("proto.build_event_stream.BuildEvent");
 const BuildMetrics = goog.require("proto.build_event_stream.BuildMetrics");
 const BuildToolLogs = goog.require("proto.build_event_stream.BuildToolLogs");
 const dom = goog.require("goog.dom");
-const { formatBytes, formatElapsed, groupRate } = goog.require("bcrfrontend.invocationFormat");
+const { formatBytes, formatElapsed, groupRate } = goog.require(
+	"bcrfrontend.invocationFormat",
+);
 const { testStatusName } = goog.require("bcrfrontend.invocationEvents");
 
 // Unquoted keys are renamed alongside the generated protobuf toObject fields.
@@ -33,7 +35,8 @@ const BUILD_METRIC_FIELDS = {
 	actionCountNotIncludingAspects: "actionCountNotIncludingAspects",
 	actionDataList: "actionDataList",
 	actionLookupValueCount: "actionLookupValueCount",
-	actionLookupValueCountNotIncludingAspects: "actionLookupValueCountNotIncludingAspects",
+	actionLookupValueCountNotIncludingAspects:
+		"actionLookupValueCountNotIncludingAspects",
 	actionsCreated: "actionsCreated",
 	actionsCreatedNotIncludingAspects: "actionsCreatedNotIncludingAspects",
 	actionsExecuted: "actionsExecuted",
@@ -193,8 +196,11 @@ function flattenMetricRows(value, path, rows) {
 		const object = /** @type {!Object<string, *>} */ (value);
 		for (const key of Object.keys(object)) {
 			const child = object[key];
-			if (child === undefined || child === null ||
-				(Array.isArray(child) && child.length === 0)) {
+			if (
+				child === undefined ||
+				child === null ||
+				(Array.isArray(child) && child.length === 0)
+			) {
 				continue;
 			}
 			const label = metricLabel(BUILD_METRIC_FIELDS[key] || key);
@@ -280,7 +286,10 @@ function criticalPathLog(logs) {
 function criticalPathMillis(metrics) {
 	const timing = metrics && metrics.getTimingMetrics();
 	const duration = timing && timing.getCriticalPathTime();
-	return duration ? Number(duration.getSeconds()) * 1000 + Math.round(duration.getNanos() / 1000000) : null;
+	return duration
+		? Number(duration.getSeconds()) * 1000 +
+				Math.round(duration.getNanos() / 1000000)
+		: null;
 }
 
 /**
@@ -288,7 +297,10 @@ function criticalPathMillis(metrics) {
  * @return {string}
  */
 function statSeconds(millis) {
-	return (millis / 1000).toLocaleString(undefined, {maximumFractionDigits: 3}) + " s";
+	return (
+		(millis / 1000).toLocaleString(undefined, { maximumFractionDigits: 3 }) +
+		" s"
+	);
 }
 
 /**
@@ -297,14 +309,22 @@ function statSeconds(millis) {
  * @return {!Element}
  */
 function buildStatCard(title, entries) {
-	const card = dom.createDom("article", {"class": "Box bes-build-stat", "aria-label": title},
-		dom.createDom("h3", "h5 m-0", title));
+	const card = dom.createDom(
+		"article",
+		{ "class": "Box bes-build-stat", "aria-label": title },
+		dom.createDom("h3", "h5 m-0", title),
+	);
 	if (!entries || !entries.length) return card;
 	const values = dom.createDom("dl", "text-small");
 	for (const entry of entries) {
-		values.appendChild(dom.createDom("div", null,
-			dom.createDom("dt", "color-fg-muted", entry[0]),
-			dom.createDom("dd", "text-bold", entry[1])));
+		values.appendChild(
+			dom.createDom(
+				"div",
+				null,
+				dom.createDom("dt", "color-fg-muted", entry[0]),
+				dom.createDom("dd", "text-bold", entry[1]),
+			),
+		);
 	}
 	card.appendChild(values);
 	return card;
@@ -321,38 +341,76 @@ function createBuildStatCards(metrics) {
 	if (actions || graph) {
 		// Bazel can omit Action Count when analysis was fully cached.
 		const total = Number(graph?.getActionCount() ?? 0);
-		cards.appendChild(buildStatCard("Actions", [
-			["Executed", actions ? Number(actions.getActionsExecuted()).toLocaleString() : "—"],
-			["Total", total ? total.toLocaleString() : "—"],
-		]));
+		cards.appendChild(
+			buildStatCard("Actions", [
+				[
+					"Executed",
+					actions ? Number(actions.getActionsExecuted()).toLocaleString() : "—",
+				],
+				["Total", total ? total.toLocaleString() : "—"],
+			]),
+		);
 	}
 	const targets = metrics.getTargetMetrics();
-	if (targets) cards.appendChild(buildStatCard("Targets", [
-		["Configured", Number(targets.getTargetsConfigured()).toLocaleString()],
-	]));
+	if (targets)
+		cards.appendChild(
+			buildStatCard("Targets", [
+				["Configured", Number(targets.getTargetsConfigured()).toLocaleString()],
+			]),
+		);
 	const timing = metrics.getTimingMetrics();
 	if (timing) {
 		// CPU and elapsed durations can overlap, so compare them on a shared scale.
 		/** @type {!Array<{label: string, millis: number, color: string}>} */
 		const durations = [
-			{label: "Wall", millis: Number(timing.getWallTimeInMs()), color: "bes-build-timing-wall"},
-			{label: "CPU", millis: Number(timing.getCpuTimeInMs()), color: "bes-build-timing-cpu"},
-			{label: "Execution", millis: Number(timing.getExecutionPhaseTimeInMs()), color: "bes-build-timing-execution"},
+			{
+				label: "Wall",
+				millis: Number(timing.getWallTimeInMs()),
+				color: "bes-build-timing-wall",
+			},
+			{
+				label: "CPU",
+				millis: Number(timing.getCpuTimeInMs()),
+				color: "bes-build-timing-cpu",
+			},
+			{
+				label: "Execution",
+				millis: Number(timing.getExecutionPhaseTimeInMs()),
+				color: "bes-build-timing-execution",
+			},
 		];
 		const max = Math.max(1, ...durations.map((value) => value.millis));
 		const card = buildStatCard("Timing");
 		for (const duration of durations) {
-			const bar = /** @type {!HTMLElement} */ (dom.createDom("span", duration.color));
-			bar.style.width = Math.max(0, duration.millis) / max * 100 + "%";
-			card.appendChild(dom.createDom("div", "bes-build-timing-row text-small",
-				dom.createDom("span", "color-fg-muted", duration.label),
-				dom.createDom("span", {"class": "bes-build-timing-track", "aria-hidden": "true"}, bar),
-				dom.createDom("span", "text-mono text-right", statSeconds(duration.millis))));
+			const bar = /** @type {!HTMLElement} */ (
+				dom.createDom("span", duration.color)
+			);
+			bar.style.width = (Math.max(0, duration.millis) / max) * 100 + "%";
+			card.appendChild(
+				dom.createDom(
+					"div",
+					"bes-build-timing-row text-small",
+					dom.createDom("span", "color-fg-muted", duration.label),
+					dom.createDom(
+						"span",
+						{ "class": "bes-build-timing-track", "aria-hidden": "true" },
+						bar,
+					),
+					dom.createDom(
+						"span",
+						"text-mono text-right",
+						statSeconds(duration.millis),
+					),
+				),
+			);
 		}
 		cards.appendChild(card);
 	}
 	const path = criticalPathMillis(metrics);
-	if (path !== null) cards.appendChild(buildStatCard("Critical path", [["Duration", statSeconds(path)]]));
+	if (path !== null)
+		cards.appendChild(
+			buildStatCard("Critical path", [["Duration", statSeconds(path)]]),
+		);
 
 	const artifacts = metrics.getArtifactMetrics();
 	const outputs = artifacts?.getOutputArtifactsSeen();
@@ -360,26 +418,46 @@ function createBuildStatCards(metrics) {
 	if (outputs || cached) {
 		/** @type {!Array<!Array<string>>} */
 		const entries = [];
-		if (outputs) entries.push(["Outputs", Number(outputs.getCount()).toLocaleString() +
-			" · " + formatBytes(Number(outputs.getSizeInBytes()))]);
-		if (cached) entries.push(["From local action cache", Number(cached.getCount()).toLocaleString() +
-			" · " + formatBytes(Number(cached.getSizeInBytes()))]);
+		if (outputs)
+			entries.push([
+				"Outputs",
+				Number(outputs.getCount()).toLocaleString() +
+					" · " +
+					formatBytes(Number(outputs.getSizeInBytes())),
+			]);
+		if (cached)
+			entries.push([
+				"From local action cache",
+				Number(cached.getCount()).toLocaleString() +
+					" · " +
+					formatBytes(Number(cached.getSizeInBytes())),
+			]);
 		cards.appendChild(buildStatCard("Artifacts", entries));
 	}
 	const network = metrics.getNetworkMetrics()?.getSystemNetworkStats();
-	if (network) cards.appendChild(buildStatCard("Host network", [
-		["Sent", formatBytes(Number(network.getBytesSent()))],
-		["Received", formatBytes(Number(network.getBytesRecv()))],
-	]));
+	if (network)
+		cards.appendChild(
+			buildStatCard("Host network", [
+				["Sent", formatBytes(Number(network.getBytesSent()))],
+				["Received", formatBytes(Number(network.getBytesRecv()))],
+			]),
+		);
 	const cache = metrics.getRemoteAnalysisCacheStatistics();
 	if (cache) {
 		const hits = Number(cache.getCacheHits());
 		const misses = Number(cache.getCacheMisses());
-		cards.appendChild(buildStatCard("Remote analysis cache", hits + misses ? [
-			["Hit rate", groupRate(hits, hits + misses)],
-			["Hits", hits.toLocaleString()],
-			["Misses", misses.toLocaleString()],
-		] : [["Lookups", "None"]]));
+		cards.appendChild(
+			buildStatCard(
+				"Remote analysis cache",
+				hits + misses
+					? [
+							["Hit rate", groupRate(hits, hits + misses)],
+							["Hits", hits.toLocaleString()],
+							["Misses", misses.toLocaleString()],
+						]
+					: [["Lookups", "None"]],
+			),
+		);
 	}
 
 	/** @type {!Map<string, !Array<{ids: string, actions: number}>>} */
@@ -393,9 +471,13 @@ function createBuildStatCards(metrics) {
 		}
 		const ids = worker.getWorkerIdsList();
 		group.push({
-			ids: ids.length ? (ids.length > 1 ? "Workers " : "Worker ") + ids.join(", ")
-				: worker.getWorkerId() ? "Worker " + worker.getWorkerId()
-				: worker.getProcessId() ? "Process " + worker.getProcessId() : "",
+			ids: ids.length
+				? (ids.length > 1 ? "Workers " : "Worker ") + ids.join(", ")
+				: worker.getWorkerId()
+					? "Worker " + worker.getWorkerId()
+					: worker.getProcessId()
+						? "Process " + worker.getProcessId()
+						: "",
 			actions: Number(worker.getActionsExecuted()),
 		});
 	}
@@ -407,14 +489,33 @@ function createBuildStatCards(metrics) {
 		if (!group) continue;
 		const card = buildStatCard(name);
 		card.setAttribute("aria-label", name + " workers");
-		const counts = dom.createDom("ul", {"role": "list", "aria-label": "Actions executed per worker"});
+		const counts = dom.createDom("ul", {
+			"role": "list",
+			"aria-label": "Actions executed per worker",
+		});
 		for (let index = 0; index < group.length; index++) {
 			const worker = group[index];
-			const description = (worker.ids || "Worker " + (index + 1)) + " · " + worker.actions.toLocaleString() + " executed";
-			counts.appendChild(dom.createDom("li", {"class": "text-mono", "title": description}, worker.actions.toLocaleString()));
+			const description =
+				(worker.ids || "Worker " + (index + 1)) +
+				" · " +
+				worker.actions.toLocaleString() +
+				" executed";
+			counts.appendChild(
+				dom.createDom(
+					"li",
+					{ "class": "text-mono", "title": description },
+					worker.actions.toLocaleString(),
+				),
+			);
 		}
-		card.appendChild(dom.createDom("div", "bes-worker-counts text-small",
-			dom.createDom("span", "color-fg-muted", "Executed"), counts));
+		card.appendChild(
+			dom.createDom(
+				"div",
+				"bes-worker-counts text-small",
+				dom.createDom("span", "color-fg-muted", "Executed"),
+				counts,
+			),
+		);
 		cards.appendChild(card);
 	}
 	return cards;
@@ -440,12 +541,14 @@ function groupInvocationTests(events) {
 		const summary = id.getTestSummary();
 		if (!result && !summary) continue;
 		const label = result ? result.getLabel() : summary.getLabel();
-		const config = result ? result.getConfiguration() : summary.getConfiguration();
+		const config = result
+			? result.getConfiguration()
+			: summary.getConfiguration();
 		const configuration = config ? config.getId() : "";
 		const key = JSON.stringify([label, configuration]);
 		let group = groups.get(key);
 		if (!group) {
-			group = {key, label, configuration, summary: null, attempts: []};
+			group = { key, label, configuration, summary: null, attempts: [] };
 			groups.set(key, group);
 		}
 		if (event.hasTestSummary()) group.summary = event;
@@ -463,7 +566,8 @@ function testStatusLabel(status, fallback = "Status unavailable") {
 	const badge = /** @type {!HTMLElement} */ (document.createElement("span"));
 	badge.className = "Label";
 	if (status === 1) badge.classList.add("Label--success");
-	else if (status === 2 || status === 5 || status === 8) badge.classList.add("Label--attention");
+	else if (status === 2 || status === 5 || status === 8)
+		badge.classList.add("Label--attention");
 	else if (status > 0) badge.classList.add("Label--danger");
 	badge.textContent = status ? testStatusName(status) : fallback;
 	return badge;
@@ -521,8 +625,11 @@ function createBuildMetricsDetail(metrics, expanded = true) {
 	);
 	for (const key of Object.keys(object)) {
 		const metric = object[key];
-		if (metric === undefined || metric === null ||
-			(Array.isArray(metric) && metric.length === 0)) {
+		if (
+			metric === undefined ||
+			metric === null ||
+			(Array.isArray(metric) && metric.length === 0)
+		) {
 			continue;
 		}
 		const section = /** @type {!HTMLDetailsElement} */ (
@@ -575,11 +682,16 @@ function createCriticalPathDetail(logs, duration = null) {
 		root.appendChild(unavailable);
 		return root;
 	}
-	const table = /** @type {!HTMLTableElement} */ (document.createElement("table"));
+	const table = /** @type {!HTMLTableElement} */ (
+		document.createElement("table")
+	);
 	table.className = "bes-critical-path-table width-full text-small";
 	appendTableHeader(table, ["#", "Duration", "% of path", "Action"]);
 	const lastItem = criticalPath.items[criticalPath.items.length - 1];
-	const chartMillis = Math.max(criticalPath.timeMillis, lastItem.startMillis + lastItem.timeMillis);
+	const chartMillis = Math.max(
+		criticalPath.timeMillis,
+		lastItem.startMillis + lastItem.timeMillis,
+	);
 	const rows = /** @type {!HTMLTableSectionElement} */ (table.createTBody());
 	for (let i = 0; i < criticalPath.items.length; i++) {
 		const item = criticalPath.items[i];
@@ -597,7 +709,7 @@ function createCriticalPathDetail(logs, duration = null) {
 		const action = document.createElement("td");
 		action.className = "bes-critical-path-action text-mono";
 		action.textContent = item.action;
-		const start = chartMillis > 0 ? item.startMillis / chartMillis * 100 : 0;
+		const start = chartMillis > 0 ? (item.startMillis / chartMillis) * 100 : 0;
 		const end = Math.min(100, start + Math.max(0.2, ratio * 100));
 		row.style.setProperty("--bes-critical-path-start", start + "%");
 		row.style.setProperty("--bes-critical-path-end", end + "%");

@@ -13,6 +13,8 @@ go_deps = use_extension("@bazel_gazelle//:extensions.bzl", "go_deps")
 go_deps.from_file(go_mod = "//:go.mod")
 use_repo(
     go_deps,
+    "com_github_bazel_contrib_bcr_frontend_proto_build",
+    "com_github_bazel_contrib_bcr_frontend_proto_buildeventstream",
     "com_github_bazelbuild_bazelisk",
     "com_github_bazelbuild_buildtools",
     "com_github_bazelbuild_remote_apis",

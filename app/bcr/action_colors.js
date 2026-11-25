@@ -24,7 +24,10 @@ const ACTION_MNEMONIC_COLORS = [
 	["#fe9b37", "swift"],
 	["#236176", "ts TypeScriptCompile"],
 	["#eedc49", "js Closure TestRunner"],
-	["#6cae04", "Commands BazelWorkspaceStatusAction SkylarkAction Middleman PackagingSourcesManifest"],
+	[
+		"#6cae04",
+		"Commands BazelWorkspaceStatusAction SkylarkAction Middleman PackagingSourcesManifest",
+	],
 	["#e22b9a", "SymlinkTree SourceSymlinkManifest ExecutableSymlink"],
 	["#2b3c42", "docker ImageConfig ImageLayer SHA256"],
 	["#8fbc2b", "android"],

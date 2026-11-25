@@ -22,7 +22,7 @@ let GraphNode;
  */
 function layout(nodes) {
 	/** @type {!Array<!Array<number>>} */
-	const consumers = Array.from({length: nodes.length}, () => []);
+	const consumers = Array.from({ length: nodes.length }, () => []);
 	const pending = new Int32Array(nodes.length);
 	const ranks = new Int32Array(nodes.length);
 	nodes.forEach((node, id) => {
@@ -73,7 +73,8 @@ function layout(nodes) {
 		}
 		const rowLimit = Math.max(8, Math.ceil(Math.sqrt(maxRows)));
 		let columnCount = 0;
-		for (const entries of columns.values()) columnCount += Math.ceil(entries.length / rowLimit);
+		for (const entries of columns.values())
+			columnCount += Math.ceil(entries.length / rowLimit);
 		if (left > 24 && left + columnCount * 142 > 1150) {
 			left = 24;
 			top = rowBottom + 30;
@@ -87,7 +88,7 @@ function layout(nodes) {
 			for (let i = 0; i < entries.length; i++) {
 				const node = nodes[entries[i]];
 				node.x = x + Math.floor(i / rowLimit) * 142;
-				node.y = top + 30 + i % rowLimit * 76;
+				node.y = top + 30 + (i % rowLimit) * 76;
 				rowBottom = Math.max(rowBottom, node.y + 42);
 			}
 			x += Math.ceil(entries.length / rowLimit) * 142;
@@ -95,7 +96,7 @@ function layout(nodes) {
 		left += columnCount * 142 + 18;
 		width = Math.max(width, left);
 	}
-	return {width, height: rowBottom + 24};
+	return { width, height: rowBottom + 24 };
 }
 
 class ExecutionLogGraph {
@@ -141,7 +142,11 @@ class ExecutionLogGraph {
 	fit() {
 		const canvas = this.canvas_;
 		if (!canvas.clientWidth || !canvas.clientHeight) return;
-		this.scale_ = Math.min(1, canvas.clientWidth / this.width_, canvas.clientHeight / this.height_);
+		this.scale_ = Math.min(
+			1,
+			canvas.clientWidth / this.width_,
+			canvas.clientHeight / this.height_,
+		);
 		this.x_ = (canvas.clientWidth - this.width_ * this.scale_) / 2;
 		this.y_ = (canvas.clientHeight - this.height_ * this.scale_) / 2;
 		this.draw();
@@ -155,7 +160,10 @@ class ExecutionLogGraph {
 
 	/** @param {!WheelEvent} event */
 	wheel(event) {
-		const next = Math.max(Math.min(0.01, this.scale_), Math.min(4, this.scale_ * (event.deltaY < 0 ? 1.15 : 1 / 1.15)));
+		const next = Math.max(
+			Math.min(0.01, this.scale_),
+			Math.min(4, this.scale_ * (event.deltaY < 0 ? 1.15 : 1 / 1.15)),
+		);
 		const ratio = next / this.scale_;
 		this.x_ = event.offsetX - (event.offsetX - this.x_) * ratio;
 		this.y_ = event.offsetY - (event.offsetY - this.y_) * ratio;
@@ -167,7 +175,12 @@ class ExecutionLogGraph {
 	start(event) {
 		if (event.button !== 0 || this.pointer_) return;
 		this.canvas_.setPointerCapture(event.pointerId);
-		this.pointer_ = {id: event.pointerId, x: event.clientX, y: event.clientY, moved: false};
+		this.pointer_ = {
+			id: event.pointerId,
+			x: event.clientX,
+			y: event.clientY,
+			moved: false,
+		};
 	}
 
 	/** @param {!PointerEvent} event */
@@ -193,8 +206,11 @@ class ExecutionLogGraph {
 		if (pointer.moved || event.type !== "pointerup") return;
 		const x = (event.offsetX - this.x_) / this.scale_;
 		const y = (event.offsetY - this.y_) / this.scale_;
-		const index = this.nodes_.findIndex((node) =>
-			Math.hypot(node.x - x, node.y - y) <= Math.max(node.radius, 5 / this.scale_));
+		const index = this.nodes_.findIndex(
+			(node) =>
+				Math.hypot(node.x - x, node.y - y) <=
+				Math.max(node.radius, 5 / this.scale_),
+		);
 		if (index >= 0) this.onSelect_(index);
 	}
 
@@ -205,15 +221,27 @@ class ExecutionLogGraph {
 	key(key) {
 		if (!this.nodes_.length) return false;
 		switch (key) {
-			case "ArrowLeft": this.x_ += 48; break;
-			case "ArrowRight": this.x_ -= 48; break;
-			case "ArrowUp": this.y_ += 48; break;
-			case "ArrowDown": this.y_ -= 48; break;
+			case "ArrowLeft":
+				this.x_ += 48;
+				break;
+			case "ArrowRight":
+				this.x_ -= 48;
+				break;
+			case "ArrowUp":
+				this.y_ += 48;
+				break;
+			case "ArrowDown":
+				this.y_ -= 48;
+				break;
 			case "PageUp":
 			case "PageDown": {
 				const last = this.nodes_.length - 1;
-				const index = key === "PageDown" ? Math.min(last, this.selected_ + 1) :
-					this.selected_ < 0 ? last : Math.max(0, this.selected_ - 1);
+				const index =
+					key === "PageDown"
+						? Math.min(last, this.selected_ + 1)
+						: this.selected_ < 0
+							? last
+							: Math.max(0, this.selected_ - 1);
 				const node = this.nodes_[index];
 				this.scale_ = Math.max(this.scale_, 0.65);
 				this.x_ = this.canvas_.clientWidth / 2 - node.x * this.scale_;
@@ -221,7 +249,8 @@ class ExecutionLogGraph {
 				this.onSelect_(index);
 				break;
 			}
-			default: return false;
+			default:
+				return false;
 		}
 		this.draw();
 		return true;
@@ -244,7 +273,9 @@ class ExecutionLogGraph {
 	/** @private */
 	paint_() {
 		const canvas = this.canvas_;
-		const ctx = /** @type {?CanvasRenderingContext2D} */ (canvas.getContext("2d"));
+		const ctx = /** @type {?CanvasRenderingContext2D} */ (
+			canvas.getContext("2d")
+		);
 		if (!ctx || !canvas.clientWidth || !canvas.clientHeight) return;
 		const ratio = window.devicePixelRatio || 1;
 		const width = Math.round(canvas.clientWidth * ratio);
@@ -254,7 +285,14 @@ class ExecutionLogGraph {
 		ctx.setTransform(1, 0, 0, 1, 0, 0);
 		ctx.clearRect(0, 0, width, height);
 		const scale = this.scale_;
-		ctx.setTransform(scale * ratio, 0, 0, scale * ratio, this.x_ * ratio, this.y_ * ratio);
+		ctx.setTransform(
+			scale * ratio,
+			0,
+			0,
+			scale * ratio,
+			this.x_ * ratio,
+			this.y_ * ratio,
+		);
 		const style = getComputedStyle(canvas);
 		const muted = style.getPropertyValue("--action-query-muted").trim();
 		const border = style.getPropertyValue("--action-query-border").trim();
@@ -268,8 +306,13 @@ class ExecutionLogGraph {
 		this.nodes_.forEach((to, index) => {
 			for (const producer of to.inputs) {
 				const from = this.nodes_[producer];
-				if (Math.max(from.x, to.x) < left || Math.min(from.x, to.x) > right ||
-					Math.max(from.y, to.y) < top || Math.min(from.y, to.y) > bottom) continue;
+				if (
+					Math.max(from.x, to.x) < left ||
+					Math.min(from.x, to.x) > right ||
+					Math.max(from.y, to.y) < top ||
+					Math.min(from.y, to.y) > bottom
+				)
+					continue;
 				const dx = to.x - from.x;
 				const dy = to.y - from.y;
 				const distance = Math.hypot(dx, dy);
@@ -278,14 +321,17 @@ class ExecutionLogGraph {
 				const uy = dy / distance;
 				const x = to.x - ux * to.radius;
 				const y = to.y - uy * to.radius;
-				const color = index === this.selected_ || producer === this.selected_ ? accent : border;
+				const color =
+					index === this.selected_ || producer === this.selected_
+						? accent
+						: border;
 				ctx.strokeStyle = color;
-				ctx.lineWidth = Math.max(1, .65 / scale);
+				ctx.lineWidth = Math.max(1, 0.65 / scale);
 				ctx.beginPath();
 				ctx.moveTo(from.x + ux * from.radius, from.y + uy * from.radius);
 				ctx.lineTo(x, y);
 				ctx.stroke();
-				if (scale < .18) continue;
+				if (scale < 0.18) continue;
 				ctx.fillStyle = color;
 				ctx.beginPath();
 				ctx.moveTo(x, y);
@@ -295,8 +341,14 @@ class ExecutionLogGraph {
 			}
 		});
 		this.nodes_.forEach((node, index) => {
-			const {x, y, radius} = node;
-			if (x + 65 < left || x - 65 > right || y + 45 < top || y - radius > bottom) return;
+			const { x, y, radius } = node;
+			if (
+				x + 65 < left ||
+				x - 65 > right ||
+				y + 45 < top ||
+				y - radius > bottom
+			)
+				return;
 			ctx.beginPath();
 			ctx.arc(x, y, radius, 0, 2 * Math.PI);
 			ctx.fillStyle = background;
@@ -309,10 +361,16 @@ class ExecutionLogGraph {
 				const split = node.a && node.b;
 				const angle = i === 0 ? Math.PI / 2 : -Math.PI / 2;
 				ctx.beginPath();
-				ctx.arc(x, y, radius, split ? angle : 0, split ? angle + Math.PI : 2 * Math.PI);
+				ctx.arc(
+					x,
+					y,
+					radius,
+					split ? angle : 0,
+					split ? angle + Math.PI : 2 * Math.PI,
+				);
 				ctx.closePath();
 				ctx.fillStyle = node.unchanged ? muted : side.color || muted;
-				ctx.globalAlpha = node.unchanged ? .25 : side.cached ? .38 : 1;
+				ctx.globalAlpha = node.unchanged ? 0.25 : side.cached ? 0.38 : 1;
 				ctx.fill();
 			}
 			ctx.globalAlpha = 1;
@@ -323,7 +381,7 @@ class ExecutionLogGraph {
 				ctx.lineWidth = Math.max(2, 1.2 / scale);
 				ctx.stroke();
 			}
-			if (scale < .36) return;
+			if (scale < 0.36) return;
 			ctx.textAlign = "center";
 			ctx.font = "12px " + style.fontFamily;
 			ctx.fillStyle = node.unchanged ? muted : style.color;
@@ -332,4 +390,4 @@ class ExecutionLogGraph {
 	}
 }
 
-exports = {ExecutionLogGraph, GraphNode, GraphSide};
+exports = { ExecutionLogGraph, GraphNode, GraphSide };

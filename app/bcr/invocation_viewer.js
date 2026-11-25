@@ -31,8 +31,11 @@ const {
 	frontierMarkLabel,
 	frontierWait,
 } = goog.require("bcrfrontend.invocationFrontier");
-const { InvocationBackend, openInvocationBackend } = goog.require("bcrfrontend.invocationTransport");
-const { InvocationTerminal, formatTerminalText, renderTerminalText } = goog.require("bcrfrontend.invocationTerminal");
+const { InvocationBackend, openInvocationBackend } = goog.require(
+	"bcrfrontend.invocationTransport",
+);
+const { InvocationTerminal, formatTerminalText, renderTerminalText } =
+	goog.require("bcrfrontend.invocationTerminal");
 const {
 	InvocationTest,
 	appendTableHeader,
@@ -43,9 +46,14 @@ const {
 	groupInvocationTests,
 	testStatusLabel,
 } = goog.require("bcrfrontend.invocationMetrics");
-const { createSelectedEventDetail } = goog.require("bcrfrontend.invocationEventDetails");
-const { eventStatusIcon, invocationViewer } = goog.require("soy.bcrfrontend.tools");
-const { formatBytes, formatDuration, formatElapsed, summaryTime } = goog.require("bcrfrontend.invocationFormat");
+const { createSelectedEventDetail } = goog.require(
+	"bcrfrontend.invocationEventDetails",
+);
+const { eventStatusIcon, invocationViewer } = goog.require(
+	"soy.bcrfrontend.tools",
+);
+const { formatBytes, formatDuration, formatElapsed, summaryTime } =
+	goog.require("bcrfrontend.invocationFormat");
 const { getApplication } = goog.require("bcrfrontend.common");
 const {
 	incompleteStatus,
@@ -70,20 +78,33 @@ function bindViewerTabs(handler, tabs, select) {
 		const button = buttons[i];
 		const index = Number(i);
 		handler.listen(button, events.EventType.CLICK, () => select(index));
-		handler.listen(button, events.EventType.KEYDOWN, (/** !events.BrowserEvent */ e) => {
-			const key = e.key;
-			let next;
-			switch (key) {
-				case "ArrowLeft": next = (index + buttons.length - 1) % buttons.length; break;
-				case "ArrowRight": next = (index + 1) % buttons.length; break;
-				case "Home": next = 0; break;
-				case "End": next = buttons.length - 1; break;
-				default: return;
-			}
-			e.preventDefault();
-			select(next);
-			buttons[next].focus();
-		});
+		handler.listen(
+			button,
+			events.EventType.KEYDOWN,
+			(/** !events.BrowserEvent */ e) => {
+				const key = e.key;
+				let next;
+				switch (key) {
+					case "ArrowLeft":
+						next = (index + buttons.length - 1) % buttons.length;
+						break;
+					case "ArrowRight":
+						next = (index + 1) % buttons.length;
+						break;
+					case "Home":
+						next = 0;
+						break;
+					case "End":
+						next = buttons.length - 1;
+						break;
+					default:
+						return;
+				}
+				e.preventDefault();
+				select(next);
+				buttons[next].focus();
+			},
+		);
 	}
 }
 
@@ -204,27 +225,63 @@ class BuildEventViewerComponent extends Component {
 			}
 			this.source_ = source;
 			this.onSummary_ = onSummary;
-			this.cacheTimer_ = setInterval(() => this.refreshCacheStats_(source, id), 1500);
+			this.cacheTimer_ = setInterval(
+				() => this.refreshCacheStats_(source, id),
+				1500,
+			);
 			void this.refreshCacheStats_(source, id);
-			source.watch(id, () => this.lastCursor_,
-				(/** string */ cursor, /** string */ data, /** number= */ receivedAt, /** number= */ sentAt) => {
-					if (generation === this.loadGeneration_) this.receiveBuildEvent_(source, id, cursor, data, receivedAt || 0, sentAt || 0, onStatus);
-			}, (/** string */ message, /** boolean */ connected, /** boolean= */ closed) => {
-				if (generation !== this.loadGeneration_) return;
-				if (closed) {
-					this.disconnectBackend_();
-				} else {
-					this.connected_ = connected;
-					this.clockStoppedAt_ = connected ? null : this.clockStoppedAt_ ?? Date.now();
-					this.renderSummary_();
-				}
-				onStatus(message, connected, Boolean(closed));
-			});
+			source.watch(
+				id,
+				() => this.lastCursor_,
+				(
+					/** string */ cursor,
+					/** string */ data,
+					/** number= */ receivedAt,
+					/** number= */ sentAt,
+				) => {
+					if (generation === this.loadGeneration_)
+						this.receiveBuildEvent_(
+							source,
+							id,
+							cursor,
+							data,
+							receivedAt || 0,
+							sentAt || 0,
+							onStatus,
+						);
+				},
+				(
+					/** string */ message,
+					/** boolean */ connected,
+					/** boolean= */ closed,
+				) => {
+					if (generation !== this.loadGeneration_) return;
+					if (closed) {
+						this.disconnectBackend_();
+					} else {
+						this.connected_ = connected;
+						this.clockStoppedAt_ = connected
+							? null
+							: (this.clockStoppedAt_ ?? Date.now());
+						this.renderSummary_();
+					}
+					onStatus(message, connected, Boolean(closed));
+				},
+			);
 		} catch (_error) {
 			if (generation !== this.loadGeneration_) return;
 			this.stopBackend_();
-			const message = "Could not open invocation " + id + ". Check the backend URL or Iroh viewer ticket.";
-			this.getElement_(CSS_SUMMARY).appendChild(dom.createDom("p", {"class": "color-fg-danger", "role": "alert"}, message));
+			const message =
+				"Could not open invocation " +
+				id +
+				". Check the backend URL or Iroh viewer ticket.";
+			this.getElement_(CSS_SUMMARY).appendChild(
+				dom.createDom(
+					"p",
+					{ "class": "color-fg-danger", "role": "alert" },
+					message,
+				),
+			);
 			onStatus(message, false, true);
 		}
 	}
@@ -246,13 +303,20 @@ class BuildEventViewerComponent extends Component {
 	 */
 	receiveBuildEvent_(source, id, cursor, data, receivedAt, sentAt, onStatus) {
 		const last = this.lastCursor_;
-		if (!/^[1-9][0-9]*$/.test(cursor) || cursor.length < last.length ||
-			(cursor.length === last.length && cursor <= last)) return;
+		if (
+			!/^[1-9][0-9]*$/.test(cursor) ||
+			cursor.length < last.length ||
+			(cursor.length === last.length && cursor <= last)
+		)
+			return;
 		try {
 			const bytes = base64.decodeStringToUint8Array(data);
 			const event = BuildEvent.deserializeBinary(bytes);
 			this.lastCursor_ = cursor;
-			const arrival = receivedAt > 0 && Number.isFinite(receivedAt) ? receivedAt : this.progress_.frontierNow();
+			const arrival =
+				receivedAt > 0 && Number.isFinite(receivedAt)
+					? receivedAt
+					: this.progress_.frontierNow();
 			this.progress_.add(event, arrival, sentAt);
 			if (event.getLastMessage()) {
 				this.refreshCacheStats_(source, id, true);
@@ -322,18 +386,27 @@ class BuildEventViewerComponent extends Component {
 	/** @private */
 	bindTabs_() {
 		const tabs = this.getElement_(goog.getCssName("bes-tabs"));
-		this.terminal_ = new InvocationTerminal(this.getElement_(goog.getCssName("bes-log-full")));
+		this.terminal_ = new InvocationTerminal(
+			this.getElement_(goog.getCssName("bes-log-full")),
+		);
 		bindViewerTabs(this.getHandler(), tabs, (index) => this.selectTab_(index));
-		this.getHandler().listen(this.getElement_(goog.getCssName("bes-download-log")),
-			events.EventType.CLICK, () => this.downloadLog_());
+		this.getHandler().listen(
+			this.getElement_(goog.getCssName("bes-download-log")),
+			events.EventType.CLICK,
+			() => this.downloadLog_(),
+		);
 		const search = this.getElement_(goog.getCssName("bes-log-search"));
 		this.getHandler().listen(search, "input", () => this.searchTerminal_());
-		this.getHandler().listen(search, "keydown", (/** !events.BrowserEvent */ event) => {
-			event.stopPropagation();
-			if (event.key !== "Enter") return;
-			event.preventDefault();
-			this.searchTerminal_(event.shiftKey ? -1 : 1);
-		});
+		this.getHandler().listen(
+			search,
+			"keydown",
+			(/** !events.BrowserEvent */ event) => {
+				event.stopPropagation();
+				if (event.key !== "Enter") return;
+				event.preventDefault();
+				this.searchTerminal_(event.shiftKey ? -1 : 1);
+			},
+		);
 	}
 
 	/**
@@ -343,7 +416,9 @@ class BuildEventViewerComponent extends Component {
 	 */
 	searchTerminal_(direction = 0, reveal = true) {
 		if (!this.terminal_) return;
-		const input = /** @type {!HTMLInputElement} */ (this.getElement_(goog.getCssName("bes-log-search")));
+		const input = /** @type {!HTMLInputElement} */ (
+			this.getElement_(goog.getCssName("bes-log-search"))
+		);
 		const result = this.getElement_(goog.getCssName("bes-log-search-result"));
 		const message = this.terminal_.search(input.value, direction, reveal);
 		if (result.textContent !== message) result.textContent = message;
@@ -357,8 +432,11 @@ class BuildEventViewerComponent extends Component {
 	selectTab_(index, skipRender = false) {
 		if (this.activeTab_ === 1 && index !== 1) this.terminal_?.clearHighlight();
 		this.activeTab_ = index;
-		showViewerTab(this.getElement_(goog.getCssName("bes-tabs")),
-			this.getElement_(CSS_RESULTS), index);
+		showViewerTab(
+			this.getElement_(goog.getCssName("bes-tabs")),
+			this.getElement_(CSS_RESULTS),
+			index,
+		);
 		if (!skipRender) {
 			this.renderTab_();
 			if (index === 1) this.searchTerminal_(0, false);
@@ -369,11 +447,12 @@ class BuildEventViewerComponent extends Component {
 	downloadLog_() {
 		const chunks = this.progress_.logChunks;
 		if (!chunks.length) return;
-		const blob = new Blob(chunks, {type: "text/plain;charset=utf-8"});
+		const blob = new Blob(chunks, { type: "text/plain;charset=utf-8" });
 		const url = URL.createObjectURL(blob);
 		const link = document.createElement("a");
 		link.href = url;
-		link.download = (this.progress_.file?.name || this.progress_.sourceId) + ".log";
+		link.download =
+			(this.progress_.file?.name || this.progress_.sourceId) + ".log";
 		link.click();
 		setTimeout(() => URL.revokeObjectURL(url), 1000);
 	}
@@ -385,7 +464,8 @@ class BuildEventViewerComponent extends Component {
 				this.renderOverview_();
 				break;
 			case 1:
-				if (this.terminal_?.update(this.progress_.logChunks)) this.searchTerminal_(0, false);
+				if (this.terminal_?.update(this.progress_.logChunks))
+					this.searchTerminal_(0, false);
 				/** @type {!HTMLButtonElement} */ (
 					this.getElement_(goog.getCssName("bes-download-log"))
 				).disabled = this.progress_.logChunks.length === 0;
@@ -411,23 +491,45 @@ class BuildEventViewerComponent extends Component {
 			this.getElement_(goog.getCssName("bes-frontier-flights")),
 			this.getElement_(goog.getCssName("bes-frontier-reader")),
 		);
-		const frontier = new InvocationFrontier(canvas, scroll, spacer, readers,
-			(mark) => this.inspectFrontierMark_(mark));
+		const frontier = new InvocationFrontier(
+			canvas,
+			scroll,
+			spacer,
+			readers,
+			(mark) => this.inspectFrontierMark_(mark),
+		);
 		this.frontier_ = frontier;
 		if (this.progress_.history.length) frontier.update(this.progress_);
 		this.frontierObserver_ = new ResizeObserver(() => frontier.draw());
 		this.frontierObserver_.observe(scroll);
-		this.getHandler().listen(scroll, events.EventType.SCROLL, () => frontier.draw());
-		this.getHandler().listen(canvas, events.EventType.CLICK, (/** !events.BrowserEvent */ e) => {
-			const mark = frontier.pick(/** @type {!MouseEvent} */ (e.getBrowserEvent()));
-			if (mark) frontier.select(mark);
-		});
-		this.getHandler().listen(canvas, events.EventType.MOUSEMOVE, (/** !events.BrowserEvent */ e) => {
-			const mark = frontier.pick(/** @type {!MouseEvent} */ (e.getBrowserEvent()));
-			canvas.title = mark ? frontierMarkLabel(mark) : "";
-		});
-		this.getHandler().listen(canvas, events.EventType.KEYDOWN, (/** !events.BrowserEvent */ e) =>
-			frontier.navigate(/** @type {!KeyboardEvent} */ (e.getBrowserEvent())),
+		this.getHandler().listen(scroll, events.EventType.SCROLL, () =>
+			frontier.draw(),
+		);
+		this.getHandler().listen(
+			canvas,
+			events.EventType.CLICK,
+			(/** !events.BrowserEvent */ e) => {
+				const mark = frontier.pick(
+					/** @type {!MouseEvent} */ (e.getBrowserEvent()),
+				);
+				if (mark) frontier.select(mark);
+			},
+		);
+		this.getHandler().listen(
+			canvas,
+			events.EventType.MOUSEMOVE,
+			(/** !events.BrowserEvent */ e) => {
+				const mark = frontier.pick(
+					/** @type {!MouseEvent} */ (e.getBrowserEvent()),
+				);
+				canvas.title = mark ? frontierMarkLabel(mark) : "";
+			},
+		);
+		this.getHandler().listen(
+			canvas,
+			events.EventType.KEYDOWN,
+			(/** !events.BrowserEvent */ e) =>
+				frontier.navigate(/** @type {!KeyboardEvent} */ (e.getBrowserEvent())),
 		);
 	}
 
@@ -452,12 +554,16 @@ class BuildEventViewerComponent extends Component {
 		dom.removeChildren(stats);
 		stats.hidden = true;
 		if (this.terminal_) this.terminal_.reset();
-		/** @type {!HTMLInputElement} */ (this.getElement_(goog.getCssName("bes-log-search"))).value = "";
+		/** @type {!HTMLInputElement} */ (
+			this.getElement_(goog.getCssName("bes-log-search"))
+		).value = "";
 		this.getElement_(goog.getCssName("bes-log-search-result")).textContent = "";
 		dom.removeChildren(this.getElement_(goog.getCssName("bes-critical-path")));
 		dom.removeChildren(this.getElement_(goog.getCssName("bes-tests")));
 		dom.removeChildren(this.getElement_(goog.getCssName("bes-metrics")));
-		dom.removeChildren(this.getElement_(goog.getCssName("bes-frontier-detail")));
+		dom.removeChildren(
+			this.getElement_(goog.getCssName("bes-frontier-detail")),
+		);
 		this.getElement_(goog.getCssName("bes-frontier-caption")).textContent =
 			"Select a mark to inspect its event and connections.";
 		this.getElement_(goog.getCssName("bes-frontier-wait")).hidden = true;
@@ -473,18 +579,34 @@ class BuildEventViewerComponent extends Component {
 		const caption = this.getElement_(goog.getCssName("bes-frontier-caption"));
 		const label = frontierMarkLabel(mark);
 		const state = mark.event
-			? (mark === this.progress_.last ? "Final event" : "Received")
-			: this.progress_.collectionEnded() ? "Unreceived" : "Expected";
+			? mark === this.progress_.last
+				? "Final event"
+				: "Received"
+			: this.progress_.collectionEnded()
+				? "Unreceived"
+				: "Expected";
 		const parents = mark.parents.length;
 		const children = mark.children.length;
-		const text = state + " · " + label + " · " + parents + (parents === 1 ? " parent" : " parents") +
-			" · " + children + (children === 1 ? " child" : " children");
+		const text =
+			state +
+			" · " +
+			label +
+			" · " +
+			parents +
+			(parents === 1 ? " parent" : " parents") +
+			" · " +
+			children +
+			(children === 1 ? " child" : " children");
 		if (caption.textContent !== text) caption.textContent = text;
 		const timer = this.getElement_(goog.getCssName("bes-frontier-wait"));
-		const wait = mark.event ? null : frontierWait(mark, this.progress_.frontierNow());
+		const wait = mark.event
+			? null
+			: frontierWait(mark, this.progress_.frontierNow());
 		timer.hidden = wait === null;
 		if (wait !== null) {
-			timer.textContent = (this.progress_.collectionEnded() ? "Waited " : "Waiting ") + formatFrontierWait(wait);
+			timer.textContent =
+				(this.progress_.collectionEnded() ? "Waited " : "Waiting ") +
+				formatFrontierWait(wait);
 			timer.setAttribute("datetime", "PT" + wait + "S");
 		}
 		if (this.inspected_ === mark && this.inspectedEvent_ === mark.event) return;
@@ -494,16 +616,23 @@ class BuildEventViewerComponent extends Component {
 		const swatch = this.getElement_(goog.getCssName("bes-frontier-swatch"));
 		swatch.style.backgroundColor = mark.color;
 		swatch.classList.toggle("is-action", Boolean(mark.event?.getAction()));
-		this.getElement_(goog.getCssName("bes-frontier-type-name")).textContent = mark.event
-			? payloadCaseName(mark.event.getPayloadCase()) : expectedFrontierLabel(mark.id).type;
+		this.getElement_(goog.getCssName("bes-frontier-type-name")).textContent =
+			mark.event
+				? payloadCaseName(mark.event.getPayloadCase())
+				: expectedFrontierLabel(mark.id).type;
 		const outcome = this.getElement_(goog.getCssName("bes-frontier-outcome"));
 		dom.removeChildren(outcome);
 		const success = mark.event && eventOutcome(mark.event);
-		if (success !== null) outcome.appendChild(soy.renderAsElement(eventStatusIcon, {success}));
+		if (success !== null)
+			outcome.appendChild(soy.renderAsElement(eventStatusIcon, { success }));
 		const detail = this.getElement_(goog.getCssName("bes-frontier-detail"));
 		dom.removeChildren(detail);
 		if (mark.event) {
-			detail.appendChild(createSelectedEventDetail(mark.event, () => getApplication(this).getBazelFlagDb()));
+			detail.appendChild(
+				createSelectedEventDetail(mark.event, () =>
+					getApplication(this).getBazelFlagDb(),
+				),
+			);
 		}
 	}
 
@@ -532,13 +661,20 @@ class BuildEventViewerComponent extends Component {
 		const terminal = this.getElement_(goog.getCssName("bes-log"));
 		const log = this.progress_.log;
 		if (this.renderedLog_ !== log) {
-			const atBottom = terminal.scrollHeight - terminal.scrollTop - terminal.clientHeight <= 8;
+			const atBottom =
+				terminal.scrollHeight - terminal.scrollTop - terminal.clientHeight <= 8;
 			dom.removeChildren(terminal);
-			terminal.appendChild(renderTerminalText(formatTerminalText(log || "No build output received.")));
-			if (atBottom || this.renderedLog_ === null) terminal.scrollTop = terminal.scrollHeight;
+			terminal.appendChild(
+				renderTerminalText(
+					formatTerminalText(log || "No build output received."),
+				),
+			);
+			if (atBottom || this.renderedLog_ === null)
+				terminal.scrollTop = terminal.scrollHeight;
 			this.renderedLog_ = log;
 		}
-		this.getElement_(goog.getCssName("bes-log-limit")).hidden = !this.progress_.logTruncated;
+		this.getElement_(goog.getCssName("bes-log-limit")).hidden =
+			!this.progress_.logTruncated;
 	}
 
 	/** @private */
@@ -548,30 +684,44 @@ class BuildEventViewerComponent extends Component {
 		this.renderOverviewCriticalPath_();
 		const pending = this.frontier_ ? this.frontier_.update(this.progress_) : 0;
 		const received = this.progress_.history.length + " received";
-		this.getElement_(goog.getCssName("bes-frontier-count")).textContent = this.progress_.collectionEnded()
-			? "Stream ended · " + (pending ? pending + " unreceived · " : "") + received
-			: pending + " expected · " + received;
+		this.getElement_(goog.getCssName("bes-frontier-count")).textContent =
+			this.progress_.collectionEnded()
+				? "Stream ended · " +
+					(pending ? pending + " unreceived · " : "") +
+					received
+				: pending + " expected · " + received;
 		this.renderMnemonicBreakdown_();
 	}
 
 	/** @private */
 	renderMnemonicBreakdown_() {
-		const key = this.progress_.receivedActions + "/" + this.progress_.collectionEnded();
+		const key =
+			this.progress_.receivedActions + "/" + this.progress_.collectionEnded();
 		if (key === this.mnemonicRenderKey_) return;
 		this.mnemonicRenderKey_ = key;
 		const body = this.getElement_(goog.getCssName("bes-frontier-mnemonics"));
 		dom.removeChildren(body);
 		const counts = this.progress_.mnemonics;
 		if (!counts.size) {
-			body.appendChild(dom.createDom("p", "color-fg-muted text-small mb-0",
-				this.progress_.collectionEnded() ? "No action events received." : "Waiting for action events."));
+			body.appendChild(
+				dom.createDom(
+					"p",
+					"color-fg-muted text-small mb-0",
+					this.progress_.collectionEnded()
+						? "No action events received."
+						: "Waiting for action events.",
+				),
+			);
 			return;
 		}
 		const list = dom.createDom("ul", "bes-mnemonic-counts");
 		/** @type {!Array<string>} */
 		const names = Array.from(counts.keys());
-		names.sort((a, b) =>
-			(counts.get(b)?.count || 0) - (counts.get(a)?.count || 0) || a.localeCompare(b));
+		names.sort(
+			(a, b) =>
+				(counts.get(b)?.count || 0) - (counts.get(a)?.count || 0) ||
+				a.localeCompare(b),
+		);
 		for (const name of names) {
 			const tally = counts.get(name);
 			if (!tally) continue;
@@ -579,9 +729,15 @@ class BuildEventViewerComponent extends Component {
 			swatch.className = "bes-mnemonic-swatch";
 			swatch.style.backgroundColor = tally.color;
 			swatch.setAttribute("aria-hidden", "true");
-			list.appendChild(dom.createDom("li", null, swatch,
-				dom.createDom("code", null, name || "Unspecified"),
-				dom.createDom("span", "text-bold", tally.count.toLocaleString())));
+			list.appendChild(
+				dom.createDom(
+					"li",
+					null,
+					swatch,
+					dom.createDom("code", null, name || "Unspecified"),
+					dom.createDom("span", "text-bold", tally.count.toLocaleString()),
+				),
+			);
 		}
 		body.appendChild(list);
 	}
@@ -605,10 +761,14 @@ class BuildEventViewerComponent extends Component {
 			const previous = this.cacheSummary_;
 			this.cacheSummary_ = summary;
 			const state = String(summary["state"] || "");
-			const ended = state === COLLECTION_COMPLETE || state === COLLECTION_INCOMPLETE;
+			const ended =
+				state === COLLECTION_COMPLETE || state === COLLECTION_INCOMPLETE;
 			const endedAt = ended ? summaryTime(summary, "lastEventAt") : null;
-			const changed = state !== this.progress_.collectionState || endedAt !== this.progress_.collectionEndedAt ||
-				JSON.stringify(previous?.["result"] || null) !== JSON.stringify(summary["result"] || null);
+			const changed =
+				state !== this.progress_.collectionState ||
+				endedAt !== this.progress_.collectionEndedAt ||
+				JSON.stringify(previous?.["result"] || null) !==
+					JSON.stringify(summary["result"] || null);
 			this.progress_.collectionState = state;
 			this.progress_.collectionEndedAt = endedAt;
 			if (ended && this.activeTab_ !== 0) this.frontier_?.stopClock();
@@ -621,7 +781,8 @@ class BuildEventViewerComponent extends Component {
 				if (this.progress_.history.length) this.renderResults_();
 				else this.renderSummary_();
 			}
-			if (this.activeTab_ === 3 && this.progress_.history.length) this.renderCacheStats_();
+			if (this.activeTab_ === 3 && this.progress_.history.length)
+				this.renderCacheStats_();
 		} catch (_error) {
 			// BES replay can continue independently of the summary request.
 		} finally {
@@ -640,8 +801,11 @@ class BuildEventViewerComponent extends Component {
 		const body = this.getElement_(goog.getCssName("bes-cache-stats"));
 		const summary = this.cacheSummary_;
 		const stored = summary && summary["bazelRemoteCacheHits"];
-		const hits = stored != null ? Number(stored) : this.progress_.bazelRemoteCacheHits;
-		const telemetry = /** @type {?Object<string, *>} */ (summary && summary["remoteCache"]);
+		const hits =
+			stored != null ? Number(stored) : this.progress_.bazelRemoteCacheHits;
+		const telemetry = /** @type {?Object<string, *>} */ (
+			summary && summary["remoteCache"]
+		);
 		const values = /** @type {!Array<!Object<string, string>>} */ (
 			(telemetry && telemetry["metrics"]) || []
 		);
@@ -658,21 +822,39 @@ class BuildEventViewerComponent extends Component {
 				counts.set(operation, results);
 			}
 			results.set(result, Number(row["count"] || 0));
-			traffic.set(operation, (traffic.get(operation) || 0) + Number(row["transferredBytes"] || 0));
+			traffic.set(
+				operation,
+				(traffic.get(operation) || 0) + Number(row["transferredBytes"] || 0),
+			);
 		}
 		/** @type {!Array<!Array<string>>} */
 		const entries = [];
-		entries.push(["Remote hits reported by Bazel", hits === null
-			? (this.source_ && !this.progress_.collectionEnded() ? "Awaiting build metrics" : "Unavailable")
-			: hits.toLocaleString()]);
+		entries.push([
+			"Remote hits reported by Bazel",
+			hits === null
+				? this.source_ && !this.progress_.collectionEnded()
+					? "Awaiting build metrics"
+					: "Unavailable"
+				: hits.toLocaleString(),
+		]);
 		const lookup = counts.get("ac_lookup");
 		if (lookup) {
 			const found = lookup.get("hit") || 0;
 			const missing = lookup.get("miss") || 0;
 			const total = found + missing;
-			const rate = total ? (100 * found / total).toFixed(1) + "% hit rate · " : "";
-			entries.push(["Action cache lookups", rate + found.toLocaleString() + " hits · " +
-				missing.toLocaleString() + " misses · " + (lookup.get("error") || 0).toLocaleString() + " errors"]);
+			const rate = total
+				? ((100 * found) / total).toFixed(1) + "% hit rate · "
+				: "";
+			entries.push([
+				"Action cache lookups",
+				rate +
+					found.toLocaleString() +
+					" hits · " +
+					missing.toLocaleString() +
+					" misses · " +
+					(lookup.get("error") || 0).toLocaleString() +
+					" errors",
+			]);
 		}
 		/** @type {!Array<!Array<string>>} */
 		const cacheRows = [
@@ -684,7 +866,9 @@ class BuildEventViewerComponent extends Component {
 		for (const entry of cacheRows) {
 			const results = counts.get(entry[0]);
 			if (!results) continue;
-			const parts = [(results.get(entry[2]) || 0).toLocaleString() + " " + entry[3]];
+			const parts = [
+				(results.get(entry[2]) || 0).toLocaleString() + " " + entry[3],
+			];
 			if (entry[2] === "hit") {
 				parts.push((results.get("miss") || 0).toLocaleString() + " missing");
 			}
@@ -718,7 +902,10 @@ class BuildEventViewerComponent extends Component {
 
 	/** @private */
 	renderTests_() {
-		const ended = !!this.progress_.finished || this.progress_.collectionEnded() || !!this.progress_.file;
+		const ended =
+			!!this.progress_.finished ||
+			this.progress_.collectionEnded() ||
+			!!this.progress_.file;
 		const key = this.progress_.tests.length + "/" + ended;
 		if (key === this.testsRenderKey_) return;
 		this.testsRenderKey_ = key;
@@ -731,7 +918,13 @@ class BuildEventViewerComponent extends Component {
 		dom.removeChildren(body);
 		const groups = groupInvocationTests(this.progress_.tests);
 		if (!groups.length) {
-			body.appendChild(this.dataTabMessage_(ended ? "No test results were reported." : "Waiting for test results…"));
+			body.appendChild(
+				this.dataTabMessage_(
+					ended
+						? "No test results were reported."
+						: "Waiting for test results…",
+				),
+			);
 			return;
 		}
 		/** @type {!Map<number,number>} */
@@ -756,8 +949,11 @@ class BuildEventViewerComponent extends Component {
 		for (const status of totals.keys()) statuses.push(status);
 		statuses.sort((a, b) => a - b);
 		for (const status of statuses) {
-			const description = status ? testStatusName(status).toLowerCase()
-				: ended ? "without summary" : "awaiting summary";
+			const description = status
+				? testStatusName(status).toLowerCase()
+				: ended
+					? "without summary"
+					: "awaiting summary";
 			parts.push(totals.get(status) + " " + description);
 		}
 		counts.textContent = parts.join(" · ");
@@ -771,10 +967,16 @@ class BuildEventViewerComponent extends Component {
 			if (status === 2) return 1;
 			return status === 0 ? 2 : 3;
 		};
-		groups.sort((a, b) => order(a) - order(b) || a.label.localeCompare(b.label) ||
-			a.configuration.localeCompare(b.configuration));
+		groups.sort(
+			(a, b) =>
+				order(a) - order(b) ||
+				a.label.localeCompare(b.label) ||
+				a.configuration.localeCompare(b.configuration),
+		);
 		for (const group of groups) {
-			body.appendChild(this.createTestGroup_(group, ended, open.has(group.key)));
+			body.appendChild(
+				this.createTestGroup_(group, ended, open.has(group.key)),
+			);
 		}
 	}
 
@@ -786,14 +988,18 @@ class BuildEventViewerComponent extends Component {
 	 * @return {!HTMLElement}
 	 */
 	createTestGroup_(group, ended, open) {
-		const details = /** @type {!HTMLDetailsElement} */ (document.createElement("details"));
+		const details = /** @type {!HTMLDetailsElement} */ (
+			document.createElement("details")
+		);
 		details.className = "bes-data-details";
 		details.open = open;
 		details.setAttribute("data-test-key", group.key);
 		const payload = group.summary && group.summary.getTestSummary();
 		const summary = document.createElement("summary");
-		const badge = testStatusLabel(payload ? payload.getOverallStatus() : 0,
-			ended ? "Summary unavailable" : "Awaiting summary");
+		const badge = testStatusLabel(
+			payload ? payload.getOverallStatus() : 0,
+			ended ? "Summary unavailable" : "Awaiting summary",
+		);
 		badge.classList.add("mr-2");
 		const name = document.createElement("span");
 		name.className = "bes-test-target text-bold";
@@ -802,10 +1008,16 @@ class BuildEventViewerComponent extends Component {
 		const duration = payload && payload.getTotalRunDuration();
 		const meta = document.createElement("span");
 		meta.className = "ml-2 text-small color-fg-muted";
-		const attemptCount = payload ? payload.getTotalRunCount() || group.attempts.length : group.attempts.length;
-		const parts = [attemptCount + (attemptCount === 1 ? " attempt" : " attempts")];
-		if (duration) parts.push(formatDuration(duration.getSeconds(), duration.getNanos()));
-		if (group.configuration) parts.push("Config " + group.configuration.slice(0, 8));
+		const attemptCount = payload
+			? payload.getTotalRunCount() || group.attempts.length
+			: group.attempts.length;
+		const parts = [
+			attemptCount + (attemptCount === 1 ? " attempt" : " attempts"),
+		];
+		if (duration)
+			parts.push(formatDuration(duration.getSeconds(), duration.getNanos()));
+		if (group.configuration)
+			parts.push("Config " + group.configuration.slice(0, 8));
 		meta.textContent = parts.join(" · ");
 		meta.title = group.configuration;
 		summary.appendChild(meta);
@@ -818,9 +1030,17 @@ class BuildEventViewerComponent extends Component {
 			body.textContent = "No individual test attempts were reported.";
 			return details;
 		}
-		const table = /** @type {!HTMLTableElement} */ (document.createElement("table"));
+		const table = /** @type {!HTMLTableElement} */ (
+			document.createElement("table")
+		);
 		table.className = "bes-test-attempts text-small";
-		appendTableHeader(table, ["Run / shard / attempt", "Result", "Duration", "Execution", "Details"]);
+		appendTableHeader(table, [
+			"Run / shard / attempt",
+			"Result",
+			"Duration",
+			"Execution",
+			"Details",
+		]);
 		const rows = /** @type {!HTMLTableSectionElement} */ (table.createTBody());
 		for (const event of group.attempts) {
 			const id = event.getId();
@@ -830,16 +1050,25 @@ class BuildEventViewerComponent extends Component {
 			const row = /** @type {!HTMLTableRowElement} */ (rows.insertRow());
 			const ordinal = row.insertCell(-1);
 			ordinal.className = "text-mono";
-			ordinal.textContent = [attempt.getRun(), attempt.getShard(), attempt.getAttempt()].join(" / ");
+			ordinal.textContent = [
+				attempt.getRun(),
+				attempt.getShard(),
+				attempt.getAttempt(),
+			].join(" / ");
 			row.insertCell(-1).appendChild(testStatusLabel(result.getStatus()));
 			const elapsed = result.getTestAttemptDuration();
 			const legacyMillis = Number(result.getTestAttemptDurationMillis());
-			row.insertCell(-1).textContent = elapsed ? formatDuration(elapsed.getSeconds(), elapsed.getNanos())
-				: legacyMillis ? formatElapsed(legacyMillis) : "—";
+			row.insertCell(-1).textContent = elapsed
+				? formatDuration(elapsed.getSeconds(), elapsed.getNanos())
+				: legacyMillis
+					? formatElapsed(legacyMillis)
+					: "—";
 			const execution = result.getExecutionInfo();
-			row.insertCell(-1).textContent = result.getCachedLocally() ? "Local cache" :
-				execution && execution.getCachedRemotely() ? "Remote cache" :
-				(execution && execution.getStrategy()) || "—";
+			row.insertCell(-1).textContent = result.getCachedLocally()
+				? "Local cache"
+				: execution && execution.getCachedRemotely()
+					? "Remote cache"
+					: (execution && execution.getStrategy()) || "—";
 			const info = row.insertCell(-1);
 			const text = result.getStatusDetails();
 			if (text) info.appendChild(document.createTextNode(text));
@@ -872,8 +1101,13 @@ class BuildEventViewerComponent extends Component {
 		const body = this.getElement_(goog.getCssName("bes-metrics"));
 		const metrics = this.progress_.metrics;
 		if (!metrics) {
-			const ended = this.progress_.finished || this.progress_.collectionEnded() || this.progress_.file;
-			const message = ended ? "No build metrics were reported." : "Waiting for build metrics…";
+			const ended =
+				this.progress_.finished ||
+				this.progress_.collectionEnded() ||
+				this.progress_.file;
+			const message = ended
+				? "No build metrics were reported."
+				: "Waiting for build metrics…";
 			if (body.textContent !== message) {
 				dom.removeChildren(body);
 				body.appendChild(this.dataTabMessage_(message));
@@ -892,7 +1126,8 @@ class BuildEventViewerComponent extends Component {
 		const duration = criticalPathMillis(this.progress_.metrics);
 		const ended = this.progress_.finished || this.progress_.collectionEnded();
 		if (!ended && !this.progress_.file) return;
-		if (this.renderedPathLogs_ === logs && this.renderedPathTime_ === duration) return;
+		if (this.renderedPathLogs_ === logs && this.renderedPathTime_ === duration)
+			return;
 		this.renderedPathLogs_ = logs;
 		this.renderedPathTime_ = duration;
 		const root = this.getElement_(goog.getCssName("bes-critical-path"));
@@ -916,15 +1151,24 @@ class BuildEventViewerComponent extends Component {
 		command.id = this.getId() + "-command";
 		const startedEvent = this.progress_.started;
 		const started = startedEvent && startedEvent.getStarted();
-		const start = (startedEvent ? eventTimestampMillis(startedEvent) : null) ?? summaryTime(this.cacheSummary_, "startedAt");
+		const start =
+			(startedEvent ? eventTimestampMillis(startedEvent) : null) ??
+			summaryTime(this.cacheSummary_, "startedAt");
 		const finishedEvent = this.progress_.finished;
 		const file = this.progress_.file;
 		const headingId = this.getElement_(goog.getCssName("bes-heading-id"));
 		headingId.textContent = id;
 		headingId.title = id;
-		command.textContent = ["bazel", started && started.getCommand(),
-			...this.progress_.targets].filter(Boolean).join(" ");
-		const toggle = /** @type {!HTMLButtonElement} */ (document.createElement("button"));
+		command.textContent = [
+			"bazel",
+			started && started.getCommand(),
+			...this.progress_.targets,
+		]
+			.filter(Boolean)
+			.join(" ");
+		const toggle = /** @type {!HTMLButtonElement} */ (
+			document.createElement("button")
+		);
 		toggle.type = "button";
 		toggle.className = "btn-link text-small mt-1";
 		toggle.setAttribute("aria-controls", command.id);
@@ -937,11 +1181,18 @@ class BuildEventViewerComponent extends Component {
 		const badge = this.getElement_(goog.getCssName("bes-heading-state"));
 		const failure = invocationFailure(this.progress_);
 		const stored = storedExitStatus(this.cacheSummary_);
-		const outcome = finishedEvent || failure ? replayResultStatus(this.progress_, failure) : stored;
+		const outcome =
+			finishedEvent || failure
+				? replayResultStatus(this.progress_, failure)
+				: stored;
 		const state = this.progress_.collectionState;
-		let status = state === COLLECTION_INCOMPLETE ? incompleteStatus(outcome)
-			: outcome || (state === COLLECTION_COMPLETE ? invocationStatus("Complete", "neutral")
-				: replayResultStatus(this.progress_, failure));
+		let status =
+			state === COLLECTION_INCOMPLETE
+				? incompleteStatus(outcome)
+				: outcome ||
+					(state === COLLECTION_COMPLETE
+						? invocationStatus("Complete", "neutral")
+						: replayResultStatus(this.progress_, failure));
 		if (!status) {
 			if (!this.source_ && this.progress_.history.length) {
 				status = invocationStatus("Disconnected", "neutral");
@@ -953,8 +1204,11 @@ class BuildEventViewerComponent extends Component {
 				status = invocationStatus("Waiting for events", "neutral");
 			}
 		}
-		badge.className = "bes-invocation-state text-small text-bold " + goog.getCssName("bes-heading-state") +
-			" " + status.color;
+		badge.className =
+			"bes-invocation-state text-small text-bold " +
+			goog.getCssName("bes-heading-state") +
+			" " +
+			status.color;
 		badge.textContent = status.label;
 		badge.title = status.title;
 		const icon = this.getElement_(goog.getCssName("bes-heading-icon"));
@@ -965,12 +1219,24 @@ class BuildEventViewerComponent extends Component {
 		}
 		const elapsed = this.getElement_(goog.getCssName("bes-heading-elapsed"));
 		elapsed.hidden = false;
-		overview.appendChild(dom.createDom("div", "bes-invocation-command-block", command, toggle));
+		overview.appendChild(
+			dom.createDom("div", "bes-invocation-command-block", command, toggle),
+		);
 		this.renderFailureSummary_(failure);
 		const workspace = started?.getWorkspaceDirectory();
 		if (workspace) {
-			overview.appendChild(dom.createDom("p", {"class": "bes-invocation-workspace text-small", "title": workspace},
-				dom.createDom("span", "color-fg-muted mr-2", "Workspace"), " ", dom.createDom("code", null, workspace)));
+			overview.appendChild(
+				dom.createDom(
+					"p",
+					{
+						"class": "bes-invocation-workspace text-small",
+						"title": workspace,
+					},
+					dom.createDom("span", "color-fg-muted mr-2", "Workspace"),
+					" ",
+					dom.createDom("code", null, workspace),
+				),
+			);
 		}
 
 		const metadata = this.progress_.metadata;
@@ -1004,20 +1270,39 @@ class BuildEventViewerComponent extends Component {
 		overview.appendChild(info);
 		section.appendChild(overview);
 		this.updateCommandToggle_();
-		this.commandObserver_ ??= new ResizeObserver(() => this.updateCommandToggle_());
+		this.commandObserver_ ??= new ResizeObserver(() =>
+			this.updateCommandToggle_(),
+		);
 		this.commandObserver_.observe(command);
-		if (restoreCommandFocus && !toggle.hidden) toggle.focus({preventScroll: true});
+		if (restoreCommandFocus && !toggle.hidden)
+			toggle.focus({ preventScroll: true });
 
 		clearInterval(this.clockTimer_);
 		this.clockTimer_ = 0;
-		const finish = (finishedEvent ? eventTimestampMillis(finishedEvent) : null) ?? summaryTime(this.cacheSummary_, "finishedAt");
+		const finish =
+			(finishedEvent ? eventTimestampMillis(finishedEvent) : null) ??
+			summaryTime(this.cacheSummary_, "finishedAt");
 		const observedEnd = this.progress_.collectionEndedAt;
-		const observedStart = observedEnd === null ? null : summaryTime(this.cacheSummary_, "createdAt");
-		const active = finish === null && !finishedEvent && !this.progress_.collectionEnded() && !file && this.connected_;
+		const observedStart =
+			observedEnd === null
+				? null
+				: summaryTime(this.cacheSummary_, "createdAt");
+		const active =
+			finish === null &&
+			!finishedEvent &&
+			!this.progress_.collectionEnded() &&
+			!file &&
+			this.connected_;
 		const updateClock = () => {
-			const end = finish ?? observedEnd ?? (finishedEvent || this.progress_.collectionEnded() || file
-				? null : active ? Date.now() : this.clockStoppedAt_);
-			const beginning = finish === null ? observedStart ?? start : start;
+			const end =
+				finish ??
+				observedEnd ??
+				(finishedEvent || this.progress_.collectionEnded() || file
+					? null
+					: active
+						? Date.now()
+						: this.clockStoppedAt_);
+			const beginning = finish === null ? (observedStart ?? start) : start;
 			if (beginning === null || end === null) {
 				elapsed.textContent = "—";
 				elapsed.removeAttribute("datetime");
@@ -1026,13 +1311,19 @@ class BuildEventViewerComponent extends Component {
 			}
 			const duration = Math.max(0, end - beginning);
 			const minutes = Math.floor(duration / 60000);
-			const seconds = (duration % 60000 / 1000).toFixed(3);
-			elapsed.textContent = minutes ? minutes + "m " + seconds.padStart(6, "0") + "s" : seconds + "s";
+			const seconds = ((duration % 60000) / 1000).toFixed(3);
+			elapsed.textContent = minutes
+				? minutes + "m " + seconds.padStart(6, "0") + "s"
+				: seconds + "s";
 			elapsed.setAttribute("datetime", "PT" + duration / 1000 + "S");
-			elapsed.title = finish === null && observedStart !== null ? "From the first to the last received event" : "";
+			elapsed.title =
+				finish === null && observedStart !== null
+					? "From the first to the last received event"
+					: "";
 		};
 		updateClock();
-		if (active && start !== null) this.clockTimer_ = setInterval(updateClock, 250);
+		if (active && start !== null)
+			this.clockTimer_ = setInterval(updateClock, 250);
 	}
 
 	/** @private */
@@ -1042,7 +1333,8 @@ class BuildEventViewerComponent extends Component {
 		if (!command || !toggle) return;
 		const expanded = this.commandExpanded_;
 		command.classList.toggle("bes-invocation-command-collapsed", !expanded);
-		toggle.hidden = !expanded && command.scrollHeight <= command.clientHeight + 1;
+		toggle.hidden =
+			!expanded && command.scrollHeight <= command.clientHeight + 1;
 		toggle.setAttribute("aria-expanded", String(expanded));
 		toggle.textContent = expanded ? "Collapse command" : "Expand command";
 	}
@@ -1056,12 +1348,22 @@ class BuildEventViewerComponent extends Component {
 		dom.removeChildren(summary);
 		summary.hidden = failure === null;
 		if (!failure) return;
-		summary.appendChild(dom.createDom("h3", "h4 mb-1 color-fg-danger", "Build failure"));
-		if (failure.context) summary.appendChild(dom.createDom("p", "text-bold mb-1", failure.context));
-		summary.appendChild(dom.createDom("pre", "bes-failure-message", failure.message));
+		summary.appendChild(
+			dom.createDom("h3", "h4 mb-1 color-fg-danger", "Build failure"),
+		);
+		if (failure.context)
+			summary.appendChild(
+				dom.createDom("p", "text-bold mb-1", failure.context),
+			);
+		summary.appendChild(
+			dom.createDom("pre", "bes-failure-message", failure.message),
+		);
 		if (this.progress_.logChunks.length) {
-			const button = dom.createDom("button", {"type": "button", "class": "btn btn-sm mt-2"},
-				"Open terminal");
+			const button = dom.createDom(
+				"button",
+				{ "type": "button", "class": "btn btn-sm mt-2" },
+				"Open terminal",
+			);
 			button.onclick = () => {
 				this.selectTab_(1);
 				const tab = this.getElementStrict().querySelector("#bes-tab-terminal");

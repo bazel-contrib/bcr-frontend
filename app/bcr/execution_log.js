@@ -8,9 +8,17 @@ const dom = goog.require("goog.dom");
 const events = goog.requireType("goog.events");
 const soy = goog.require("goog.soy");
 const { Component } = goog.require("stack.ui");
-const { ExecutionLogGraph, GraphNode, GraphSide } = goog.require("bcrfrontend.executionLogGraph");
-const { SpawnTimeline, SpawnWaterfall, buildSpawnTimeline, formatTime, renderTimingLegend, timingExtentDetails } =
-	goog.require("bcrfrontend.executionLogMetrics");
+const { ExecutionLogGraph, GraphNode, GraphSide } = goog.require(
+	"bcrfrontend.executionLogGraph",
+);
+const {
+	SpawnTimeline,
+	SpawnWaterfall,
+	buildSpawnTimeline,
+	formatTime,
+	renderTimingLegend,
+	timingExtentDetails,
+} = goog.require("bcrfrontend.executionLogMetrics");
 const { executionLog } = goog.require("soy.bcrfrontend.executionLog");
 const { mnemonicColor } = goog.require("bcrfrontend.actionColors");
 const { renderMnemonicFilters } = goog.require("bcrfrontend.mnemonicFilters");
@@ -56,23 +64,28 @@ let decoderPromise = null;
 /** @return {!Promise<!ZstdDecoder>} */
 function loadZstd() {
 	if (!decoderPromise) {
-		decoderPromise = new Promise((/** function(!ZstdDecoder):void */ resolve, /** function(!Error):void */ reject) => {
-			const script = document.createElement("script");
-			script.src = "/fzstd-0.1.1-bounded.js";
-			script.onload = () => {
-				const library = /** @type {?Object<string, *>} */ (window["fzstd"]);
-				const decoder = /** @type {?ZstdDecoder} */ (library?.["Decompress"]);
-				if (decoder) resolve(decoder);
-				else reject(new Error("The compact log decoder did not initialize."));
-				script.remove();
-			};
-			script.onerror = () => {
-				decoderPromise = null;
-				script.remove();
-				reject(new Error("The compact log decoder could not be loaded."));
-			};
-			document.head.appendChild(script);
-		});
+		decoderPromise = new Promise(
+			(
+				/** function(!ZstdDecoder):void */ resolve,
+				/** function(!Error):void */ reject,
+			) => {
+				const script = document.createElement("script");
+				script.src = "/fzstd-0.1.1-bounded.js";
+				script.onload = () => {
+					const library = /** @type {?Object<string, *>} */ (window["fzstd"]);
+					const decoder = /** @type {?ZstdDecoder} */ (library?.["Decompress"]);
+					if (decoder) resolve(decoder);
+					else reject(new Error("The compact log decoder did not initialize."));
+					script.remove();
+				};
+				script.onerror = () => {
+					decoderPromise = null;
+					script.remove();
+					reject(new Error("The compact log decoder could not be loaded."));
+				};
+				document.head.appendChild(script);
+			},
+		);
 	}
 	return decoderPromise;
 }
@@ -98,13 +111,15 @@ class CompactRecords {
 	/** @param {!Uint8Array} chunk */
 	push(chunk) {
 		this.expanded_ += chunk.length;
-		if (this.expanded_ > MAX_EXPANDED_BYTES) throw new Error("The expanded log exceeds 256 MiB.");
+		if (this.expanded_ > MAX_EXPANDED_BYTES)
+			throw new Error("The expanded log exceeds 256 MiB.");
 		let pos = 0;
 		while (pos < chunk.length) {
 			if (!this.payload_) {
 				const byte = chunk[pos++];
 				this.size_ += (byte & 127) * 2 ** this.shift_;
-				if (this.size_ > MAX_RECORD_BYTES || this.shift_ >= 28) throw new Error("Invalid compact log record size.");
+				if (this.size_ > MAX_RECORD_BYTES || this.shift_ >= 28)
+					throw new Error("Invalid compact log record size.");
 				if (byte & 128) {
 					this.shift_ += 7;
 					continue;
@@ -125,7 +140,8 @@ class CompactRecords {
 	}
 
 	finish() {
-		if (this.payload_ || this.shift_) throw new Error("The compact log ends in the middle of a record.");
+		if (this.payload_ || this.shift_)
+			throw new Error("The compact log ends in the middle of a record.");
 	}
 }
 
@@ -138,7 +154,13 @@ function referencePath(entry) {
 	const directory = entry.getDirectory();
 	const symlink = entry.getUnresolvedSymlink();
 	const runfiles = entry.getRunfilesTree();
-	return file?.getPath() || directory?.getPath() || symlink?.getPath() || runfiles?.getPath() || "";
+	return (
+		file?.getPath() ||
+		directory?.getPath() ||
+		symlink?.getPath() ||
+		runfiles?.getPath() ||
+		""
+	);
 }
 
 /**
@@ -148,20 +170,30 @@ function referencePath(entry) {
  */
 async function parseLog(file, current) {
 	const header = new Uint8Array(await file.slice(0, 4).arrayBuffer());
-	if (header.length !== 4 || new DataView(header.buffer).getUint32(0, true) !== 0xfd2fb528) {
+	if (
+		header.length !== 4 ||
+		new DataView(header.buffer).getUint32(0, true) !== 0xfd2fb528
+	) {
 		throw new Error("Choose a file created with --execution_log_compact_file.");
 	}
 	const Decoder = await loadZstd();
 	if (!current()) return null;
 	/** @type {!ExecutionData} */
-	const log = {invocation: null, actions: [], references: new Map(), dependencies: null};
+	const log = {
+		invocation: null,
+		actions: [],
+		references: new Map(),
+		dependencies: null,
+	};
 	let entryCount = 0;
 	const records = new CompactRecords((entry) => {
 		entryCount++;
-		if (entryCount > 1000000) throw new Error("The log exceeds 1,000,000 records.");
+		if (entryCount > 1000000)
+			throw new Error("The log exceeds 1,000,000 records.");
 		const invocation = entry.getInvocation();
 		if (invocation) {
-			if (entryCount !== 1) throw new Error("Unexpected invocation header in the compact log.");
+			if (entryCount !== 1)
+				throw new Error("Unexpected invocation header in the compact log.");
 			log.invocation = invocation;
 			return;
 		}
@@ -169,48 +201,73 @@ async function parseLog(file, current) {
 		const symlink = entry.getSymlinkAction();
 		if (!spawn && !symlink) {
 			const id = entry.getId();
-			if (id && (referencePath(entry) || entry.getInputSet() || entry.getSymlinkEntrySet())) log.references.set(id, entry);
+			if (
+				id &&
+				(referencePath(entry) ||
+					entry.getInputSet() ||
+					entry.getSymlinkEntrySet())
+			)
+				log.references.set(id, entry);
 			return;
 		}
 		const mnemonic = spawn?.getMnemonic() || symlink?.getMnemonic() || "";
 		const target = spawn?.getTargetLabel() || symlink?.getTargetLabel() || "";
 		const runner = spawn?.getRunner() || "";
-		const outcome = spawn ? spawn.getStatus() || spawn.getExitCode() ? "failed" :
-			spawn.getCacheHit() ? "cache" : "executed" : "symlink";
+		const outcome = spawn
+			? spawn.getStatus() || spawn.getExitCode()
+				? "failed"
+				: spawn.getCacheHit()
+					? "cache"
+					: "executed"
+			: "symlink";
 		const time = spawn?.getMetrics()?.getTotalTime();
 		/** @type {!Array<string>} */
 		const outputPaths = [];
 		/** @type {!Array<string>} */
 		const producedPaths = [];
-		const outputs = spawn ? spawn.getOutputsList().map((output) => {
-			const invalid = output.getInvalidOutputPath();
-			if (invalid) {
-				outputPaths.push(invalid);
-				return invalid + " (missing or wrong type)";
-			}
-			const id = output.getOutputId();
-			const reference = log.references.get(id);
-			const path = reference && referencePath(reference);
-			if (path) {
-				outputPaths.push(path);
-				producedPaths.push(path);
-			}
-			return path || "Output #" + id;
-		}) : [symlink?.getOutputPath() || ""];
+		const outputs = spawn
+			? spawn.getOutputsList().map((output) => {
+					const invalid = output.getInvalidOutputPath();
+					if (invalid) {
+						outputPaths.push(invalid);
+						return invalid + " (missing or wrong type)";
+					}
+					const id = output.getOutputId();
+					const reference = log.references.get(id);
+					const path = reference && referencePath(reference);
+					if (path) {
+						outputPaths.push(path);
+						producedPaths.push(path);
+					}
+					return path || "Output #" + id;
+				})
+			: [symlink?.getOutputPath() || ""];
 		if (symlink?.getOutputPath()) {
 			outputPaths.push(symlink.getOutputPath());
 			producedPaths.push(symlink.getOutputPath());
 		}
 		log.actions.push({
-			mnemonic, target, runner, outcome, outputs, outputPaths, producedPaths,
-			duration: time ? time.getSeconds() * 1000 + time.getNanos() / 1000000 : null,
+			mnemonic,
+			target,
+			runner,
+			outcome,
+			outputs,
+			outputPaths,
+			producedPaths,
+			duration: time
+				? time.getSeconds() * 1000 + time.getNanos() / 1000000
+				: null,
 			search: [mnemonic, target, runner, ...outputs].join(" ").toLowerCase(),
 			spawn: spawn || null,
 			symlinkInput: symlink?.getInputPath() || "",
 		});
 	});
-	const decoder = new Decoder((/** !Uint8Array */ chunk) => records.push(chunk));
-	const push = /** @type {function(!Uint8Array, boolean):void} */ (decoder["push"]).bind(decoder);
+	const decoder = new Decoder((/** !Uint8Array */ chunk) =>
+		records.push(chunk),
+	);
+	const push = /** @type {function(!Uint8Array, boolean):void} */ (
+		decoder["push"]
+	).bind(decoder);
 	for (let offset = 0; offset < file.size; offset += CHUNK_BYTES) {
 		const end = Math.min(offset + CHUNK_BYTES, file.size);
 		const bytes = new Uint8Array(await file.slice(offset, end).arrayBuffer());
@@ -218,7 +275,8 @@ async function parseLog(file, current) {
 		push(bytes, end === file.size);
 	}
 	records.finish();
-	if (!log.invocation && !log.actions.length) throw new Error("No compact execution log records were found.");
+	if (!log.invocation && !log.actions.length)
+		throw new Error("No compact execution log records were found.");
 	return log;
 }
 
@@ -250,11 +308,16 @@ function inputReferences(log, root) {
 			for (let i = children.length - 1; i >= 0; i--) pending.push(children[i]);
 		} else if (symlinks) {
 			symlinks.getDirectEntriesMap().forEach((value) => pending.push(value));
-			for (const child of symlinks.getTransitiveSetIdsList()) pending.push(child);
+			for (const child of symlinks.getTransitiveSetIdsList())
+				pending.push(child);
 		} else {
 			entries.push(entry);
 			if (runfiles) {
-				pending.push(runfiles.getInputSetId(), runfiles.getSymlinksId(), runfiles.getRootSymlinksId());
+				pending.push(
+					runfiles.getInputSetId(),
+					runfiles.getSymlinksId(),
+					runfiles.getRootSymlinksId(),
+				);
 			}
 		}
 	}
@@ -267,7 +330,13 @@ function inputReferences(log, root) {
  */
 function digestText(digest) {
 	if (!digest) return "";
-	return [digest.getHashFunctionName(), digest.getHash(), digest.getSizeBytes() + " bytes"].filter(Boolean).join(" · ");
+	return [
+		digest.getHashFunctionName(),
+		digest.getHash(),
+		digest.getSizeBytes() + " bytes",
+	]
+		.filter(Boolean)
+		.join(" · ");
 }
 
 /**
@@ -287,15 +356,29 @@ function referenceText(entry) {
 	const file = entry.getFile();
 	if (file) return fileText(file);
 	const dir = entry.getDirectory();
-	if (dir) return [dir.getPath(), ...dir.getFilesList().map((child) => "  " + fileText(child)).sort()].join("\n");
+	if (dir)
+		return [
+			dir.getPath(),
+			...dir
+				.getFilesList()
+				.map((child) => "  " + fileText(child))
+				.sort(),
+		].join("\n");
 	const link = entry.getUnresolvedSymlink();
 	if (link) return link.getPath() + " → " + link.getTargetPath();
 	const runfiles = entry.getRunfilesTree();
 	if (!runfiles) return referencePath(entry);
 	const manifest = runfiles.getRepoMappingManifest();
-	return [runfiles.getPath(),
-		...runfiles.getEmptyFilesList().slice().sort().map((path) => "  empty: " + path),
-		...(manifest ? ["  _repo_mapping: " + digestText(manifest.getDigest())] : []),
+	return [
+		runfiles.getPath(),
+		...runfiles
+			.getEmptyFilesList()
+			.slice()
+			.sort()
+			.map((path) => "  empty: " + path),
+		...(manifest
+			? ["  _repo_mapping: " + digestText(manifest.getDigest())]
+			: []),
 	].join("\n");
 }
 
@@ -305,7 +388,9 @@ function referenceText(entry) {
  * @return {!Array<string>}
  */
 function inputDetails(log, id) {
-	return Array.from(new Set(inputReferences(log, id).map(referenceText).filter(Boolean)));
+	return Array.from(
+		new Set(inputReferences(log, id).map(referenceText).filter(Boolean)),
+	);
 }
 
 /**
@@ -313,7 +398,9 @@ function inputDetails(log, id) {
  * @return {string}
  */
 function durationText(duration) {
-	return duration ? (duration.getSeconds() * 1000 + duration.getNanos() / 1000000) + " ms" : "";
+	return duration
+		? duration.getSeconds() * 1000 + duration.getNanos() / 1000000 + " ms"
+		: "";
 }
 
 /**
@@ -324,7 +411,8 @@ function durationText(duration) {
 function spawnFields(action, log) {
 	/** @type {!Map<string, !Array<string>>} */
 	const fields = new Map();
-	const put = (/** string */ name, /** string|number|boolean */ value) => fields.set(name, [String(value)]);
+	const put = (/** string */ name, /** string|number|boolean */ value) =>
+		fields.set(name, [String(value)]);
 	put("Mnemonic", action.mnemonic);
 	put("Target label", action.target);
 	const spawn = action.spawn;
@@ -345,17 +433,40 @@ function spawnFields(action, log) {
 	put("Input set ID", spawn.getInputSetId());
 	put("Tool set ID", spawn.getToolSetId());
 	fields.set("Command arguments", spawn.getArgsList());
-	fields.set("Environment variables", spawn.getEnvVarsList().map((entry) => entry.getName() + "=" + entry.getValue()).sort());
+	fields.set(
+		"Environment variables",
+		spawn
+			.getEnvVarsList()
+			.map((entry) => entry.getName() + "=" + entry.getValue())
+			.sort(),
+	);
 	const platform = spawn.getPlatform();
-	fields.set("Execution platform", platform ?
-		platform.getPropertiesList().map((property) => property.getName() + "=" + property.getValue()).sort() : []);
+	fields.set(
+		"Execution platform",
+		platform
+			? platform
+					.getPropertiesList()
+					.map((property) => property.getName() + "=" + property.getValue())
+					.sort()
+			: [],
+	);
 	fields.set("Inputs", inputDetails(log, spawn.getInputSetId()));
 	fields.set("Tools", inputDetails(log, spawn.getToolSetId()));
-	fields.set("Outputs", spawn.getOutputsList().map((output, index) => {
-		const ref = log.references.get(output.getOutputId());
-		return ref ? referenceText(ref) : action.outputs[index];
-	}));
-	fields.set("Output IDs", spawn.getOutputsList().map((output) => output.getOutputId()).filter(Boolean).map(String));
+	fields.set(
+		"Outputs",
+		spawn.getOutputsList().map((output, index) => {
+			const ref = log.references.get(output.getOutputId());
+			return ref ? referenceText(ref) : action.outputs[index];
+		}),
+	);
+	fields.set(
+		"Output IDs",
+		spawn
+			.getOutputsList()
+			.map((output) => output.getOutputId())
+			.filter(Boolean)
+			.map(String),
+	);
 	const metrics = spawn.getMetrics();
 	if (!metrics) return fields;
 	put("Metrics · Total time", durationText(metrics.getTotalTime()));
@@ -365,8 +476,14 @@ function spawnFields(action, log) {
 	put("Metrics · Queue time", durationText(metrics.getQueueTime()));
 	put("Metrics · Setup time", durationText(metrics.getSetupTime()));
 	put("Metrics · Upload time", durationText(metrics.getUploadTime()));
-	put("Metrics · Execution wall time", durationText(metrics.getExecutionWallTime()));
-	put("Metrics · Process outputs time", durationText(metrics.getProcessOutputsTime()));
+	put(
+		"Metrics · Execution wall time",
+		durationText(metrics.getExecutionWallTime()),
+	);
+	put(
+		"Metrics · Process outputs time",
+		durationText(metrics.getProcessOutputsTime()),
+	);
 	put("Metrics · Retry time", durationText(metrics.getRetryTime()));
 	put("Metrics · Input bytes", metrics.getInputBytes());
 	put("Metrics · Input files", metrics.getInputFiles());
@@ -378,8 +495,18 @@ function spawnFields(action, log) {
 	put("Metrics · Memory bytes limit", metrics.getMemoryBytesLimit());
 	put("Metrics · Time limit", durationText(metrics.getTimeLimit()));
 	const start = metrics.getStartTime();
-	if (start) put("Metrics · Start time", start.getSeconds() + "." + String(start.getNanos()).padStart(9, "0") + " Unix s");
-	put("Metrics · Measured peak memory bytes", metrics.getMeasuredMemoryPeakBytes());
+	if (start)
+		put(
+			"Metrics · Start time",
+			start.getSeconds() +
+				"." +
+				String(start.getNanos()).padStart(9, "0") +
+				" Unix s",
+		);
+	put(
+		"Metrics · Measured peak memory bytes",
+		metrics.getMeasuredMemoryPeakBytes(),
+	);
 	return fields;
 }
 
@@ -388,7 +515,12 @@ function spawnFields(action, log) {
  * @return {boolean}
  */
 function comparableField(field) {
-	return field !== "Input set ID" && field !== "Tool set ID" && field !== "Output IDs" && field !== "Metrics · Start time";
+	return (
+		field !== "Input set ID" &&
+		field !== "Tool set ID" &&
+		field !== "Output IDs" &&
+		field !== "Metrics · Start time"
+	);
 }
 
 /**
@@ -401,7 +533,10 @@ function equalValues(field, a, b) {
 	if (a.length !== b.length) return false;
 	if (field === "Inputs" || field === "Tools" || field === "Outputs") {
 		const right = b.slice().sort();
-		return a.slice().sort().every((value, i) => value === right[i]);
+		return a
+			.slice()
+			.sort()
+			.every((value, i) => value === right[i]);
 	}
 	return a.every((value, i) => value === b[i]);
 }
@@ -416,8 +551,11 @@ function actionSignature(action, log) {
 	const fields = [];
 	spawnFields(action, log).forEach((values, name) => {
 		if (!comparableField(name)) return;
-		const sorted = name === "Inputs" || name === "Tools" || name === "Outputs" ? values.slice().sort() : values;
-		fields.push({name, values: sorted});
+		const sorted =
+			name === "Inputs" || name === "Tools" || name === "Outputs"
+				? values.slice().sort()
+				: values;
+		fields.push({ name, values: sorted });
 	});
 	return JSON.stringify(fields);
 }
@@ -487,17 +625,34 @@ function compareLogs(a, b) {
 			}
 		});
 	};
-	match((action) => action.target || action.outputPaths.length ?
-		JSON.stringify([action.target, action.mnemonic, action.outputPaths.slice().sort()]) : "", true);
-	match((action) => action.target && JSON.stringify([action.target, action.mnemonic]));
+	match(
+		(action) =>
+			action.target || action.outputPaths.length
+				? JSON.stringify([
+						action.target,
+						action.mnemonic,
+						action.outputPaths.slice().sort(),
+					])
+				: "",
+		true,
+	);
+	match(
+		(action) =>
+			action.target && JSON.stringify([action.target, action.mnemonic]),
+	);
 	match((action) => action.target);
 	/** @type {!Array<!ActionPair>} */
 	const pairs = a.actions.map((action, i) => {
 		const other = matches[i] >= 0 ? b.actions[matches[i]] : null;
-		return {a: action, b: other, changed: !other || actionSignature(action, a) !== actionSignature(other, b)};
+		return {
+			a: action,
+			b: other,
+			changed:
+				!other || actionSignature(action, a) !== actionSignature(other, b),
+		};
 	});
 	b.actions.forEach((action, j) => {
-		if (!used[j]) pairs.push({a: null, b: action, changed: true});
+		if (!used[j]) pairs.push({ a: null, b: action, changed: true });
 	});
 	return pairs;
 }
@@ -533,7 +688,11 @@ function dependencies(log) {
 			const direct = producers.get(path);
 			if (direct) owners.add(direct);
 			// A file inside a tree artifact may be logged separately.
-			for (let end = path.lastIndexOf("/"); end > 0; end = path.lastIndexOf("/", end - 1)) {
+			for (
+				let end = path.lastIndexOf("/");
+				end > 0;
+				end = path.lastIndexOf("/", end - 1)
+			) {
 				const tree = producers.get(path.slice(0, end));
 				if (!tree) continue;
 				owners.add(tree);
@@ -556,7 +715,12 @@ function dependencies(log) {
 				if (owners[middle] < consumer) low = middle + 1;
 				else high = middle;
 			}
-			const index = low > 0 ? owners[low - 1] : owners[0] === consumer ? owners[1] : owners[0];
+			const index =
+				low > 0
+					? owners[low - 1]
+					: owners[0] === consumer
+						? owners[1]
+						: owners[0];
 			if (index !== undefined && index !== consumer) inputs.add(index);
 		};
 		const spawn = action.spawn;
@@ -578,10 +742,14 @@ function dependencies(log) {
  */
 function outcomeLabel(outcome) {
 	switch (outcome) {
-		case "failed": return "Failed";
-		case "cache": return "Cache hit";
-		case "symlink": return "Symlink";
-		default: return "Executed";
+		case "failed":
+			return "Failed";
+		case "cache":
+			return "Cache hit";
+		case "symlink":
+			return "Symlink";
+		default:
+			return "Executed";
 	}
 }
 
@@ -601,7 +769,17 @@ const METRICS_TAB = 3;
 
 /** @return {!LogSlot} */
 function newSlot() {
-	return {name: "", log: null, upload: 0, message: "", failed: false, query: "", outcome: "", suppressed: new Set(), timeline: null};
+	return {
+		name: "",
+		log: null,
+		upload: 0,
+		message: "",
+		failed: false,
+		query: "",
+		outcome: "",
+		suppressed: new Set(),
+		timeline: null,
+	};
 }
 
 class ExecutionLog extends Component {
@@ -667,33 +845,49 @@ class ExecutionLog extends Component {
 				void this.load_(index, file);
 			}
 		});
-		handler.listen(input, "cancel", () => { this.pickerSlot_ = -1; });
+		handler.listen(input, "cancel", () => {
+			this.pickerSlot_ = -1;
+		});
 		TAB_NAMES.forEach((name, index) => {
 			const tab = this.el_("tab-" + name);
 			handler.listen(tab, "click", () => this.switchTab_(index));
 			handler.listen(tab, "keydown", (/** !events.BrowserEvent */ event) => {
 				let next = index;
 				switch (event.key) {
-					case "ArrowLeft": next = (index + TAB_NAMES.length - 1) % TAB_NAMES.length; break;
-					case "ArrowRight": next = (index + 1) % TAB_NAMES.length; break;
-					case "Home": next = 0; break;
-					case "End": next = TAB_NAMES.length - 1; break;
-					default: return;
+					case "ArrowLeft":
+						next = (index + TAB_NAMES.length - 1) % TAB_NAMES.length;
+						break;
+					case "ArrowRight":
+						next = (index + 1) % TAB_NAMES.length;
+						break;
+					case "Home":
+						next = 0;
+						break;
+					case "End":
+						next = TAB_NAMES.length - 1;
+						break;
+					default:
+						return;
 				}
 				event.preventDefault();
 				this.switchTab_(next);
 				this.el_("tab-" + TAB_NAMES[next]).focus();
 			});
 		});
-		handler.listen(host, ["dragenter", "dragover"], (/** !events.BrowserEvent */ event) => {
-			const drag = /** @type {!DragEvent} */ (event.getBrowserEvent());
-			if (!drag.dataTransfer?.types.includes("Files")) return;
-			event.preventDefault();
-			drag.dataTransfer.dropEffect = "copy";
-			host.classList.add("is-dragging");
-		});
+		handler.listen(
+			host,
+			["dragenter", "dragover"],
+			(/** !events.BrowserEvent */ event) => {
+				const drag = /** @type {!DragEvent} */ (event.getBrowserEvent());
+				if (!drag.dataTransfer?.types.includes("Files")) return;
+				event.preventDefault();
+				drag.dataTransfer.dropEffect = "copy";
+				host.classList.add("is-dragging");
+			},
+		);
 		handler.listen(host, "dragleave", (/** !events.BrowserEvent */ event) => {
-			if (!host.contains(/** @type {?Node} */ (event.relatedTarget))) host.classList.remove("is-dragging");
+			if (!host.contains(/** @type {?Node} */ (event.relatedTarget)))
+				host.classList.remove("is-dragging");
 		});
 		handler.listen(host, "drop", (/** !events.BrowserEvent */ event) => {
 			const drop = /** @type {!DragEvent} */ (event.getBrowserEvent());
@@ -711,27 +905,39 @@ class ExecutionLog extends Component {
 		});
 		handler.listen(this.el_("search"), "input", () => this.filter_());
 		handler.listen(this.el_("outcome"), "change", () => this.filter_());
-		handler.listen(this.el_("mnemonics"), "change", (/** !events.BrowserEvent */ event) => {
-			const checkbox = /** @type {!HTMLInputElement} */ (event.target);
-			const suppressed = this.slots_[this.tab_].suppressed;
-			if (checkbox.checked) suppressed.delete(checkbox.value);
-			else suppressed.add(checkbox.value);
-			this.filter_();
-		});
+		handler.listen(
+			this.el_("mnemonics"),
+			"change",
+			(/** !events.BrowserEvent */ event) => {
+				const checkbox = /** @type {!HTMLInputElement} */ (event.target);
+				const suppressed = this.slots_[this.tab_].suppressed;
+				if (checkbox.checked) suppressed.delete(checkbox.value);
+				else suppressed.add(checkbox.value);
+				this.filter_();
+			},
+		);
 		handler.listen(this.el_("prev"), "click", () => this.changePage_(-1));
 		handler.listen(this.el_("next"), "click", () => this.changePage_(1));
-		handler.listen(this.el_("rows"), "click", (/** !events.BrowserEvent */ event) => {
-			const target = /** @type {!Element} */ (event.target);
-			const button = target.closest("button[data-entry]");
-			if (!button) return;
-			this.select_(this.filtered_[Number(button.getAttribute("data-entry"))]);
-			for (const row of this.el_("rows").querySelectorAll("button[data-entry]")) {
-				row.setAttribute("aria-pressed", String(row === button));
-			}
-			this.el_("detail-heading").focus();
-		});
+		handler.listen(
+			this.el_("rows"),
+			"click",
+			(/** !events.BrowserEvent */ event) => {
+				const target = /** @type {!Element} */ (event.target);
+				const button = target.closest("button[data-entry]");
+				if (!button) return;
+				this.select_(this.filtered_[Number(button.getAttribute("data-entry"))]);
+				for (const row of this.el_("rows").querySelectorAll(
+					"button[data-entry]",
+				)) {
+					row.setAttribute("aria-pressed", String(row === button));
+				}
+				this.el_("detail-heading").focus();
+			},
+		);
 		const canvas = /** @type {!HTMLCanvasElement} */ (this.el_("diff-canvas"));
-		const graph = new ExecutionLogGraph(canvas, (index) => this.selectDiff_(index, "diff", false));
+		const graph = new ExecutionLogGraph(canvas, (index) =>
+			this.selectDiff_(index, "diff", false),
+		);
 		this.graph_ = graph;
 		handler.listen(this.el_("diff-fit"), "click", () => graph.fit());
 		handler.listen(canvas, "wheel", (/** !events.BrowserEvent */ event) => {
@@ -739,11 +945,17 @@ class ExecutionLog extends Component {
 			graph.wheel(/** @type {!WheelEvent} */ (event.getBrowserEvent()));
 		});
 		handler.listen(canvas, "pointerdown", (/** !events.BrowserEvent */ event) =>
-			graph.start(/** @type {!PointerEvent} */ (event.getBrowserEvent())));
+			graph.start(/** @type {!PointerEvent} */ (event.getBrowserEvent())),
+		);
 		handler.listen(canvas, "pointermove", (/** !events.BrowserEvent */ event) =>
-			graph.move(/** @type {!PointerEvent} */ (event.getBrowserEvent())));
-		handler.listen(canvas, ["pointerup", "lostpointercapture"], (/** !events.BrowserEvent */ event) =>
-			graph.end(/** @type {!PointerEvent} */ (event.getBrowserEvent())));
+			graph.move(/** @type {!PointerEvent} */ (event.getBrowserEvent())),
+		);
+		handler.listen(
+			canvas,
+			["pointerup", "lostpointercapture"],
+			(/** !events.BrowserEvent */ event) =>
+				graph.end(/** @type {!PointerEvent} */ (event.getBrowserEvent())),
+		);
 		handler.listen(canvas, "keydown", (/** !events.BrowserEvent */ event) => {
 			if (graph.key(event.key)) event.preventDefault();
 		});
@@ -751,44 +963,91 @@ class ExecutionLog extends Component {
 		this.resize_.observe(canvas);
 		handler.listen(this.el_("include-a"), "change", () => this.renderDiff_());
 		handler.listen(this.el_("include-b"), "change", () => this.renderDiff_());
-		handler.listen(this.el_("diff-prev"), "click", () => this.renderChanges_(this.diffPage_ - 1));
-		handler.listen(this.el_("diff-next"), "click", () => this.renderChanges_(this.diffPage_ + 1));
-		handler.listen(this.el_("diff-rows"), "click", (/** !events.BrowserEvent */ event) => {
-			const target = /** @type {!Element} */ (event.target);
-			const button = target.closest("button[data-entry]");
-			if (!button) return;
-			this.selectDiff_(Number(button.getAttribute("data-entry")), button.getAttribute("data-mode") || "diff", true);
-		});
+		handler.listen(this.el_("diff-prev"), "click", () =>
+			this.renderChanges_(this.diffPage_ - 1),
+		);
+		handler.listen(this.el_("diff-next"), "click", () =>
+			this.renderChanges_(this.diffPage_ + 1),
+		);
+		handler.listen(
+			this.el_("diff-rows"),
+			"click",
+			(/** !events.BrowserEvent */ event) => {
+				const target = /** @type {!Element} */ (event.target);
+				const button = target.closest("button[data-entry]");
+				if (!button) return;
+				this.selectDiff_(
+					Number(button.getAttribute("data-entry")),
+					button.getAttribute("data-mode") || "diff",
+					true,
+				);
+			},
+		);
 		for (let index = 0; index < 2; index++) {
 			handler.listen(this.el_("metrics-" + TAB_NAMES[index]), "change", () => {
 				this.metricsSlot_ = index;
 				this.renderMetrics_();
 			});
 		}
-		handler.listen(this.el_("metrics-shared"), "change", () => this.renderMetrics_());
+		handler.listen(this.el_("metrics-shared"), "change", () =>
+			this.renderMetrics_(),
+		);
 		const legend = this.el_("metrics-legend");
 		if (!legend.children.length) renderTimingLegend(legend);
-		const timingCanvas = /** @type {!HTMLCanvasElement} */ (this.el_("metrics-canvas"));
+		const timingCanvas = /** @type {!HTMLCanvasElement} */ (
+			this.el_("metrics-canvas")
+		);
 		const viewport = this.el_("metrics-viewport");
-		const waterfall = new SpawnWaterfall(timingCanvas, viewport, this.el_("metrics-detail"));
+		const waterfall = new SpawnWaterfall(
+			timingCanvas,
+			viewport,
+			this.el_("metrics-detail"),
+		);
 		this.waterfall_ = waterfall;
 		handler.listen(this.el_("metrics-fit"), "click", () => waterfall.fit());
-		handler.listen(this.el_("metrics-zoom-in"), "click", () => waterfall.zoom(1.5));
-		handler.listen(this.el_("metrics-zoom-out"), "click", () => waterfall.zoom(1 / 1.5));
+		handler.listen(this.el_("metrics-zoom-in"), "click", () =>
+			waterfall.zoom(1.5),
+		);
+		handler.listen(this.el_("metrics-zoom-out"), "click", () =>
+			waterfall.zoom(1 / 1.5),
+		);
 		handler.listen(viewport, "scroll", () => waterfall.clearHover());
-		handler.listen(timingCanvas, "wheel", (/** !events.BrowserEvent */ event) => {
-			if (waterfall.wheel(/** @type {!WheelEvent} */ (event.getBrowserEvent()))) event.preventDefault();
-		});
-		handler.listen(timingCanvas, "pointerdown", (/** !events.BrowserEvent */ event) =>
-			waterfall.start(/** @type {!PointerEvent} */ (event.getBrowserEvent())));
-		handler.listen(timingCanvas, "pointermove", (/** !events.BrowserEvent */ event) =>
-			waterfall.move(/** @type {!PointerEvent} */ (event.getBrowserEvent())));
-		handler.listen(timingCanvas, ["pointerup", "pointercancel", "lostpointercapture"], (/** !events.BrowserEvent */ event) =>
-			waterfall.end(/** @type {!PointerEvent} */ (event.getBrowserEvent())));
+		handler.listen(
+			timingCanvas,
+			"wheel",
+			(/** !events.BrowserEvent */ event) => {
+				if (
+					waterfall.wheel(/** @type {!WheelEvent} */ (event.getBrowserEvent()))
+				)
+					event.preventDefault();
+			},
+		);
+		handler.listen(
+			timingCanvas,
+			"pointerdown",
+			(/** !events.BrowserEvent */ event) =>
+				waterfall.start(/** @type {!PointerEvent} */ (event.getBrowserEvent())),
+		);
+		handler.listen(
+			timingCanvas,
+			"pointermove",
+			(/** !events.BrowserEvent */ event) =>
+				waterfall.move(/** @type {!PointerEvent} */ (event.getBrowserEvent())),
+		);
+		handler.listen(
+			timingCanvas,
+			["pointerup", "pointercancel", "lostpointercapture"],
+			(/** !events.BrowserEvent */ event) =>
+				waterfall.end(/** @type {!PointerEvent} */ (event.getBrowserEvent())),
+		);
 		handler.listen(timingCanvas, "pointerleave", () => waterfall.clearHover());
-		handler.listen(timingCanvas, "keydown", (/** !events.BrowserEvent */ event) => {
-			if (waterfall.key(event.key)) event.preventDefault();
-		});
+		handler.listen(
+			timingCanvas,
+			"keydown",
+			(/** !events.BrowserEvent */ event) => {
+				if (waterfall.key(event.key)) event.preventDefault();
+			},
+		);
 		this.metricsResize_ = new ResizeObserver(() => waterfall.draw());
 		this.metricsResize_.observe(viewport);
 		this.switchTab_(this.tab_);
@@ -817,7 +1076,9 @@ class ExecutionLog extends Component {
 	 * @return {!HTMLElement}
 	 */
 	el_(id) {
-		return /** @type {!HTMLElement} */ (this.getElementStrict().querySelector("#execution-log-" + id));
+		return /** @type {!HTMLElement} */ (
+			this.getElementStrict().querySelector("#execution-log-" + id)
+		);
 	}
 
 	/**
@@ -852,7 +1113,10 @@ class ExecutionLog extends Component {
 			if (index === DIFF_TAB) this.renderDiff_();
 			else this.renderMetrics_();
 		} else {
-			panel.setAttribute("aria-labelledby", "execution-log-tab-" + TAB_NAMES[index]);
+			panel.setAttribute(
+				"aria-labelledby",
+				"execution-log-tab-" + TAB_NAMES[index],
+			);
 			this.renderSlot_();
 		}
 	}
@@ -868,7 +1132,10 @@ class ExecutionLog extends Component {
 		dom.removeChildren(metadata);
 		const count = log?.actions.length || 0;
 		const list = this.el_("mnemonics");
-		renderMnemonicFilters(list, log ? log.actions.map((action) => action.mnemonic) : []);
+		renderMnemonicFilters(
+			list,
+			log ? log.actions.map((action) => action.mnemonic) : [],
+		);
 		for (const element of list.querySelectorAll("input")) {
 			const checkbox = /** @type {!HTMLInputElement} */ (element);
 			checkbox.checked = !slot.suppressed.has(checkbox.value);
@@ -883,15 +1150,28 @@ class ExecutionLog extends Component {
 			if (action.outcome === "cache") hits++;
 			if (action.outcome === "failed") failures++;
 		}
-		summary.textContent = slot.name + " · " + count.toLocaleString() + (count === 1 ? " entry · " : " entries · ") +
-			hits.toLocaleString() + (hits === 1 ? " cache hit · " : " cache hits · ") + failures.toLocaleString() + " failed";
+		summary.textContent =
+			slot.name +
+			" · " +
+			count.toLocaleString() +
+			(count === 1 ? " entry · " : " entries · ") +
+			hits.toLocaleString() +
+			(hits === 1 ? " cache hit · " : " cache hits · ") +
+			failures.toLocaleString() +
+			" failed";
 		const invocation = log.invocation;
-		if (invocation?.getId()) metadata.appendChild(dom.createDom("p", null, "Invocation " + invocation.getId()));
+		if (invocation?.getId())
+			metadata.appendChild(
+				dom.createDom("p", null, "Invocation " + invocation.getId()),
+			);
 		if (invocation?.getHashFunctionName()) {
-			metadata.appendChild(dom.createDom("p", null, "Digest " + invocation.getHashFunctionName()));
+			metadata.appendChild(
+				dom.createDom("p", null, "Digest " + invocation.getHashFunctionName()),
+			);
 		}
 		/** @type {!HTMLInputElement} */ (this.el_("search")).value = slot.query;
-		/** @type {!HTMLSelectElement} */ (this.el_("outcome")).value = slot.outcome;
+		/** @type {!HTMLSelectElement} */ (this.el_("outcome")).value =
+			slot.outcome;
 		this.filter_();
 	}
 
@@ -922,7 +1202,9 @@ class ExecutionLog extends Component {
 			const log = await parseLog(file, current);
 			if (!log || !current()) return;
 			const name = TAB_NAMES[index];
-			const include = /** @type {!HTMLInputElement} */ (this.el_("include-" + name));
+			const include = /** @type {!HTMLInputElement} */ (
+				this.el_("include-" + name)
+			);
 			if (!slot.log) include.checked = true;
 			include.disabled = false;
 			this.el_("tab-" + name).title = file.name;
@@ -941,8 +1223,13 @@ class ExecutionLog extends Component {
 		} catch (/** @type {*} */ error) {
 			if (!current()) return;
 			slot.failed = true;
-			slot.message = "Could not read " + file.name + ". " +
-				(error instanceof Error ? error.message : "The compact log may be damaged.");
+			slot.message =
+				"Could not read " +
+				file.name +
+				". " +
+				(error instanceof Error
+					? error.message
+					: "The compact log may be damaged.");
 			if (this.tab_ === index) this.renderSlotStatus_();
 		}
 	}
@@ -953,10 +1240,16 @@ class ExecutionLog extends Component {
 		const log = slot.log;
 		if (!log) return;
 		slot.query = /** @type {!HTMLInputElement} */ (this.el_("search")).value;
-		slot.outcome = /** @type {!HTMLSelectElement} */ (this.el_("outcome")).value;
+		slot.outcome = /** @type {!HTMLSelectElement} */ (
+			this.el_("outcome")
+		).value;
 		const query = slot.query.trim().toLowerCase();
-		this.filtered_ = log.actions.filter((action) => !slot.suppressed.has(action.mnemonic) &&
-			(!slot.outcome || action.outcome === slot.outcome) && (!query || action.search.includes(query)));
+		this.filtered_ = log.actions.filter(
+			(action) =>
+				!slot.suppressed.has(action.mnemonic) &&
+				(!slot.outcome || action.outcome === slot.outcome) &&
+				(!query || action.search.includes(query)),
+		);
 		this.page_ = 0;
 		this.select_(null);
 		this.renderRows_();
@@ -981,28 +1274,70 @@ class ExecutionLog extends Component {
 		const end = Math.min(start + PAGE_SIZE, total);
 		for (let i = start; i < end; i++) {
 			const action = this.filtered_[i];
-			const swatch = dom.createDom("span", {"class": "action-query-swatch", "aria-hidden": "true"});
-			if (action.mnemonic) swatch.style.backgroundColor = mnemonicColor(action.mnemonic);
-			const button = dom.createDom("button", {
-				"type": "button", "class": "btn-link execution-log-action", "data-entry": String(i), "aria-pressed": "false",
-			}, swatch, action.mnemonic || "Action");
+			const swatch = dom.createDom("span", {
+				"class": "action-query-swatch",
+				"aria-hidden": "true",
+			});
+			if (action.mnemonic)
+				swatch.style.backgroundColor = mnemonicColor(action.mnemonic);
+			const button = dom.createDom(
+				"button",
+				{
+					"type": "button",
+					"class": "btn-link execution-log-action",
+					"data-entry": String(i),
+					"aria-pressed": "false",
+				},
+				swatch,
+				action.mnemonic || "Action",
+			);
 			const target = dom.createDom("td", null, action.target);
-			if (action.outputs[0]) target.appendChild(dom.createDom("div", "text-small color-fg-muted", action.outputs[0]));
-			const outcome = action.outcome === "failed" ? "color-fg-danger" : action.outcome === "cache" ? "color-fg-success" : "";
-			rows.appendChild(dom.createDom("tr", null, dom.createDom("td", null, button), target,
-				dom.createDom("td", outcome, outcomeLabel(action.outcome)),
-				dom.createDom("td", null, action.runner || "—"),
-				dom.createDom("td", null, action.duration === null ? "—" :
-					action.duration.toLocaleString(undefined, {maximumFractionDigits: 1}) + " ms")));
+			if (action.outputs[0])
+				target.appendChild(
+					dom.createDom("div", "text-small color-fg-muted", action.outputs[0]),
+				);
+			const outcome =
+				action.outcome === "failed"
+					? "color-fg-danger"
+					: action.outcome === "cache"
+						? "color-fg-success"
+						: "";
+			rows.appendChild(
+				dom.createDom(
+					"tr",
+					null,
+					dom.createDom("td", null, button),
+					target,
+					dom.createDom("td", outcome, outcomeLabel(action.outcome)),
+					dom.createDom("td", null, action.runner || "—"),
+					dom.createDom(
+						"td",
+						null,
+						action.duration === null
+							? "—"
+							: action.duration.toLocaleString(undefined, {
+									maximumFractionDigits: 1,
+								}) + " ms",
+					),
+				),
+			);
 		}
 		this.el_("table").hidden = !total;
 		const empty = this.el_("empty");
 		empty.hidden = !!total;
-		empty.textContent = this.slots_[this.tab_].log?.actions.length ? "No entries match these filters." : "This log contains no recorded actions.";
+		empty.textContent = this.slots_[this.tab_].log?.actions.length
+			? "No entries match these filters."
+			: "This log contains no recorded actions.";
 		this.el_("pagination").hidden = total <= PAGE_SIZE;
-		this.el_("page").textContent = (start + 1).toLocaleString() + "–" + end.toLocaleString() + " of " + total.toLocaleString();
+		this.el_("page").textContent =
+			(start + 1).toLocaleString() +
+			"–" +
+			end.toLocaleString() +
+			" of " +
+			total.toLocaleString();
 		/** @type {!HTMLButtonElement} */ (this.el_("prev")).disabled = start === 0;
-		/** @type {!HTMLButtonElement} */ (this.el_("next")).disabled = end >= total;
+		/** @type {!HTMLButtonElement} */ (this.el_("next")).disabled =
+			end >= total;
 	}
 
 	/** @private */
@@ -1011,11 +1346,15 @@ class ExecutionLog extends Component {
 		const b = /** @type {!HTMLInputElement} */ (this.el_("metrics-b"));
 		a.disabled = !this.slots_[0].log;
 		b.disabled = !this.slots_[1].log;
-		const shared = /** @type {!HTMLInputElement} */ (this.el_("metrics-shared"));
+		const shared = /** @type {!HTMLInputElement} */ (
+			this.el_("metrics-shared")
+		);
 		shared.disabled = a.disabled || b.disabled;
 		this.el_("metrics-shared-option").hidden = shared.disabled;
-		if (this.metricsSlot_ === 0 && a.disabled && !b.disabled) this.metricsSlot_ = 1;
-		if (this.metricsSlot_ === 1 && b.disabled && !a.disabled) this.metricsSlot_ = 0;
+		if (this.metricsSlot_ === 0 && a.disabled && !b.disabled)
+			this.metricsSlot_ = 1;
+		if (this.metricsSlot_ === 1 && b.disabled && !a.disabled)
+			this.metricsSlot_ = 0;
 		a.checked = this.metricsSlot_ === 0;
 		b.checked = this.metricsSlot_ === 1;
 
@@ -1028,21 +1367,38 @@ class ExecutionLog extends Component {
 		status.title = "";
 		if (!timeline || !total) {
 			this.waterfall_?.setTimeline(null, 1);
-			status.textContent = slot.log ? slot.name + " contains no spawns." :
-				"Load a compact execution log to see spawn timings.";
+			status.textContent = slot.log
+				? slot.name + " contains no spawns."
+				: "Load a compact execution log to see spawn timings.";
 			return;
 		}
-		const base = slot.name + " · " + total.toLocaleString() + (total === 1 ? " spawn" : " spawns");
+		const base =
+			slot.name +
+			" · " +
+			total.toLocaleString() +
+			(total === 1 ? " spawn" : " spawns");
 		const missing = timeline.unknownStart - timeline.skippedCacheStarts;
 		const cache = timeline.skippedCacheStarts;
-		const other = shared.checked && !shared.disabled ? this.timeline_(this.slots_[1 - this.metricsSlot_]) : null;
+		const other =
+			shared.checked && !shared.disabled
+				? this.timeline_(this.slots_[1 - this.metricsSlot_])
+				: null;
 		const extent = Math.max(1, timeline.extent, other?.extent || 0);
 		const summary = [base];
-		if (missing) summary.push(missing.toLocaleString() + " without a recorded start");
-		if (cache) summary.push(cache.toLocaleString() + (cache === 1 ? " cached start ignored" : " cached starts ignored"));
-		if (timeline.recordedSpan !== null) summary.push("Recorded spawn span " + formatTime(timeline.recordedSpan));
+		if (missing)
+			summary.push(missing.toLocaleString() + " without a recorded start");
+		if (cache)
+			summary.push(
+				cache.toLocaleString() +
+					(cache === 1 ? " cached start ignored" : " cached starts ignored"),
+			);
+		if (timeline.recordedSpan !== null)
+			summary.push("Recorded spawn span " + formatTime(timeline.recordedSpan));
 		if (other) summary.push("Shared scale " + formatTime(extent));
-		else if (timeline.recordedSpan !== null && timeline.extent > timeline.recordedSpan) {
+		else if (
+			timeline.recordedSpan !== null &&
+			timeline.extent > timeline.recordedSpan
+		) {
 			summary.push("Scale includes longer duration-only spawns");
 		}
 		status.textContent = summary.join(" · ");
@@ -1060,22 +1416,35 @@ class ExecutionLog extends Component {
 		if (!log || slot.timeline) return slot.timeline;
 		/** @type {!Array<!ExecLogEntry.Spawn>} */
 		const spawns = [];
-		for (const action of log.actions) if (action.spawn) spawns.push(action.spawn);
+		for (const action of log.actions)
+			if (action.spawn) spawns.push(action.spawn);
 		slot.timeline = buildSpawnTimeline(spawns);
 		return slot.timeline;
 	}
 
 	/** @private */
 	renderDiff_() {
-		const a = /** @type {!HTMLInputElement} */ (this.el_("include-a")).checked ? this.slots_[0].log : null;
-		const b = /** @type {!HTMLInputElement} */ (this.el_("include-b")).checked ? this.slots_[1].log : null;
+		const a = /** @type {!HTMLInputElement} */ (this.el_("include-a")).checked
+			? this.slots_[0].log
+			: null;
+		const b = /** @type {!HTMLInputElement} */ (this.el_("include-b")).checked
+			? this.slots_[1].log
+			: null;
 		if (a && b) {
 			this.comparison_ ||= compareLogs(a, b);
 			this.pairs_ = this.comparison_;
 		} else if (a) {
-			this.pairs_ = a.actions.map((action) => ({a: action, b: null, changed: false}));
+			this.pairs_ = a.actions.map((action) => ({
+				a: action,
+				b: null,
+				changed: false,
+			}));
 		} else if (b) {
-			this.pairs_ = b.actions.map((action) => ({a: null, b: action, changed: false}));
+			this.pairs_ = b.actions.map((action) => ({
+				a: null,
+				b: action,
+				changed: false,
+			}));
 		} else {
 			this.pairs_ = [];
 		}
@@ -1101,19 +1470,27 @@ class ExecutionLog extends Component {
 		this.el_("diff-detail").hidden = true;
 		this.graph_?.setNodes(nodes);
 		this.changes_ = [];
-		if (a && b) pairs.forEach((pair, index) => { if (pair.changed) this.changes_.push(index); });
+		if (a && b)
+			pairs.forEach((pair, index) => {
+				if (pair.changed) this.changes_.push(index);
+			});
 		const status = this.el_("diff-status");
 		if (!a && !b) {
-			status.textContent = this.slots_.some((slot) => slot.log) ?
-				"Check an invocation to show its graph." : "Load a compact execution log to see its dependency graph.";
+			status.textContent = this.slots_.some((slot) => slot.log)
+				? "Check an invocation to show its graph."
+				: "Load a compact execution log to see its dependency graph.";
 		} else if (!visible) {
 			status.textContent = "The selected logs contain no recorded actions.";
 		} else {
-			status.textContent = nodes.length.toLocaleString() + (nodes.length === 1 ? " node" : " nodes");
+			status.textContent =
+				nodes.length.toLocaleString() +
+				(nodes.length === 1 ? " node" : " nodes");
 			if (a && b) {
-				status.textContent += " · " + this.changes_.length.toLocaleString() + " changed";
+				status.textContent +=
+					" · " + this.changes_.length.toLocaleString() + " changed";
 			} else {
-				status.textContent += " · " + (a ? this.slots_[0].name : this.slots_[1].name);
+				status.textContent +=
+					" · " + (a ? this.slots_[0].name : this.slots_[1].name);
 			}
 		}
 		this.renderChanges_(0);
@@ -1154,7 +1531,8 @@ class ExecutionLog extends Component {
 			if (consumer === undefined) return;
 			for (const input of inputs) {
 				const producer = mapped[input];
-				if (producer !== undefined && producer !== consumer) nodes[consumer].inputs.add(producer);
+				if (producer !== undefined && producer !== consumer)
+					nodes[consumer].inputs.add(producer);
 			}
 		});
 	}
@@ -1175,15 +1553,33 @@ class ExecutionLog extends Component {
 			const index = this.changes_[i];
 			const pair = this.pairs_[index];
 			const left = this.diffCell_(pair.a, index, "A");
-			left.appendChild(dom.createDom("button", {
-				"type": "button", "class": "btn-link ml-2", "data-entry": String(index), "data-mode": "diff",
-			}, "Diff"));
-			rows.appendChild(dom.createDom("tr", null, left, this.diffCell_(pair.b, index, "B")));
+			left.appendChild(
+				dom.createDom(
+					"button",
+					{
+						"type": "button",
+						"class": "btn-link ml-2",
+						"data-entry": String(index),
+						"data-mode": "diff",
+					},
+					"Diff",
+				),
+			);
+			rows.appendChild(
+				dom.createDom("tr", null, left, this.diffCell_(pair.b, index, "B")),
+			);
 		}
 		this.el_("diff-pagination").hidden = total <= PAGE_SIZE;
-		this.el_("diff-page").textContent = (start + 1).toLocaleString() + "–" + end.toLocaleString() + " of " + total.toLocaleString();
-		/** @type {!HTMLButtonElement} */ (this.el_("diff-prev")).disabled = start === 0;
-		/** @type {!HTMLButtonElement} */ (this.el_("diff-next")).disabled = end >= total;
+		this.el_("diff-page").textContent =
+			(start + 1).toLocaleString() +
+			"–" +
+			end.toLocaleString() +
+			" of " +
+			total.toLocaleString();
+		/** @type {!HTMLButtonElement} */ (this.el_("diff-prev")).disabled =
+			start === 0;
+		/** @type {!HTMLButtonElement} */ (this.el_("diff-next")).disabled =
+			end >= total;
 	}
 
 	/**
@@ -1194,14 +1590,33 @@ class ExecutionLog extends Component {
 	 * @return {!Element}
 	 */
 	diffCell_(action, index, side) {
-		if (!action) return dom.createDom("td", "color-fg-muted", dom.createDom("span", null, "No matching entry"));
-		return dom.createDom("td", null,
+		if (!action)
+			return dom.createDom(
+				"td",
+				"color-fg-muted",
+				dom.createDom("span", null, "No matching entry"),
+			);
+		return dom.createDom(
+			"td",
+			null,
 			dom.createDom("div", "text-bold", action.mnemonic || "Action"),
 			dom.createDom("div", "text-small", action.target),
-			dom.createDom("div", "text-small color-fg-muted", action.outputs[0] || ""),
-			dom.createDom("button", {
-				"type": "button", "class": "btn-link", "data-entry": String(index), "data-mode": side.toLowerCase(),
-			}, "Spawn " + side));
+			dom.createDom(
+				"div",
+				"text-small color-fg-muted",
+				action.outputs[0] || "",
+			),
+			dom.createDom(
+				"button",
+				{
+					"type": "button",
+					"class": "btn-link",
+					"data-entry": String(index),
+					"data-mode": side.toLowerCase(),
+				},
+				"Spawn " + side,
+			),
+		);
 	}
 
 	/**
@@ -1220,20 +1635,30 @@ class ExecutionLog extends Component {
 		this.el_("diff-detail").hidden = false;
 		const a = this.slots_[0].log;
 		const b = this.slots_[1].log;
-		if (mode === "a" || (mode === "diff" && pair.a && !pair.b && !pair.changed)) {
+		if (
+			mode === "a" ||
+			(mode === "diff" && pair.a && !pair.b && !pair.changed)
+		) {
 			if (a && pair.a) {
 				heading.textContent = (pair.a.mnemonic || "Action") + " · Invocation A";
 				this.renderSpawn_(body, pair.a, a);
 			}
-		} else if (mode === "b" || (mode === "diff" && pair.b && !pair.a && !pair.changed)) {
+		} else if (
+			mode === "b" ||
+			(mode === "diff" && pair.b && !pair.a && !pair.changed)
+		) {
 			if (b && pair.b) {
 				heading.textContent = (pair.b.mnemonic || "Action") + " · Invocation B";
 				this.renderSpawn_(body, pair.b, b);
 			}
 		} else {
-			heading.textContent = (pair.b?.mnemonic || pair.a?.mnemonic || "Action") + " · Spawn diff";
-			this.renderFieldDiff_(body, pair.a && a ? spawnFields(pair.a, a) : new Map(),
-				pair.b && b ? spawnFields(pair.b, b) : new Map());
+			heading.textContent =
+				(pair.b?.mnemonic || pair.a?.mnemonic || "Action") + " · Spawn diff";
+			this.renderFieldDiff_(
+				body,
+				pair.a && a ? spawnFields(pair.a, a) : new Map(),
+				pair.b && b ? spawnFields(pair.b, b) : new Map(),
+			);
 		}
 		if (focus) heading.focus();
 	}
@@ -1247,19 +1672,47 @@ class ExecutionLog extends Component {
 	renderFieldDiff_(body, a, b) {
 		/** @type {!Set<string>} */
 		const names = new Set([...a.keys(), ...b.keys()]);
-		const columns = dom.createDom("div", "execution-log-field-values text-bold mb-2",
-			dom.createDom("span", null, "Invocation A"), dom.createDom("span", null, "Invocation B"));
-		const metadata = dom.createDom("details", "mt-3", dom.createDom("summary", null, "Log-local metadata"));
+		const columns = dom.createDom(
+			"div",
+			"execution-log-field-values text-bold mb-2",
+			dom.createDom("span", null, "Invocation A"),
+			dom.createDom("span", null, "Invocation B"),
+		);
+		const metadata = dom.createDom(
+			"details",
+			"mt-3",
+			dom.createDom("summary", null, "Log-local metadata"),
+		);
 		let changes = 0;
 		for (const name of names) {
 			const before = a.get(name) || [];
 			const after = b.get(name) || [];
 			if (equalValues(name, before, after)) continue;
-			const field = dom.createDom("section", "mb-2",
+			const field = dom.createDom(
+				"section",
+				"mb-2",
 				dom.createDom("h3", "h5 mb-1", name),
-				dom.createDom("div", "execution-log-field-values",
-					dom.createDom("pre", {"class": "action-query-command execution-log-before", "aria-label": "Invocation A"}, before.join("\n") || "—"),
-					dom.createDom("pre", {"class": "action-query-command execution-log-after", "aria-label": "Invocation B"}, after.join("\n") || "—")));
+				dom.createDom(
+					"div",
+					"execution-log-field-values",
+					dom.createDom(
+						"pre",
+						{
+							"class": "action-query-command execution-log-before",
+							"aria-label": "Invocation A",
+						},
+						before.join("\n") || "—",
+					),
+					dom.createDom(
+						"pre",
+						{
+							"class": "action-query-command execution-log-after",
+							"aria-label": "Invocation B",
+						},
+						after.join("\n") || "—",
+					),
+				),
+			);
 			if (comparableField(name)) {
 				if (!changes) body.appendChild(columns);
 				body.appendChild(field);
@@ -1268,7 +1721,10 @@ class ExecutionLog extends Component {
 				metadata.appendChild(field);
 			}
 		}
-		if (!changes) body.appendChild(dom.createDom("p", "color-fg-muted", "No spawn differences."));
+		if (!changes)
+			body.appendChild(
+				dom.createDom("p", "color-fg-muted", "No spawn differences."),
+			);
 		if (metadata.children.length > 1) body.appendChild(metadata);
 	}
 
@@ -1293,11 +1749,19 @@ class ExecutionLog extends Component {
 	 * @param {!ExecutionData} log
 	 */
 	renderSpawn_(body, action, log) {
-		if (action.target) body.appendChild(dom.createDom("p", null, action.target));
+		if (action.target)
+			body.appendChild(dom.createDom("p", null, action.target));
 		const spawn = action.spawn;
 		if (action.outcome === "failed" && spawn) {
-			body.appendChild(dom.createDom("p", "color-fg-danger",
-				(spawn.getStatus() || "Failed") + " · Exit code " + spawn.getExitCode()));
+			body.appendChild(
+				dom.createDom(
+					"p",
+					"color-fg-danger",
+					(spawn.getStatus() || "Failed") +
+						" · Exit code " +
+						spawn.getExitCode(),
+				),
+			);
 		}
 		/** @type {!Array<string>} */
 		const metrics = [];
@@ -1305,16 +1769,31 @@ class ExecutionLog extends Component {
 		const summary = [];
 		const fields = spawnFields(action, log);
 		/** @type {!Set<string>} */
-		const lists = new Set(["Command arguments", "Environment variables", "Execution platform", "Inputs", "Tools", "Outputs", "Symlink target"]);
+		const lists = new Set([
+			"Command arguments",
+			"Environment variables",
+			"Execution platform",
+			"Inputs",
+			"Tools",
+			"Outputs",
+			"Symlink target",
+		]);
 		fields.forEach((values, name) => {
 			if (name.startsWith("Metrics · ")) {
-				metrics.push(name.slice("Metrics · ".length) + " = " + (values[0] || "—"));
-			} else if (!lists.has(name) && name !== "Target label" && name !== "Mnemonic") {
+				metrics.push(
+					name.slice("Metrics · ".length) + " = " + (values[0] || "—"),
+				);
+			} else if (
+				!lists.has(name) &&
+				name !== "Target label" &&
+				name !== "Mnemonic"
+			) {
 				summary.push(name + " = " + (values.join(", ") || "—"));
 			}
 		});
 		this.appendDetails_(body, "Spawn fields", summary);
-		for (const name of lists) this.appendDetails_(body, name, fields.get(name) || []);
+		for (const name of lists)
+			this.appendDetails_(body, name, fields.get(name) || []);
 		this.appendDetails_(body, "Execution metrics", metrics);
 	}
 
@@ -1326,9 +1805,18 @@ class ExecutionLog extends Component {
 	 */
 	appendDetails_(body, title, values) {
 		if (!values.length) return;
-		body.appendChild(dom.createDom("details", "mb-2",
-			dom.createDom("summary", "text-bold", title + " (" + values.length.toLocaleString() + ")"),
-			dom.createDom("pre", "action-query-command mt-2", values.join("\n"))));
+		body.appendChild(
+			dom.createDom(
+				"details",
+				"mb-2",
+				dom.createDom(
+					"summary",
+					"text-bold",
+					title + " (" + values.length.toLocaleString() + ")",
+				),
+				dom.createDom("pre", "action-query-command mt-2", values.join("\n")),
+			),
+		);
 	}
 }
 

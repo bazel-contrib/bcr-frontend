@@ -4,14 +4,16 @@ goog.module("bcrfrontend.invocationEventDetails");
 const BazelFlagDb = goog.require("proto.build.stack.bazel.help.v1.BazelFlagDb");
 const BuildEvent = goog.require("proto.build_event_stream.BuildEvent");
 const dom = goog.require("goog.dom");
-const { abortReasonName, fileSummary, testSizeName, testStatusName } = goog.require("bcrfrontend.invocationEvents");
-const {
-	createBuildMetricsDetail,
-	createCriticalPathDetail,
-	metricLabel,
-} = goog.require("bcrfrontend.invocationMetrics");
-const { formatDuration, formatTimestamp } = goog.require("bcrfrontend.invocationFormat");
-const { formatTerminalText, renderTerminalText } = goog.require("bcrfrontend.invocationTerminal");
+const { abortReasonName, fileSummary, testSizeName, testStatusName } =
+	goog.require("bcrfrontend.invocationEvents");
+const { createBuildMetricsDetail, createCriticalPathDetail, metricLabel } =
+	goog.require("bcrfrontend.invocationMetrics");
+const { formatDuration, formatTimestamp } = goog.require(
+	"bcrfrontend.invocationFormat",
+);
+const { formatTerminalText, renderTerminalText } = goog.require(
+	"bcrfrontend.invocationTerminal",
+);
 
 /**
  * @param {!BuildEvent} event
@@ -29,8 +31,10 @@ function createSelectedEventDetail(event, getFlagDb) {
 		key.textContent = label;
 		const value = document.createElement("div");
 		value.className = "bes-detail-value";
-		if (event.getPayloadCase() === BuildEvent.PayloadCase.PROGRESS &&
-			(label === "Standard output" || label === "Standard error")) {
+		if (
+			event.getPayloadCase() === BuildEvent.PayloadCase.PROGRESS &&
+			(label === "Standard output" || label === "Standard error")
+		) {
 			value.classList.add("text-mono", "text-small");
 			value.appendChild(renderTerminalText(values[label]));
 		} else {
@@ -86,23 +90,38 @@ function createCommandLineDetail(event, getFlagDb) {
 		const value = dom.createDom("dd", "bes-detail-value m-0");
 		if (!args.length) value.textContent = "None";
 		else {
-			const list = dom.createDom("ul", "bes-command-arguments text-mono text-small");
+			const list = dom.createDom(
+				"ul",
+				"bes-command-arguments text-mono text-small",
+			);
 			for (let index = 0; index < args.length; index++) {
 				const arg = args[index];
 				const row = dom.createDom("li");
 				const flag = /^--([a-zA-Z][a-zA-Z0-9_-]*)(?=$|[=\s])/.exec(arg);
 				const spelling = flag ? flag[0] : "";
 				const name = flag ? flag[1] : "";
-				const optionName = /** @type {string|undefined} */ (canonicalNames[index]) || "";
-				const canonical = /^[a-zA-Z][a-zA-Z0-9_-]*$/.test(optionName) ? optionName : "";
+				const optionName =
+					/** @type {string|undefined} */ (canonicalNames[index]) || "";
+				const canonical = /^[a-zA-Z][a-zA-Z0-9_-]*$/.test(optionName)
+					? optionName
+					: "";
 				if (canonical || name) {
-					const negated = !canonical && /^no[a-zA-Z]/.test(name) && spelling === arg;
+					const negated =
+						!canonical && /^no[a-zA-Z]/.test(name) && spelling === arg;
 					const target = canonical || (negated ? name.slice(2) : name);
-					const link = /** @type {!HTMLAnchorElement} */ (dom.createDom("a",
-						{"href": "/bazel/flags/" + encodeURIComponent(target)}, spelling || arg));
+					const link = /** @type {!HTMLAnchorElement} */ (
+						dom.createDom(
+							"a",
+							{ "href": "/bazel/flags/" + encodeURIComponent(target) },
+							spelling || arg,
+						)
+					);
 					row.appendChild(link);
-					if (spelling) row.appendChild(document.createTextNode(arg.slice(spelling.length)));
-					if (negated) unresolved.push({link, name});
+					if (spelling)
+						row.appendChild(
+							document.createTextNode(arg.slice(spelling.length)),
+						);
+					if (negated) unresolved.push({ link, name });
 				} else {
 					row.textContent = arg;
 				}
@@ -117,7 +136,10 @@ function createCommandLineDetail(event, getFlagDb) {
 	const original = event.getUnstructuredCommandLine();
 	if (parsed) {
 		addArguments("Startup options", parsed.getStartupOptionsList());
-		addArguments("Explicit startup options", parsed.getExplicitStartupOptionsList());
+		addArguments(
+			"Explicit startup options",
+			parsed.getExplicitStartupOptionsList(),
+		);
 		addArguments("Command options", parsed.getCmdLineList());
 		addArguments("Explicit command options", parsed.getExplicitCmdLineList());
 	} else if (structured) {
@@ -127,8 +149,11 @@ function createCommandLineDetail(event, getFlagDb) {
 			const chunks = section.getChunkList();
 			if (options) {
 				const entries = options.getOptionList();
-				addArguments(label, entries.map((option) => option.getCombinedForm()),
-					entries.map((option) => option.getOptionName()));
+				addArguments(
+					label,
+					entries.map((option) => option.getCombinedForm()),
+					entries.map((option) => option.getOptionName()),
+				);
 			} else if (chunks) {
 				addArguments(label, chunks.getChunkList());
 			}
@@ -139,13 +164,16 @@ function createCommandLineDetail(event, getFlagDb) {
 		return null;
 	}
 	if (unresolved.length) {
-		void getFlagDb().then((db) => {
-			const flags = /** @type {!BazelFlagDb} */ (db).getFlagList();
-			const names = new Set(flags.map((flag) => flag.getName()));
-			for (const {link, name} of unresolved) {
-				if (names.has(name)) link.href = "/bazel/flags/" + encodeURIComponent(name);
-			}
-		}).catch(() => {});
+		void getFlagDb()
+			.then((db) => {
+				const flags = /** @type {!BazelFlagDb} */ (db).getFlagList();
+				const names = new Set(flags.map((flag) => flag.getName()));
+				for (const { link, name } of unresolved) {
+					if (names.has(name))
+						link.href = "/bazel/flags/" + encodeURIComponent(name);
+				}
+			})
+			.catch(() => {});
 	}
 	return root;
 }
@@ -237,14 +265,17 @@ function selectedEventValues(event) {
 			values["Platform"] = payload.getPlatformName();
 			values["CPU"] = payload.getCpu();
 			values["Tool configuration"] = payload.getIsTool() ? "Yes" : "No";
-			values["Make variables"] = String(payload.getMakeVariableMap().getLength());
+			values["Make variables"] = String(
+				payload.getMakeVariableMap().getLength(),
+			);
 			break;
 		}
 		case BuildEvent.PayloadCase.EXPANDED: {
 			const payload = event.getExpanded();
 			if (!payload) break;
-			values["Test suite expansions"] =
-				String(payload.getTestSuiteExpansionsList().length);
+			values["Test suite expansions"] = String(
+				payload.getTestSuiteExpansionsList().length,
+			);
 			values["Expanded children"] = String(event.getChildrenList().length);
 			break;
 		}
@@ -274,13 +305,16 @@ function selectedEventValues(event) {
 			if (stderr) values["Standard error"] = fileSummary(stderr);
 			const output = payload.getPrimaryOutput();
 			if (output) values["Primary output"] = fileSummary(output);
-			values["Strategy details"] = String(payload.getStrategyDetailsList().length);
+			values["Strategy details"] = String(
+				payload.getStrategyDetailsList().length,
+			);
 			break;
 		}
 		case BuildEvent.PayloadCase.NAMED_SET_OF_FILES: {
 			const payload = event.getNamedSetOfFiles();
 			if (!payload) break;
-			values["Files"] = payload.getFilesList().map(fileSummary).join("\n") || "None";
+			values["Files"] =
+				payload.getFilesList().map(fileSummary).join("\n") || "None";
 			values["File count"] = String(payload.getFilesList().length);
 			values["Referenced sets"] = String(payload.getFileSetsList().length);
 			break;
@@ -291,16 +325,27 @@ function selectedEventValues(event) {
 			values["Success"] = payload.getSuccess() ? "Yes" : "No";
 			const failure = payload.getFailureDetail()?.getMessage();
 			if (failure) values["Failure detail"] = failure;
-			values["Output groups"] = payload.getOutputGroupList()
-				.map((group) => group.getName() + (group.getIncomplete() ? " (incomplete)" : ""))
-				.join(", ") || "None";
-			values["Important outputs"] = String(payload.getImportantOutputList().length);
-			values["Directory outputs"] = String(payload.getDirectoryOutputList().length);
+			values["Output groups"] =
+				payload
+					.getOutputGroupList()
+					.map(
+						(group) =>
+							group.getName() + (group.getIncomplete() ? " (incomplete)" : ""),
+					)
+					.join(", ") || "None";
+			values["Important outputs"] = String(
+				payload.getImportantOutputList().length,
+			);
+			values["Directory outputs"] = String(
+				payload.getDirectoryOutputList().length,
+			);
 			values["Tags"] = payload.getTagList().join(", ") || "None";
 			const timeout = payload.getTestTimeout();
 			if (timeout) {
-				values["Test timeout"] =
-					formatDuration(timeout.getSeconds(), timeout.getNanos());
+				values["Test timeout"] = formatDuration(
+					timeout.getSeconds(),
+					timeout.getNanos(),
+				);
 			}
 			break;
 		}
@@ -313,16 +358,20 @@ function selectedEventValues(event) {
 			values["Started"] = formatTimestamp(payload.getTestAttemptStart());
 			const duration = payload.getTestAttemptDuration();
 			if (duration) {
-				values["Duration"] =
-					formatDuration(duration.getSeconds(), duration.getNanos());
+				values["Duration"] = formatDuration(
+					duration.getSeconds(),
+					duration.getNanos(),
+				);
 			}
-			values["Outputs"] = payload.getTestActionOutputList()
-				.map(fileSummary).join("\n") || "None";
+			values["Outputs"] =
+				payload.getTestActionOutputList().map(fileSummary).join("\n") || "None";
 			values["Warnings"] = payload.getWarningList().join("\n") || "None";
 			const execution = payload.getExecutionInfo();
 			if (execution) {
 				values["Strategy"] = execution.getStrategy() || "Not reported";
-				values["Remote cache hit"] = execution.getCachedRemotely() ? "Yes" : "No";
+				values["Remote cache hit"] = execution.getCachedRemotely()
+					? "Yes"
+					: "No";
 				values["Exit code"] = String(execution.getExitCode());
 				values["Execution host"] = execution.getHostname() || "Not reported";
 			}
@@ -347,8 +396,10 @@ function selectedEventValues(event) {
 			values["Last stopped"] = formatTimestamp(payload.getLastStopTime());
 			const duration = payload.getTotalRunDuration();
 			if (duration) {
-				values["Total duration"] =
-					formatDuration(duration.getSeconds(), duration.getNanos());
+				values["Total duration"] = formatDuration(
+					duration.getSeconds(),
+					duration.getNanos(),
+				);
 			}
 			values["Passed logs"] = String(payload.getPassedList().length);
 			values["Failed logs"] = String(payload.getFailedList().length);
@@ -376,7 +427,8 @@ function selectedEventValues(event) {
 		case BuildEvent.PayloadCase.BUILD_TOOL_LOGS: {
 			const payload = event.getBuildToolLogs();
 			if (!payload) break;
-			values["Logs"] = payload.getLogList().map(fileSummary).join("\n") || "None";
+			values["Logs"] =
+				payload.getLogList().map(fileSummary).join("\n") || "None";
 			values["Log count"] = String(payload.getLogList().length);
 			break;
 		}
@@ -391,10 +443,11 @@ function selectedEventValues(event) {
 			if (!payload) break;
 			/** @type {!Array<string>} */
 			const metadata = [];
-			payload.getMetadataMap().forEach(
-				(/** string */ value, /** string */ key) =>
+			payload
+				.getMetadataMap()
+				.forEach((/** string */ value, /** string */ key) =>
 					metadata.push(key + "=" + value),
-			);
+				);
 			values["Metadata"] = metadata.join("\n") || "None";
 			values["Entry count"] = String(metadata.length);
 			break;
@@ -405,10 +458,18 @@ function selectedEventValues(event) {
 			/** @type {!Array<string>} */
 			const symlinks = [];
 			for (const symlink of payload.getConvenienceSymlinksList()) {
-				const action = symlink.getAction() === 1 ? "Create" :
-					symlink.getAction() === 2 ? "Delete" : "Unknown";
-				symlinks.push(action + " " + symlink.getPath() +
-					(symlink.getTarget() ? " → " + symlink.getTarget() : ""));
+				const action =
+					symlink.getAction() === 1
+						? "Create"
+						: symlink.getAction() === 2
+							? "Delete"
+							: "Unknown";
+				symlinks.push(
+					action +
+						" " +
+						symlink.getPath() +
+						(symlink.getTarget() ? " → " + symlink.getTarget() : ""),
+				);
 			}
 			values["Symlinks"] = symlinks.join("\n") || "None";
 			values["Symlink count"] = String(symlinks.length);
@@ -427,10 +488,12 @@ function selectedEventValues(event) {
 				argv.push(decoder.decode(/** @type {!Uint8Array} */ (argument)));
 			}
 			values["Arguments"] = argv.join(" ");
-			values["Environment variables"] =
-				String(payload.getEnvironmentVariableList().length);
-			values["Variables cleared"] =
-				String(payload.getEnvironmentVariableToClearList().length);
+			values["Environment variables"] = String(
+				payload.getEnvironmentVariableList().length,
+			);
+			values["Variables cleared"] = String(
+				payload.getEnvironmentVariableToClearList().length,
+			);
 			values["Execute"] = payload.getShouldExec() ? "Yes" : "No";
 			break;
 		}

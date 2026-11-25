@@ -8,7 +8,9 @@ const Timestamp = goog.require("proto.google.protobuf.Timestamp");
  * @return {?number}
  */
 function validDateMillis(millis) {
-	return Number.isFinite(millis) && Math.abs(millis) <= 8640000000000000 ? millis : null;
+	return Number.isFinite(millis) && Math.abs(millis) <= 8640000000000000
+		? millis
+		: null;
 }
 
 /**
@@ -68,7 +70,7 @@ function formatBytes(bytes) {
  * @return {string}
  */
 function groupRate(numerator, denominator) {
-	return denominator ? (100 * numerator / denominator).toFixed(1) + "%" : "—";
+	return denominator ? ((100 * numerator) / denominator).toFixed(1) + "%" : "—";
 }
 
 /**

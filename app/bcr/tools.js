@@ -7,7 +7,9 @@ const dom = goog.require("goog.dom");
 const soy = goog.require("goog.soy");
 const { Component, Route } = goog.require("stack.ui");
 const { ContentSelect } = goog.require("bcrfrontend.ContentSelect");
-const { InvocationGroupsComponent } = goog.require("bcrfrontend.invocationGroups");
+const { InvocationGroupsComponent } = goog.require(
+	"bcrfrontend.invocationGroups",
+);
 const { toolsCatalog, toolsSelect } = goog.require("soy.bcrfrontend.tools");
 
 class ToolsSelect extends ContentSelect {

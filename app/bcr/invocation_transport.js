@@ -27,22 +27,33 @@ let irohAttempt = 0;
 /** @return {!Promise<!IrohFactory>} */
 function loadIrohModule() {
 	if (!irohModule) {
-		irohModule = new Promise((/** function(!IrohFactory):void */ resolve, /** function(*):void */ reject) => {
-			const script = document.createElement("script");
-			script.type = "module";
-			script.src = "/invocation_iroh.mjs?v=" + encodeURIComponent(commitSha) + "&attempt=" + irohAttempt++;
-			script.onload = () => {
-				const factory = /** @type {?IrohFactory} */ (window["bcrIrohInvocation"]);
-				if (factory) resolve(factory);
-				else reject(new Error("Iroh browser module did not initialize."));
-				script.remove();
-			};
-			script.onerror = () => {
-				script.remove();
-				reject(new Error("Iroh browser assets are unavailable."));
-			};
-			document.head.appendChild(script);
-		}).catch((error) => {
+		irohModule = new Promise(
+			(
+				/** function(!IrohFactory):void */ resolve,
+				/** function(*):void */ reject,
+			) => {
+				const script = document.createElement("script");
+				script.type = "module";
+				script.src =
+					"/invocation_iroh.mjs?v=" +
+					encodeURIComponent(commitSha) +
+					"&attempt=" +
+					irohAttempt++;
+				script.onload = () => {
+					const factory = /** @type {?IrohFactory} */ (
+						window["bcrIrohInvocation"]
+					);
+					if (factory) resolve(factory);
+					else reject(new Error("Iroh browser module did not initialize."));
+					script.remove();
+				};
+				script.onerror = () => {
+					script.remove();
+					reject(new Error("Iroh browser assets are unavailable."));
+				};
+				document.head.appendChild(script);
+			},
+		).catch((error) => {
 			irohModule = null;
 			throw error;
 		});
@@ -59,18 +70,35 @@ async function openInvocationBackend(address) {
 		const factory = /** @type {!IrohFactory} */ (await loadIrohModule());
 		const external = factory(address);
 		return {
-			list: /** @type {function(string=):!Promise<!Object<string, *>>} */ (external["list"]),
-			listGroups: /** @type {function():!Promise<!Object<string, *>>} */ (external["listGroups"]),
-			listGroup: /** @type {function(string, string=):!Promise<!Object<string, *>>} */ (external["listGroup"]),
-			groupMetrics: /** @type {function(string, number=):!Promise<!Object<string, *>>} */ (external["groupMetrics"]),
-			get: /** @type {function(string):!Promise<!Object<string, *>>} */ (external["get"]),
-			watch: /** @type {function(string, function():string, !EventCallback, !StatusCallback):void} */ (external["watch"]),
+			list: /** @type {function(string=):!Promise<!Object<string, *>>} */ (
+				external["list"]
+			),
+			listGroups: /** @type {function():!Promise<!Object<string, *>>} */ (
+				external["listGroups"]
+			),
+			listGroup:
+				/** @type {function(string, string=):!Promise<!Object<string, *>>} */ (
+					external["listGroup"]
+				),
+			groupMetrics:
+				/** @type {function(string, number=):!Promise<!Object<string, *>>} */ (
+					external["groupMetrics"]
+				),
+			get: /** @type {function(string):!Promise<!Object<string, *>>} */ (
+				external["get"]
+			),
+			watch:
+				/** @type {function(string, function():string, !EventCallback, !StatusCallback):void} */ (
+					external["watch"]
+				),
 			close: /** @type {function():void} */ (external["close"]),
 		};
 	}
 	const url = new URL(address);
 	if (url.protocol !== "http:" && url.protocol !== "https:") {
-		throw new Error("Enter an HTTP or HTTPS backend URL or an Iroh viewer ticket.");
+		throw new Error(
+			"Enter an HTTP or HTTPS backend URL or an Iroh viewer ticket.",
+		);
 	}
 	const api = url.href.replace(/\/$/, "") + "/api";
 	const base = api + "/invocations";
@@ -82,7 +110,8 @@ async function openInvocationBackend(address) {
 	 */
 	async function read(path) {
 		const response = await fetch(api + path);
-		if (!response.ok) throw new Error("Backend returned HTTP " + response.status);
+		if (!response.ok)
+			throw new Error("Backend returned HTTP " + response.status);
 		return /** @type {!Object<string, *>} */ (await response.json());
 	}
 	/**
@@ -92,13 +121,21 @@ async function openInvocationBackend(address) {
 	 * @param {!StatusCallback} onStatus
 	 */
 	function watch(id, cursor, onEvent, onStatus) {
-		const stream = new EventSource(base + "/" + encodeURIComponent(id) + "/events?after=" + cursor());
+		const stream = new EventSource(
+			base + "/" + encodeURIComponent(id) + "/events?after=" + cursor(),
+		);
 		source = stream;
-		stream.onopen = () => onStatus("Connected · replaying and following " + id, true);
+		stream.onopen = () =>
+			onStatus("Connected · replaying and following " + id, true);
 		stream.onerror = () => {
 			const closed = stream.readyState === EventSource.CLOSED;
-			onStatus(closed ? "Could not open the invocation stream."
-				: "Connection interrupted · reconnecting from the last event", false, closed);
+			onStatus(
+				closed
+					? "Could not open the invocation stream."
+					: "Connection interrupted · reconnecting from the last event",
+				false,
+				closed,
+			);
 		};
 		/** @type {string} */
 		let timing = "";
@@ -110,19 +147,37 @@ async function openInvocationBackend(address) {
 			const fields = timing.split(" ");
 			timing = "";
 			if (fields[0] === message.lastEventId) {
-				onEvent(message.lastEventId, message.data, Number(fields[1]), Number(fields[2]));
+				onEvent(
+					message.lastEventId,
+					message.data,
+					Number(fields[1]),
+					Number(fields[2]),
+				);
 			} else {
 				onEvent(message.lastEventId, message.data);
 			}
 		});
 	}
 	return {
-		list: (/** string= */ token) => read("/invocations" + (token ? "?page_token=" + encodeURIComponent(token) : "")),
+		list: (/** string= */ token) =>
+			read(
+				"/invocations" +
+					(token ? "?page_token=" + encodeURIComponent(token) : ""),
+			),
 		listGroups: () => read("/invocation-groups"),
-		listGroup: (/** string */ name, /** string= */ token) => read("/invocations?group=" + encodeURIComponent(name) +
-			(token ? "&page_token=" + encodeURIComponent(token) : "")),
-		groupMetrics: (/** string */ name, /** number= */ days) => read("/invocation-groups/" + encodeURIComponent(name) +
-			"/metrics" + (days ? "?window_days=" + days : "")),
+		listGroup: (/** string */ name, /** string= */ token) =>
+			read(
+				"/invocations?group=" +
+					encodeURIComponent(name) +
+					(token ? "&page_token=" + encodeURIComponent(token) : ""),
+			),
+		groupMetrics: (/** string */ name, /** number= */ days) =>
+			read(
+				"/invocation-groups/" +
+					encodeURIComponent(name) +
+					"/metrics" +
+					(days ? "?window_days=" + days : ""),
+			),
 		get: (/** string */ id) => read("/invocations/" + encodeURIComponent(id)),
 		watch: watch,
 		close: () => {
@@ -132,4 +187,4 @@ async function openInvocationBackend(address) {
 	};
 }
 
-exports = {InvocationBackend, openInvocationBackend};
+exports = { InvocationBackend, openInvocationBackend };

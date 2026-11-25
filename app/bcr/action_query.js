@@ -4,7 +4,9 @@
 goog.module("bcrfrontend.ActionQuery");
 
 const Action = goog.requireType("proto.analysis.Action");
-const ActionGraphContainer = goog.require("proto.analysis.ActionGraphContainer");
+const ActionGraphContainer = goog.require(
+	"proto.analysis.ActionGraphContainer",
+);
 const PathFragment = goog.requireType("proto.analysis.PathFragment");
 const dom = goog.require("goog.dom");
 const events = goog.requireType("goog.events");
@@ -78,13 +80,16 @@ let ActionGraph;
 function layoutActionGraph(container) {
 	/** @type {!Map<number, string>} */
 	const labels = new Map();
-	for (const target of container.getTargetsList()) labels.set(target.getId(), target.getLabel());
+	for (const target of container.getTargetsList())
+		labels.set(target.getId(), target.getLabel());
 	/** @type {!Map<number, number>} */
 	const artifacts = new Map();
-	for (const artifact of container.getArtifactsList()) artifacts.set(artifact.getId(), artifact.getPathFragmentId());
+	for (const artifact of container.getArtifactsList())
+		artifacts.set(artifact.getId(), artifact.getPathFragmentId());
 	/** @type {!Map<number, !PathFragment>} */
 	const fragments = new Map();
-	for (const fragment of container.getPathFragmentsList()) fragments.set(fragment.getId(), fragment);
+	for (const fragment of container.getPathFragmentsList())
+		fragments.set(fragment.getId(), fragment);
 	/** @type {!Array<!ActionNode>} */
 	const nodes = container.getActionsList().map((action) => ({
 		action,
@@ -102,7 +107,7 @@ function layoutActionGraph(container) {
 
 	/** @type {!Map<number, !Array<number>>} */
 	const producers = new Map();
-	nodes.forEach(({action}, index) => {
+	nodes.forEach(({ action }, index) => {
 		for (const id of action.getOutputIdsList()) {
 			const owners = producers.get(id) || [];
 			owners.push(index);
@@ -114,7 +119,9 @@ function layoutActionGraph(container) {
 	for (const depset of container.getDepSetOfFilesList()) {
 		depsets.set(depset.getId(), {
 			transitive: depset.getTransitiveDepSetIdsList(),
-			producers: depset.getDirectArtifactIdsList().flatMap((id) => producers.get(id) || []),
+			producers: depset
+				.getDirectArtifactIdsList()
+				.flatMap((id) => producers.get(id) || []),
 		});
 	}
 
@@ -149,7 +156,9 @@ function layoutActionGraph(container) {
 			segments.push(fragment.getLabel());
 			id = fragment.getParentId();
 		}
-		return segments.length ? segments.reverse().join("/") : "Artifact " + artifactId;
+		return segments.length
+			? segments.reverse().join("/")
+			: "Artifact " + artifactId;
 	};
 
 	for (const node of nodes) {
@@ -166,7 +175,7 @@ function layoutActionGraph(container) {
  */
 function topologicalRanks(remaining, consumers) {
 	/** @type {!Array<number>} */
-	const ranks = Array.from({length: remaining.length}, () => 0);
+	const ranks = Array.from({ length: remaining.length }, () => 0);
 	/** @type {!Array<number>} */
 	const ready = [];
 	for (let i = 0; i < remaining.length; i++) {
@@ -193,8 +202,11 @@ function positionActionNodes(nodes, artifactPath, packageView = false) {
 	const indegrees = nodes.map((node) => node.inputs.size);
 	let edgeCount = 0;
 	for (const count of indegrees) edgeCount += count;
-	const ranks = topologicalRanks(indegrees, nodes.map((node) => node.consumers)) ||
-		(packageView ? rankPackageComponents(nodes) : null);
+	const ranks =
+		topologicalRanks(
+			indegrees,
+			nodes.map((node) => node.consumers),
+		) || (packageView ? rankPackageComponents(nodes) : null);
 	if (!ranks) return null;
 	/** @type {!Array<!Array<!ActionNode>>} */
 	const layers = [];
@@ -207,16 +219,23 @@ function positionActionNodes(nodes, artifactPath, packageView = false) {
 		maxLayerSize = Math.max(maxLayerSize, layer.length);
 	}
 	// Wrap wide layers into several columns, preserving the order of layers.
-	const rowLimit = Math.max(8, Math.ceil(Math.sqrt(
-		maxLayerSize * (NODE_WIDTH + COLUMN_GAP) / (NODE_HEIGHT + ROW_GAP),
-	)));
+	const rowLimit = Math.max(
+		8,
+		Math.ceil(
+			Math.sqrt(
+				(maxLayerSize * (NODE_WIDTH + COLUMN_GAP)) / (NODE_HEIGHT + ROW_GAP),
+			),
+		),
+	);
 	/** @type {number} */
 	let columnLeft = PADDING;
 	let height = 0;
 	for (const layer of layers) {
 		for (let start = 0; start < layer.length; start += rowLimit) {
 			const column = layer.slice(start, start + rowLimit);
-			const columnWidth = column.every((node) => node.compact) ? DOT_RADIUS * 2 : NODE_WIDTH;
+			const columnWidth = column.every((node) => node.compact)
+				? DOT_RADIUS * 2
+				: NODE_WIDTH;
 			let rowTop = PADDING;
 			for (const node of column) {
 				const rowHeight = node.compact ? DOT_RADIUS * 2 : NODE_HEIGHT;
@@ -230,7 +249,15 @@ function positionActionNodes(nodes, artifactPath, packageView = false) {
 	}
 	const width = nodes.length ? columnLeft - COLUMN_GAP + PADDING : 0;
 	for (const node of nodes) node.x = width - node.x;
-	return {nodes, edgeCount, width, height, artifactPath, packageView: !!packageView, forceDirected: false};
+	return {
+		nodes,
+		edgeCount,
+		width,
+		height,
+		artifactPath,
+		packageView: !!packageView,
+		forceDirected: false,
+	};
 }
 
 /**
@@ -242,9 +269,15 @@ function positionActionNodes(nodes, artifactPath, packageView = false) {
 function selectionGraph(graph, selected) {
 	const node = graph.nodes[selected];
 	/** @type {!Array<number>} */
-	const indices = Array.from(new Set([selected, ...node.inputs, ...node.consumers]));
+	const indices = Array.from(
+		new Set([selected, ...node.inputs, ...node.consumers]),
+	);
 	/** @type {!Array<!ActionNode>} */
-	const nodes = indices.map((index) => ({...graph.nodes[index], inputs: new Set(), consumers: []}));
+	const nodes = indices.map((index) => ({
+		...graph.nodes[index],
+		inputs: new Set(),
+		consumers: [],
+	}));
 	for (let i = 1; i < indices.length; i++) {
 		if (node.inputs.has(indices[i])) {
 			nodes[i].consumers.push(0);
@@ -270,7 +303,7 @@ async function forceLayout(graph, current) {
 	if (count < 2) return graph;
 	const stepX = NODE_WIDTH + 32;
 	const stepY = NODE_HEIGHT + 32;
-	const columns = Math.max(2, Math.ceil(Math.sqrt(count * stepY / stepX)));
+	const columns = Math.max(2, Math.ceil(Math.sqrt((count * stepY) / stepX)));
 	const rows = Math.ceil(count / columns);
 	const stride = Math.ceil(columns / 2) + 4;
 	const x = new Float64Array(count);
@@ -279,7 +312,9 @@ async function forceLayout(graph, current) {
 	const vy = new Float64Array(count);
 	const fx = new Float64Array(count);
 	const fy = new Float64Array(count);
-	const degree = graph.nodes.map((node) => Math.max(1, node.inputs.size + node.consumers.length));
+	const degree = graph.nodes.map((node) =>
+		Math.max(1, node.inputs.size + node.consumers.length),
+	);
 
 	// Seed with connected actions close to one another, with reproducible offsets.
 	const seen = new Uint8Array(count);
@@ -302,18 +337,22 @@ async function forceLayout(graph, current) {
 		}
 	}
 	order.forEach((index, slot) => {
-		x[index] = slot % columns + 0.18 * Math.sin(index * 2.4);
+		x[index] = (slot % columns) + 0.18 * Math.sin(index * 2.4);
 		y[index] = Math.floor(slot / columns) + 0.18 * Math.cos(index * 2.4);
 	});
 
-	const passes = Math.max(8, Math.min(72, Math.floor(650000 / (count + graph.edgeCount))));
+	const passes = Math.max(
+		8,
+		Math.min(72, Math.floor(650000 / (count + graph.edgeCount))),
+	);
 	let sliceStart = performance.now();
 	for (let pass = 0; pass < passes; pass++) {
 		/** @type {!Map<number, {x: number, y: number, count: number}>} */
 		const cells = new Map();
 		for (let i = 0; i < count; i++) {
-			const key = Math.floor((x[i] + 2) / 2) + stride * Math.floor((y[i] + 2) / 2);
-			const cell = cells.get(key) || {x: 0, y: 0, count: 0};
+			const key =
+				Math.floor((x[i] + 2) / 2) + stride * Math.floor((y[i] + 2) / 2);
+			const cell = cells.get(key) || { x: 0, y: 0, count: 0 };
 			cell.x += x[i];
 			cell.y += y[i];
 			cell.count++;
@@ -322,7 +361,8 @@ async function forceLayout(graph, current) {
 			fy[i] = ((rows - 1) / 2 - y[i]) * 0.006;
 		}
 		for (let i = 0; i < count; i++) {
-			const key = Math.floor((x[i] + 2) / 2) + stride * Math.floor((y[i] + 2) / 2);
+			const key =
+				Math.floor((x[i] + 2) / 2) + stride * Math.floor((y[i] + 2) / 2);
 			for (let row = -1; row <= 1; row++) {
 				for (let col = -1; col <= 1; col++) {
 					const cell = cells.get(key + row * stride + col);
@@ -333,7 +373,9 @@ async function forceLayout(graph, current) {
 					const dx = (x[i] * cell.count - cell.x) / neighbors;
 					const dy = (y[i] * cell.count - cell.y) / neighbors;
 					const distance = Math.max(0.12, Math.hypot(dx, dy));
-					const repulsion = 0.16 * Math.min(neighbors, 6) * Math.max(0, 1.65 - distance) / distance;
+					const repulsion =
+						(0.16 * Math.min(neighbors, 6) * Math.max(0, 1.65 - distance)) /
+						distance;
 					fx[i] += dx * repulsion;
 					fy[i] += dy * repulsion;
 				}
@@ -342,7 +384,9 @@ async function forceLayout(graph, current) {
 				const dx = x[j] - x[i];
 				const dy = y[j] - y[i];
 				const distance = Math.max(0.12, Math.hypot(dx, dy));
-				const spring = 0.28 * (distance - 1.3) / (distance * Math.sqrt(Math.max(degree[i], degree[j])));
+				const spring =
+					(0.28 * (distance - 1.3)) /
+					(distance * Math.sqrt(Math.max(degree[i], degree[j])));
 				fx[i] += dx * spring;
 				fy[i] += dy * spring;
 				fx[j] -= dx * spring;
@@ -357,7 +401,9 @@ async function forceLayout(graph, current) {
 			y[i] = Math.max(-1, Math.min(rows, y[i] + vy[i]));
 		}
 		if (performance.now() - sliceStart >= 10) {
-			await new Promise((/** function(number):void */ resolve) => requestAnimationFrame(resolve));
+			await new Promise((/** function(number):void */ resolve) =>
+				requestAnimationFrame(resolve),
+			);
 			if (!current()) return null;
 			sliceStart = performance.now();
 		}
@@ -398,17 +444,21 @@ async function forceLayout(graph, current) {
 			}
 		}
 		occupied.add(slotX + slotY * slotStride);
-		const cx = slotX * stepX + Math.max(-10, Math.min(10, (x[i] - slotX) * stepX));
-		const cy = slotY * stepY + Math.max(-10, Math.min(10, (y[i] - slotY) * stepY));
+		const cx =
+			slotX * stepX + Math.max(-10, Math.min(10, (x[i] - slotX) * stepX));
+		const cy =
+			slotY * stepY + Math.max(-10, Math.min(10, (y[i] - slotY) * stepY));
 		const halfWidth = node.compact ? DOT_RADIUS : NODE_WIDTH / 2;
 		const halfHeight = node.compact ? DOT_RADIUS : NODE_HEIGHT / 2;
 		left = Math.min(left, cx - halfWidth);
 		top = Math.min(top, cy - halfHeight);
 		right = Math.max(right, cx + halfWidth);
 		bottom = Math.max(bottom, cy + halfHeight);
-		nodes.push(/** @type {!ActionNode} */ ({...node, x: cx, y: cy}));
+		nodes.push(/** @type {!ActionNode} */ ({ ...node, x: cx, y: cy }));
 		if (performance.now() - sliceStart >= 10) {
-			await new Promise((/** function(number):void */ resolve) => requestAnimationFrame(resolve));
+			await new Promise((/** function(number):void */ resolve) =>
+				requestAnimationFrame(resolve),
+			);
 			if (!current()) return null;
 			sliceStart = performance.now();
 		}
@@ -471,9 +521,9 @@ function rankPackageComponents(nodes) {
 		count++;
 	}
 	/** @type {!Array<!Set<number>>} */
-	const links = Array.from({length: count}, () => new Set());
+	const links = Array.from({ length: count }, () => new Set());
 	/** @type {!Array<number>} */
-	const indegrees = Array.from({length: count}, () => 0);
+	const indegrees = Array.from({ length: count }, () => 0);
 	nodes.forEach((node, index) => {
 		const from = component[index];
 		for (const consumer of node.consumers) {
@@ -483,7 +533,12 @@ function rankPackageComponents(nodes) {
 			indegrees[to]++;
 		}
 	});
-	const ranks = /** @type {!Array<number>} */ (topologicalRanks(indegrees, links.map((link) => Array.from(link))));
+	const ranks = /** @type {!Array<number>} */ (
+		topologicalRanks(
+			indegrees,
+			links.map((link) => Array.from(link)),
+		)
+	);
 	return nodes.map((_, index) => ranks[component[index]]);
 }
 
@@ -515,7 +570,11 @@ function groupByPackage(graph) {
 			packages.push({
 				// Keep one action for selection when returning to the Actions view.
 				action: actionNode.action,
-				packageInfo: {actionCount: 0, mnemonics: new Map(), colors: new Map()},
+				packageInfo: {
+					actionCount: 0,
+					mnemonics: new Map(),
+					colors: new Map(),
+				},
 				color: "",
 				compact: false,
 				target: label,
@@ -531,7 +590,10 @@ function groupByPackage(graph) {
 		const mnemonic = actionNode.action.getMnemonic();
 		info.actionCount++;
 		info.mnemonics.set(mnemonic, (info.mnemonics.get(mnemonic) || 0) + 1);
-		info.colors.set(actionNode.color, (info.colors.get(actionNode.color) || 0) + 1);
+		info.colors.set(
+			actionNode.color,
+			(info.colors.get(actionNode.color) || 0) + 1,
+		);
 		return index;
 	});
 	graph.nodes.forEach((node, index) => {
@@ -543,7 +605,9 @@ function groupByPackage(graph) {
 			packages[from].consumers.push(to);
 		}
 	});
-	return /** @type {!ActionGraph} */ (positionActionNodes(packages, graph.artifactPath, true));
+	return /** @type {!ActionGraph} */ (
+		positionActionNodes(packages, graph.artifactPath, true)
+	);
 }
 
 /**
@@ -591,11 +655,14 @@ function suppressActions(graph, suppressed) {
 			}
 			if (producer !== -1) nodes[consumer].inputs.add(visible[producer]);
 		}
-		for (const producer of nodes[consumer].inputs) nodes[producer].consumers.push(consumer);
+		for (const producer of nodes[consumer].inputs)
+			nodes[producer].consumers.push(consumer);
 	});
 
 	// Removing nodes and contracting paths in a DAG cannot introduce a cycle.
-	return /** @type {!ActionGraph} */ (positionActionNodes(nodes, graph.artifactPath));
+	return /** @type {!ActionGraph} */ (
+		positionActionNodes(nodes, graph.artifactPath)
+	);
 }
 
 class ActionQuery extends Component {
@@ -635,9 +702,9 @@ class ActionQuery extends Component {
 		/** @private */
 		this.selected_ = -1;
 		/** @private @const {!GraphViewport} */
-		this.viewport_ = {x: 0, y: 0, scale: 1, maxScale: 3};
+		this.viewport_ = { x: 0, y: 0, scale: 1, maxScale: 3 };
 		/** @private @const {!GraphViewport} */
-		this.subgraphViewport_ = {x: 0, y: 0, scale: 1, maxScale: 3};
+		this.subgraphViewport_ = { x: 0, y: 0, scale: 1, maxScale: 3 };
 	}
 
 	/** @override */
@@ -649,17 +716,33 @@ class ActionQuery extends Component {
 	enterDocument() {
 		super.enterDocument();
 		const content = this.queryElement_("action-query-content");
-		const input = /** @type {!HTMLInputElement} */ (this.queryElement_("action-query-file"));
-		const canvas = /** @type {!HTMLCanvasElement} */ (this.queryElement_("action-query-canvas"));
-		const fullscreen = /** @type {!HTMLDialogElement} */ (this.queryElement_("action-query-fullscreen-dialog"));
-		const layout = /** @type {!HTMLSelectElement} */ (this.queryElement_("action-query-layout"));
-		const placement = /** @type {!HTMLSelectElement} */ (this.queryElement_("action-query-placement"));
+		const input = /** @type {!HTMLInputElement} */ (
+			this.queryElement_("action-query-file")
+		);
+		const canvas = /** @type {!HTMLCanvasElement} */ (
+			this.queryElement_("action-query-canvas")
+		);
+		const fullscreen = /** @type {!HTMLDialogElement} */ (
+			this.queryElement_("action-query-fullscreen-dialog")
+		);
+		const layout = /** @type {!HTMLSelectElement} */ (
+			this.queryElement_("action-query-layout")
+		);
+		const placement = /** @type {!HTMLSelectElement} */ (
+			this.queryElement_("action-query-placement")
+		);
 		this.canvas_ = canvas;
-		const subgraphCanvas = /** @type {!HTMLCanvasElement} */ (this.queryElement_("action-query-subgraph-canvas"));
+		const subgraphCanvas = /** @type {!HTMLCanvasElement} */ (
+			this.queryElement_("action-query-subgraph-canvas")
+		);
 		this.subgraphCanvas_ = subgraphCanvas;
 		const handler = this.getHandler();
-		handler.listen(this.queryElement_("action-query-choose"), "click", () => input.click());
-		handler.listen(this.queryElement_("action-query-replace"), "click", () => input.click());
+		handler.listen(this.queryElement_("action-query-choose"), "click", () =>
+			input.click(),
+		);
+		handler.listen(this.queryElement_("action-query-replace"), "click", () =>
+			input.click(),
+		);
 		handler.listen(layout, "change", () => {
 			this.packages_ = layout.value === "packages";
 			const source = this.sourceGraph_;
@@ -675,26 +758,38 @@ class ActionQuery extends Component {
 			input.value = "";
 			if (file) this.load_(file);
 		});
-		handler.listen(this.queryElement_("action-query-mnemonics"), "change", (/** !events.BrowserEvent */ event) => {
-			const checkbox = /** @type {!HTMLInputElement} */ (event.target);
-			const source = this.sourceGraph_;
-			if (!source) return;
-			if (checkbox.checked) this.suppressed_.delete(checkbox.value);
-			else this.suppressed_.add(checkbox.value);
-			this.updateGraph_(suppressActions(source, this.suppressed_));
-		});
-		handler.listen(content, ["dragenter", "dragover"], (/** !events.BrowserEvent */ event) => {
-			const drag = /** @type {!DragEvent} */ (event.getBrowserEvent());
-			if (!drag.dataTransfer?.types.includes("Files")) return;
-			event.preventDefault();
-			drag.dataTransfer.dropEffect = "copy";
-			content.classList.add("is-dragging");
-		});
-		handler.listen(content, "dragleave", (/** !events.BrowserEvent */ event) => {
-			if (!content.contains(/** @type {?Node} */ (event.relatedTarget))) {
-				content.classList.remove("is-dragging");
-			}
-		});
+		handler.listen(
+			this.queryElement_("action-query-mnemonics"),
+			"change",
+			(/** !events.BrowserEvent */ event) => {
+				const checkbox = /** @type {!HTMLInputElement} */ (event.target);
+				const source = this.sourceGraph_;
+				if (!source) return;
+				if (checkbox.checked) this.suppressed_.delete(checkbox.value);
+				else this.suppressed_.add(checkbox.value);
+				this.updateGraph_(suppressActions(source, this.suppressed_));
+			},
+		);
+		handler.listen(
+			content,
+			["dragenter", "dragover"],
+			(/** !events.BrowserEvent */ event) => {
+				const drag = /** @type {!DragEvent} */ (event.getBrowserEvent());
+				if (!drag.dataTransfer?.types.includes("Files")) return;
+				event.preventDefault();
+				drag.dataTransfer.dropEffect = "copy";
+				content.classList.add("is-dragging");
+			},
+		);
+		handler.listen(
+			content,
+			"dragleave",
+			(/** !events.BrowserEvent */ event) => {
+				if (!content.contains(/** @type {?Node} */ (event.relatedTarget))) {
+					content.classList.remove("is-dragging");
+				}
+			},
+		);
 		handler.listen(content, "drop", (/** !events.BrowserEvent */ event) => {
 			const drop = /** @type {!DragEvent} */ (event.getBrowserEvent());
 			content.classList.remove("is-dragging");
@@ -704,32 +799,69 @@ class ActionQuery extends Component {
 			if (file) this.load_(file);
 		});
 
-		handler.listen(this.queryElement_("action-query-fit"), "click", () => this.fit_());
-		handler.listen(this.queryElement_("action-query-zoom-in"), "click", () => this.zoom_(canvas, this.viewport_, 1.25));
-		handler.listen(this.queryElement_("action-query-zoom-out"), "click", () => this.zoom_(canvas, this.viewport_, 0.8));
-		handler.listen(this.queryElement_("action-query-subgraph-fit"), "click", () => this.fitSubgraph_());
-		handler.listen(this.queryElement_("action-query-subgraph-zoom-in"), "click",
-			() => this.zoom_(subgraphCanvas, this.subgraphViewport_, 1.25));
-		handler.listen(this.queryElement_("action-query-subgraph-zoom-out"), "click",
-			() => this.zoom_(subgraphCanvas, this.subgraphViewport_, 0.8));
-		handler.listen(this.queryElement_("action-query-fullscreen"), "click", () => this.setFullscreen_(!fullscreen.open));
-		handler.listen(fullscreen, "cancel", (/** !events.BrowserEvent */ event) => {
-			event.preventDefault();
-			this.setFullscreen_(false);
-		});
+		handler.listen(this.queryElement_("action-query-fit"), "click", () =>
+			this.fit_(),
+		);
+		handler.listen(this.queryElement_("action-query-zoom-in"), "click", () =>
+			this.zoom_(canvas, this.viewport_, 1.25),
+		);
+		handler.listen(this.queryElement_("action-query-zoom-out"), "click", () =>
+			this.zoom_(canvas, this.viewport_, 0.8),
+		);
+		handler.listen(
+			this.queryElement_("action-query-subgraph-fit"),
+			"click",
+			() => this.fitSubgraph_(),
+		);
+		handler.listen(
+			this.queryElement_("action-query-subgraph-zoom-in"),
+			"click",
+			() => this.zoom_(subgraphCanvas, this.subgraphViewport_, 1.25),
+		);
+		handler.listen(
+			this.queryElement_("action-query-subgraph-zoom-out"),
+			"click",
+			() => this.zoom_(subgraphCanvas, this.subgraphViewport_, 0.8),
+		);
+		handler.listen(this.queryElement_("action-query-fullscreen"), "click", () =>
+			this.setFullscreen_(!fullscreen.open),
+		);
+		handler.listen(
+			fullscreen,
+			"cancel",
+			(/** !events.BrowserEvent */ event) => {
+				event.preventDefault();
+				this.setFullscreen_(false);
+			},
+		);
 		this.listenCanvas_(canvas, this.viewport_, (x, y) => this.pick_(x, y));
 		this.listenCanvas_(subgraphCanvas, this.subgraphViewport_);
 		// Handle graph navigation before the app's page-level bracket shortcuts.
-		handler.listen(document, "keydown", (/** !events.BrowserEvent */ event) => {
-			if ((event.key !== "[" && event.key !== "]") || event.altKey || event.ctrlKey || event.metaKey ||
-				event.defaultPrevented || document.activeElement?.closest("input, textarea, select, [contenteditable]")) return;
-			if (!this.stepSelection_(event.key === "]", true)) return;
-			event.preventDefault();
-			event.stopPropagation();
-		}, true);
+		handler.listen(
+			document,
+			"keydown",
+			(/** !events.BrowserEvent */ event) => {
+				if (
+					(event.key !== "[" && event.key !== "]") ||
+					event.altKey ||
+					event.ctrlKey ||
+					event.metaKey ||
+					event.defaultPrevented ||
+					document.activeElement?.closest(
+						"input, textarea, select, [contenteditable]",
+					)
+				)
+					return;
+				if (!this.stepSelection_(event.key === "]", true)) return;
+				event.preventDefault();
+				event.stopPropagation();
+			},
+			true,
+		);
 		this.observer_ = new ResizeObserver(() => {
 			if (this.needsFit_) this.fit_();
-			if (subgraphCanvas.clientWidth !== this.subgraphWidth_) this.fitSubgraph_();
+			if (subgraphCanvas.clientWidth !== this.subgraphWidth_)
+				this.fitSubgraph_();
 			this.scheduleDraw_();
 		});
 		this.observer_.observe(canvas);
@@ -749,32 +881,46 @@ class ActionQuery extends Component {
 		handler.listen(canvas, "wheel", (/** !events.BrowserEvent */ event) => {
 			event.preventDefault();
 			const wheel = /** @type {!WheelEvent} */ (event.getBrowserEvent());
-			this.zoom_(canvas, viewport, wheel.deltaY < 0 ? 1.12 : 1 / 1.12, wheel.offsetX, wheel.offsetY);
+			this.zoom_(
+				canvas,
+				viewport,
+				wheel.deltaY < 0 ? 1.12 : 1 / 1.12,
+				wheel.offsetX,
+				wheel.offsetY,
+			);
 		});
-		handler.listen(canvas, "pointerdown", (/** !events.BrowserEvent */ event) => {
-			const pointer = /** @type {!PointerEvent} */ (event.getBrowserEvent());
-			if (pointer.button !== 0 || drag) return;
-			canvas.setPointerCapture(pointer.pointerId);
-			drag = {
-				id: pointer.pointerId,
-				x: pointer.clientX,
-				y: pointer.clientY,
-				originX: viewport.x,
-				originY: viewport.y,
-				moved: false,
-			};
-		});
-		handler.listen(canvas, "pointermove", (/** !events.BrowserEvent */ event) => {
-			const pointer = /** @type {!PointerEvent} */ (event.getBrowserEvent());
-			if (!drag || drag.id !== pointer.pointerId) return;
-			const dx = pointer.clientX - drag.x;
-			const dy = pointer.clientY - drag.y;
-			if (!drag.moved && Math.hypot(dx, dy) < 4) return;
-			drag.moved = true;
-			viewport.x = drag.originX + dx;
-			viewport.y = drag.originY + dy;
-			this.scheduleDraw_();
-		});
+		handler.listen(
+			canvas,
+			"pointerdown",
+			(/** !events.BrowserEvent */ event) => {
+				const pointer = /** @type {!PointerEvent} */ (event.getBrowserEvent());
+				if (pointer.button !== 0 || drag) return;
+				canvas.setPointerCapture(pointer.pointerId);
+				drag = {
+					id: pointer.pointerId,
+					x: pointer.clientX,
+					y: pointer.clientY,
+					originX: viewport.x,
+					originY: viewport.y,
+					moved: false,
+				};
+			},
+		);
+		handler.listen(
+			canvas,
+			"pointermove",
+			(/** !events.BrowserEvent */ event) => {
+				const pointer = /** @type {!PointerEvent} */ (event.getBrowserEvent());
+				if (!drag || drag.id !== pointer.pointerId) return;
+				const dx = pointer.clientX - drag.x;
+				const dy = pointer.clientY - drag.y;
+				if (!drag.moved && Math.hypot(dx, dy) < 4) return;
+				drag.moved = true;
+				viewport.x = drag.originX + dx;
+				viewport.y = drag.originY + dy;
+				this.scheduleDraw_();
+			},
+		);
 		handler.listen(canvas, "pointerup", (/** !events.BrowserEvent */ event) => {
 			const pointer = /** @type {!PointerEvent} */ (event.getBrowserEvent());
 			if (!drag || drag.id !== pointer.pointerId) return;
@@ -782,13 +928,18 @@ class ActionQuery extends Component {
 			drag = null;
 			if (!moved && pick) pick(pointer.offsetX, pointer.offsetY);
 		});
-		handler.listen(canvas, ["pointercancel", "lostpointercapture"], (/** !events.BrowserEvent */ event) => {
-			const pointer = /** @type {!PointerEvent} */ (event.getBrowserEvent());
-			if (drag?.id === pointer.pointerId) drag = null;
-		});
+		handler.listen(
+			canvas,
+			["pointercancel", "lostpointercapture"],
+			(/** !events.BrowserEvent */ event) => {
+				const pointer = /** @type {!PointerEvent} */ (event.getBrowserEvent());
+				if (drag?.id === pointer.pointerId) drag = null;
+			},
+		);
 		handler.listen(canvas, "keydown", (/** !events.BrowserEvent */ event) => {
 			if (event.altKey || event.ctrlKey || event.metaKey) return;
-			if (this.handleCanvasKey_(event.key, canvas, viewport)) event.preventDefault();
+			if (this.handleCanvasKey_(event.key, canvas, viewport))
+				event.preventDefault();
 		});
 	}
 
@@ -812,7 +963,9 @@ class ActionQuery extends Component {
 	 * @return {!HTMLElement}
 	 */
 	queryElement_(id) {
-		return /** @type {!HTMLElement} */ (this.getElementStrict().querySelector("#" + id));
+		return /** @type {!HTMLElement} */ (
+			this.getElementStrict().querySelector("#" + id)
+		);
 	}
 
 	/**
@@ -820,7 +973,9 @@ class ActionQuery extends Component {
 	 * @param {boolean} open
 	 */
 	setFullscreen_(open) {
-		const dialog = /** @type {!HTMLDialogElement} */ (this.queryElement_("action-query-fullscreen-dialog"));
+		const dialog = /** @type {!HTMLDialogElement} */ (
+			this.queryElement_("action-query-fullscreen-dialog")
+		);
 		const canvas = this.canvas_;
 		if (dialog.open === open || !canvas) return;
 
@@ -837,7 +992,7 @@ class ActionQuery extends Component {
 			dialog.close();
 		}
 		button.textContent = open ? "Exit full screen" : "Full screen";
-		button.focus({preventScroll: true});
+		button.focus({ preventScroll: true });
 
 		// Keep the same graph point centered when changing the viewport size.
 		this.viewport_.x += (canvas.clientWidth - width) / 2;
@@ -870,7 +1025,8 @@ class ActionQuery extends Component {
 		try {
 			buffer = await file.arrayBuffer();
 		} catch (_error) {
-			if (upload === this.upload_) showError("Could not read " + file.name + ".");
+			if (upload === this.upload_)
+				showError("Could not read " + file.name + ".");
 			return;
 		}
 		if (upload !== this.upload_) return;
@@ -878,11 +1034,20 @@ class ActionQuery extends Component {
 		/** @type {?ActionGraph} */
 		let graph;
 		try {
-			const container = ActionGraphContainer.deserializeBinary(new Uint8Array(buffer));
-			if (buffer.byteLength && !container.getActionsList().length && !container.getTargetsList().length &&
-				!container.getArtifactsList().length && !container.getDepSetOfFilesList().length &&
-				!container.getConfigurationList().length && !container.getAspectDescriptorsList().length &&
-				!container.getRuleClassesList().length && !container.getPathFragmentsList().length) {
+			const container = ActionGraphContainer.deserializeBinary(
+				new Uint8Array(buffer),
+			);
+			if (
+				buffer.byteLength &&
+				!container.getActionsList().length &&
+				!container.getTargetsList().length &&
+				!container.getArtifactsList().length &&
+				!container.getDepSetOfFilesList().length &&
+				!container.getConfigurationList().length &&
+				!container.getAspectDescriptorsList().length &&
+				!container.getRuleClassesList().length &&
+				!container.getPathFragmentsList().length
+			) {
 				throw new Error("No action graph fields");
 			}
 			graph = layoutActionGraph(container);
@@ -899,7 +1064,10 @@ class ActionQuery extends Component {
 		this.filename_ = file.name;
 		this.suppressed_.clear();
 		this.selected_ = -1;
-		renderMnemonicFilters(this.queryElement_("action-query-mnemonics"), graph.nodes.map((node) => node.action.getMnemonic()));
+		renderMnemonicFilters(
+			this.queryElement_("action-query-mnemonics"),
+			graph.nodes.map((node) => node.action.getMnemonic()),
+		);
 		this.queryElement_("action-query-filters").hidden = !graph.nodes.length;
 
 		const count = graph.nodes.length;
@@ -911,7 +1079,7 @@ class ActionQuery extends Component {
 		status.hidden = count > 0;
 		status.textContent = count ? "" : file.name + " contains no actions.";
 		this.updateGraph_(graph);
-		if (count && focusGraph) this.canvas_?.focus({preventScroll: true});
+		if (count && focusGraph) this.canvas_?.focus({ preventScroll: true });
 	}
 
 	/**
@@ -925,19 +1093,37 @@ class ActionQuery extends Component {
 		const count = graph.nodes.length;
 		const visible = actions.nodes.length;
 		const total = this.sourceGraph_?.nodes.length ?? visible;
-		const actionCount = visible === total ? visible.toLocaleString() : visible.toLocaleString() + " of " + total.toLocaleString();
-		const packages = graph.packageView ? " · " + count.toLocaleString() + (count === 1 ? " package" : " packages") : "";
-		this.queryElement_("action-query-summary").textContent = this.filename_ + packages + " · " + actionCount +
+		const actionCount =
+			visible === total
+				? visible.toLocaleString()
+				: visible.toLocaleString() + " of " + total.toLocaleString();
+		const packages = graph.packageView
+			? " · " +
+				count.toLocaleString() +
+				(count === 1 ? " package" : " packages")
+			: "";
+		this.queryElement_("action-query-summary").textContent =
+			this.filename_ +
+			packages +
+			" · " +
+			actionCount +
 			(total === 1 ? " action · " : " actions · ") +
-			graph.edgeCount.toLocaleString() + (graph.packageView ? " inter-package" : "") +
+			graph.edgeCount.toLocaleString() +
+			(graph.packageView ? " inter-package" : "") +
 			(graph.edgeCount === 1 ? " dependency" : " dependencies");
 		this.queryElement_("action-query-graph").hidden = count === 0;
 		this.queryElement_("action-query-zoom").hidden = count === 0;
 		this.queryElement_("action-query-filter-empty").hidden = count > 0;
 		let index = -1;
 		if (selected) {
-			const label = selected.packageInfo ? selected.target : packageLabel(selected.target);
-			index = graph.nodes.findIndex((node) => graph.packageView ? node.target === label : node.action === selected.action);
+			const label = selected.packageInfo
+				? selected.target
+				: packageLabel(selected.target);
+			index = graph.nodes.findIndex((node) =>
+				graph.packageView
+					? node.target === label
+					: node.action === selected.action,
+			);
 		}
 		this.select_(index);
 		this.fit_();
@@ -969,11 +1155,23 @@ class ActionQuery extends Component {
 		const canvas = this.canvas_;
 		const graph = this.graph_;
 		this.needsFit_ = !!graph?.nodes.length;
-		if (!this.needsFit_ || !graph || !canvas?.clientWidth || !canvas.clientHeight) return;
+		if (
+			!this.needsFit_ ||
+			!graph ||
+			!canvas?.clientWidth ||
+			!canvas.clientHeight
+		)
+			return;
 		this.needsFit_ = false;
-		this.viewport_.scale = Math.min(1, canvas.clientWidth / graph.width, canvas.clientHeight / graph.height);
-		this.viewport_.x = (canvas.clientWidth - graph.width * this.viewport_.scale) / 2;
-		this.viewport_.y = (canvas.clientHeight - graph.height * this.viewport_.scale) / 2;
+		this.viewport_.scale = Math.min(
+			1,
+			canvas.clientWidth / graph.width,
+			canvas.clientHeight / graph.height,
+		);
+		this.viewport_.x =
+			(canvas.clientWidth - graph.width * this.viewport_.scale) / 2;
+		this.viewport_.y =
+			(canvas.clientHeight - graph.height * this.viewport_.scale) / 2;
 		this.scheduleDraw_();
 	}
 
@@ -987,18 +1185,29 @@ class ActionQuery extends Component {
 		if (!graph || width <= SUBGRAPH_INSET * 2) return;
 
 		const selected = graph.nodes[0];
-		const inSelectedColumn = (/** number */ index) => graph.nodes[index].x === selected.x;
-		const sameColumn = selected.consumers.some(inSelectedColumn) || Array.from(selected.inputs).some(inSelectedColumn);
+		const inSelectedColumn = (/** number */ index) =>
+			graph.nodes[index].x === selected.x;
+		const sameColumn =
+			selected.consumers.some(inSelectedColumn) ||
+			Array.from(selected.inputs).some(inSelectedColumn);
 		// The layout includes fixed graph padding. Replace it with screen-space margins
 		// and leave room for the bends of any edges between nodes in the same column.
-		const graphWidth = graph.width - 2 * PADDING + (sameColumn ? COLUMN_GAP : 0);
+		const graphWidth =
+			graph.width - 2 * PADDING + (sameColumn ? COLUMN_GAP : 0);
 		const graphHeight = graph.height - 2 * PADDING;
 		const widthScale = (width - SUBGRAPH_INSET * 2) / graphWidth;
-		const canvasHeight = Math.ceil(graphHeight * widthScale) + SUBGRAPH_INSET * 2 + canvas.offsetHeight - canvas.clientHeight;
+		const canvasHeight =
+			Math.ceil(graphHeight * widthScale) +
+			SUBGRAPH_INSET * 2 +
+			canvas.offsetHeight -
+			canvas.clientHeight;
 		canvas.style.height = Math.min(MAX_SUBGRAPH_HEIGHT, canvasHeight) + "px";
 		const height = canvas.clientHeight;
 		const viewport = this.subgraphViewport_;
-		viewport.scale = Math.min(widthScale, (height - SUBGRAPH_INSET * 2) / graphHeight);
+		viewport.scale = Math.min(
+			widthScale,
+			(height - SUBGRAPH_INSET * 2) / graphHeight,
+		);
 		viewport.maxScale = Math.max(3, viewport.scale * 3);
 		viewport.x = (width - graph.width * viewport.scale) / 2;
 		viewport.y = (height - graph.height * viewport.scale) / 2;
@@ -1016,9 +1225,12 @@ class ActionQuery extends Component {
 	zoom_(canvas, viewport, factor, x, y) {
 		x = x ?? canvas.clientWidth / 2;
 		y = y ?? canvas.clientHeight / 2;
-		const next = Math.max(Math.min(0.025, viewport.scale), Math.min(viewport.maxScale, viewport.scale * factor));
-		viewport.x = x - (x - viewport.x) * next / viewport.scale;
-		viewport.y = y - (y - viewport.y) * next / viewport.scale;
+		const next = Math.max(
+			Math.min(0.025, viewport.scale),
+			Math.min(viewport.maxScale, viewport.scale * factor),
+		);
+		viewport.x = x - ((x - viewport.x) * next) / viewport.scale;
+		viewport.y = y - ((y - viewport.y) * next) / viewport.scale;
 		viewport.scale = next;
 		this.scheduleDraw_();
 	}
@@ -1033,14 +1245,19 @@ class ActionQuery extends Component {
 		if (!graph) return;
 		const gx = (x - this.viewport_.x) / this.viewport_.scale;
 		const gy = (y - this.viewport_.y) / this.viewport_.scale;
-		const dotHitRadius = Math.max(this.dotRadius_(this.viewport_.scale), Math.min(16, 8 / this.viewport_.scale));
-		this.select_(graph.nodes.findIndex((node) => {
-			const dx = gx - node.x;
-			const dy = gy - node.y;
-			return node.compact
-				? Math.hypot(dx, dy) <= dotHitRadius
-				: Math.abs(dx) <= NODE_WIDTH / 2 && Math.abs(dy) <= NODE_HEIGHT / 2;
-		}));
+		const dotHitRadius = Math.max(
+			this.dotRadius_(this.viewport_.scale),
+			Math.min(16, 8 / this.viewport_.scale),
+		);
+		this.select_(
+			graph.nodes.findIndex((node) => {
+				const dx = gx - node.x;
+				const dy = gy - node.y;
+				return node.compact
+					? Math.hypot(dx, dy) <= dotHitRadius
+					: Math.abs(dx) <= NODE_WIDTH / 2 && Math.abs(dy) <= NODE_HEIGHT / 2;
+			}),
+		);
 	}
 
 	/**
@@ -1053,15 +1270,30 @@ class ActionQuery extends Component {
 	handleCanvasKey_(key, canvas, viewport) {
 		if (!this.graph_?.nodes.length) return false;
 		switch (key) {
-			case "ArrowLeft": viewport.x += 48; break;
-			case "ArrowRight": viewport.x -= 48; break;
-			case "ArrowUp": viewport.y += 48; break;
-			case "ArrowDown": viewport.y -= 48; break;
-			case "+": this.zoom_(canvas, viewport, 1.25); break;
-			case "-": this.zoom_(canvas, viewport, 0.8); break;
-			case "PageUp": return this.stepSelection_(false, false);
-			case "PageDown": return this.stepSelection_(true, false);
-			default: return false;
+			case "ArrowLeft":
+				viewport.x += 48;
+				break;
+			case "ArrowRight":
+				viewport.x -= 48;
+				break;
+			case "ArrowUp":
+				viewport.y += 48;
+				break;
+			case "ArrowDown":
+				viewport.y -= 48;
+				break;
+			case "+":
+				this.zoom_(canvas, viewport, 1.25);
+				break;
+			case "-":
+				this.zoom_(canvas, viewport, 0.8);
+				break;
+			case "PageUp":
+				return this.stepSelection_(false, false);
+			case "PageDown":
+				return this.stepSelection_(true, false);
+			default:
+				return false;
 		}
 		this.scheduleDraw_();
 		return true;
@@ -1078,8 +1310,15 @@ class ActionQuery extends Component {
 		const graph = this.graph_;
 		if (!canvas || !graph?.nodes.length) return false;
 		const count = graph.nodes.length;
-		const next = this.selected_ < 0 ? (forward ? 0 : count - 1) : this.selected_ + (forward ? 1 : -1);
-		const index = wrap ? (next + count) % count : Math.max(0, Math.min(count - 1, next));
+		const next =
+			this.selected_ < 0
+				? forward
+					? 0
+					: count - 1
+				: this.selected_ + (forward ? 1 : -1);
+		const index = wrap
+			? (next + count) % count
+			: Math.max(0, Math.min(count - 1, next));
 		this.select_(index);
 		const node = graph.nodes[index];
 		const viewport = this.viewport_;
@@ -1113,31 +1352,54 @@ class ActionQuery extends Component {
 			this.renderPackageDetails_(details, node, packageInfo);
 		} else if (graph && node) {
 			const action = node.action;
-			const title = dom.createDom("h3", "h4 mb-1", action.getMnemonic() || "Action");
+			const title = dom.createDom(
+				"h3",
+				"h4 mb-1",
+				action.getMnemonic() || "Action",
+			);
 			const target = dom.createDom("div", "mb-2", node.target);
 			const producers = node.inputs.size;
 			const consumers = node.consumers.length;
-			const counts = dom.createDom("p", "text-small color-fg-muted",
-				producers + (producers === 1 ? " producer · " : " producers · ") +
-				consumers + (consumers === 1 ? " consumer" : " consumers"));
+			const counts = dom.createDom(
+				"p",
+				"text-small color-fg-muted",
+				producers +
+					(producers === 1 ? " producer · " : " producers · ") +
+					consumers +
+					(consumers === 1 ? " consumer" : " consumers"),
+			);
 			const platform = action.getExecutionPlatform();
 			details.append(title, target, counts);
-			if (platform) details.appendChild(dom.createDom("p", "text-small", platform));
+			if (platform)
+				details.appendChild(dom.createDom("p", "text-small", platform));
 			const outputs = action.getOutputIdsList();
 			if (outputs.length) {
 				details.appendChild(dom.createDom("h4", "h5", "Outputs"));
-				const list = dom.createDom("ul", "pl-3 mb-2 text-small action-query-outputs");
-				for (const output of outputs) list.appendChild(dom.createDom("li", null, graph.artifactPath(output)));
+				const list = dom.createDom(
+					"ul",
+					"pl-3 mb-2 text-small action-query-outputs",
+				);
+				for (const output of outputs)
+					list.appendChild(
+						dom.createDom("li", null, graph.artifactPath(output)),
+					);
 				details.appendChild(list);
 			}
 			const args = action.getArgumentsList();
 			if (args.length) {
 				details.appendChild(dom.createDom("h4", "h5", "Command arguments"));
-				details.appendChild(dom.createDom("pre", "action-query-command", args.join("\n")));
+				details.appendChild(
+					dom.createDom("pre", "action-query-command", args.join("\n")),
+				);
 			}
 		}
 		if (graph && node) {
-			this.renderConnections_(details, graph, "Producers", Array.from(node.inputs));
+			this.renderConnections_(
+				details,
+				graph,
+				"Producers",
+				Array.from(node.inputs),
+			);
 			this.renderConnections_(details, graph, "Consumers", node.consumers);
 		}
 		this.scheduleDraw_();
@@ -1152,15 +1414,22 @@ class ActionQuery extends Component {
 	 */
 	renderConnections_(details, graph, title, connections) {
 		if (!connections.length) return;
-		const list = dom.createDom("ul", "pl-3 mb-2 text-small action-query-outputs");
+		const list = dom.createDom(
+			"ul",
+			"pl-3 mb-2 text-small action-query-outputs",
+		);
 		for (const index of connections) {
 			const node = graph.nodes[index];
 			const label = [
 				graph.packageView ? "" : node.action.getMnemonic(),
 				node.target,
 				node.output,
-			].filter(Boolean).join(" · ");
-			list.appendChild(dom.createDom("li", null, label || "Action " + (index + 1)));
+			]
+				.filter(Boolean)
+				.join(" · ");
+			list.appendChild(
+				dom.createDom("li", null, label || "Action " + (index + 1)),
+			);
 		}
 		details.append(dom.createDom("h4", "h5", title), list);
 	}
@@ -1176,24 +1445,48 @@ class ActionQuery extends Component {
 		const consumers = node.consumers.length;
 		details.append(
 			dom.createDom("h3", "h4 mb-1", node.target),
-			dom.createDom("p", "text-small color-fg-muted",
-				info.actionCount.toLocaleString() + (info.actionCount === 1 ? " action" : " actions")),
-			dom.createDom("p", "text-small color-fg-muted",
-				producers.toLocaleString() + (producers === 1 ? " producer package · " : " producer packages · ") +
-				consumers.toLocaleString() + (consumers === 1 ? " consumer package" : " consumer packages")),
+			dom.createDom(
+				"p",
+				"text-small color-fg-muted",
+				info.actionCount.toLocaleString() +
+					(info.actionCount === 1 ? " action" : " actions"),
+			),
+			dom.createDom(
+				"p",
+				"text-small color-fg-muted",
+				producers.toLocaleString() +
+					(producers === 1 ? " producer package · " : " producer packages · ") +
+					consumers.toLocaleString() +
+					(consumers === 1 ? " consumer package" : " consumer packages"),
+			),
 		);
-		const list = dom.createDom("ul", "list-style-none action-query-package-mix");
+		const list = dom.createDom(
+			"ul",
+			"list-style-none action-query-package-mix",
+		);
 		/** @type {!Array<string>} */
 		const mnemonics = Array.from(info.mnemonics.keys());
-		mnemonics.sort((a, b) =>
-			(info.mnemonics.get(b) || 0) - (info.mnemonics.get(a) || 0) || a.localeCompare(b));
+		mnemonics.sort(
+			(a, b) =>
+				(info.mnemonics.get(b) || 0) - (info.mnemonics.get(a) || 0) ||
+				a.localeCompare(b),
+		);
 		for (const mnemonic of mnemonics) {
 			const count = info.mnemonics.get(mnemonic) || 0;
-			const swatch = dom.createDom("span", {"class": "action-query-swatch", "aria-hidden": "true"});
+			const swatch = dom.createDom("span", {
+				"class": "action-query-swatch",
+				"aria-hidden": "true",
+			});
 			if (mnemonic) swatch.style.backgroundColor = mnemonicColor(mnemonic);
-			list.appendChild(dom.createDom("li", "text-small", swatch,
-				dom.createDom("span", null, mnemonic || "(No mnemonic)"),
-				dom.createDom("span", "color-fg-muted", count.toLocaleString())));
+			list.appendChild(
+				dom.createDom(
+					"li",
+					"text-small",
+					swatch,
+					dom.createDom("span", null, mnemonic || "(No mnemonic)"),
+					dom.createDom("span", "color-fg-muted", count.toLocaleString()),
+				),
+			);
 		}
 		details.appendChild(list);
 	}
@@ -1218,9 +1511,20 @@ class ActionQuery extends Component {
 
 	/** @private */
 	draw_() {
-		if (this.canvas_ && this.graph_) this.drawGraph_(this.canvas_, this.graph_, this.selected_, this.viewport_);
+		if (this.canvas_ && this.graph_)
+			this.drawGraph_(
+				this.canvas_,
+				this.graph_,
+				this.selected_,
+				this.viewport_,
+			);
 		if (this.subgraphCanvas_ && this.subgraph_) {
-			this.drawGraph_(this.subgraphCanvas_, this.subgraph_, 0, this.subgraphViewport_);
+			this.drawGraph_(
+				this.subgraphCanvas_,
+				this.subgraph_,
+				0,
+				this.subgraphViewport_,
+			);
 		}
 	}
 
@@ -1232,9 +1536,11 @@ class ActionQuery extends Component {
 	 * @param {!GraphViewport} viewport
 	 */
 	drawGraph_(canvas, graph, selected, viewport) {
-		const {scale, x: originX, y: originY} = viewport;
+		const { scale, x: originX, y: originY } = viewport;
 		if (!canvas.clientWidth || !canvas.clientHeight) return;
-		const ctx = /** @type {?CanvasRenderingContext2D} */ (canvas.getContext("2d"));
+		const ctx = /** @type {?CanvasRenderingContext2D} */ (
+			canvas.getContext("2d")
+		);
 		if (!ctx) return;
 
 		const ratio = window.devicePixelRatio || 1;
@@ -1244,7 +1550,14 @@ class ActionQuery extends Component {
 		if (canvas.height !== height) canvas.height = height;
 		ctx.setTransform(1, 0, 0, 1, 0, 0);
 		ctx.clearRect(0, 0, width, height);
-		ctx.setTransform(scale * ratio, 0, 0, scale * ratio, originX * ratio, originY * ratio);
+		ctx.setTransform(
+			scale * ratio,
+			0,
+			0,
+			scale * ratio,
+			originX * ratio,
+			originY * ratio,
+		);
 		const style = getComputedStyle(canvas);
 		const border = style.getPropertyValue("--action-query-border");
 		const accent = style.getPropertyValue("--action-query-accent");
@@ -1263,9 +1576,15 @@ class ActionQuery extends Component {
 				const to = graph.nodes[consumer];
 				const dx = to.x - from.x;
 				const dy = to.y - from.y;
-				const vertical = graph.forceDirected && Math.abs(dy) > Math.abs(dx) * NODE_HEIGHT / NODE_WIDTH;
+				const vertical =
+					graph.forceDirected &&
+					Math.abs(dy) > (Math.abs(dx) * NODE_HEIGHT) / NODE_WIDTH;
 				const sameColumn = !vertical && dx === 0;
-				const fromSide = sameColumn ? (dy > 0 ? -1 : 1) : Math.sign(vertical ? dy : dx);
+				const fromSide = sameColumn
+					? dy > 0
+						? -1
+						: 1
+					: Math.sign(vertical ? dy : dx);
 				const toSide = sameColumn ? fromSide : -fromSide;
 				const halfSize = (vertical ? NODE_HEIGHT : NODE_WIDTH) / 2;
 				const fromOffset = fromSide * (from.compact ? dotRadius : halfSize);
@@ -1274,11 +1593,18 @@ class ActionQuery extends Component {
 				const y = from.y + (vertical ? fromOffset : 0);
 				const endX = to.x + (vertical ? 0 : toOffset);
 				const endY = to.y + (vertical ? toOffset : 0);
-				const midX = (x + endX) / 2 + (sameColumn ? fromSide * COLUMN_GAP / 2 : 0);
+				const midX =
+					(x + endX) / 2 + (sameColumn ? (fromSide * COLUMN_GAP) / 2 : 0);
 				const midY = (y + endY) / 2;
-				if (Math.max(x, endX, midX) < left || Math.min(x, endX, midX) > right ||
-					Math.min(y, endY) > bottom || Math.max(y, endY) < top) continue;
-				const color = index === selected || consumer === selected ? accent : border;
+				if (
+					Math.max(x, endX, midX) < left ||
+					Math.min(x, endX, midX) > right ||
+					Math.min(y, endY) > bottom ||
+					Math.max(y, endY) < top
+				)
+					continue;
+				const color =
+					index === selected || consumer === selected ? accent : border;
 				ctx.strokeStyle = color;
 				ctx.lineWidth = Math.max(1.5, 0.6 / scale);
 				ctx.beginPath();
@@ -1303,8 +1629,13 @@ class ActionQuery extends Component {
 
 		graph.nodes.forEach((node, index) => {
 			if (node.compact) {
-				if (node.x + dotRadius < left || node.x - dotRadius > right ||
-					node.y + dotRadius < top || node.y - dotRadius > bottom) return;
+				if (
+					node.x + dotRadius < left ||
+					node.x - dotRadius > right ||
+					node.y + dotRadius < top ||
+					node.y - dotRadius > bottom
+				)
+					return;
 				ctx.beginPath();
 				ctx.arc(node.x, node.y, dotRadius, 0, 2 * Math.PI);
 				if (index === selected) {
@@ -1319,7 +1650,13 @@ class ActionQuery extends Component {
 			}
 			const x = node.x - NODE_WIDTH / 2;
 			const y = node.y - NODE_HEIGHT / 2;
-			if (x + NODE_WIDTH < left || x > right || y + NODE_HEIGHT < top || y > bottom) return;
+			if (
+				x + NODE_WIDTH < left ||
+				x > right ||
+				y + NODE_HEIGHT < top ||
+				y > bottom
+			)
+				return;
 			ctx.fillStyle = index === selected ? accent : background;
 			ctx.fillRect(x, y, NODE_WIDTH, NODE_HEIGHT);
 			ctx.strokeStyle = index === selected ? accent : border;
@@ -1329,28 +1666,45 @@ class ActionQuery extends Component {
 			if (pkg) {
 				let actions = 0;
 				for (const [color, count] of pkg.colors) {
-					const start = actions / pkg.actionCount * NODE_WIDTH;
+					const start = (actions / pkg.actionCount) * NODE_WIDTH;
 					actions += count;
-					const end = actions / pkg.actionCount * NODE_WIDTH;
+					const end = (actions / pkg.actionCount) * NODE_WIDTH;
 					ctx.fillStyle = color || muted;
 					ctx.fillRect(x + start, y, end - start, Math.max(5, 1 / scale));
 				}
 			} else if (node.color) {
 				ctx.fillStyle = node.color;
-				ctx.fillRect(x, y, Math.min(NODE_WIDTH, Math.max(5, 1 / scale)), NODE_HEIGHT);
+				ctx.fillRect(
+					x,
+					y,
+					Math.min(NODE_WIDTH, Math.max(5, 1 / scale)),
+					NODE_HEIGHT,
+				);
 			}
 			if (scale < TITLE_SCALE) return;
 			ctx.fillStyle = index === selected ? inverted : style.color;
 			ctx.font = "600 " + Math.max(14, 7 / scale) + "px " + style.fontFamily;
 			const target = node.target;
 			const label = target.length > 26 ? "…" + target.slice(-25) : target;
-			ctx.fillText(pkg ? label : node.action.getMnemonic() || "Action", x + 10, y + (pkg ? 24 : 20), NODE_WIDTH - 20);
+			ctx.fillText(
+				pkg ? label : node.action.getMnemonic() || "Action",
+				x + 10,
+				y + (pkg ? 24 : 20),
+				NODE_WIDTH - 20,
+			);
 			if (scale < DETAILS_SCALE) return;
 			ctx.fillStyle = index === selected ? inverted : muted;
 			ctx.font = "12px " + style.fontFamily;
-			const subtitle = pkg ? pkg.actionCount.toLocaleString() + (pkg.actionCount === 1 ? " action" : " actions") :
-				node.output || target;
-			ctx.fillText(subtitle.length > 26 ? "…" + subtitle.slice(-25) : subtitle, x + 10, y + 38, NODE_WIDTH - 20);
+			const subtitle = pkg
+				? pkg.actionCount.toLocaleString() +
+					(pkg.actionCount === 1 ? " action" : " actions")
+				: node.output || target;
+			ctx.fillText(
+				subtitle.length > 26 ? "…" + subtitle.slice(-25) : subtitle,
+				x + 10,
+				y + 38,
+				NODE_WIDTH - 20,
+			);
 		});
 	}
 }
