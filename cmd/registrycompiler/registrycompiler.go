@@ -120,10 +120,9 @@ func run(args []string) error {
 // frontend can fetch it on demand.
 //
 // Motivation: the boot payload is base64+gzipped into a <script> and parsed in
-// full on every page load. At ~15.8MB of wire format it expands to roughly
-// 740MB of JS objects, which exceeds the per-tab memory cap on iOS Safari --
-// WebContent gets killed with `highwater`, Safari reloads the tab, and the
-// cycle repeats until it gives up. Thinning takes the payload to ~5.7MB.
+// full on every page load. Thinning reduces boot transfer and heap. The
+// separate symbols and packages aggregates account for most of the heap on
+// the old boot path.
 //
 // What stays on every version, and why:
 //
@@ -136,14 +135,20 @@ func run(args []string) error {
 //     home "recently added" feed reads the OLDEST version of each module, and
 //     the maintainers page attributes every version by commit.github_user.
 //     Only sha1 and the (large) commit message are dropped.
+//   - presubmit, which feeds registry-wide testing filters.
+//   - empty source and attestation messages where present. The aggregates
+//     decorate the source, and the home feed uses attestation presence.
 //
-// Everything else -- source, attestations, presubmit, toolchains_to_register
-// -- is only ever rendered on a module detail page for the single version
-// being viewed, so it is served per-version instead.
+// Source details, attestation content, and toolchains are served per-version.
 func thinRegistry(registry *bzpb.Registry, moduleVersionsDir string) error {
+	if moduleVersionsDir != "" {
+		if err := os.MkdirAll(moduleVersionsDir, 0755); err != nil {
+			return fmt.Errorf("creating module versions directory: %w", err)
+		}
+	}
 	for _, module := range registry.Modules {
-		for _, mv := range module.Versions {
-			if mv.IsLatestVersion {
+		for i, mv := range module.Versions {
+			if i == 0 || mv.IsLatestVersion {
 				continue
 			}
 			if moduleVersionsDir != "" {
@@ -151,9 +156,12 @@ func thinRegistry(registry *bzpb.Registry, moduleVersionsDir string) error {
 					return err
 				}
 			}
-			mv.Source = nil
-			mv.Attestations = nil
-			mv.Presubmit = nil
+			if mv.Source != nil {
+				mv.Source = &bzpb.ModuleSource{}
+			}
+			if mv.Attestations != nil {
+				mv.Attestations = &bzpb.Attestations{}
+			}
 			mv.ToolchainsToRegister = nil
 			mv.RepositoryMetadata = nil
 			if mv.Commit != nil {
@@ -174,6 +182,11 @@ func thinRegistry(registry *bzpb.Registry, moduleVersionsDir string) error {
 // into the tarball under modules/, giving the frontend a URL that mirrors the
 // existing documentationinfo.pb.gz / packageinfo.pb.gz convention.
 func writeModuleVersionRecord(dir string, mv *bzpb.ModuleVersion) error {
+	for _, segment := range []string{mv.Name, mv.Version} {
+		if !filepath.IsLocal(segment) || filepath.Base(segment) != segment || segment == "." {
+			return fmt.Errorf("invalid module version record path segment %q", segment)
+		}
+	}
 	path := filepath.Join(dir, mv.Name, mv.Version, "moduleversion.pb.gz")
 	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
 		return fmt.Errorf("creating %s: %v", filepath.Dir(path), err)
@@ -193,7 +206,7 @@ func parseFlags(args []string) (cfg Config, err error) {
 	fs.StringVar(&cfg.Branch, "branch", "", "branch name of the repository data (e.g. 'main')")
 	fs.StringVar(&cfg.Commit, "commit", "", "commit sha1 of the repository data")
 	fs.StringVar(&cfg.CommitDate, "commit_date", "", "timestamp of the commit date (ISO 8601 format)")
-	fs.BoolVar(&cfg.Thin, "thin", false, "strip per-version detail (source, attestations, presubmit, commit sha1/message) from non-latest module versions. Keeps the full dependency graph and the commit fields the home/maintainers feeds read. Shrinks the boot payload from ~15.8MB to ~5.7MB of wire format")
+	fs.BoolVar(&cfg.Thin, "thin", false, "defer source details, attestation content, toolchains and full commit metadata for non-latest module versions")
 	fs.StringVar(&cfg.ModuleVersionsDir, "module_versions_dir", "", "with -thin, write each non-latest version's untouched record to <dir>/<name>/<version>/moduleversion.pb.gz for the frontend to fetch on demand")
 	fs.Usage = func() {
 		fmt.Fprintf(flag.CommandLine.Output(), "usage: %s @PARAMS_FILE", toolName)

@@ -134,78 +134,79 @@ async function fetchModuleVersionPackagesFromGithubRepository(moduleVersion) {
 	}
 }
 
-/**
- * In-flight or completed hydrations, keyed "name@version". Keeps a second
- * visit to the same version page from refetching.
- * @type {!Map<string, !Promise<void>>}
- */
-const moduleVersionHydrations = new Map();
+/** @type {!WeakMap<!ModuleVersion, !Promise<boolean>>} */
+const moduleVersionHydrations = new WeakMap();
 
 /**
- * Fills in the per-version detail that the boot payload omits.
- *
- * The registry is base64+gzipped into a <script> and parsed in full on every
- * page load, so it only carries the dependency graph and a reduced commit for
- * non-latest versions — source, attestations, presubmit, toolchains and the
- * full commit are served per-version instead. See thinRegistry in
- * cmd/registrycompiler for the split and the reasoning behind it.
- *
- * Latest versions ship complete, so this resolves immediately for them. The
- * absence of `source` is the marker for a thinned version: every real module
- * version has one.
- *
- * Documentation and packages are deliberately not merged here. They have their
- * own aggregates plus per-version fallbacks (see the DOCS and PACKAGES
- * branches of selectFail below), and a hydrated source simply arrives without
- * them, which routes those tabs down the existing fallback path.
- *
+ * Fills in historical detail omitted by the boot registry. Keep any
+ * documentation and package data already attached by the aggregate loaders.
  * @param {!ModuleVersion} moduleVersion
- * @return {!Promise<void>}
+ * @param {boolean} isLatest
+ * @return {!Promise<boolean>}
  */
-function hydrateModuleVersion(moduleVersion) {
-	if (moduleVersion.getSource()) {
-		return Promise.resolve();
+function hydrateModuleVersion(moduleVersion, isLatest) {
+	if (
+		isLatest ||
+		moduleVersion.getIsLatestVersion() ||
+		!document.querySelector('meta[name="bcr:thin-registry"]')
+	) {
+		return Promise.resolve(true);
 	}
-
-	const name = moduleVersion.getName();
-	const version = moduleVersion.getVersion();
-	const key = `${name}@${version}`;
-	const existing = moduleVersionHydrations.get(key);
+	const existing = moduleVersionHydrations.get(moduleVersion);
 	if (existing) {
 		return existing;
 	}
 
+	const name = moduleVersion.getName();
+	const version = moduleVersion.getVersion();
 	const baseUrl =
 		new URLSearchParams(window.location.search).get("modules_base_url") || "";
-	const url = `${baseUrl}/modules/${name}/${version}/moduleversion.pb.gz`;
-
+	const url = `${baseUrl}/modules/${encodeURIComponent(name)}/${encodeURIComponent(version)}/moduleversion.pb.gz`;
 	const pending = (async () => {
 		try {
-			const response = await fetch(url);
-			if (!response.ok) return;
-			const gzipData = new Uint8Array(await response.arrayBuffer());
-			const decompressed = await gzipDecode(gzipData);
-			const full = ModuleVersion.deserializeBinary(decompressed);
-			moduleVersion.setSource(full.getSource());
+			const response = await fetch(url, { cache: "no-cache" });
+			if (!response.ok) throw new Error(`HTTP ${response.status}`);
+			const data = new Uint8Array(await response.arrayBuffer());
+			const full = ModuleVersion.deserializeBinary(await gzipDecode(data));
+			if (full.getName() !== name || full.getVersion() !== version) {
+				throw new Error(
+					"Version record does not match the requested module and version",
+				);
+			}
+
+			const attached = moduleVersion.getSource();
+			const source = full.getSource();
+			const docs = attached?.getDocumentation();
+			const packages = attached?.getPackages();
+			if (source && docs && !source.getDocumentation())
+				source.setDocumentation(docs);
+			if (source && packages && !source.getPackages())
+				source.setPackages(packages);
+			moduleVersion.setSource(source);
 			moduleVersion.setAttestations(full.getAttestations());
-			moduleVersion.setPresubmit(full.getPresubmit());
 			moduleVersion.setToolchainsToRegisterList(
 				full.getToolchainsToRegisterList(),
 			);
-			// The payload's commit keeps date/pull_request/github_user/
-			// github_name; the record restores sha1 and the message. Leave
-			// repository_metadata alone — main.js denormalizes it from the
-			// parent Module at boot and the record has none.
-			const commit = full.getCommit();
-			if (commit) {
-				moduleVersion.setCommit(commit);
-			}
+			moduleVersion.setCommit(full.getCommit());
+			return true;
 		} catch (/** @type {*} */ e) {
-			console.error(`Failed to fetch record for ${key}:`, e);
+			console.error(
+				`Failed to fetch version details for ${name}@${version}:`,
+				e,
+			);
+			return false;
 		}
-	})();
-
-	moduleVersionHydrations.set(key, pending);
+	})().then(
+		/**
+		 * @param {boolean} loaded
+		 * @return {boolean}
+		 */
+		(loaded) => {
+			if (!loaded) moduleVersionHydrations.delete(moduleVersion);
+			return loaded;
+		},
+	);
+	moduleVersionHydrations.set(moduleVersion, pending);
 	return pending;
 }
 
@@ -358,22 +359,23 @@ class ModuleSelect extends ContentSelect {
 
 		const moduleVersion = this.moduleVersions_.get(name);
 		if (moduleVersion) {
-			// Historical versions arrive thinned; the nav builds tabs from
-			// source/attestations/presubmit in enterDocument, so the record has
-			// to land before the component is constructed. Resolves immediately
-			// for the latest version and for anything already hydrated.
-			hydrateModuleVersion(moduleVersion).then(() => {
-				if (this.isDisposed()) return;
-				this.addTab(
-					name,
-					new ModuleVersionSelectNav(
-						this.registry_,
-						this.module_,
-						moduleVersion,
-					),
-				);
-				this.select(name, route);
-			});
+			// The nav reads source details before it creates its tabs.
+			hydrateModuleVersion(moduleVersion, moduleVersion === this.latest_).then(
+				(loaded) => {
+					if (this.isDisposed() || !route.inProgress()) return;
+					this.addTab(
+						name,
+						loaded
+							? new ModuleVersionSelectNav(
+									this.registry_,
+									this.module_,
+									moduleVersion,
+								)
+							: new ModuleVersionBlankslateComponent(this.module_, name, true),
+					);
+					this.select(name, route);
+				},
+			);
 			return;
 		}
 
@@ -1947,9 +1949,10 @@ class ModuleVersionBlankslateComponent extends Component {
 	/**
 	 * @param {!Module} module
 	 * @param {string} version
+	 * @param {boolean=} opt_detailsUnavailable
 	 * @param {?dom.DomHelper=} opt_domHelper
 	 */
-	constructor(module, version, opt_domHelper) {
+	constructor(module, version, opt_detailsUnavailable, opt_domHelper) {
 		super(opt_domHelper);
 
 		/** @private @const @type {!Module} */
@@ -1957,6 +1960,9 @@ class ModuleVersionBlankslateComponent extends Component {
 
 		/** @private @const @type {string} */
 		this.version_ = version;
+
+		/** @private @const */
+		this.detailsUnavailable_ = !!opt_detailsUnavailable;
 	}
 
 	/**
@@ -1967,6 +1973,7 @@ class ModuleVersionBlankslateComponent extends Component {
 			soy.renderAsElement(moduleVersionBlankslateComponent, {
 				module: this.module_,
 				version: this.version_,
+				detailsUnavailable: this.detailsUnavailable_,
 			}),
 		);
 	}

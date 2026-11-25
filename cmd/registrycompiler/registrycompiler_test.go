@@ -23,7 +23,7 @@ func mv(name, version string, latest bool) *bzpb.ModuleVersion {
 		ToolchainsToRegister: []string{"//toolchain:all"},
 		Source:               &bzpb.ModuleSource{Url: "https://example.com/a.tar.gz", Integrity: "sha256-abc"},
 		Attestations:         &bzpb.Attestations{MediaType: "application/vnd.dev.sigstore.bundle+json"},
-		Presubmit:            &bzpb.Presubmit{},
+		Presubmit:            &bzpb.Presubmit{Matrix: &bzpb.Presubmit_PresubmitMatrix{Platform: []string{"linux"}}},
 		Commit: &bzpb.ModuleCommit{
 			Sha1:        "deadbeefdeadbeef",
 			Date:        "2026-01-02T03:04:05Z",
@@ -38,7 +38,7 @@ func mv(name, version string, latest bool) *bzpb.ModuleVersion {
 func TestThinRegistryKeepsLatestVersionsIntact(t *testing.T) {
 	reg := &bzpb.Registry{Modules: []*bzpb.Module{{
 		Name:     "foo",
-		Versions: []*bzpb.ModuleVersion{mv("foo", "2.0.0", true), mv("foo", "1.0.0", false)},
+		Versions: []*bzpb.ModuleVersion{mv("foo", "2.0.0", false), mv("foo", "1.0.0", false)},
 	}}}
 
 	if err := thinRegistry(reg, ""); err != nil {
@@ -68,14 +68,14 @@ func TestThinRegistryStripsDetailFromHistoricalVersions(t *testing.T) {
 	}
 
 	old := reg.Modules[0].Versions[1]
-	if old.Source != nil {
-		t.Error("source should be stripped; it is only rendered on a detail page")
+	if old.Source == nil || proto.Size(old.Source) != 0 {
+		t.Error("an empty source must remain for aggregate docs and packages to attach")
 	}
-	if old.Attestations != nil {
-		t.Error("attestations should be stripped")
+	if old.Attestations == nil || proto.Size(old.Attestations) != 0 {
+		t.Error("attestation presence must remain for the home feed badge")
 	}
-	if old.Presubmit != nil {
-		t.Error("presubmit should be stripped")
+	if got := old.GetPresubmit().GetMatrix().GetPlatform(); len(got) != 1 || got[0] != "linux" {
+		t.Errorf("presubmit data must remain for historical testing filters, got %v", got)
 	}
 	if old.ToolchainsToRegister != nil {
 		t.Error("toolchains_to_register should be stripped")
@@ -103,6 +103,17 @@ func TestThinRegistryStripsDetailFromHistoricalVersions(t *testing.T) {
 	}
 	if old.Commit.Sha1 != "" {
 		t.Error("commit sha1 should be dropped from historical versions")
+	}
+}
+
+func TestThinRegistryCreatesEmptyOutputDirectory(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "moduleversions")
+	if err := thinRegistry(&bzpb.Registry{}, dir); err != nil {
+		t.Fatal(err)
+	}
+	entries, err := os.ReadDir(dir)
+	if err != nil || len(entries) != 0 {
+		t.Fatalf("expected empty output directory, got %v, %v", entries, err)
 	}
 }
 

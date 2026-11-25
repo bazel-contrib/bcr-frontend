@@ -45,7 +45,7 @@ def _compile_release_action(ctx):
         args.add("--exclude_from_hash", ",".join(exclude_from_hash))
 
     for f in ctx.files.modules_srcs:
-        args.add("--modules_src", f)
+        args.add("--modules_src", f.path)
 
     # Positional args (asset files) must come last, after all flags
     args.add_all(ctx.files.srcs)
@@ -94,7 +94,7 @@ release_archive = rule(
         "hashed_srcs": attr.label_list(allow_files = True),
         "modules_srcs": attr.label_list(
             allow_files = True,
-            doc = "Files to include under modules/ in the tarball, preserving subdirectory structure",
+            doc = "Files or directories to include under modules/ in the tarball",
         ),
         "srcs": attr.label_list(allow_files = True),
         "worker_modules": attr.label_list(

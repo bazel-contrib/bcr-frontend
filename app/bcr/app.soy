@@ -3162,12 +3162,18 @@ import {
 {template moduleVersionBlankslateComponent}
   {@param module: Module}
   {@param version: string}
+  {@param detailsUnavailable: bool}
 <div class="blankslate-container">
   <div class="blankslate">
+    {if $detailsUnavailable}
+    <div class="blankslate-heading">Module Version Details Unavailable</div>
+    <p>Could not load details for <a href="/modules/{$module.getName()}">{$module.getName()}</a> <code>{$version}</code>. Reload the page to try again.</p>
+    {else}
     <div class="blankslate-heading">
       Module Version Not Found
     </div>
     <p>Module <a href="/modules/{$module.getName()}">{$module.getName()}</a> has no known version <code>{$version}</code></p>
+    {/if}
   </div>
 </div>
 {/template}

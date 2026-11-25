@@ -217,10 +217,10 @@ func buildManifestAsset(registryPath string, assets []HashedAsset) (HashedAsset,
 	}
 
 	manifest := &bzpb.RegistryManifest{
-		CommitSha:    registry.GetCommitSha(),
-		CommitDate:   registry.GetCommitDate(),
-		Branch:       registry.GetBranch(),
-		AssetHashes:  map[string]string{},
+		CommitSha:   registry.GetCommitSha(),
+		CommitDate:  registry.GetCommitDate(),
+		Branch:      registry.GetBranch(),
+		AssetHashes: map[string]string{},
 	}
 	for _, a := range assets {
 		if a.OriginalName == a.HashedName {
@@ -482,16 +482,20 @@ func createTarball(indexContent []byte, assets []HashedAsset, modulesSrcFiles []
 			// declared directory rather than searching for a "modules/"
 			// marker, which would misfire on a module literally named
 			// "modules".
-			err := filepath.Walk(path, func(p string, fi os.FileInfo, err error) error {
+			root, err := filepath.EvalSymlinks(path)
+			if err != nil {
+				return nil, fmt.Errorf("resolving modules_src directory %s: %w", path, err)
+			}
+			err = filepath.WalkDir(root, func(p string, entry os.DirEntry, err error) error {
 				if err != nil {
 					return err
 				}
-				if fi.IsDir() {
+				if entry.IsDir() {
 					return nil
 				}
-				rel, err := filepath.Rel(path, p)
+				rel, err := filepath.Rel(root, p)
 				if err != nil {
-					return fmt.Errorf("relativizing %s against %s: %v", p, path, err)
+					return fmt.Errorf("relativizing %s against %s: %v", p, root, err)
 				}
 				content, err := os.ReadFile(p)
 				if err != nil {

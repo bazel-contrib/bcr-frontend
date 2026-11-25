@@ -709,9 +709,8 @@ def _compile_registry_action(ctx, filename, modules, symbols = None, thin = Fals
         symbols: Optional ModuleRegistrySymbols proto to decorate with
         thin: When True, strip per-version detail from non-latest module
             versions and emit each untouched record into a `moduleversions`
-            tree artifact. Used for the boot payload, which is parsed in full
-            on every page load and otherwise exceeds mobile Safari's per-tab
-            memory cap. See cmd/registrycompiler for what is kept and why.
+            tree artifact. Used to reduce transfer and heap for the boot payload.
+            See cmd/registrycompiler for which fields are retained.
 
     Returns:
         struct(proto = File, module_versions = File | None)
@@ -785,9 +784,8 @@ def _module_registry_impl(ctx):
     registry_pb = _compile_registry_action(ctx, "registry.pb", modules, symbols_pb).proto
     registrylite_pb = _compile_registry_action(ctx, "registrylite.pb", modules).proto
 
-    # The payload actually shipped in index.html. Thinned so the parse fits in
-    # a mobile browser tab; the stripped detail rides along as per-version
-    # records the frontend fetches on demand.
+    # The payload shipped in index.html. The deferred detail ships as
+    # per-version records the frontend fetches on demand.
     registrythin = _compile_registry_action(ctx, "registrythin.pb", modules, thin = True)
 
     bazel_help = _compile_bazel_help_registry_action(ctx, bazel_versions)
