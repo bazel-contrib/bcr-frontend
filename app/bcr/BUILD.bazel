@@ -475,6 +475,7 @@ RELEASE_SRCS = [
     # fzstd 0.1.1 browser bundle with a bounded frame window and upstream license.
     "vendor/fzstd-0.1.1-bounded.js",
     "vendor/fzstd-0.1.1.LICENSE",
+    "@mermaid//:license",
 ] + glob([
     "iroh_wasm/bcr_invocation_iroh.js",
     "iroh_wasm/bcr_invocation_iroh_bg.wasm",
@@ -487,6 +488,7 @@ RELEASE_HASHED_SRCS = [
     ":bcr.css",
     ":primer_purged_css",
     ":bcr.js",
+    "@mermaid//:dist/mermaid.min.js",
 ]
 
 # Vanilla release that always uses the index.html template. Used as the input

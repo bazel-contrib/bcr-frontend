@@ -96,6 +96,74 @@ pre code {
 	height: auto;
 }
 
+/* GitHub alerts ("> [!NOTE]" etc.), built by markdown.js formatAlerts. */
+.markdown-body .markdown-alert {
+	padding: 8px 16px;
+	margin-bottom: 16px;
+	color: inherit;
+	border-left: 0.25em solid var(--color-border-default);
+}
+
+.markdown-body .markdown-alert > :first-child {
+	margin-top: 0;
+}
+
+.markdown-body .markdown-alert > :last-child {
+	margin-bottom: 0;
+}
+
+.markdown-body .markdown-alert .markdown-alert-title {
+	display: flex;
+	align-items: center;
+	font-weight: 500;
+	line-height: 1;
+}
+
+.markdown-body .markdown-alert .markdown-alert-title .octicon {
+	margin-right: 8px;
+	fill: currentColor;
+}
+
+.markdown-body .markdown-alert-note {
+	border-left-color: var(--color-accent-emphasis);
+}
+
+.markdown-body .markdown-alert-note .markdown-alert-title {
+	color: var(--color-accent-fg);
+}
+
+.markdown-body .markdown-alert-tip {
+	border-left-color: var(--color-success-emphasis);
+}
+
+.markdown-body .markdown-alert-tip .markdown-alert-title {
+	color: var(--color-success-fg);
+}
+
+.markdown-body .markdown-alert-important {
+	border-left-color: var(--color-done-emphasis);
+}
+
+.markdown-body .markdown-alert-important .markdown-alert-title {
+	color: var(--color-done-fg);
+}
+
+.markdown-body .markdown-alert-warning {
+	border-left-color: var(--color-attention-emphasis);
+}
+
+.markdown-body .markdown-alert-warning .markdown-alert-title {
+	color: var(--color-attention-fg);
+}
+
+.markdown-body .markdown-alert-caution {
+	border-left-color: var(--color-danger-emphasis);
+}
+
+.markdown-body .markdown-alert-caution .markdown-alert-title {
+	color: var(--color-danger-fg);
+}
+
 /* PageLayout grid items default to min-width: auto, which lets a wide
  * child (a long pre, table, image, or unbroken URL) blow out the column.
  * Force them shrinkable so overflow-x rules above can take effect. */
