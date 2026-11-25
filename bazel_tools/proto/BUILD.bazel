@@ -1,0 +1,41 @@
+load("@rules_go//proto:def.bzl", "go_proto_library")
+
+go_proto_library(
+    name = "buildeventstream",
+    importpath = "github.com/bazel-contrib/bcr-frontend/proto/buildeventstream",
+    protos = [
+        "@bazelapis//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_proto",
+        "@bazelapis//src/main/java/com/google/devtools/build/lib/packages/metrics:package_load_metrics_proto",
+        "@bazelapis//src/main/protobuf:action_cache_proto",
+        "@bazelapis//src/main/protobuf:command_line_proto",
+        "@bazelapis//src/main/protobuf:invocation_policy_proto",
+        "@bazelapis//src/main/protobuf:option_filters_proto",
+        "@bazelapis//src/main/protobuf:strategy_policy_proto",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [":failure_details"],
+)
+
+# Both Bazel schemas declare a WorkspaceStatus message.
+go_proto_library(
+    name = "failure_details",
+    importpath = "github.com/bazel-contrib/bcr-frontend/proto/failure_details",
+    protos = ["@bazelapis//src/main/protobuf:failure_details_proto"],
+    visibility = ["//visibility:public"],
+)
+
+go_proto_library(
+    name = "publish_build_event",
+    compilers = [
+        "@rules_go//proto:go_proto",
+        "@rules_go//proto:go_grpc_v2",
+    ],
+    importpath = "github.com/bazel-contrib/bcr-frontend/proto/build",
+    protos = [
+        "@googleapis//google/devtools/build/v1:build_events_proto",
+        "@googleapis//google/devtools/build/v1:build_status_proto",
+        "@googleapis//google/devtools/build/v1:publish_build_event_proto",
+    ],
+    visibility = ["//visibility:public"],
+    deps = ["@org_golang_google_genproto_googleapis_api//annotations"],
+)

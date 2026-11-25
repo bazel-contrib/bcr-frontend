@@ -14,6 +14,8 @@ include("//bazel_tools/deps:tools.MODULE.bazel")
 
 include("//bazel_tools/deps:go.MODULE.bazel")
 
+include("//bazel_tools/deps:proto.MODULE.bazel")
+
 include("//bazel_tools/deps:rust.MODULE.bazel")
 
 # dependencies used for stardoc generation

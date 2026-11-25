@@ -46,6 +46,13 @@ class Application {
 	notifyError(_msg) {}
 
 	/**
+	 * Shows a transient success message.
+	 * @param {string} _message
+	 * @param {number=} _opt_dismiss
+	 */
+	toastSuccess(_message, _opt_dismiss) {}
+
+	/**
 	 * Returns the registry proto loaded at startup, before symbols are decorated.
 	 * Synchronous: components rendering during the initial route can read
 	 * registry-wide metadata (e.g. the BCR submodule URL/commit) without

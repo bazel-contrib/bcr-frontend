@@ -16,3 +16,15 @@ data/generated.MODULE.bazel
 
 # Bazel writes this on every build; not a source file.
 /MODULE.bazel.lock
+
+# Local BES storage.
+/invocations.journal
+/invocations.sqlite
+/invocations.sqlite-wal
+/invocations.sqlite-shm
+/invocations.sqlite.lock
+
+# Local Iroh companion build and generated frontend assets.
+/iroh.key
+/tools/invocation-iroh/target/
+/app/bcr/iroh_wasm/

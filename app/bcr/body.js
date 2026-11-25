@@ -20,6 +20,7 @@ const { ModulesMapSelect, ModuleSearchComponent } = goog.require(
 const { SelectNav } = goog.require("bcrfrontend.SelectNav");
 const { SettingsSelect } = goog.require("bcrfrontend.settings");
 const { TargetsSelect } = goog.require("bcrfrontend.targets");
+const { ToolsSelect } = goog.require("bcrfrontend.tools");
 const { bodySelect, searchSelectNav } = goog.require("soy.bcrfrontend.app");
 
 /**
@@ -36,6 +37,7 @@ const TabName = {
 	SETTINGS: "settings",
 	SYMBOLS: "symbols",
 	TARGETS: "targets",
+	TOOLS: "tools",
 };
 
 /**
@@ -144,6 +146,11 @@ class BodySelect extends ContentSelect {
 		}
 		if (name === TabName.SETTINGS) {
 			this.addTab(name, new SettingsSelect(this.dom_));
+			this.select(name, route);
+			return;
+		}
+		if (name === TabName.TOOLS) {
+			this.addTab(name, new ToolsSelect(this.dom_));
 			this.select(name, route);
 			return;
 		}

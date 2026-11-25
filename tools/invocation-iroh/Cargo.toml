@@ -1,0 +1,40 @@
+[workspace]
+
+[package]
+name = "invocation-iroh"
+version = "0.1.0"
+edition = "2024"
+autotests = false
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[features]
+test-relay = ["dep:iroh-relay"]
+
+[[bin]]
+name = "invocation-iroh-test-relay"
+path = "tests/relay.rs"
+required-features = ["test-relay"]
+
+[dependencies]
+anyhow = "1"
+base64 = "0.22"
+iroh = { version = "=1.4.1", default-features = false, features = ["tls-ring"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+clap = { version = "4", features = ["derive"] }
+iroh-relay = { version = "=1.4.1", features = ["server"], optional = true }
+reqwest = { version = "0.12", default-features = false, features = ["stream"] }
+subtle = "2"
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "signal", "time"] }
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+getrandom = { version = "0.3", features = ["wasm_js"] }
+wasm-bindgen = "=0.2.122"
+wasm-bindgen-futures = "0.4"
+
+[profile.release]
+strip = "symbols"
