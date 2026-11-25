@@ -94,13 +94,9 @@ class SearchComponent extends EventTarget {
 	/**
 	 * @param {!events.Event} e the event to respond to.
 	 * @private
-	 * @suppress {reportUnknownTypes}
 	 */
 	handleInputFocus(e) {
-		setTimeout(() => {
-			document.execCommand("selectall", null, false);
-		}, 50);
-
+		this.inputEl_.select();
 		this.dispatchEvent(events.EventType.FOCUS);
 	}
 
@@ -112,18 +108,16 @@ class SearchComponent extends EventTarget {
 		e.preventDefault();
 		e.stopPropagation();
 
-		// If the AC dropdown has a highlighted row, commit it. selectHilited
-		// asks the InputHandler to selectRow(highlightedRow), which fires
-		// AC's UPDATE event with the row data; our handleAcUpdate then runs
-		// submit(row) → provider.onsubmit → setLocation.
 		const ac = this.getCurrentAutoComplete_();
-		if (ac && ac.hasHighlight()) {
-			ac.selectHilited();
+		if (ac?.hasHighlight() && ac.selectHilited()) {
 			return;
 		}
-		// No highlight: pressing Enter is a no-op. For full-text filtering
-		// the user should use the page-level search input on /modules or
-		// /docs.
+		const query = this.getValue().trim();
+		const onquery = this.currentProvider_?.onquery;
+		if (query && onquery) {
+			this.blurAndClear();
+			onquery(this.app_, query);
+		}
 	}
 
 	/**
@@ -142,14 +136,12 @@ class SearchComponent extends EventTarget {
 	}
 
 	/**
-	 * @param {{type:string,row:string,index:number}} e the event to respond to.
+	 * @param {{type:string,row:?string,index:?number}} e the event to respond to.
 	 *
 	 */
 	handleAcUpdate(e) {
 		if (e.row) {
 			this.submit(e.row);
-		}
-		if (e.type === "update" || !e.row) {
 			this.blurAndClear();
 		}
 	}
@@ -365,6 +357,8 @@ class SearchComponent extends EventTarget {
 	blurAndClear() {
 		this.inputEl_.blur();
 		this.inputEl_.value = "";
+		// The selected value is gone, so the next edit is a fresh query.
+		this.currentProvider_?.inputHandler?.setRowJustSelected(false);
 	}
 
 	/**

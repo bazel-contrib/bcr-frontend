@@ -302,80 +302,70 @@ class RegistryApp extends App {
 	}
 
 	/**
-	 * @param {!events.BrowserEvent=} e
-	 * suppress {checkTypes}
+	 * @param {!events.BrowserEvent} e
 	 */
 	onKeyDown(e) {
+		const key = /** @type {!KeyboardEvent} */ (e.getBrowserEvent());
+		if (
+			e.defaultPrevented ||
+			key.isComposing ||
+			e.metaKey ||
+			e.ctrlKey ||
+			e.altKey
+		) {
+			return;
+		}
 		if (this.search_.isActive()) {
-			const inputValue = this.search_.getValue();
-
-			switch (e.keyCode) {
-				case events.KeyCodes.ESC:
-					this.blurSearchBox(e);
-					break;
-				case events.KeyCodes.SLASH:
-					if (inputValue.length === 0) {
-						this.setSearchScope_(SCOPE_ALL, e);
-					}
-					break;
-				case events.KeyCodes.SINGLE_QUOTE:
-					if (inputValue.length === 0) {
-						this.setSearchScope_(SCOPE_MODULES, e);
-					}
-					break;
-				case events.KeyCodes.PERIOD:
-					if (inputValue.length === 0) {
-						this.setSearchScope_(SCOPE_SYMBOLS, e);
-					}
-					break;
+			if (key.key === "Escape") {
+				this.blurSearchBox(e);
 			}
 			return;
 		}
-
-		// CMD/CTRL+P focuses the search with symbols scope (legacy alias).
-		if (e.keyCode === events.KeyCodes.P && (e.metaKey || e.ctrlKey)) {
-			if (this.getKbd().isEnabled()) {
-				this.focusSearchWithScope_(SCOPE_SYMBOLS, e);
-			}
+		const target = e.target;
+		if (
+			target instanceof HTMLElement &&
+			(target.isContentEditable ||
+				target instanceof HTMLInputElement ||
+				target instanceof HTMLTextAreaElement ||
+				target instanceof HTMLSelectElement)
+		) {
 			return;
 		}
 
-		switch (e.keyCode) {
-			case events.KeyCodes.SLASH:
+		switch (key.key) {
+			case "/":
 				if (this.getKbd().isEnabled()) {
 					this.focusSearchWithScope_(SCOPE_ALL, e);
 				}
 				break;
-			case events.KeyCodes.SINGLE_QUOTE:
+			case "'":
 				if (this.getKbd().isEnabled()) {
 					this.focusSearchWithScope_(SCOPE_MODULES, e);
 				}
 				break;
-			case events.KeyCodes.PERIOD:
+			case ".":
 				if (this.getKbd().isEnabled()) {
 					this.focusSearchWithScope_(SCOPE_SYMBOLS, e);
 				}
 				break;
-			case events.KeyCodes.COMMA:
+			case ",":
 				if (this.getKbd().isEnabled()) {
 					e.preventDefault();
 					this.setLocation(["settings"]);
 				}
 				break;
-			case events.KeyCodes.OPEN_SQUARE_BRACKET:
+			case "[":
 				if (this.getKbd().isEnabled()) {
 					this.gotoSibling(-1, e);
 				}
 				break;
-			case events.KeyCodes.CLOSE_SQUARE_BRACKET:
+			case "]":
 				if (this.getKbd().isEnabled()) {
 					this.gotoSibling(+1, e);
 				}
 				break;
-			case events.KeyCodes.TILDE:
-				// Shift+` produces ~ on US keyboards; require shift so a bare
-				// backtick doesn't navigate.
-				if (this.getKbd().isEnabled() && e.shiftKey) {
+			case "~":
+				if (this.getKbd().isEnabled()) {
 					e.preventDefault();
 					this.setLocation(["home"]);
 				}
@@ -410,24 +400,11 @@ class RegistryApp extends App {
 	 * @param {string} scope
 	 * @param {!events.BrowserEvent=} opt_e
 	 */
-	setSearchScope_(scope, opt_e) {
-		this.unifiedSearchHandler_.setScope(scope);
-		this.syncScopePillsDom_();
-		if (opt_e) {
-			opt_e.preventDefault();
-			opt_e.stopPropagation();
-		}
-	}
-
-	/**
-	 * @private
-	 * @param {string} scope
-	 * @param {!events.BrowserEvent=} opt_e
-	 */
 	focusSearchWithScope_(scope, opt_e) {
 		this.unifiedSearchHandler_.setScope(scope);
 		this.syncScopePillsDom_();
 		this.search_.focus();
+		this.unifiedSearchHandler_.refreshSuggestions();
 		if (opt_e) {
 			opt_e.preventDefault();
 			opt_e.stopPropagation();
@@ -645,10 +622,6 @@ class RegistryApp extends App {
 	 * @param {!events.BrowserEvent=} opt_e
 	 */
 	gotoSibling(direction, opt_e) {
-		// Always swallow the keystroke so it doesn't leak into a focused
-		// input or trigger the default action of the clicked anchor.
-		if (opt_e) opt_e.preventDefault();
-
 		// The app uses path-based routing; hash links like `/#/maintainers/foo`
 		// also work, so check both.
 		const raw = window.location.pathname + window.location.hash;
@@ -660,7 +633,7 @@ class RegistryApp extends App {
 
 		if (segments[0] === "maintainers") {
 			const names = [...createMaintainersMap(this.registry_).keys()];
-			this.cycleSibling_(["maintainers"], names, segments[1], direction);
+			this.cycleSibling_(["maintainers"], names, segments[1], direction, opt_e);
 			return;
 		}
 		if (segments[0] === "modules") {
@@ -711,17 +684,21 @@ class RegistryApp extends App {
 						}
 					}
 					if (current !== null) {
+						if (sorted.length < 2) return;
 						const idx = sorted.indexOf(current);
 						/** @type {string} */
 						const next =
 							sorted[(idx + direction + sorted.length) % sorted.length];
-						this.setLocation([
-							"modules",
-							segments[1],
-							segments[2],
-							"packages",
-							...next.split("/"),
-						]);
+						this.navigateToSibling_(
+							[
+								"modules",
+								segments[1],
+								segments[2],
+								"packages",
+								...next.split("/"),
+							],
+							opt_e,
+						);
 						return;
 					}
 				}
@@ -731,7 +708,7 @@ class RegistryApp extends App {
 			/** @type {!Array<string>} */
 			const names = [];
 			moduleMap.forEach((_, key) => names.push(key));
-			if (names.length === 0) return;
+			if (names.length < 2) return;
 			names.sort((a, b) => {
 				const la = a.toLowerCase();
 				const lb = b.toLowerCase();
@@ -750,14 +727,14 @@ class RegistryApp extends App {
 			// entirely and let the destination module's default route choose.
 			const tab = segments[3];
 			if (!tab) {
-				this.setLocation(["modules", nextName]);
+				this.navigateToSibling_(["modules", nextName], opt_e);
 				return;
 			}
 			const nextModule = moduleMap.get(nextName);
 			const versions = nextModule ? nextModule.getVersionsList() : null;
 			const latestVersion =
 				versions && versions.length > 0 ? versions[0].getVersion() : "latest";
-			this.setLocation(["modules", nextName, latestVersion, tab]);
+			this.navigateToSibling_(["modules", nextName, latestVersion, tab], opt_e);
 			return;
 		}
 		if (
@@ -769,9 +746,16 @@ class RegistryApp extends App {
 		) {
 			// /bazel/flags/<flag-name> — cycle through every flag in the DB.
 			this.bazelFlagDbLoader_().then((db) => {
+				if (raw !== window.location.pathname + window.location.hash) return;
 				const typed = /** @type {!BazelFlagDb} */ (db);
 				const names = typed.getFlagList().map((f) => f.getName());
-				this.cycleSibling_(["bazel", "flags"], names, segments[2], direction);
+				this.cycleSibling_(
+					["bazel", "flags"],
+					names,
+					segments[2],
+					direction,
+					opt_e,
+				);
 			});
 			return;
 		}
@@ -787,9 +771,10 @@ class RegistryApp extends App {
 	 * @param {!Array<string>} names siblings in the current section.
 	 * @param {string} currentName segment value to match (URL-encoded ok).
 	 * @param {number} direction +1 or -1.
+	 * @param {!events.BrowserEvent=} opt_e
 	 */
-	cycleSibling_(prefix, names, currentName, direction) {
-		if (names.length === 0) return;
+	cycleSibling_(prefix, names, currentName, direction, opt_e) {
+		if (names.length < 2) return;
 		const sorted = names.slice().sort((a, b) => {
 			const la = a.toLowerCase();
 			const lb = b.toLowerCase();
@@ -799,7 +784,17 @@ class RegistryApp extends App {
 		const idx = sorted.indexOf(current);
 		if (idx === -1) return;
 		const next = (idx + direction + sorted.length) % sorted.length;
-		this.setLocation([...prefix, sorted[next]]);
+		this.navigateToSibling_([...prefix, sorted[next]], opt_e);
+	}
+
+	/**
+	 * @private
+	 * @param {!Array<string>} path
+	 * @param {!events.BrowserEvent=} opt_e
+	 */
+	navigateToSibling_(path, opt_e) {
+		if (opt_e) opt_e.preventDefault();
+		this.setLocation(path);
 	}
 
 	/**

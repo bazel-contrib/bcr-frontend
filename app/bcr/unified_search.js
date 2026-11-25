@@ -21,6 +21,7 @@ const File = goog.requireType("proto.build.stack.bazel.symbol.v1.File");
 const Symbol_ = goog.requireType("proto.build.stack.bazel.symbol.v1.Symbol");
 const { Application, SearchProvider } = goog.requireType("bcrfrontend.common");
 const { Searchable } = goog.requireType("bcrfrontend.common");
+const { searchQueryPath } = goog.require("bcrfrontend.common");
 const { moduleSearchRow, symbolSearchRow } = goog.require(
 	"soy.bcrfrontend.app",
 );
@@ -98,6 +99,7 @@ class UnifiedSearchHandler extends EventTarget {
 
 		/** @private @const @type {!InputHandler} */
 		this.inputHandler_ = new InputHandler(null, null, false);
+		this.inputHandler_.setPreventSelectionOnTab(true);
 
 		/** @private @type {?AutoComplete} */
 		this.ac_ = null;
@@ -109,6 +111,7 @@ class UnifiedSearchHandler extends EventTarget {
 			incremental: false,
 			inputHandler: this.inputHandler_,
 			onsubmit: goog.bind(this.handleSearchOnSubmit, this),
+			onquery: goog.bind(this.handleQueryOnSubmit, this),
 			keyCode: events.KeyCodes.SLASH,
 			load: goog.bind(this.load, this),
 		};
@@ -166,6 +169,15 @@ class UnifiedSearchHandler extends EventTarget {
 		this.scope_ = scope;
 	}
 
+	/** Refreshes the focused input, even if the query text is unchanged. */
+	refreshSuggestions() {
+		if (this.ac_ && this.inputHandler_.getActiveElement()) {
+			// Closure caches the last token and highlight until dismissed.
+			this.ac_.dismiss();
+			this.ac_.update(true);
+		}
+	}
+
 	/**
 	 * Returns the active keys slice for the current scope. Read by the
 	 * ScopedMatcher on every match request, so swapping scope or appending
@@ -205,6 +217,9 @@ class UnifiedSearchHandler extends EventTarget {
 			this.registryWithSymbols_.then((registry) => {
 				this.indexSymbols_(registry);
 				this.provider_.desc = `Search ${this.moduleKeys_.length} modules and ${this.symbolKeys_.length} symbols`;
+				if (this.scope_ !== SCOPE_MODULES) {
+					this.refreshSuggestions();
+				}
 			});
 		}
 	}
@@ -220,6 +235,19 @@ class UnifiedSearchHandler extends EventTarget {
 		}
 	}
 
+	/**
+	 * @private
+	 * @param {!Application} app
+	 * @param {string} query
+	 */
+	handleQueryOnSubmit(app, query) {
+		app.setLocation([
+			"search",
+			this.scope_ === SCOPE_SYMBOLS ? SCOPE_SYMBOLS : SCOPE_MODULES,
+			...searchQueryPath(query),
+		]);
+	}
+
 	/** @private */
 	createAutoComplete_() {
 		const matcher = new ScopedMatcher(this);
@@ -229,6 +257,7 @@ class UnifiedSearchHandler extends EventTarget {
 			this.inputHandler_,
 		));
 		ac.setMaxMatches(15);
+		ac.setAutoHilite(false);
 		this.inputHandler_.attachAutoComplete(ac);
 	}
 
