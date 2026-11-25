@@ -8,7 +8,7 @@ bazel_dep(name = "buildifier_prebuilt", version = "8.5.1.2", dev_dependency = Tr
 bazel_dep(name = "gazelle", version = "0.51.0", dev_dependency = True, repo_name = "bazel_gazelle")
 bazel_dep(name = "rules_browsers", version = "0.4.0", dev_dependency = True)
 bazel_dep(name = "rules_go", version = "0.65.0", dev_dependency = True)
-bazel_dep(name = "rules_java", version = "8.16.1", dev_dependency = True)
+bazel_dep(name = "rules_java", version = "9.9.0", dev_dependency = True)
 bazel_dep(name = "rules_multitool", version = "1.11.1", dev_dependency = True)
 bazel_dep(name = "rules_proto", version = "7.1.0", dev_dependency = True)
 bazel_dep(name = "rules_rs", version = "0.0.20", dev_dependency = True)
@@ -29,6 +29,13 @@ browsers.chrome()
 # -------------------------------------------------------------------
 # Overrides
 # -------------------------------------------------------------------
+
+single_version_override(
+    module_name = "closure-templates",
+    patch_strip = 1,
+    patches = ["//bazel_tools/deps:closure-templates-check-return-value.patch"],
+    version = "1.0.1",
+)
 
 # Commit: c7c3ea2365197bc319c59cc55f44d2680be7677e
 # Date: 2026-09-08 19:36:25 +0000 UTC
