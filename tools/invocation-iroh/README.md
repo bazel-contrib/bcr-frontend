@@ -95,7 +95,7 @@ journalctl --user -u bcr-besserver.service -u bcr-invocation-iroh.service
 
 ```sh
 rustup target add --toolchain 1.95.0 wasm32-unknown-unknown
-cargo +1.95.0 install wasm-bindgen-cli --version 0.2.122 --locked
+cargo +1.95.0 install wasm-bindgen-cli --version 0.2.130 --locked
 RUSTUP_TOOLCHAIN=1.95.0 tools/invocation-iroh/build-browser.sh
 bazel build //app/bcr:release
 ```
