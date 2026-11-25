@@ -25,9 +25,8 @@ const { SCOPE_ALL, SCOPE_MODULES, SCOPE_SYMBOLS, UnifiedSearchHandler } =
 	goog.require("bcrfrontend.unified_search");
 const { SearchComponent } = goog.require("bcrfrontend.search");
 const { copyToClipboard } = goog.require("bcrfrontend.clipboard");
-const { createMaintainersMap, createModuleMap } = goog.require(
-	"bcrfrontend.registry",
-);
+const { createMaintainersMap, createModuleMap, refreshBcrSidePaneSymbols } =
+	goog.require("bcrfrontend.registry");
 const { registryApp, toastSuccess } = goog.require("soy.bcrfrontend.app");
 
 /**
@@ -38,9 +37,9 @@ const { registryApp, toastSuccess } = goog.require("soy.bcrfrontend.app");
 class RegistryApp extends App {
 	/**
 	 * @param {!Registry} registry
-	 * @param {!Promise<!Registry>} registryWithSymbols
-	 * @param {!Promise<!Registry>} registryWithPackages
-	 * @param {!Promise<*>} ruleUsageIndex resolves to Map<urlKey, Array<TargetRef>>.
+	 * @param {function():!Promise<!Registry>} registryWithSymbols memoized lazy loader.
+	 * @param {function():!Promise<!Registry>} registryWithPackages memoized lazy loader.
+	 * @param {function():!Promise<*>} ruleUsageIndex memoized lazy loader; resolves to Map<urlKey, Array<TargetRef>>.
 	 * @param {function():!Promise<*>} bazelFlagDbLoader memoized lazy loader.
 	 * @param {!RefreshController} refreshController
 	 * @param {?dom.DomHelper=} opt_domHelper
@@ -59,14 +58,17 @@ class RegistryApp extends App {
 		/** @private @const */
 		this.registry_ = registry;
 
-		/** @private @const */
-		this.registryWithSymbols_ = registryWithSymbols;
+		/** @private @const @type {function():!Promise<!Registry>} */
+		this.registryWithSymbolsLoader_ = registryWithSymbols;
 
-		/** @private @const */
-		this.registryWithPackages_ = registryWithPackages;
+		/** @private @const @type {function():!Promise<!Registry>} */
+		this.registryWithPackagesLoader_ = registryWithPackages;
 
-		/** @private @const */
-		this.ruleUsageIndex_ = ruleUsageIndex;
+		/** @private @const @type {function():!Promise<*>} */
+		this.ruleUsageIndexLoader_ = ruleUsageIndex;
+
+		/** @private @type {boolean} */
+		this.symbolsRequested_ = false;
 
 		/** @private @const @type {function():!Promise<*>} */
 		this.bazelFlagDbLoader_ = bazelFlagDbLoader;
@@ -89,7 +91,7 @@ class RegistryApp extends App {
 		/** @const @private @type {!UnifiedSearchHandler} */
 		this.unifiedSearchHandler_ = new UnifiedSearchHandler(
 			this.registry_,
-			this.registryWithSymbols_,
+			goog.bind(this.getRegistryWithSymbols, this),
 		);
 
 		/** @private @type {?SearchComponent} */
@@ -134,29 +136,58 @@ class RegistryApp extends App {
 
 	/**
 	 * Returns the promise that resolves when symbols are loaded and decorated.
+	 * Calling this starts the symbols.pb.gz fetch if it hasn't started yet, so
+	 * only call it from a code path that genuinely needs symbols.
 	 * @override
 	 * @returns {!Promise<!Registry>}
 	 */
 	getRegistryWithSymbols() {
-		return this.registryWithSymbols_;
+		const symbols = this.registryWithSymbolsLoader_();
+		if (!this.symbolsRequested_) {
+			this.symbolsRequested_ = true;
+			symbols.then((registry) => {
+				if (!this.isDisposed()) {
+					refreshBcrSidePaneSymbols(this.getElement(), registry);
+				}
+			});
+		}
+		return symbols;
+	}
+
+	/**
+	 * Returns the symbols promise, but only if something has already asked for
+	 * symbols for a reason that actually needs them.
+	 *
+	 * The side-pane "Symbols" count is the only consumer. It used to call
+	 * getRegistryWithSymbols() from the home page, the modules list, the
+	 * maintainers page and both bazel pages — which meant ~56MB of protobuf
+	 * was fetched and parsed on nearly every route to render one number. This
+	 * lets those call sites update opportunistically instead.
+	 *
+	 * @returns {?Promise<!Registry>} null if symbols haven't been requested.
+	 */
+	getRegistryWithSymbolsIfLoaded() {
+		return this.symbolsRequested_ ? this.registryWithSymbolsLoader_() : null;
 	}
 
 	/**
 	 * Returns the promise that resolves when packages are loaded and decorated.
+	 * Calling this starts the packages.pb.gz fetch if it hasn't started yet.
 	 * @override
 	 * @returns {!Promise<!Registry>}
 	 */
 	getRegistryWithPackages() {
-		return this.registryWithPackages_;
+		return this.registryWithPackagesLoader_();
 	}
 
 	/**
-	 * Returns the promise that resolves to the rule-usage index.
+	 * Returns the promise that resolves to the rule-usage index. Calling this
+	 * pulls in packages.pb.gz.
 	 * @override
 	 * @returns {!Promise<*>}
 	 */
 	getRuleUsageIndex() {
-		return this.ruleUsageIndex_;
+		return this.ruleUsageIndexLoader_();
 	}
 
 	/**

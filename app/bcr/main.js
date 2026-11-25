@@ -30,15 +30,23 @@ async function main(registryDataBase64) {
 	);
 	setupRegistry(registry);
 
-	// Create lazy-loading promise for registry with symbols
-	const registryWithSymbols = createRegistryWithSymbolsPromise(registry);
+	// Memoized loaders for the two big aggregates. Neither is fetched until
+	// something actually asks for it.
+	//
+	// These used to be started here at boot, on every page load and every
+	// route. Together they are ~83MB of protobuf (symbols.pb.gz decompresses
+	// to ~56MB, packages.pb.gz to ~28MB) and they expanded to roughly 684MB
+	// of the ~742MB retained heap -- enough to blow past mobile Safari's
+	// per-tab cap, which killed the WebContent process and put the tab into a
+	// reload/crash loop. The home page needs neither: symbols are for the
+	// search index and the Documentation tab, packages for the Packages tab
+	// and the rule-usage index.
+	const registryWithSymbols = createRegistryWithSymbolsLoader(registry);
+	const registryWithPackages = createRegistryWithPackagesLoader(registry);
 
-	// Same shape for the BUILD-file extraction registry.
-	const registryWithPackages = createRegistryWithPackagesPromise(registry);
-
-	// Derived index: load-coordinate → list of usages. Built once when the
-	// packages.pb.gz fetch resolves.
-	const ruleUsageIndex = registryWithPackages.then(buildRuleUsageIndex);
+	// Derived index: load-coordinate → list of usages. Built on first use,
+	// which also pulls in packages.pb.gz.
+	const ruleUsageIndex = createRuleUsageIndexLoader(registryWithPackages);
 
 	// One-shot lazy loader for the bazel flag db. The first call kicks off
 	// the fetch; subsequent calls reuse the cached promise.
@@ -202,61 +210,98 @@ function decorateRegistryWithPackages(registry, packagesRegistry) {
 }
 
 /**
- * Creates a Promise that fetches packages.pb.gz and decorates the registry.
+ * Builds a memoized loader that fetches packages.pb.gz and decorates the
+ * registry. The fetch starts on the first call, not at boot — see the note in
+ * main() for why that matters.
+ *
  * @param {!Registry} registry The base registry to decorate
- * @returns {!Promise<!Registry>} Promise that resolves to decorated registry
+ * @returns {function():!Promise<!Registry>}
  */
-function createRegistryWithPackagesPromise(registry) {
-	return (async () => {
-		try {
-			const url = metaUrl("bcr:packages-url");
-			if (!url) {
-				throw new Error("packages URL not set in <meta name=bcr:packages-url>");
+function createRegistryWithPackagesLoader(registry) {
+	/** @type {?Promise<!Registry>} */
+	let cached = null;
+	return () => {
+		if (cached) return cached;
+		cached = (async () => {
+			try {
+				const url = metaUrl("bcr:packages-url");
+				if (!url) {
+					throw new Error(
+						"packages URL not set in <meta name=bcr:packages-url>",
+					);
+				}
+				const response = await fetch(url);
+				if (!response.ok) {
+					throw new Error(`Failed to fetch ${url}: ${response.status}`);
+				}
+				const gzipData = new Uint8Array(await response.arrayBuffer());
+				const decompressed = await gzipDecode(gzipData);
+				const packagesRegistry =
+					ModuleRegistryPackages.deserializeBinary(decompressed);
+				decorateRegistryWithPackages(registry, packagesRegistry);
+				return registry;
+			} catch (/** @type {*} */ e) {
+				console.error("Failed to load packages:", e);
+				return registry;
 			}
-			const response = await fetch(url);
-			if (!response.ok) {
-				throw new Error(`Failed to fetch ${url}: ${response.status}`);
-			}
-			const gzipData = new Uint8Array(await response.arrayBuffer());
-			const decompressed = await gzipDecode(gzipData);
-			const packagesRegistry =
-				ModuleRegistryPackages.deserializeBinary(decompressed);
-			decorateRegistryWithPackages(registry, packagesRegistry);
-			return registry;
-		} catch (/** @type {*} */ e) {
-			console.error("Failed to load packages:", e);
-			return registry;
-		}
-	})();
+		})();
+		return cached;
+	};
 }
 
 /**
- * Creates a Promise that fetches symbols.pb.gz and decorates the registry.
+ * Builds a memoized loader that fetches symbols.pb.gz and decorates the
+ * registry. As with packages, nothing is fetched until first use.
+ *
  * @param {!Registry} registry The base registry to decorate
- * @returns {!Promise<!Registry>} Promise that resolves to decorated registry
+ * @returns {function():!Promise<!Registry>}
  */
-function createRegistryWithSymbolsPromise(registry) {
-	return (async () => {
-		try {
-			const url = metaUrl("bcr:symbols-url");
-			if (!url) {
-				throw new Error("symbols URL not set in <meta name=bcr:symbols-url>");
+function createRegistryWithSymbolsLoader(registry) {
+	/** @type {?Promise<!Registry>} */
+	let cached = null;
+	return () => {
+		if (cached) return cached;
+		cached = (async () => {
+			try {
+				const url = metaUrl("bcr:symbols-url");
+				if (!url) {
+					throw new Error("symbols URL not set in <meta name=bcr:symbols-url>");
+				}
+				const response = await fetch(url);
+				if (!response.ok) {
+					throw new Error(`Failed to fetch ${url}: ${response.status}`);
+				}
+				const gzipData = new Uint8Array(await response.arrayBuffer());
+				const decompressed = await gzipDecode(gzipData);
+				const symbolsRegistry =
+					ModuleRegistrySymbols.deserializeBinary(decompressed);
+				decorateRegistryWithSymbols(registry, symbolsRegistry);
+				return registry;
+			} catch (/** @type {*} */ e) {
+				console.error("Failed to load symbols:", e);
+				return registry; // Graceful degradation
 			}
-			const response = await fetch(url);
-			if (!response.ok) {
-				throw new Error(`Failed to fetch ${url}: ${response.status}`);
-			}
-			const gzipData = new Uint8Array(await response.arrayBuffer());
-			const decompressed = await gzipDecode(gzipData);
-			const symbolsRegistry =
-				ModuleRegistrySymbols.deserializeBinary(decompressed);
-			decorateRegistryWithSymbols(registry, symbolsRegistry);
-			return registry;
-		} catch (/** @type {*} */ e) {
-			console.error("Failed to load symbols:", e);
-			return registry; // Graceful degradation
-		}
-	})();
+		})();
+		return cached;
+	};
+}
+
+/**
+ * Builds a memoized loader for the rule-usage index. Deriving it requires the
+ * packages aggregate, so this is what pulls packages.pb.gz in for the Targets
+ * view.
+ *
+ * @param {function():!Promise<!Registry>} packagesLoader
+ * @returns {function():!Promise<*>}
+ */
+function createRuleUsageIndexLoader(packagesLoader) {
+	/** @type {?Promise<*>} */
+	let cached = null;
+	return () => {
+		if (cached) return cached;
+		cached = packagesLoader().then(buildRuleUsageIndex);
+		return cached;
+	};
 }
 
 /**
