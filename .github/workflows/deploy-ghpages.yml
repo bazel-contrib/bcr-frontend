@@ -94,8 +94,6 @@ jobs:
           cd ../..
           echo "Updated submodule to ${{ steps.bcr.outputs.sha }}"
 
-      - uses: bazel-contrib/setup-bazel@0.19.0
-
       - name: Clean and initialize BCR
         run: make bcr_clean bcr_init bcr_update
 

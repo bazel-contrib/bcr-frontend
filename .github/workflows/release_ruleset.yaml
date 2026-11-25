@@ -4,9 +4,6 @@
 # This workflow calls `.github/workflows/release_prep.sh` as the command to prepare the release.
 # Release notes are expected to be outputted to stdout from the release prep command.
 #
-# This workflow uses https://github.com/bazel-contrib/setup-bazel to prepare the cache folders.
-# Caching may be disabled by setting `mount_bazel_caches` to false.
-#
 # The workflow requires the following permissions to be set on the invoking job:
 #
 # permissions:
@@ -53,7 +50,8 @@ on:
       mount_bazel_caches:
         default: true
         description: |
-          Whether to enable caching in the bazel-contrib/setup-bazel action.
+          Ignored. Kept for compatibility with existing callers; the self-hosted
+          runner keeps its Bazel caches on local disk.
         type: boolean
       prerelease:
         default: true
@@ -81,11 +79,6 @@ jobs:
         uses: actions/checkout@v6
         with:
           ref: ${{ inputs.tag_name }}
-
-      - uses: bazel-contrib/setup-bazel@0.19.0
-        with:
-          disk-cache: ${{ inputs.mount_bazel_caches }}
-          repository-cache: ${{ inputs.mount_bazel_caches }}
 
       - name: Test
         run: ${{ inputs.bazel_test_command }} --disk_cache=~/.cache/bazel-disk-cache --repository_cache=~/.cache/bazel-repository-cache
