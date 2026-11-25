@@ -5,8 +5,8 @@ crate=$(cd "$(dirname "$0")" && pwd)
 repo=$(cd "$crate/../.." && pwd)
 output=${1:-"$repo/app/bcr/iroh_wasm"}
 target=${CARGO_TARGET_DIR:-"$crate/target"}
-if [[ "$(wasm-bindgen --version)" != "wasm-bindgen 0.2.122" ]]; then
-  echo 'Install wasm-bindgen-cli 0.2.122 before building the viewer.' >&2
+if [[ "$(wasm-bindgen --version)" != "wasm-bindgen 0.2.130" ]]; then
+  echo 'Install wasm-bindgen-cli 0.2.130 before building the viewer.' >&2
   exit 1
 fi
 
