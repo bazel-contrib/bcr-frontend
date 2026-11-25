@@ -23,7 +23,11 @@ jobs:
       - name: Clean submodule
         run: make bcr_clean
 
-      - uses: bazel-contrib/setup-bazel@0.19.0
+      # setup-bazel unconditionally overwrites $HOME/.bazelrc, which is read-only
+      # on the self-hosted runner. Point HOME at a scratch dir for this step only.
+      - uses: bazel-contrib/setup-bazel@0.19.2
+        env:
+          HOME: ${{ runner.temp }}/setup-bazel-home
       - name: format check
         run: |
           bazelisk run //:format
