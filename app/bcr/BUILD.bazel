@@ -417,6 +417,7 @@ RELEASE_SRCS = [
     "favicon.png",
     ":robots_txt",
     ":sitemap_xml",
+    "@mermaid//:license",
 ] + select({
     ":is_debug_release": ["bcr.js.map"],
     "//conditions:default": [],
@@ -426,6 +427,7 @@ RELEASE_HASHED_SRCS = [
     ":bcr.css",
     ":primer_purged_css",
     ":bcr.js",
+    "@mermaid//:dist/mermaid.min.js",
 ]
 
 # Vanilla release that always uses the index.html template. Used as the input

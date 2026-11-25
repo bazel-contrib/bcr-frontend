@@ -59,9 +59,20 @@
 
 		window.codeToHtml = codeToHtml;
 		window.marked = marked;
-		// Mermaid is large; only fetch it when a page has a mermaid block.
-		window.loadMermaid = () =>
-			import("https://esm.sh/mermaid@11.17.2").then((m) => m.default);
+		// Fetch Mermaid on demand and share the load across markdown elements.
+		let mermaidLoad;
+		window.loadMermaid = () => {
+			if (!mermaidLoad) {
+				mermaidLoad = new Promise((resolve, reject) => {
+					const script = document.createElement("script");
+					script.src = "/{mermaid.min.js}";
+					script.onload = () => resolve(window.mermaid);
+					script.onerror = () => reject(new Error("Failed to load Mermaid"));
+					document.head.appendChild(script);
+				});
+			}
+			return mermaidLoad;
+		};
 
 		window.marked.setOptions({
 			gfm: true, // GitHub Flavored Markdown
