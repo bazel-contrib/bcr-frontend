@@ -1,0 +1,10 @@
+diff --git a/java/src/com/google/template/soy/soyparse/SoyFileParser.jj b/java/src/com/google/template/soy/soyparse/SoyFileParser.jj
+--- a/java/src/com/google/template/soy/soyparse/SoyFileParser.jj
++++ b/java/src/com/google/template/soy/soyparse/SoyFileParser.jj
+@@ -2833,5 +2833,5 @@
+   {
+     if (assertNotInFunction(tagBegin)) {
+-      skipToTemplateToken(CMD_CLOSE_MSG);
++      Token unused = skipToTemplateToken(CMD_CLOSE_MSG);
+       return null;
+     }
