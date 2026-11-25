@@ -2,10 +2,11 @@ goog.module("bcrfrontend.body");
 
 const Registry = goog.require("proto.build.stack.bazel.registry.v1.Registry");
 const dom = goog.require("goog.dom");
+const events = goog.require("goog.events");
 const soy = goog.require("goog.soy");
 const { formatRelativePast } = goog.require("bcrfrontend.format");
 const { Route } = goog.requireType("stack.ui");
-const { getApplication } = goog.require("bcrfrontend.common");
+const { getApplication, searchQueryPath } = goog.require("bcrfrontend.common");
 const { BazelSelect } = goog.require("bcrfrontend.bazel");
 const { ContentSelect } = goog.require("bcrfrontend.ContentSelect");
 const { DocsSelect } = goog.require("bcrfrontend.documentation");
@@ -20,6 +21,7 @@ const { ModulesMapSelect, ModuleSearchComponent } = goog.require(
 const { SelectNav } = goog.require("bcrfrontend.SelectNav");
 const { SettingsSelect } = goog.require("bcrfrontend.settings");
 const { TargetsSelect } = goog.require("bcrfrontend.targets");
+const { ToolsSelect } = goog.require("bcrfrontend.tools");
 const { bodySelect, searchSelectNav } = goog.require("soy.bcrfrontend.app");
 
 /**
@@ -36,6 +38,7 @@ const TabName = {
 	SETTINGS: "settings",
 	SYMBOLS: "symbols",
 	TARGETS: "targets",
+	TOOLS: "tools",
 };
 
 /**
@@ -147,6 +150,11 @@ class BodySelect extends ContentSelect {
 			this.select(name, route);
 			return;
 		}
+		if (name === TabName.TOOLS) {
+			this.addTab(name, new ToolsSelect(this.dom_));
+			this.select(name, route);
+			return;
+		}
 
 		super.selectFail(name, route);
 	}
@@ -193,6 +201,19 @@ class SearchSelectNav extends SelectNav {
 			undefined,
 			"search/" + TabName.SYMBOLS,
 		);
+		this.getHandler().listen(
+			this.getElementStrict(),
+			events.EventType.INPUT,
+			(/** !events.Event */ e) => {
+				const input = e.target;
+				if (
+					input instanceof HTMLInputElement &&
+					input.classList.contains("js-search-input")
+				) {
+					this.syncSearchTabs_(searchQueryPath(input.value));
+				}
+			},
+		);
 	}
 
 	/**
@@ -208,7 +229,32 @@ class SearchSelectNav extends SelectNav {
 	 * @param {!Route} route
 	 */
 	goHere(route) {
+		this.syncSearchTabs_([]);
 		this.select(TabName.MODULES, route.add(TabName.MODULES));
+	}
+
+	/**
+	 * @override
+	 * @param {!Route} route
+	 */
+	goDown(route) {
+		this.syncSearchTabs_(route.unmatchedPath().slice(1));
+		super.goDown(route);
+	}
+
+	/**
+	 * @private
+	 * @param {!Array<string>} queryPath
+	 */
+	syncSearchTabs_(queryPath) {
+		/** @type {!Array<string>} */
+		const names = [TabName.MODULES, TabName.SYMBOLS];
+		for (const name of names) {
+			const item = dom.getElement(this.makeId(name));
+			if (item instanceof HTMLAnchorElement) {
+				item.href = `/${[TabName.SEARCH, name, ...queryPath].join("/")}`;
+			}
+		}
 	}
 
 	/**

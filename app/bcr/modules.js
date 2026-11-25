@@ -26,7 +26,8 @@ const events = goog.require("goog.events");
 const soy = goog.require("goog.soy");
 const style = goog.require("goog.style");
 const { Component, Route } = goog.require("stack.ui");
-const { getApplication, gzipDecode } = goog.require("bcrfrontend.common");
+const { getApplication, gzipDecode, searchQueryFromPath } =
+	goog.require("bcrfrontend.common");
 const { ContentComponent } = goog.require("bcrfrontend.ContentComponent");
 const { ContentSelect } = goog.require("bcrfrontend.ContentSelect");
 const { ModuleVersionSymbolsSelect, DocumentationReadmeComponent } =
@@ -1751,11 +1752,10 @@ class ModuleSearchComponent extends ContentComponent {
 
 	/**
 	 * Handle input events on the dedicated search box.
-	 * @param {!events.Event} e
 	 * @private
 	 */
-	handleSearchInput_(e) {
-		const value = this.searchInput_.value.trim();
+	handleSearchInput_() {
+		const value = this.searchInput_?.value.trim();
 		if (!value) {
 			const el = this.getContentElement();
 			dom.removeChildren(el);
@@ -1775,19 +1775,10 @@ class ModuleSearchComponent extends ContentComponent {
 	 * @param {!Route} route
 	 */
 	goDown(route) {
-		const tokens = route.unmatchedPath();
-		const results = this.searchModules(tokens);
-		const el = this.getContentElement();
-		soy.renderElement(el, searchModulesResultsList, {
-			tokens,
-			results,
-		});
-
-		// Pre-fill the search input with the query
 		if (this.searchInput_) {
-			this.searchInput_.value = tokens.join(" ");
+			this.searchInput_.value = searchQueryFromPath(route.unmatchedPath());
 		}
-
+		this.handleSearchInput_();
 		route.done(this);
 	}
 

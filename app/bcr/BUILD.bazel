@@ -9,6 +9,7 @@ load(
     "closure_js_template_library",
     "closure_js_test",
 )
+load("@stackb_rules_closure//closure/protobuf:defs.bzl", "closure_jspb_library")
 load("//rules:css_purge.bzl", "css_purge")
 load("//rules:deploy.bzl", "cloudflare_deploy")
 load("//rules:ghpages.bzl", "ghpages_deploy")
@@ -143,13 +144,16 @@ closure_css_binary(
 closure_js_template_library(
     name = "soy",
     srcs = [
+        "action_query.soy",
         "app.soy",
+        "execution_log.soy",
         "maintainers.soy",
         "octicons.soy",
         "packages.soy",
         "registry.soy",
         "settings.soy",
         "targets.soy",
+        "tools.soy",
         "treeview.soy",
         "uri.soy",
     ],
@@ -260,9 +264,23 @@ closure_js_library(
     srcs = [":ui_version_src"],
 )
 
+# Bazel's build.proto and the frontend's Stardoc views both use the
+# stardoc_output namespace. Link the frontend's existing bindings once.
+closure_jspb_library(
+    name = "action_query_js_proto",
+    srcs = [
+        "@bazelapis//src/main/protobuf:analysis_v2_closure.js",
+        "@bazelapis//src/main/protobuf:build_closure.js",
+    ],
+    suppress = ["checkTypes"],
+    deps = ["//stardoc_output:stardoc_output_js"],
+)
+
 closure_js_library(
     name = "app",
     srcs = [
+        "action_colors.js",
+        "action_query.js",
         "app.js",
         "bazel.js",
         "bazel_flags.js",
@@ -271,6 +289,9 @@ closure_js_library(
         "contentcomponent.js",
         "contentselect.js",
         "documentation.js",
+        "execution_log.js",
+        "execution_log_graph.js",
+        "execution_log_metrics.js",
         "format.js",
         "githubsourcefile.js",
         "home.js",
@@ -278,6 +299,7 @@ closure_js_library(
         "main.js",
         "maintainers.js",
         "markdown.js",
+        "mnemonic_filters.js",
         "modules.js",
         "mvs_tree.js",
         "packages.js",
@@ -289,11 +311,24 @@ closure_js_library(
         "source_archive_files.js",
         "syntax.js",
         "targets.js",
+        "invocation_charts.js",
+        "invocation_transport.js",
+        "invocation_event_details.js",
+        "invocation_events.js",
+        "invocation_format.js",
+        "invocation_frontier.js",
+        "invocation_groups.js",
+        "invocation_metrics.js",
+        "invocation_status.js",
+        "invocation_terminal.js",
+        "invocation_viewer.js",
+        "tools.js",
         "treeview.js",
         "unified_search.js",
         ":shiki",
     ],
     deps = [
+        ":action_query_js_proto",
         ":autocompletematcher",
         ":common",
         ":registry",
@@ -305,6 +340,7 @@ closure_js_library(
         "//build/stack/bazel/symbol/v1:sympb_js",
         "//build/stack/starlark/v1beta1:v1beta1_js",
         "//stardoc_output:stardoc_output_js",
+        "@bazelapis//src/main/protobuf:spawn_js_proto",
         "@stackb_rules_closure//closure/goog/array",
         "@stackb_rules_closure//closure/goog/asserts",
         "@stackb_rules_closure//closure/goog/crypt:base64",
@@ -315,6 +351,8 @@ closure_js_library(
         "@stackb_rules_closure//closure/goog/dom:dataset",
         "@stackb_rules_closure//closure/goog/events",
         "@stackb_rules_closure//closure/goog/events:eventtype",
+        "@stackb_rules_closure//closure/goog/events:eventhandler",
+        "@stackb_rules_closure//closure/goog/events:filedrophandler",
         "@stackb_rules_closure//closure/goog/events:listenable",
         "@stackb_rules_closure//closure/goog/soy",
         "@stackb_rules_closure//closure/goog/string",
@@ -332,6 +370,22 @@ closure_js_library(
         "@stackb_rules_closure//google3/third_party/javascript/safevalues/dom/elements",
         "@stackb_ui_js//js/ui:core",
         "@stackb_ui_js//js/ui:select",
+        "@bazelapis//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_js_proto",
+        "@protobufapis//google/protobuf:timestamp_js_proto",
+    ],
+)
+
+closure_js_test(
+    name = "tools_test",
+    srcs = ["tools_test.js"],
+    compilation_level = "ADVANCED",
+    entry_points = ["goog:bcrfrontend.toolsTest"],
+    deps = [
+        ":app",
+        "@bazelapis//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_js_proto",
+        "@bazelapis//src/main/protobuf:failure_details_js_proto",
+        "@stackb_rules_closure//closure/goog/testing:jsunit",
+        "@stackb_rules_closure//closure/goog/testing:testsuite",
     ],
 )
 
@@ -417,6 +471,13 @@ RELEASE_SRCS = [
     "favicon.png",
     ":robots_txt",
     ":sitemap_xml",
+    "invocation_iroh.mjs",
+    # fzstd 0.1.1 browser bundle with a bounded frame window and upstream license.
+    "vendor/fzstd-0.1.1-bounded.js",
+    "vendor/fzstd-0.1.1.LICENSE",
+    "@mermaid//:license",
+    "iroh_wasm/bcr_invocation_iroh.js",
+    "iroh_wasm/bcr_invocation_iroh_bg.wasm",
 ] + select({
     ":is_debug_release": ["bcr.js.map"],
     "//conditions:default": [],
@@ -426,6 +487,7 @@ RELEASE_HASHED_SRCS = [
     ":bcr.css",
     ":primer_purged_css",
     ":bcr.js",
+    "@mermaid//:dist/mermaid.min.js",
 ]
 
 # Vanilla release that always uses the index.html template. Used as the input

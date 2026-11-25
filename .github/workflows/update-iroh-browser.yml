@@ -1,0 +1,68 @@
+name: Update Iroh Browser Module
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/update-iroh-browser.yml
+      - tools/invocation-iroh/build-browser.sh
+      - tools/invocation-iroh/Cargo.toml
+      - tools/invocation-iroh/Cargo.lock
+      - tools/invocation-iroh/src/**
+  workflow_dispatch:
+
+concurrency:
+  group: update-iroh-browser
+  cancel-in-progress: false
+
+jobs:
+  update:
+    if: github.ref == 'refs/heads/main'
+    runs-on: self-hosted
+    permissions:
+      contents: read
+    outputs:
+      changed: ${{ steps.publish.outputs.changed }}
+    steps:
+      # Use the same automation credential as the periodic submodule sync
+      # to push the generated files to protected main.
+      - uses: actions/checkout@v6
+        with:
+          ref: main
+          token: ${{ secrets.BCR_AUTOMATION_TOKEN }}
+
+      - name: Build the Iroh browser module
+        env:
+          RUSTUP_TOOLCHAIN: "1.95.0"
+        run: |
+          rustup toolchain install "$RUSTUP_TOOLCHAIN" --profile minimal --target wasm32-unknown-unknown
+          bindgen_root="$HOME/.cache/bcr-frontend/wasm-bindgen-0.2.130"
+          cargo install --locked --version 0.2.130 --root "$bindgen_root" wasm-bindgen-cli
+          PATH="$bindgen_root/bin:$PATH" tools/invocation-iroh/build-browser.sh
+          test -s app/bcr/iroh_wasm/bcr_invocation_iroh.js
+          test -s app/bcr/iroh_wasm/bcr_invocation_iroh_bg.wasm
+
+      - name: Commit generated browser assets
+        id: publish
+        run: |
+          git add -- app/bcr/iroh_wasm/bcr_invocation_iroh.js app/bcr/iroh_wasm/bcr_invocation_iroh_bg.wasm
+          if git diff --cached --quiet; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git commit -m "Update Iroh browser module"
+          git push origin HEAD:refs/heads/main
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+
+  deploy:
+    needs: update
+    if: needs.update.result == 'success' && (needs.update.outputs.changed == 'true' || github.event_name == 'workflow_dispatch')
+    permissions:
+      contents: read
+      packages: write
+    uses: ./.github/workflows/deploy-ghpages.yml
+    secrets:
+      BCR_AUTOMATION_TOKEN: ${{ secrets.BCR_AUTOMATION_TOKEN }}

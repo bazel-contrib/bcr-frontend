@@ -46,6 +46,13 @@ class Application {
 	notifyError(_msg) {}
 
 	/**
+	 * Shows a transient success message.
+	 * @param {string} _message
+	 * @param {number=} _opt_dismiss
+	 */
+	toastSuccess(_message, _opt_dismiss) {}
+
+	/**
 	 * Returns the registry proto loaded at startup, before symbols are decorated.
 	 * Synchronous: components rendering during the initial route can read
 	 * registry-wide metadata (e.g. the BCR submodule URL/commit) without
@@ -118,6 +125,7 @@ exports.getApplication = getApplication;
  * desc: string,
  * incremental: boolean,
  * onsubmit: (function(!Application,string):undefined|null),
+ * onquery: (function(!Application,string):undefined|undefined),
  * inputHandler: (!InputHandler|null),
  * keyCode: (number|undefined),
  * load: (!function():!Promise<void>|undefined),
@@ -125,6 +133,38 @@ exports.getApplication = getApplication;
  */
 var SearchProvider;
 exports.SearchProvider = SearchProvider;
+
+/**
+ * Encodes the query in a single path segment for the search router.
+ * @param {string} query
+ * @return {!Array<string>}
+ */
+function searchQueryPath(query) {
+	const value = query.trim();
+	return value ? [`q=${encodeURIComponent(value)}`] : [];
+}
+exports.searchQueryPath = searchQueryPath;
+
+/**
+ * Reads an encoded query or the older URLs with one token per segment.
+ * @param {!Array<string>} path
+ * @return {string}
+ */
+function searchQueryFromPath(path) {
+	/** @type {!Array<string>} */
+	const parts =
+		path.length === 1 && path[0].startsWith("q=") ? [path[0].slice(2)] : path;
+	return parts
+		.map((part) => {
+			try {
+				return decodeURIComponent(part);
+			} catch {
+				return part;
+			}
+		})
+		.join(" ");
+}
+exports.searchQueryFromPath = searchQueryFromPath;
 
 /**
  * Interface for a component that provides an inputhandler for an autocomplete.

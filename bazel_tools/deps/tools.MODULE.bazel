@@ -33,6 +33,25 @@ filegroup(
     urls = ["https://github.com/ozh/github-colors/archive/b7b9413c19c392605d663775636ad20aa69adc14.tar.gz"],
 )
 
+# Mermaid's standalone browser bundle and accompanying license.
+http_archive(
+    name = "mermaid",
+    build_file_content = """
+exports_files(["dist/mermaid.min.js"])
+
+genrule(
+    name = "license",
+    srcs = ["LICENSE"],
+    outs = ["mermaid.LICENSE"],
+    cmd = "cp $< $@",
+    visibility = ["//visibility:public"],
+)
+""",
+    integrity = "sha512-V6K3C8EBdEsPFZXSKMJe6ppQOENxuHARr9GvHX4hh47lAbhMRD9qf4oEK7LoaRQxULMa80/qt5gHO73aCleBBg==",
+    strip_prefix = "package",
+    urls = ["https://registry.npmjs.org/mermaid/-/mermaid-11.17.2.tgz"],
+)
+
 # -------------------------------------------------------------------
 # Configuration: constellate server
 # -------------------------------------------------------------------

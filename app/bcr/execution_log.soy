@@ -1,0 +1,149 @@
+{namespace soy.bcrfrontend.executionLog}
+
+import {octiconFile16} from 'app/bcr/octicons.soy';
+import {sectionHeader} from 'app/bcr/registry.soy';
+
+{template executionLog}
+  <div class="PageLayout PageLayout--panePos-start PageLayout--hasPaneDivider PageLayout--responsive-stackRegions PageLayout--responsive-panePos-start">
+    <div class="PageLayout-columns">
+      <div class="PageLayout-pane execution-log-sidebar">
+        <h1 class="h2 mb-2">Execution Log</h1>
+        <p class="color-fg-muted">Inspect Bazel spawns, cache hits, and failures. The log stays in this browser.</p>
+        <pre class="action-query-command"><code>bazel build {'//pkg:target'} --execution_log_compact_file=execution.log.zst</code></pre>
+        <p class="text-small color-fg-muted" id="execution-log-summary" role="status"></p>
+        <div id="execution-log-invocation" class="text-small color-fg-muted"></div>
+        <section class="mb-3" id="execution-log-filters" aria-label="Mnemonics" hidden>
+          {sectionHeader(title: 'Mnemonics')}
+          <p class="text-small color-fg-muted mb-2">Uncheck a mnemonic to hide its entries.</p>
+          <div class="tool-mnemonics" id="execution-log-mnemonics"></div>
+        </section>
+      </div>
+      <div class="PageLayout-content execution-log-content" id="execution-log-content">
+        <div class="execution-log-toolbar flex-items-center flex-justify-between mb-3">
+          <div class="BtnGroup" role="tablist" aria-label="Execution log views" id="execution-log-tabs">
+            <button type="button" class="btn btn-sm BtnGroup-item" id="execution-log-tab-a" role="tab"
+                aria-selected="true" aria-controls="execution-log-slot-panel">Invocation A</button>
+            <button type="button" class="btn btn-sm BtnGroup-item" id="execution-log-tab-b" role="tab"
+                aria-selected="false" aria-controls="execution-log-slot-panel" tabindex="-1">Invocation B</button>
+            <button type="button" class="btn btn-sm BtnGroup-item" id="execution-log-tab-diff" role="tab"
+                aria-selected="false" aria-controls="execution-log-diff-panel" tabindex="-1">Diff</button>
+            <button type="button" class="btn btn-sm BtnGroup-item" id="execution-log-tab-metrics" role="tab"
+                aria-selected="false" aria-controls="execution-log-metrics-panel" tabindex="-1">Metrics</button>
+          </div>
+          <div class="execution-log-toolbar">
+            <button type="button" class="btn btn-sm" id="execution-log-load-a">Load A</button>
+            <button type="button" class="btn btn-sm" id="execution-log-load-b">Load B</button>
+          </div>
+        </div>
+        <input type="file" class="d-none" id="execution-log-file" aria-label="Choose a compact execution log">
+        <div id="execution-log-slot-panel" role="tabpanel" aria-labelledby="execution-log-tab-a">
+          <div class="action-query-drop" id="execution-log-drop">
+            <span class="color-fg-muted">{octiconFile16()}</span>
+            <strong>Drop a compact execution log</strong>
+            <button type="button" class="btn btn-outline btn-sm" id="execution-log-choose">Choose file</button>
+          </div>
+          <p class="text-small mt-2 mb-2" id="execution-log-status" role="status" hidden></p>
+          <div id="execution-log-results" hidden>
+            <div class="execution-log-toolbar mb-3">
+              <input type="search" class="form-control input-sm" id="execution-log-search" aria-label="Search execution log"
+                  placeholder="Search mnemonic, target, runner, or output">
+              <select class="form-select select-sm" id="execution-log-outcome" aria-label="Filter by outcome">
+                <option value="">All outcomes</option>
+                <option value="executed">Executed</option>
+                <option value="cache">Cache hits</option>
+                <option value="failed">Failed</option>
+                <option value="symlink">Symlinks</option>
+              </select>
+              <button type="button" class="btn btn-sm" id="execution-log-replace">Open another file</button>
+            </div>
+            <div class="execution-log-table">
+              <table class="width-full" aria-label="Execution log entries" id="execution-log-table">
+                <thead>
+                  <tr><th scope="col">Action</th><th scope="col">Target / output</th><th scope="col">Outcome</th>
+                    <th scope="col">Runner</th><th scope="col">Time</th></tr>
+                </thead>
+                <tbody id="execution-log-rows"></tbody>
+              </table>
+            </div>
+            <p class="color-fg-muted mt-3" id="execution-log-empty" hidden></p>
+            <div class="flex-items-center flex-wrap mt-2 execution-log-pagination" id="execution-log-pagination" hidden>
+              <button type="button" class="btn btn-sm" id="execution-log-prev">Previous</button>
+              <span class="text-small color-fg-muted" id="execution-log-page" role="status"></span>
+              <button type="button" class="btn btn-sm" id="execution-log-next">Next</button>
+            </div>
+            <section id="execution-log-detail" class="mt-4" aria-labelledby="execution-log-detail-heading" hidden>
+              <h2 id="execution-log-detail-heading" class="h3 mb-2" tabindex="-1"></h2>
+              <div id="execution-log-detail-body"></div>
+            </section>
+          </div>
+        </div>
+        <div id="execution-log-diff-panel" role="tabpanel" aria-labelledby="execution-log-tab-diff" hidden>
+          <div class="execution-log-toolbar flex-items-center mb-2" aria-label="Invocations in the graph" role="group">
+            <label><input id="execution-log-include-a" type="checkbox" checked disabled> Invocation A</label>
+            <label><input id="execution-log-include-b" type="checkbox" checked disabled> Invocation B</label>
+            <button type="button" class="btn btn-sm" id="execution-log-diff-fit" hidden>Fit graph</button>
+          </div>
+          <p class="color-fg-muted" id="execution-log-diff-status" role="status"></p>
+          <canvas class="action-query-canvas execution-log-graph" id="execution-log-diff-canvas" tabindex="0"
+              aria-label="Execution dependency graph" aria-describedby="execution-log-diff-help" hidden></canvas>
+          <p class="text-small color-fg-muted mt-2" id="execution-log-diff-help" hidden>
+            Drag to pan and scroll to zoom. Select a node with a click or Page Up and Page Down.
+          </p>
+          <p class="text-small color-fg-muted" id="execution-log-diff-key" hidden>
+            Matched nodes show A on the left and B on the right. Gray nodes are unchanged.
+          </p>
+          <section class="mt-4" id="execution-log-diff-list" aria-label="Changed entries" hidden>
+            <h2 class="h3 mb-2">Changed entries</h2>
+            <div class="execution-log-table">
+              <table class="width-full" aria-label="Changed execution log entries">
+                <thead><tr><th scope="col">Invocation A</th><th scope="col">Invocation B</th></tr></thead>
+                <tbody id="execution-log-diff-rows"></tbody>
+              </table>
+            </div>
+            <div class="flex-items-center flex-wrap mt-2 execution-log-pagination" id="execution-log-diff-pagination" hidden>
+              <button type="button" class="btn btn-sm" id="execution-log-diff-prev">Previous</button>
+              <span id="execution-log-diff-page" class="text-small color-fg-muted" role="status"></span>
+              <button type="button" class="btn btn-sm" id="execution-log-diff-next">Next</button>
+            </div>
+          </section>
+          <section class="mt-4" id="execution-log-diff-detail" aria-labelledby="execution-log-diff-heading" hidden>
+            <h2 id="execution-log-diff-heading" class="h3 mb-2" tabindex="-1"></h2>
+            <div id="execution-log-diff-body"></div>
+          </section>
+        </div>
+        <div id="execution-log-metrics-panel" role="tabpanel" aria-labelledby="execution-log-tab-metrics" hidden>
+          <fieldset class="execution-log-toolbar flex-items-center mb-3 execution-log-metrics-choice">
+            <legend class="sr-only">Invocation timing</legend>
+            <label><input type="radio" name="execution-log-metrics-invocation" id="execution-log-metrics-a" checked disabled> Invocation A</label>
+            <label><input type="radio" name="execution-log-metrics-invocation" id="execution-log-metrics-b" disabled> Invocation B</label>
+            <label id="execution-log-metrics-shared-option" hidden>
+              <input type="checkbox" id="execution-log-metrics-shared" disabled> Shared A/B scale
+            </label>
+          </fieldset>
+          <p class="color-fg-muted" id="execution-log-metrics-status" role="status"></p>
+          <div id="execution-log-metrics-chart" hidden>
+            <ul class="execution-log-metrics-legend list-style-none mb-2" id="execution-log-metrics-legend" aria-label="Timing phases"></ul>
+            <div class="execution-log-toolbar flex-items-center flex-justify-between mb-2">
+              <p class="text-small color-fg-muted mb-0" id="execution-log-metrics-help">
+                Time is relative to the first plotted spawn and covers the recorded spawn activity.
+                Drag to pan. Select a bar for timings.
+              </p>
+              <div class="BtnGroup" role="group" aria-label="Waterfall zoom">
+                <button type="button" class="btn btn-sm BtnGroup-item" id="execution-log-metrics-zoom-out" aria-label="Zoom out">−</button>
+                <button type="button" class="btn btn-sm BtnGroup-item" id="execution-log-metrics-zoom-in" aria-label="Zoom in">+</button>
+                <button type="button" class="btn btn-sm BtnGroup-item" id="execution-log-metrics-fit">Fit timeline</button>
+              </div>
+            </div>
+            <div class="execution-log-waterfall" id="execution-log-metrics-viewport">
+              <div class="execution-log-waterfall-space">
+                <canvas id="execution-log-metrics-canvas" class="execution-log-waterfall-canvas" tabindex="0"
+                        aria-label="Spawn timing waterfall" aria-describedby="execution-log-metrics-help"></canvas>
+              </div>
+            </div>
+            <p class="text-small mt-2 execution-log-waterfall-detail" id="execution-log-metrics-detail" role="status" hidden></p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+{/template}

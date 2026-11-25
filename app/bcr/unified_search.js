@@ -21,6 +21,7 @@ const File = goog.requireType("proto.build.stack.bazel.symbol.v1.File");
 const Symbol_ = goog.requireType("proto.build.stack.bazel.symbol.v1.Symbol");
 const { Application, SearchProvider } = goog.requireType("bcrfrontend.common");
 const { Searchable } = goog.requireType("bcrfrontend.common");
+const { searchQueryPath } = goog.require("bcrfrontend.common");
 const { moduleSearchRow, symbolSearchRow } = goog.require(
 	"soy.bcrfrontend.app",
 );
@@ -100,6 +101,7 @@ class UnifiedSearchHandler extends EventTarget {
 
 		/** @private @const @type {!InputHandler} */
 		this.inputHandler_ = new InputHandler(null, null, false);
+		this.inputHandler_.setPreventSelectionOnTab(true);
 
 		/** @private @type {?AutoComplete} */
 		this.ac_ = null;
@@ -111,6 +113,7 @@ class UnifiedSearchHandler extends EventTarget {
 			incremental: false,
 			inputHandler: this.inputHandler_,
 			onsubmit: goog.bind(this.handleSearchOnSubmit, this),
+			onquery: goog.bind(this.handleQueryOnSubmit, this),
 			keyCode: events.KeyCodes.SLASH,
 			load: goog.bind(this.load, this),
 		};
@@ -168,6 +171,15 @@ class UnifiedSearchHandler extends EventTarget {
 		this.scope_ = scope;
 	}
 
+	/** Refreshes the focused input, even if the query text is unchanged. */
+	refreshSuggestions() {
+		if (this.ac_ && this.inputHandler_.getActiveElement()) {
+			// Closure caches the last token and highlight until dismissed.
+			this.ac_.dismiss();
+			this.ac_.update(true);
+		}
+	}
+
 	/**
 	 * Returns the active keys slice for the current scope. Read by the
 	 * ScopedMatcher on every match request, so swapping scope or appending
@@ -175,12 +187,10 @@ class UnifiedSearchHandler extends EventTarget {
 	 * @return {!Array<string>}
 	 */
 	getActiveKeys() {
-		// First actual match request is what pulls symbols.pb.gz in. See
-		// ensureSymbols_ for why this isn't done at load() time.
-		this.ensureSymbols_();
 		if (this.scope_ === SCOPE_MODULES) {
 			return this.moduleKeys_;
 		}
+		this.ensureSymbols_();
 		if (this.scope_ === SCOPE_SYMBOLS) {
 			return this.symbolKeys_;
 		}
@@ -189,9 +199,7 @@ class UnifiedSearchHandler extends EventTarget {
 
 	/**
 	 * Kicks off the symbols fetch exactly once, and indexes symbols when it
-	 * lands. Fire-and-forget: the ScopedMatcher picks up the appended symbol
-	 * keys on the next match request, so the first keystroke searches modules
-	 * only and symbols fold in a moment later without an AC rebuild.
+	 * lands. Module matches remain usable while symbol data loads.
 	 *
 	 * This deliberately does NOT happen in load(). load() runs during boot
 	 * (App wires up the "all" provider immediately), and symbols.pb.gz is
@@ -205,8 +213,12 @@ class UnifiedSearchHandler extends EventTarget {
 		if (this.symbolsRequested_) return;
 		this.symbolsRequested_ = true;
 		this.registryWithSymbolsLoader_().then((registry) => {
+			if (this.isDisposed()) return;
 			this.indexSymbols_(registry);
 			this.provider_.desc = `Search ${this.moduleKeys_.length} modules and ${this.symbolKeys_.length} symbols`;
+			if (this.scope_ !== SCOPE_MODULES) {
+				this.refreshSuggestions();
+			}
 		});
 	}
 
@@ -239,6 +251,19 @@ class UnifiedSearchHandler extends EventTarget {
 		}
 	}
 
+	/**
+	 * @private
+	 * @param {!Application} app
+	 * @param {string} query
+	 */
+	handleQueryOnSubmit(app, query) {
+		app.setLocation([
+			"search",
+			this.scope_ === SCOPE_SYMBOLS ? SCOPE_SYMBOLS : SCOPE_MODULES,
+			...searchQueryPath(query),
+		]);
+	}
+
 	/** @private */
 	createAutoComplete_() {
 		const matcher = new ScopedMatcher(this);
@@ -248,6 +273,7 @@ class UnifiedSearchHandler extends EventTarget {
 			this.inputHandler_,
 		));
 		ac.setMaxMatches(15);
+		ac.setAutoHilite(false);
 		this.inputHandler_.attachAutoComplete(ac);
 	}
 
@@ -366,6 +392,10 @@ class ScopedMatcher {
 	 * @param {function(string, !Array<string>)} callback
 	 */
 	requestMatchingRows(token, max, callback) {
+		if (!token.trim()) {
+			callback(token, []);
+			return;
+		}
 		const inner = new AutoCompleteMatcher(this.handler_.getActiveKeys());
 		inner.requestMatchingRows(token, max, callback);
 	}

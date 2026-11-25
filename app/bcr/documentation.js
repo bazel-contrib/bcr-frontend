@@ -34,7 +34,8 @@ const dom = goog.require("goog.dom");
 const events = goog.require("goog.events");
 const path = goog.require("goog.string.path");
 const soy = goog.require("goog.soy");
-const { getApplication } = goog.require("bcrfrontend.common");
+const { getApplication, searchQueryFromPath } =
+	goog.require("bcrfrontend.common");
 const { Component, Route } = goog.require("stack.ui");
 const { ContentComponent } = goog.require("bcrfrontend.ContentComponent");
 const { ContentSelect } = goog.require("bcrfrontend.ContentSelect");
@@ -725,13 +726,10 @@ class FileSelect extends ContentSelect {
 	 * @param {!Route} route
 	 */
 	goHere(route) {
-		// Synthetic pseudo-module files (e.g. @_builtins's "globals", "cpp")
-		// have no upstream source to fetch — the BzlFileSourceComponent would
-		// 404. Land on the symbol list instead. Heuristic: files whose label
-		// name doesn't end in .bzl aren't real source files.
-		const labelName = this.file_.getLabel()?.getName() || "";
-		const tab = labelName.endsWith(".bzl") ? TabName.SOURCE : TabName.LIST;
-		this.select(tab, route.add(tab));
+		// The bare file route is the documentation overview: its top-level
+		// Stardoc description is rendered as Markdown above the exported symbols
+		// and source. The explicit /source route remains available.
+		this.select(TabName.LIST, route.add(TabName.LIST));
 	}
 
 	/**
@@ -1704,6 +1702,24 @@ class FileListComponent extends MarkdownComponent {
 		super.enterDocument();
 
 		highlightAll(this.getElementStrict());
+
+		// Real .bzl files show their source after the module-level documentation
+		// and exported symbols. Synthetic pseudo-module files (for example
+		// @_builtins's "globals") have no upstream source and remain docs-only.
+		const labelName = this.file_.getLabel()?.getName() || "";
+		if (labelName.endsWith(".bzl")) {
+			const source = new BzlFileSourceComponent(
+				this.module_,
+				this.moduleVersion_,
+				this.file_,
+				this.dom_,
+			);
+			this.addChild(source, false);
+			const sourceContainer = document.createElement("div");
+			sourceContainer.className = "mt-4";
+			this.getElementStrict().appendChild(sourceContainer);
+			source.render(sourceContainer);
+		}
 	}
 }
 
@@ -2098,6 +2114,9 @@ class DocumentationSearchComponent extends ContentComponent {
 
 		/** @private @type {?HTMLInputElement} */
 		this.searchInput_ = null;
+
+		/** @private {boolean} */
+		this.symbolsReady_ = false;
 	}
 
 	/**
@@ -2132,23 +2151,33 @@ class DocumentationSearchComponent extends ContentComponent {
 				this.handleSearchInput_,
 			);
 		}
+		getApplication(this)
+			.getRegistryWithSymbols()
+			.then(() => {
+				this.symbolsReady_ = true;
+				if (this.isInDocument()) {
+					this.handleSearchInput_();
+				}
+			});
 	}
 
 	/**
 	 * Handle input events on the dedicated search box.
-	 * @param {!events.Event} e
 	 * @private
 	 */
-	handleSearchInput_(e) {
-		const value = this.searchInput_.value.trim();
+	handleSearchInput_() {
+		const value = this.searchInput_?.value.trim();
+		const el = this.getContentElement();
 		if (!value) {
-			const el = this.getContentElement();
 			dom.removeChildren(el);
+			return;
+		}
+		if (!this.symbolsReady_) {
+			el.textContent = "Loading symbols…";
 			return;
 		}
 		const tokens = value.split(/\s+/);
 		const results = this.searchSymbols(tokens);
-		const el = this.getContentElement();
 		soy.renderElement(el, searchSymbolsResultsList, { tokens, results });
 	}
 
@@ -2157,16 +2186,10 @@ class DocumentationSearchComponent extends ContentComponent {
 	 * @param {!Route} route
 	 */
 	goDown(route) {
-		const tokens = route.unmatchedPath();
-		const results = this.searchSymbols(tokens);
-		const el = this.getContentElement();
-		soy.renderElement(el, searchSymbolsResultsList, { tokens, results });
-
-		// Pre-fill the search input with the query
 		if (this.searchInput_) {
-			this.searchInput_.value = tokens.join(" ");
+			this.searchInput_.value = searchQueryFromPath(route.unmatchedPath());
 		}
-
+		this.handleSearchInput_();
 		route.done(this);
 	}
 
@@ -2193,7 +2216,7 @@ class DocumentationSearchComponent extends ContentComponent {
 
 		for (const module of this.registry_.getModulesList()) {
 			const version = module.getVersionsList()[0]; // search most recent version only
-			const docs = version.getSource()?.getDocumentation();
+			const docs = version?.getSource()?.getDocumentation();
 			if (!docs) continue;
 
 			for (const file of docs.getFileList()) {

@@ -153,6 +153,7 @@ GitOverrideInfo = provider(
         "patch_strip": "int: Number of leading path components to strip from patches",
         "patches": "list[str]: Patch file paths",
         "tag": "str: Git tag name",
+        "strip_prefix": "str: Directory prefix to strip from the checked-out repository",
     },
 )
 
@@ -163,6 +164,7 @@ ArchiveOverrideInfo = provider(
         "integrity": "str: Archive integrity hash",
         "patch_strip": "int: Number of leading path components to strip from patches",
         "patches": "list[str]: Patch file paths",
+        "patch_cmds": "list[str]: Bash commands to run after applying patches",
         "strip_prefix": "str: Directory prefix to strip from the archive",
         "urls": "list[str]: Archive URLs",
     },
@@ -174,6 +176,7 @@ SingleVersionOverrideInfo = provider(
         "module_name": "str: Name of the module being overridden",
         "patch_strip": "int: Number of leading path components to strip from patches",
         "patches": "list[str]: Patch file paths",
+        "patch_cmds": "list[str]: Bash commands to run after applying patches",
         "version": "str: Specific version to use",
         "registry": "str: Registry from which to resolve the module",
     },
