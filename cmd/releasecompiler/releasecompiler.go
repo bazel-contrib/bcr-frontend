@@ -217,10 +217,10 @@ func buildManifestAsset(registryPath string, assets []HashedAsset) (HashedAsset,
 	}
 
 	manifest := &bzpb.RegistryManifest{
-		CommitSha:    registry.GetCommitSha(),
-		CommitDate:   registry.GetCommitDate(),
-		Branch:       registry.GetBranch(),
-		AssetHashes:  map[string]string{},
+		CommitSha:   registry.GetCommitSha(),
+		CommitDate:  registry.GetCommitDate(),
+		Branch:      registry.GetBranch(),
+		AssetHashes: map[string]string{},
 	}
 	for _, a := range assets {
 		if a.OriginalName == a.HashedName {
@@ -464,8 +464,55 @@ func createTarball(indexContent []byte, assets []HashedAsset, modulesSrcFiles []
 		}
 	}
 
-	// Add modules_src files preserving path relative to "modules/"
+	// Add modules_src entries preserving path relative to "modules/".
+	//
+	// An entry is either a single file (the per-version documentationinfo /
+	// packageinfo artifacts, one Bazel action each) or a tree artifact. The
+	// tree case exists because registrycompiler emits ~8k per-version
+	// moduleversion.pb.gz records from one action; declaring them
+	// individually would mean thousands of extra actions for no benefit.
 	for _, path := range modulesSrcFiles {
+		info, err := os.Stat(path)
+		if err != nil {
+			return nil, fmt.Errorf("failed to stat modules_src %s: %v", path, err)
+		}
+
+		if info.IsDir() {
+			// Tree artifact: name entries by their path relative to the
+			// declared directory rather than searching for a "modules/"
+			// marker, which would misfire on a module literally named
+			// "modules".
+			root, err := filepath.EvalSymlinks(path)
+			if err != nil {
+				return nil, fmt.Errorf("resolving modules_src directory %s: %w", path, err)
+			}
+			err = filepath.WalkDir(root, func(p string, entry os.DirEntry, err error) error {
+				if err != nil {
+					return err
+				}
+				if entry.IsDir() {
+					return nil
+				}
+				rel, err := filepath.Rel(root, p)
+				if err != nil {
+					return fmt.Errorf("relativizing %s against %s: %v", p, root, err)
+				}
+				content, err := os.ReadFile(p)
+				if err != nil {
+					return fmt.Errorf("failed to read modules_src %s: %v", p, err)
+				}
+				tarName := "modules/" + filepath.ToSlash(rel)
+				if err := addFileToTar(tw, tarName, content); err != nil {
+					return fmt.Errorf("failed to add %s: %v", tarName, err)
+				}
+				return nil
+			})
+			if err != nil {
+				return nil, err
+			}
+			continue
+		}
+
 		const marker = "modules/"
 		idx := strings.LastIndex(path, marker)
 		if idx == -1 {

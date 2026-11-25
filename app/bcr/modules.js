@@ -134,6 +134,82 @@ async function fetchModuleVersionPackagesFromGithubRepository(moduleVersion) {
 	}
 }
 
+/** @type {!WeakMap<!ModuleVersion, !Promise<boolean>>} */
+const moduleVersionHydrations = new WeakMap();
+
+/**
+ * Fills in historical detail omitted by the boot registry. Keep any
+ * documentation and package data already attached by the aggregate loaders.
+ * @param {!ModuleVersion} moduleVersion
+ * @param {boolean} isLatest
+ * @return {!Promise<boolean>}
+ */
+function hydrateModuleVersion(moduleVersion, isLatest) {
+	if (
+		isLatest ||
+		moduleVersion.getIsLatestVersion() ||
+		!document.querySelector('meta[name="bcr:thin-registry"]')
+	) {
+		return Promise.resolve(true);
+	}
+	const existing = moduleVersionHydrations.get(moduleVersion);
+	if (existing) {
+		return existing;
+	}
+
+	const name = moduleVersion.getName();
+	const version = moduleVersion.getVersion();
+	const baseUrl =
+		new URLSearchParams(window.location.search).get("modules_base_url") || "";
+	const url = `${baseUrl}/modules/${encodeURIComponent(name)}/${encodeURIComponent(version)}/moduleversion.pb.gz`;
+	const pending = (async () => {
+		try {
+			const response = await fetch(url, { cache: "no-cache" });
+			if (!response.ok) throw new Error(`HTTP ${response.status}`);
+			const data = new Uint8Array(await response.arrayBuffer());
+			const full = ModuleVersion.deserializeBinary(await gzipDecode(data));
+			if (full.getName() !== name || full.getVersion() !== version) {
+				throw new Error(
+					"Version record does not match the requested module and version",
+				);
+			}
+
+			const attached = moduleVersion.getSource();
+			const source = full.getSource();
+			const docs = attached?.getDocumentation();
+			const packages = attached?.getPackages();
+			if (source && docs && !source.getDocumentation())
+				source.setDocumentation(docs);
+			if (source && packages && !source.getPackages())
+				source.setPackages(packages);
+			moduleVersion.setSource(source);
+			moduleVersion.setAttestations(full.getAttestations());
+			moduleVersion.setToolchainsToRegisterList(
+				full.getToolchainsToRegisterList(),
+			);
+			moduleVersion.setCommit(full.getCommit());
+			return true;
+		} catch (/** @type {*} */ e) {
+			console.error(
+				`Failed to fetch version details for ${name}@${version}:`,
+				e,
+			);
+			return false;
+		}
+	})().then(
+		/**
+		 * @param {boolean} loaded
+		 * @return {boolean}
+		 */
+		(loaded) => {
+			if (!loaded) moduleVersionHydrations.delete(moduleVersion);
+			return loaded;
+		},
+	);
+	moduleVersionHydrations.set(moduleVersion, pending);
+	return pending;
+}
+
 /**
  * @enum {string}
  */
@@ -283,11 +359,23 @@ class ModuleSelect extends ContentSelect {
 
 		const moduleVersion = this.moduleVersions_.get(name);
 		if (moduleVersion) {
-			this.addTab(
-				name,
-				new ModuleVersionSelectNav(this.registry_, this.module_, moduleVersion),
+			// The nav reads source details before it creates its tabs.
+			hydrateModuleVersion(moduleVersion, moduleVersion === this.latest_).then(
+				(loaded) => {
+					if (this.isDisposed() || !route.inProgress()) return;
+					this.addTab(
+						name,
+						loaded
+							? new ModuleVersionSelectNav(
+									this.registry_,
+									this.module_,
+									moduleVersion,
+								)
+							: new ModuleVersionBlankslateComponent(this.module_, name, true),
+					);
+					this.select(name, route);
+				},
 			);
-			this.select(name, route);
 			return;
 		}
 
@@ -1861,9 +1949,10 @@ class ModuleVersionBlankslateComponent extends Component {
 	/**
 	 * @param {!Module} module
 	 * @param {string} version
+	 * @param {boolean=} opt_detailsUnavailable
 	 * @param {?dom.DomHelper=} opt_domHelper
 	 */
-	constructor(module, version, opt_domHelper) {
+	constructor(module, version, opt_detailsUnavailable, opt_domHelper) {
 		super(opt_domHelper);
 
 		/** @private @const @type {!Module} */
@@ -1871,6 +1960,9 @@ class ModuleVersionBlankslateComponent extends Component {
 
 		/** @private @const @type {string} */
 		this.version_ = version;
+
+		/** @private @const */
+		this.detailsUnavailable_ = !!opt_detailsUnavailable;
 	}
 
 	/**
@@ -1881,6 +1973,7 @@ class ModuleVersionBlankslateComponent extends Component {
 			soy.renderAsElement(moduleVersionBlankslateComponent, {
 				module: this.module_,
 				version: this.version_,
+				detailsUnavailable: this.detailsUnavailable_,
 			}),
 		);
 	}

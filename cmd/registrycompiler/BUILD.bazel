@@ -1,4 +1,4 @@
-load("@rules_go//go:def.bzl", "go_binary", "go_library")
+load("@rules_go//go:def.bzl", "go_binary", "go_library", "go_test")
 
 go_library(
     name = "registrycompiler_lib",
@@ -18,4 +18,15 @@ go_binary(
     name = "registrycompiler",
     embed = [":registrycompiler_lib"],
     visibility = ["//visibility:public"],
+)
+
+go_test(
+    name = "registrycompiler_test",
+    srcs = ["registrycompiler_test.go"],
+    embed = [":registrycompiler_lib"],
+    deps = [
+        "//build/stack/bazel/registry/v1:registry",
+        "//pkg/protoutil",
+        "@org_golang_google_protobuf//proto",
+    ],
 )

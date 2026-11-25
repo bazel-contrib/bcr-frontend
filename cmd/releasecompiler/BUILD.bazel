@@ -1,4 +1,4 @@
-load("@rules_go//go:def.bzl", "go_binary", "go_library")
+load("@rules_go//go:def.bzl", "go_binary", "go_library", "go_test")
 
 go_library(
     name = "releasecompiler_lib",
@@ -16,4 +16,10 @@ go_binary(
     name = "releasecompiler",
     embed = [":releasecompiler_lib"],
     visibility = ["//visibility:public"],
+)
+
+go_test(
+    name = "releasecompiler_test",
+    srcs = ["releasecompiler_test.go"],
+    embed = [":releasecompiler_lib"],
 )
