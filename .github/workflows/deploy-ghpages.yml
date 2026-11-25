@@ -115,6 +115,7 @@ jobs:
           --bazelrc=.github/workflows/ci.bazelrc
           --bazelrc=.bazelrc
           run
+          --build_metadata=igroup=bcr-frontend-deploy
           //:bcr
           --
           ${{ steps.gazelle.outputs.extra_flags }}
@@ -137,6 +138,7 @@ jobs:
           --bazelrc=.bazelrc
           run
           --config=ci
+          --build_metadata=igroup=bcr-frontend-deploy
           --//app/bcr:release_type=production
           --//app/bcr:prerender_modules=on
           //app/bcr:ghpages
