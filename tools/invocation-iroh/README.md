@@ -102,6 +102,7 @@ bazel build //app/bcr:release
 
 The build helper generates the optional Iroh WASM assets under
 `app/bcr/iroh_wasm`. The normal frontend release includes them when present.
+A clean GitHub Pages deployment builds these assets before packaging the site.
 A hosted deployment needs to serve the generated JavaScript and WebAssembly
 assets and permit WebSocket connections to its Iroh relay.
 

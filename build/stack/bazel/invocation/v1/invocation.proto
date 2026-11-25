@@ -11,29 +11,19 @@ option go_package = "github.com/bazel-contrib/bcr-frontend/build/stack/bazel/inv
 // console output are stored separately and associated through invocation_id.
 // An invocation may contain several BES component streams. Each stream has its
 // own sequence numbers, so sequence numbers alone cannot identify an event.
+// Bazel's Build Event Service supplies stream identity and the event envelope.
+// BuildBuddy's invocation model is a reference for the summary and replay API:
+// https://github.com/buildbuddy-io/buildbuddy/blob/master/proto/invocation.proto
 message Invocation {
+  reserved 3 to 7, 24 to 26;
+  reserved "correlated_invocations_id", "parent_invocation_id", "user_id",
+      "group_id", "visibility", "tags", "build_metadata", "ci";
+
   // Client-generated Bazel invocation UUID, from BES StreamId.invocation_id
   // and BuildStarted.uuid. Also matches REAPI RequestMetadata.tool_invocation_id.
-  // Storage lookups are scoped by group_id and invocation_id.
   string invocation_id = 1;
   // BES StreamId.build_id identifies a build that may have multiple invocations.
   string build_id = 2;
-  // Optional workflow or CI correlation ID, matching REAPI
-  // RequestMetadata.correlated_invocations_id when supplied.
-  string correlated_invocations_id = 3;
-  // Optional invocation that launched this one.
-  string parent_invocation_id = 4;
-
-  // Server-assigned ownership, derived from the authenticated publishing
-  // principal. Client build metadata must never set or override these IDs.
-  // Empty user_id supports a group-owned service account or anonymous upload.
-  // Empty group_id denotes an unassigned invocation.
-  string user_id = 5;
-  string group_id = 6;
-  // Effective read visibility. Unspecified must be treated as PRIVATE.
-  // This field does not grant write access. Writes require an authorized
-  // publishing principal within the owning group.
-  InvocationVisibility visibility = 7;
 
   InvocationState state = 8;
   InvocationResult result = 9;
@@ -59,11 +49,6 @@ message Invocation {
   SourceControl source_control = 22;
   // Client-reported role such as CI or developer.
   string role = 23;
-  repeated string tags = 24;
-  // Sanitized Bazel BuildMetadata key/value pairs. Secrets must be removed
-  // before storage or exposure through an API.
-  map<string, string> build_metadata = 25;
-  CIContext ci = 26;
 
   // Bazel runner accounting. Absent if the event did not report this signal.
   optional int64 bazel_remote_cache_hits = 27;
@@ -100,15 +85,6 @@ enum InvocationState {
   INVOCATION_STATE_INCOMPLETE = 3;
 }
 
-enum InvocationVisibility {
-  INVOCATION_VISIBILITY_UNSPECIFIED = 0;
-  // Readable by the owner and authorized group administrators.
-  INVOCATION_VISIBILITY_PRIVATE = 1;
-  // Readable by authorized members of group_id.
-  INVOCATION_VISIBILITY_GROUP = 2;
-  INVOCATION_VISIBILITY_PUBLIC = 3;
-}
-
 // Present when a BuildFinished event has supplied a result, even if other
 // events are still missing. An absent result means the outcome is unknown.
 message InvocationResult {
@@ -119,21 +95,12 @@ message InvocationResult {
 }
 
 message SourceControl {
+  reserved 4;
+  reserved "change_id";
+
   string repository_url = 1;
   string commit_sha = 2;
   string branch = 3;
-  // Optional source change identifier, such as a pull request number.
-  string change_id = 4;
-}
-
-message CIContext {
-  string provider = 1;
-  string workflow = 2;
-  string job = 3;
-  string run_id = 4;
-  string run_url = 5;
-  // CI retry number when supplied. Independent of BES upload reconnections.
-  optional uint32 attempt = 6;
 }
 
 // Query and follow invocations accepted by this server.

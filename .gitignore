@@ -25,5 +25,6 @@ data/generated.MODULE.bazel
 /invocations.sqlite.lock
 
 # Local Iroh companion build and generated frontend assets.
+/iroh.key
 /tools/invocation-iroh/target/
 /app/bcr/iroh_wasm/

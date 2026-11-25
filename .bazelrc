@@ -1,6 +1,3 @@
-# tools/bazel skips the home rc so a machine-wide --output_base cannot make
-# separate checkouts share a server. Use Bazel's default per-workspace output base.
-
 build --workspace_status_command=./tools/workspace_status.sh
 # Run the workspace status command on every build so STABLE_GIT_COMMIT is
 # threaded into stamped artifacts (e.g. //app/bcr:ui_version_src).

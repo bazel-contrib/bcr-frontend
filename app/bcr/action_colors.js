@@ -3,10 +3,10 @@
  */
 goog.module("bcrfrontend.actionColors");
 
-/** Bezel action palette, grouped by color.
+/** Action mnemonic palette, grouped by color.
  * @const {!Array<!Array<string>>}
  */
-const BEZEL_MNEMONIC_COLORS = [
+const ACTION_MNEMONIC_COLORS = [
 	["#a05f14", "JavaIjar Javac Turbine JavacTurbine JavaSourceJar"],
 	["#ed306a", "CppCompile CcStrip SolibSymlink"],
 	["#f7ba13", "CppLink"],
@@ -43,7 +43,7 @@ const BEZEL_MNEMONIC_COLORS = [
 ];
 /** @const {!Map<string,string>} */
 const MNEMONIC_COLORS = new Map();
-for (const entry of BEZEL_MNEMONIC_COLORS) {
+for (const entry of ACTION_MNEMONIC_COLORS) {
 	for (const name of entry[1].split(" ")) MNEMONIC_COLORS.set(name, entry[0]);
 }
 

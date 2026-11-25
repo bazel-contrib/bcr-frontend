@@ -11,21 +11,11 @@ const FailureDetail = goog.require("proto.failure_details.FailureDetail");
 const NamedSetOfFiles = goog.require("proto.build_event_stream.NamedSetOfFiles");
 const Progress = goog.require("proto.build_event_stream.Progress");
 const testSuite = goog.require("goog.testing.testSuite");
-const {
-	FrontierMark,
-	InvocationProgress,
-	InvocationTerminal,
-	createBuildStatCards,
-	decodeDelimitedMessages,
-	expectedFrontierLabel,
-	formatTerminalText,
-	frontierFlightFrames,
-	frontierWait,
-	invocationFailure,
-	layoutFrontier,
-	parseCriticalPath,
-	renderTerminalText,
-} = goog.require("bcrfrontend.tools");
+const { FrontierMark, InvocationProgress, decodeDelimitedMessages, invocationFailure } = goog.require("bcrfrontend.invocationEvents");
+const { InvocationTerminal, formatTerminalText, renderTerminalText } = goog.require("bcrfrontend.invocationTerminal");
+const { createBuildStatCards, parseCriticalPath } = goog.require("bcrfrontend.invocationMetrics");
+const { expectedFrontierLabel, frontierFlightFrames, frontierWait, layoutFrontier } = goog.require("bcrfrontend.invocationFrontier");
+goog.require("bcrfrontend.tools");
 goog.require("goog.testing.jsunit");
 
 /**

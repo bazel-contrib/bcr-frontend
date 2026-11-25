@@ -511,8 +511,7 @@ func TestSQLiteInvocationGroups(t *testing.T) {
 		}
 		release, err := store.ListInvocations(ctx, &pb.ListInvocationsRequest{InvocationGroup: "release"})
 		if err != nil || len(release.GetInvocations()) != 2 || release.Invocations[0].InvocationId != "second" ||
-			release.Invocations[1].InvocationId != "first" || release.Invocations[1].InvocationGroup != "release" ||
-			release.Invocations[1].GroupId != "" {
+			release.Invocations[1].InvocationId != "first" || release.Invocations[1].InvocationGroup != "release" {
 			t.Fatalf("release membership: %v, %v", release, err)
 		}
 		first := release.Invocations[1]

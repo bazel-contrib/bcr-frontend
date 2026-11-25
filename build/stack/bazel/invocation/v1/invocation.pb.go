@@ -23,17 +23,13 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// State of event collection, independent of the command's exit status.
 type InvocationState int32
 
 const (
 	InvocationState_INVOCATION_STATE_UNSPECIFIED InvocationState = 0
 	InvocationState_INVOCATION_STATE_IN_PROGRESS InvocationState = 1
-	// All observed build-tool streams have finished with contiguous events.
-	InvocationState_INVOCATION_STATE_COMPLETE InvocationState = 2
-	// Collection was finalized with missing events, for example after a timeout.
-	// A transient disconnect alone does not finalize collection.
-	InvocationState_INVOCATION_STATE_INCOMPLETE InvocationState = 3
+	InvocationState_INVOCATION_STATE_COMPLETE    InvocationState = 2
+	InvocationState_INVOCATION_STATE_INCOMPLETE  InvocationState = 3
 )
 
 // Enum value maps for InvocationState.
@@ -79,121 +75,31 @@ func (InvocationState) EnumDescriptor() ([]byte, []int) {
 	return file_build_stack_bazel_invocation_v1_invocation_proto_rawDescGZIP(), []int{0}
 }
 
-type InvocationVisibility int32
-
-const (
-	InvocationVisibility_INVOCATION_VISIBILITY_UNSPECIFIED InvocationVisibility = 0
-	// Readable by the owner and authorized group administrators.
-	InvocationVisibility_INVOCATION_VISIBILITY_PRIVATE InvocationVisibility = 1
-	// Readable by authorized members of group_id.
-	InvocationVisibility_INVOCATION_VISIBILITY_GROUP  InvocationVisibility = 2
-	InvocationVisibility_INVOCATION_VISIBILITY_PUBLIC InvocationVisibility = 3
-)
-
-// Enum value maps for InvocationVisibility.
-var (
-	InvocationVisibility_name = map[int32]string{
-		0: "INVOCATION_VISIBILITY_UNSPECIFIED",
-		1: "INVOCATION_VISIBILITY_PRIVATE",
-		2: "INVOCATION_VISIBILITY_GROUP",
-		3: "INVOCATION_VISIBILITY_PUBLIC",
-	}
-	InvocationVisibility_value = map[string]int32{
-		"INVOCATION_VISIBILITY_UNSPECIFIED": 0,
-		"INVOCATION_VISIBILITY_PRIVATE":     1,
-		"INVOCATION_VISIBILITY_GROUP":       2,
-		"INVOCATION_VISIBILITY_PUBLIC":      3,
-	}
-)
-
-func (x InvocationVisibility) Enum() *InvocationVisibility {
-	p := new(InvocationVisibility)
-	*p = x
-	return p
-}
-
-func (x InvocationVisibility) String() string {
-	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
-}
-
-func (InvocationVisibility) Descriptor() protoreflect.EnumDescriptor {
-	return file_build_stack_bazel_invocation_v1_invocation_proto_enumTypes[1].Descriptor()
-}
-
-func (InvocationVisibility) Type() protoreflect.EnumType {
-	return &file_build_stack_bazel_invocation_v1_invocation_proto_enumTypes[1]
-}
-
-func (x InvocationVisibility) Number() protoreflect.EnumNumber {
-	return protoreflect.EnumNumber(x)
-}
-
-// Deprecated: Use InvocationVisibility.Descriptor instead.
-func (InvocationVisibility) EnumDescriptor() ([]byte, []int) {
-	return file_build_stack_bazel_invocation_v1_invocation_proto_rawDescGZIP(), []int{1}
-}
-
-// Summary of one Bazel command, updated as build events arrive. Raw events and
-// console output are stored separately and associated through invocation_id.
-// An invocation may contain several BES component streams. Each stream has its
-// own sequence numbers, so sequence numbers alone cannot identify an event.
 type Invocation struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// Client-generated Bazel invocation UUID, from BES StreamId.invocation_id
-	// and BuildStarted.uuid. Also matches REAPI RequestMetadata.tool_invocation_id.
-	// Storage lookups are scoped by group_id and invocation_id.
-	InvocationId string `protobuf:"bytes,1,opt,name=invocation_id,json=invocationId,proto3" json:"invocation_id,omitempty"`
-	// BES StreamId.build_id identifies a build that may have multiple invocations.
-	BuildId string `protobuf:"bytes,2,opt,name=build_id,json=buildId,proto3" json:"build_id,omitempty"`
-	// Optional workflow or CI correlation ID, matching REAPI
-	// RequestMetadata.correlated_invocations_id when supplied.
-	CorrelatedInvocationsId string `protobuf:"bytes,3,opt,name=correlated_invocations_id,json=correlatedInvocationsId,proto3" json:"correlated_invocations_id,omitempty"`
-	// Optional invocation that launched this one.
-	ParentInvocationId string `protobuf:"bytes,4,opt,name=parent_invocation_id,json=parentInvocationId,proto3" json:"parent_invocation_id,omitempty"`
-	// Server-assigned ownership, derived from the authenticated publishing
-	// principal. Client build metadata must never set or override these IDs.
-	// Empty user_id supports a group-owned service account or anonymous upload.
-	// Empty group_id denotes an unassigned invocation.
-	UserId  string `protobuf:"bytes,5,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
-	GroupId string `protobuf:"bytes,6,opt,name=group_id,json=groupId,proto3" json:"group_id,omitempty"`
-	// Effective read visibility. Unspecified must be treated as PRIVATE.
-	// This field does not grant write access. Writes require an authorized
-	// publishing principal within the owning group.
-	Visibility InvocationVisibility `protobuf:"varint,7,opt,name=visibility,proto3,enum=build.stack.bazel.invocation.v1.InvocationVisibility" json:"visibility,omitempty"`
-	State      InvocationState      `protobuf:"varint,8,opt,name=state,proto3,enum=build.stack.bazel.invocation.v1.InvocationState" json:"state,omitempty"`
-	Result     *InvocationResult    `protobuf:"bytes,9,opt,name=result,proto3" json:"result,omitempty"`
-	// Server receipt times. created_at is the first accepted event, updated_at
-	// is the latest summary update, and last_event_at is the latest event receipt.
-	CreatedAt   *timestamppb.Timestamp `protobuf:"bytes,10,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
-	UpdatedAt   *timestamppb.Timestamp `protobuf:"bytes,11,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
-	LastEventAt *timestamppb.Timestamp `protobuf:"bytes,12,opt,name=last_event_at,json=lastEventAt,proto3" json:"last_event_at,omitempty"`
-	// Client-reported build times from BuildStarted and BuildFinished.
-	StartedAt  *timestamppb.Timestamp `protobuf:"bytes,13,opt,name=started_at,json=startedAt,proto3" json:"started_at,omitempty"`
-	FinishedAt *timestamppb.Timestamp `protobuf:"bytes,14,opt,name=finished_at,json=finishedAt,proto3" json:"finished_at,omitempty"`
-	// Client-reported OS username and hostname. These are display metadata.
-	BuildUser          string         `protobuf:"bytes,15,opt,name=build_user,json=buildUser,proto3" json:"build_user,omitempty"`
-	Host               string         `protobuf:"bytes,16,opt,name=host,proto3" json:"host,omitempty"`
-	Command            string         `protobuf:"bytes,17,opt,name=command,proto3" json:"command,omitempty"`
-	TargetPatterns     []string       `protobuf:"bytes,18,rep,name=target_patterns,json=targetPatterns,proto3" json:"target_patterns,omitempty"`
-	BazelVersion       string         `protobuf:"bytes,19,opt,name=bazel_version,json=bazelVersion,proto3" json:"bazel_version,omitempty"`
-	WorkspaceDirectory string         `protobuf:"bytes,20,opt,name=workspace_directory,json=workspaceDirectory,proto3" json:"workspace_directory,omitempty"`
-	WorkingDirectory   string         `protobuf:"bytes,21,opt,name=working_directory,json=workingDirectory,proto3" json:"working_directory,omitempty"`
-	SourceControl      *SourceControl `protobuf:"bytes,22,opt,name=source_control,json=sourceControl,proto3" json:"source_control,omitempty"`
-	// Client-reported role such as CI or developer.
-	Role string   `protobuf:"bytes,23,opt,name=role,proto3" json:"role,omitempty"`
-	Tags []string `protobuf:"bytes,24,rep,name=tags,proto3" json:"tags,omitempty"`
-	// Sanitized Bazel BuildMetadata key/value pairs. Secrets must be removed
-	// before storage or exposure through an API.
-	BuildMetadata map[string]string `protobuf:"bytes,25,rep,name=build_metadata,json=buildMetadata,proto3" json:"build_metadata,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
-	Ci            *CIContext        `protobuf:"bytes,26,opt,name=ci,proto3" json:"ci,omitempty"`
-	// Bazel runner accounting. Absent if the event did not report this signal.
-	BazelRemoteCacheHits *int64 `protobuf:"varint,27,opt,name=bazel_remote_cache_hits,json=bazelRemoteCacheHits,proto3,oneof" json:"bazel_remote_cache_hits,omitempty"`
-	// RPC observations recorded by the instrumented cache frontend.
-	RemoteCache *RemoteCacheStats `protobuf:"bytes,28,opt,name=remote_cache,json=remoteCache,proto3" json:"remote_cache,omitempty"`
-	// User-supplied analytics grouping from Bazel's igroup build metadata.
-	InvocationGroup string `protobuf:"bytes,29,opt,name=invocation_group,json=invocationGroup,proto3" json:"invocation_group,omitempty"`
-	unknownFields   protoimpl.UnknownFields
-	sizeCache       protoimpl.SizeCache
+	state                protoimpl.MessageState `protogen:"open.v1"`
+	InvocationId         string                 `protobuf:"bytes,1,opt,name=invocation_id,json=invocationId,proto3" json:"invocation_id,omitempty"`
+	BuildId              string                 `protobuf:"bytes,2,opt,name=build_id,json=buildId,proto3" json:"build_id,omitempty"`
+	State                InvocationState        `protobuf:"varint,8,opt,name=state,proto3,enum=build.stack.bazel.invocation.v1.InvocationState" json:"state,omitempty"`
+	Result               *InvocationResult      `protobuf:"bytes,9,opt,name=result,proto3" json:"result,omitempty"`
+	CreatedAt            *timestamppb.Timestamp `protobuf:"bytes,10,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	UpdatedAt            *timestamppb.Timestamp `protobuf:"bytes,11,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	LastEventAt          *timestamppb.Timestamp `protobuf:"bytes,12,opt,name=last_event_at,json=lastEventAt,proto3" json:"last_event_at,omitempty"`
+	StartedAt            *timestamppb.Timestamp `protobuf:"bytes,13,opt,name=started_at,json=startedAt,proto3" json:"started_at,omitempty"`
+	FinishedAt           *timestamppb.Timestamp `protobuf:"bytes,14,opt,name=finished_at,json=finishedAt,proto3" json:"finished_at,omitempty"`
+	BuildUser            string                 `protobuf:"bytes,15,opt,name=build_user,json=buildUser,proto3" json:"build_user,omitempty"`
+	Host                 string                 `protobuf:"bytes,16,opt,name=host,proto3" json:"host,omitempty"`
+	Command              string                 `protobuf:"bytes,17,opt,name=command,proto3" json:"command,omitempty"`
+	TargetPatterns       []string               `protobuf:"bytes,18,rep,name=target_patterns,json=targetPatterns,proto3" json:"target_patterns,omitempty"`
+	BazelVersion         string                 `protobuf:"bytes,19,opt,name=bazel_version,json=bazelVersion,proto3" json:"bazel_version,omitempty"`
+	WorkspaceDirectory   string                 `protobuf:"bytes,20,opt,name=workspace_directory,json=workspaceDirectory,proto3" json:"workspace_directory,omitempty"`
+	WorkingDirectory     string                 `protobuf:"bytes,21,opt,name=working_directory,json=workingDirectory,proto3" json:"working_directory,omitempty"`
+	SourceControl        *SourceControl         `protobuf:"bytes,22,opt,name=source_control,json=sourceControl,proto3" json:"source_control,omitempty"`
+	Role                 string                 `protobuf:"bytes,23,opt,name=role,proto3" json:"role,omitempty"`
+	BazelRemoteCacheHits *int64                 `protobuf:"varint,27,opt,name=bazel_remote_cache_hits,json=bazelRemoteCacheHits,proto3,oneof" json:"bazel_remote_cache_hits,omitempty"`
+	RemoteCache          *RemoteCacheStats      `protobuf:"bytes,28,opt,name=remote_cache,json=remoteCache,proto3" json:"remote_cache,omitempty"`
+	InvocationGroup      string                 `protobuf:"bytes,29,opt,name=invocation_group,json=invocationGroup,proto3" json:"invocation_group,omitempty"`
+	unknownFields        protoimpl.UnknownFields
+	sizeCache            protoimpl.SizeCache
 }
 
 func (x *Invocation) Reset() {
@@ -238,41 +144,6 @@ func (x *Invocation) GetBuildId() string {
 		return x.BuildId
 	}
 	return ""
-}
-
-func (x *Invocation) GetCorrelatedInvocationsId() string {
-	if x != nil {
-		return x.CorrelatedInvocationsId
-	}
-	return ""
-}
-
-func (x *Invocation) GetParentInvocationId() string {
-	if x != nil {
-		return x.ParentInvocationId
-	}
-	return ""
-}
-
-func (x *Invocation) GetUserId() string {
-	if x != nil {
-		return x.UserId
-	}
-	return ""
-}
-
-func (x *Invocation) GetGroupId() string {
-	if x != nil {
-		return x.GroupId
-	}
-	return ""
-}
-
-func (x *Invocation) GetVisibility() InvocationVisibility {
-	if x != nil {
-		return x.Visibility
-	}
-	return InvocationVisibility_INVOCATION_VISIBILITY_UNSPECIFIED
 }
 
 func (x *Invocation) GetState() InvocationState {
@@ -387,27 +258,6 @@ func (x *Invocation) GetRole() string {
 	return ""
 }
 
-func (x *Invocation) GetTags() []string {
-	if x != nil {
-		return x.Tags
-	}
-	return nil
-}
-
-func (x *Invocation) GetBuildMetadata() map[string]string {
-	if x != nil {
-		return x.BuildMetadata
-	}
-	return nil
-}
-
-func (x *Invocation) GetCi() *CIContext {
-	if x != nil {
-		return x.Ci
-	}
-	return nil
-}
-
 func (x *Invocation) GetBazelRemoteCacheHits() int64 {
 	if x != nil && x.BazelRemoteCacheHits != nil {
 		return *x.BazelRemoteCacheHits
@@ -482,15 +332,11 @@ func (x *RemoteCacheStats) GetObservedAt() *timestamppb.Timestamp {
 }
 
 type RemoteCacheMetric struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// Stable names such as ac_lookup, ac_write, cas_presence, cas_read, cas_write.
-	Operation string `protobuf:"bytes,1,opt,name=operation,proto3" json:"operation,omitempty"`
-	// hit, miss, ok or error. CAS batches and existence checks count blobs.
-	// transfer rows account for batch payload bytes without incrementing counts.
-	Result string `protobuf:"bytes,2,opt,name=result,proto3" json:"result,omitempty"`
-	Count  int64  `protobuf:"varint,3,opt,name=count,proto3" json:"count,omitempty"`
-	// Cache data payload bytes observed at the frontend, excluding framing.
-	TransferredBytes int64 `protobuf:"varint,4,opt,name=transferred_bytes,json=transferredBytes,proto3" json:"transferred_bytes,omitempty"`
+	state            protoimpl.MessageState `protogen:"open.v1"`
+	Operation        string                 `protobuf:"bytes,1,opt,name=operation,proto3" json:"operation,omitempty"`
+	Result           string                 `protobuf:"bytes,2,opt,name=result,proto3" json:"result,omitempty"`
+	Count            int64                  `protobuf:"varint,3,opt,name=count,proto3" json:"count,omitempty"`
+	TransferredBytes int64                  `protobuf:"varint,4,opt,name=transferred_bytes,json=transferredBytes,proto3" json:"transferred_bytes,omitempty"`
 	unknownFields    protoimpl.UnknownFields
 	sizeCache        protoimpl.SizeCache
 }
@@ -553,14 +399,10 @@ func (x *RemoteCacheMetric) GetTransferredBytes() int64 {
 	return 0
 }
 
-// Present when a BuildFinished event has supplied a result, even if other
-// events are still missing. An absent result means the outcome is unknown.
 type InvocationResult struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// Numeric Bazel exit code. Presence distinguishes success (0) from unknown.
-	ExitCode *int32 `protobuf:"varint,1,opt,name=exit_code,json=exitCode,proto3,oneof" json:"exit_code,omitempty"`
-	// Symbolic Bazel exit code name, for example SUCCESS or BUILD_FAILURE.
-	ExitCodeName  string `protobuf:"bytes,2,opt,name=exit_code_name,json=exitCodeName,proto3" json:"exit_code_name,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ExitCode      *int32                 `protobuf:"varint,1,opt,name=exit_code,json=exitCode,proto3,oneof" json:"exit_code,omitempty"`
+	ExitCodeName  string                 `protobuf:"bytes,2,opt,name=exit_code_name,json=exitCodeName,proto3" json:"exit_code_name,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -614,8 +456,6 @@ type SourceControl struct {
 	RepositoryUrl string                 `protobuf:"bytes,1,opt,name=repository_url,json=repositoryUrl,proto3" json:"repository_url,omitempty"`
 	CommitSha     string                 `protobuf:"bytes,2,opt,name=commit_sha,json=commitSha,proto3" json:"commit_sha,omitempty"`
 	Branch        string                 `protobuf:"bytes,3,opt,name=branch,proto3" json:"branch,omitempty"`
-	// Optional source change identifier, such as a pull request number.
-	ChangeId      string `protobuf:"bytes,4,opt,name=change_id,json=changeId,proto3" json:"change_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -671,98 +511,6 @@ func (x *SourceControl) GetBranch() string {
 	return ""
 }
 
-func (x *SourceControl) GetChangeId() string {
-	if x != nil {
-		return x.ChangeId
-	}
-	return ""
-}
-
-type CIContext struct {
-	state    protoimpl.MessageState `protogen:"open.v1"`
-	Provider string                 `protobuf:"bytes,1,opt,name=provider,proto3" json:"provider,omitempty"`
-	Workflow string                 `protobuf:"bytes,2,opt,name=workflow,proto3" json:"workflow,omitempty"`
-	Job      string                 `protobuf:"bytes,3,opt,name=job,proto3" json:"job,omitempty"`
-	RunId    string                 `protobuf:"bytes,4,opt,name=run_id,json=runId,proto3" json:"run_id,omitempty"`
-	RunUrl   string                 `protobuf:"bytes,5,opt,name=run_url,json=runUrl,proto3" json:"run_url,omitempty"`
-	// CI retry number when supplied. Independent of BES upload reconnections.
-	Attempt       *uint32 `protobuf:"varint,6,opt,name=attempt,proto3,oneof" json:"attempt,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *CIContext) Reset() {
-	*x = CIContext{}
-	mi := &file_build_stack_bazel_invocation_v1_invocation_proto_msgTypes[5]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *CIContext) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*CIContext) ProtoMessage() {}
-
-func (x *CIContext) ProtoReflect() protoreflect.Message {
-	mi := &file_build_stack_bazel_invocation_v1_invocation_proto_msgTypes[5]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use CIContext.ProtoReflect.Descriptor instead.
-func (*CIContext) Descriptor() ([]byte, []int) {
-	return file_build_stack_bazel_invocation_v1_invocation_proto_rawDescGZIP(), []int{5}
-}
-
-func (x *CIContext) GetProvider() string {
-	if x != nil {
-		return x.Provider
-	}
-	return ""
-}
-
-func (x *CIContext) GetWorkflow() string {
-	if x != nil {
-		return x.Workflow
-	}
-	return ""
-}
-
-func (x *CIContext) GetJob() string {
-	if x != nil {
-		return x.Job
-	}
-	return ""
-}
-
-func (x *CIContext) GetRunId() string {
-	if x != nil {
-		return x.RunId
-	}
-	return ""
-}
-
-func (x *CIContext) GetRunUrl() string {
-	if x != nil {
-		return x.RunUrl
-	}
-	return ""
-}
-
-func (x *CIContext) GetAttempt() uint32 {
-	if x != nil && x.Attempt != nil {
-		return *x.Attempt
-	}
-	return 0
-}
-
 type InvocationGroup struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
@@ -772,7 +520,7 @@ type InvocationGroup struct {
 
 func (x *InvocationGroup) Reset() {
 	*x = InvocationGroup{}
-	mi := &file_build_stack_bazel_invocation_v1_invocation_proto_msgTypes[6]
+	mi := &file_build_stack_bazel_invocation_v1_invocation_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -784,7 +532,7 @@ func (x *InvocationGroup) String() string {
 func (*InvocationGroup) ProtoMessage() {}
 
 func (x *InvocationGroup) ProtoReflect() protoreflect.Message {
-	mi := &file_build_stack_bazel_invocation_v1_invocation_proto_msgTypes[6]
+	mi := &file_build_stack_bazel_invocation_v1_invocation_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -797,7 +545,7 @@ func (x *InvocationGroup) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use InvocationGroup.ProtoReflect.Descriptor instead.
 func (*InvocationGroup) Descriptor() ([]byte, []int) {
-	return file_build_stack_bazel_invocation_v1_invocation_proto_rawDescGZIP(), []int{6}
+	return file_build_stack_bazel_invocation_v1_invocation_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *InvocationGroup) GetName() string {
@@ -815,7 +563,7 @@ type ListInvocationGroupsRequest struct {
 
 func (x *ListInvocationGroupsRequest) Reset() {
 	*x = ListInvocationGroupsRequest{}
-	mi := &file_build_stack_bazel_invocation_v1_invocation_proto_msgTypes[7]
+	mi := &file_build_stack_bazel_invocation_v1_invocation_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -827,7 +575,7 @@ func (x *ListInvocationGroupsRequest) String() string {
 func (*ListInvocationGroupsRequest) ProtoMessage() {}
 
 func (x *ListInvocationGroupsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_build_stack_bazel_invocation_v1_invocation_proto_msgTypes[7]
+	mi := &file_build_stack_bazel_invocation_v1_invocation_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -840,7 +588,7 @@ func (x *ListInvocationGroupsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListInvocationGroupsRequest.ProtoReflect.Descriptor instead.
 func (*ListInvocationGroupsRequest) Descriptor() ([]byte, []int) {
-	return file_build_stack_bazel_invocation_v1_invocation_proto_rawDescGZIP(), []int{7}
+	return file_build_stack_bazel_invocation_v1_invocation_proto_rawDescGZIP(), []int{6}
 }
 
 type ListInvocationGroupsResponse struct {
@@ -852,7 +600,7 @@ type ListInvocationGroupsResponse struct {
 
 func (x *ListInvocationGroupsResponse) Reset() {
 	*x = ListInvocationGroupsResponse{}
-	mi := &file_build_stack_bazel_invocation_v1_invocation_proto_msgTypes[8]
+	mi := &file_build_stack_bazel_invocation_v1_invocation_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -864,7 +612,7 @@ func (x *ListInvocationGroupsResponse) String() string {
 func (*ListInvocationGroupsResponse) ProtoMessage() {}
 
 func (x *ListInvocationGroupsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_build_stack_bazel_invocation_v1_invocation_proto_msgTypes[8]
+	mi := &file_build_stack_bazel_invocation_v1_invocation_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -877,7 +625,7 @@ func (x *ListInvocationGroupsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListInvocationGroupsResponse.ProtoReflect.Descriptor instead.
 func (*ListInvocationGroupsResponse) Descriptor() ([]byte, []int) {
-	return file_build_stack_bazel_invocation_v1_invocation_proto_rawDescGZIP(), []int{8}
+	return file_build_stack_bazel_invocation_v1_invocation_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *ListInvocationGroupsResponse) GetGroups() []*InvocationGroup {
@@ -888,18 +636,17 @@ func (x *ListInvocationGroupsResponse) GetGroups() []*InvocationGroup {
 }
 
 type ListInvocationsRequest struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// An empty value lists invocations across all groups and ungrouped runs.
-	InvocationGroup string `protobuf:"bytes,1,opt,name=invocation_group,json=invocationGroup,proto3" json:"invocation_group,omitempty"`
-	PageSize        int32  `protobuf:"varint,2,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
-	PageToken       string `protobuf:"bytes,3,opt,name=page_token,json=pageToken,proto3" json:"page_token,omitempty"`
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	InvocationGroup string                 `protobuf:"bytes,1,opt,name=invocation_group,json=invocationGroup,proto3" json:"invocation_group,omitempty"`
+	PageSize        int32                  `protobuf:"varint,2,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
+	PageToken       string                 `protobuf:"bytes,3,opt,name=page_token,json=pageToken,proto3" json:"page_token,omitempty"`
 	unknownFields   protoimpl.UnknownFields
 	sizeCache       protoimpl.SizeCache
 }
 
 func (x *ListInvocationsRequest) Reset() {
 	*x = ListInvocationsRequest{}
-	mi := &file_build_stack_bazel_invocation_v1_invocation_proto_msgTypes[9]
+	mi := &file_build_stack_bazel_invocation_v1_invocation_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -911,7 +658,7 @@ func (x *ListInvocationsRequest) String() string {
 func (*ListInvocationsRequest) ProtoMessage() {}
 
 func (x *ListInvocationsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_build_stack_bazel_invocation_v1_invocation_proto_msgTypes[9]
+	mi := &file_build_stack_bazel_invocation_v1_invocation_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -924,7 +671,7 @@ func (x *ListInvocationsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListInvocationsRequest.ProtoReflect.Descriptor instead.
 func (*ListInvocationsRequest) Descriptor() ([]byte, []int) {
-	return file_build_stack_bazel_invocation_v1_invocation_proto_rawDescGZIP(), []int{9}
+	return file_build_stack_bazel_invocation_v1_invocation_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *ListInvocationsRequest) GetInvocationGroup() string {
@@ -959,7 +706,7 @@ type ListInvocationsResponse struct {
 
 func (x *ListInvocationsResponse) Reset() {
 	*x = ListInvocationsResponse{}
-	mi := &file_build_stack_bazel_invocation_v1_invocation_proto_msgTypes[10]
+	mi := &file_build_stack_bazel_invocation_v1_invocation_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -971,7 +718,7 @@ func (x *ListInvocationsResponse) String() string {
 func (*ListInvocationsResponse) ProtoMessage() {}
 
 func (x *ListInvocationsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_build_stack_bazel_invocation_v1_invocation_proto_msgTypes[10]
+	mi := &file_build_stack_bazel_invocation_v1_invocation_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -984,7 +731,7 @@ func (x *ListInvocationsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListInvocationsResponse.ProtoReflect.Descriptor instead.
 func (*ListInvocationsResponse) Descriptor() ([]byte, []int) {
-	return file_build_stack_bazel_invocation_v1_invocation_proto_rawDescGZIP(), []int{10}
+	return file_build_stack_bazel_invocation_v1_invocation_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *ListInvocationsResponse) GetInvocations() []*Invocation {
@@ -1017,7 +764,7 @@ type GetInvocationRequest struct {
 
 func (x *GetInvocationRequest) Reset() {
 	*x = GetInvocationRequest{}
-	mi := &file_build_stack_bazel_invocation_v1_invocation_proto_msgTypes[11]
+	mi := &file_build_stack_bazel_invocation_v1_invocation_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1029,7 +776,7 @@ func (x *GetInvocationRequest) String() string {
 func (*GetInvocationRequest) ProtoMessage() {}
 
 func (x *GetInvocationRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_build_stack_bazel_invocation_v1_invocation_proto_msgTypes[11]
+	mi := &file_build_stack_bazel_invocation_v1_invocation_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1042,7 +789,7 @@ func (x *GetInvocationRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetInvocationRequest.ProtoReflect.Descriptor instead.
 func (*GetInvocationRequest) Descriptor() ([]byte, []int) {
-	return file_build_stack_bazel_invocation_v1_invocation_proto_rawDescGZIP(), []int{11}
+	return file_build_stack_bazel_invocation_v1_invocation_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *GetInvocationRequest) GetInvocationId() string {
@@ -1053,17 +800,16 @@ func (x *GetInvocationRequest) GetInvocationId() string {
 }
 
 type WatchInvocationRequest struct {
-	state        protoimpl.MessageState `protogen:"open.v1"`
-	InvocationId string                 `protobuf:"bytes,1,opt,name=invocation_id,json=invocationId,proto3" json:"invocation_id,omitempty"`
-	// Server journal offset. Zero starts at the first recorded event.
-	AfterCursor   uint64 `protobuf:"varint,2,opt,name=after_cursor,json=afterCursor,proto3" json:"after_cursor,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	InvocationId  string                 `protobuf:"bytes,1,opt,name=invocation_id,json=invocationId,proto3" json:"invocation_id,omitempty"`
+	AfterCursor   uint64                 `protobuf:"varint,2,opt,name=after_cursor,json=afterCursor,proto3" json:"after_cursor,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *WatchInvocationRequest) Reset() {
 	*x = WatchInvocationRequest{}
-	mi := &file_build_stack_bazel_invocation_v1_invocation_proto_msgTypes[12]
+	mi := &file_build_stack_bazel_invocation_v1_invocation_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1075,7 +821,7 @@ func (x *WatchInvocationRequest) String() string {
 func (*WatchInvocationRequest) ProtoMessage() {}
 
 func (x *WatchInvocationRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_build_stack_bazel_invocation_v1_invocation_proto_msgTypes[12]
+	mi := &file_build_stack_bazel_invocation_v1_invocation_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1088,7 +834,7 @@ func (x *WatchInvocationRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WatchInvocationRequest.ProtoReflect.Descriptor instead.
 func (*WatchInvocationRequest) Descriptor() ([]byte, []int) {
-	return file_build_stack_bazel_invocation_v1_invocation_proto_rawDescGZIP(), []int{12}
+	return file_build_stack_bazel_invocation_v1_invocation_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *WatchInvocationRequest) GetInvocationId() string {
@@ -1106,8 +852,7 @@ func (x *WatchInvocationRequest) GetAfterCursor() uint64 {
 }
 
 type InvocationEvent struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// Monotonic journal position, distinct from the per-stream BES sequence.
+	state         protoimpl.MessageState   `protogen:"open.v1"`
 	Cursor        uint64                   `protobuf:"varint,1,opt,name=cursor,proto3" json:"cursor,omitempty"`
 	ReceivedAt    *timestamppb.Timestamp   `protobuf:"bytes,2,opt,name=received_at,json=receivedAt,proto3" json:"received_at,omitempty"`
 	Lifecycle     bool                     `protobuf:"varint,3,opt,name=lifecycle,proto3" json:"lifecycle,omitempty"`
@@ -1118,7 +863,7 @@ type InvocationEvent struct {
 
 func (x *InvocationEvent) Reset() {
 	*x = InvocationEvent{}
-	mi := &file_build_stack_bazel_invocation_v1_invocation_proto_msgTypes[13]
+	mi := &file_build_stack_bazel_invocation_v1_invocation_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1130,7 +875,7 @@ func (x *InvocationEvent) String() string {
 func (*InvocationEvent) ProtoMessage() {}
 
 func (x *InvocationEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_build_stack_bazel_invocation_v1_invocation_proto_msgTypes[13]
+	mi := &file_build_stack_bazel_invocation_v1_invocation_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1143,7 +888,7 @@ func (x *InvocationEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use InvocationEvent.ProtoReflect.Descriptor instead.
 func (*InvocationEvent) Descriptor() ([]byte, []int) {
-	return file_build_stack_bazel_invocation_v1_invocation_proto_rawDescGZIP(), []int{13}
+	return file_build_stack_bazel_invocation_v1_invocation_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *InvocationEvent) GetCursor() uint64 {
@@ -1177,15 +922,14 @@ func (x *InvocationEvent) GetOrderedEvent() *build.OrderedBuildEvent {
 type GetInvocationGroupMetricsRequest struct {
 	state           protoimpl.MessageState `protogen:"open.v1"`
 	InvocationGroup string                 `protobuf:"bytes,1,opt,name=invocation_group,json=invocationGroup,proto3" json:"invocation_group,omitempty"`
-	// Rolling window measured by server receipt time. Defaults to 30 days.
-	WindowDays    int32 `protobuf:"varint,2,opt,name=window_days,json=windowDays,proto3" json:"window_days,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	WindowDays      int32                  `protobuf:"varint,2,opt,name=window_days,json=windowDays,proto3" json:"window_days,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
 }
 
 func (x *GetInvocationGroupMetricsRequest) Reset() {
 	*x = GetInvocationGroupMetricsRequest{}
-	mi := &file_build_stack_bazel_invocation_v1_invocation_proto_msgTypes[14]
+	mi := &file_build_stack_bazel_invocation_v1_invocation_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1197,7 +941,7 @@ func (x *GetInvocationGroupMetricsRequest) String() string {
 func (*GetInvocationGroupMetricsRequest) ProtoMessage() {}
 
 func (x *GetInvocationGroupMetricsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_build_stack_bazel_invocation_v1_invocation_proto_msgTypes[14]
+	mi := &file_build_stack_bazel_invocation_v1_invocation_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1210,7 +954,7 @@ func (x *GetInvocationGroupMetricsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetInvocationGroupMetricsRequest.ProtoReflect.Descriptor instead.
 func (*GetInvocationGroupMetricsRequest) Descriptor() ([]byte, []int) {
-	return file_build_stack_bazel_invocation_v1_invocation_proto_rawDescGZIP(), []int{14}
+	return file_build_stack_bazel_invocation_v1_invocation_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *GetInvocationGroupMetricsRequest) GetInvocationGroup() string {
@@ -1227,7 +971,6 @@ func (x *GetInvocationGroupMetricsRequest) GetWindowDays() int32 {
 	return 0
 }
 
-// Aggregates for one invocation group within the requested window.
 type InvocationGroupMetrics struct {
 	state             protoimpl.MessageState `protogen:"open.v1"`
 	InvocationCount   int64                  `protobuf:"varint,1,opt,name=invocation_count,json=invocationCount,proto3" json:"invocation_count,omitempty"`
@@ -1247,7 +990,7 @@ type InvocationGroupMetrics struct {
 
 func (x *InvocationGroupMetrics) Reset() {
 	*x = InvocationGroupMetrics{}
-	mi := &file_build_stack_bazel_invocation_v1_invocation_proto_msgTypes[15]
+	mi := &file_build_stack_bazel_invocation_v1_invocation_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1259,7 +1002,7 @@ func (x *InvocationGroupMetrics) String() string {
 func (*InvocationGroupMetrics) ProtoMessage() {}
 
 func (x *InvocationGroupMetrics) ProtoReflect() protoreflect.Message {
-	mi := &file_build_stack_bazel_invocation_v1_invocation_proto_msgTypes[15]
+	mi := &file_build_stack_bazel_invocation_v1_invocation_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1272,7 +1015,7 @@ func (x *InvocationGroupMetrics) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use InvocationGroupMetrics.ProtoReflect.Descriptor instead.
 func (*InvocationGroupMetrics) Descriptor() ([]byte, []int) {
-	return file_build_stack_bazel_invocation_v1_invocation_proto_rawDescGZIP(), []int{15}
+	return file_build_stack_bazel_invocation_v1_invocation_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *InvocationGroupMetrics) GetInvocationCount() int64 {
@@ -1352,7 +1095,6 @@ func (x *InvocationGroupMetrics) GetBuilds() []*GroupBuildSample {
 	return nil
 }
 
-// A completed invocation. Optional measurements distinguish missing data from zero.
 type GroupBuildSample struct {
 	state             protoimpl.MessageState `protogen:"open.v1"`
 	InvocationId      string                 `protobuf:"bytes,1,opt,name=invocation_id,json=invocationId,proto3" json:"invocation_id,omitempty"`
@@ -1372,7 +1114,7 @@ type GroupBuildSample struct {
 
 func (x *GroupBuildSample) Reset() {
 	*x = GroupBuildSample{}
-	mi := &file_build_stack_bazel_invocation_v1_invocation_proto_msgTypes[16]
+	mi := &file_build_stack_bazel_invocation_v1_invocation_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1384,7 +1126,7 @@ func (x *GroupBuildSample) String() string {
 func (*GroupBuildSample) ProtoMessage() {}
 
 func (x *GroupBuildSample) ProtoReflect() protoreflect.Message {
-	mi := &file_build_stack_bazel_invocation_v1_invocation_proto_msgTypes[16]
+	mi := &file_build_stack_bazel_invocation_v1_invocation_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1397,7 +1139,7 @@ func (x *GroupBuildSample) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GroupBuildSample.ProtoReflect.Descriptor instead.
 func (*GroupBuildSample) Descriptor() ([]byte, []int) {
-	return file_build_stack_bazel_invocation_v1_invocation_proto_rawDescGZIP(), []int{16}
+	return file_build_stack_bazel_invocation_v1_invocation_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *GroupBuildSample) GetInvocationId() string {
@@ -1490,7 +1232,7 @@ type GroupCacheMetrics struct {
 
 func (x *GroupCacheMetrics) Reset() {
 	*x = GroupCacheMetrics{}
-	mi := &file_build_stack_bazel_invocation_v1_invocation_proto_msgTypes[17]
+	mi := &file_build_stack_bazel_invocation_v1_invocation_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1502,7 +1244,7 @@ func (x *GroupCacheMetrics) String() string {
 func (*GroupCacheMetrics) ProtoMessage() {}
 
 func (x *GroupCacheMetrics) ProtoReflect() protoreflect.Message {
-	mi := &file_build_stack_bazel_invocation_v1_invocation_proto_msgTypes[17]
+	mi := &file_build_stack_bazel_invocation_v1_invocation_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1515,7 +1257,7 @@ func (x *GroupCacheMetrics) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GroupCacheMetrics.ProtoReflect.Descriptor instead.
 func (*GroupCacheMetrics) Descriptor() ([]byte, []int) {
-	return file_build_stack_bazel_invocation_v1_invocation_proto_rawDescGZIP(), []int{17}
+	return file_build_stack_bazel_invocation_v1_invocation_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *GroupCacheMetrics) GetActionCacheHits() int64 {
@@ -1554,20 +1296,18 @@ func (x *GroupCacheMetrics) GetBazelRemoteCacheHits() int64 {
 }
 
 type GroupTestMetrics struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// Latest summary per invocation, target label, and configuration.
-	SummaryCount          int64 `protobuf:"varint,1,opt,name=summary_count,json=summaryCount,proto3" json:"summary_count,omitempty"`
-	FlakyCount            int64 `protobuf:"varint,2,opt,name=flaky_count,json=flakyCount,proto3" json:"flaky_count,omitempty"`
-	FailedOrTimedOutCount int64 `protobuf:"varint,3,opt,name=failed_or_timed_out_count,json=failedOrTimedOutCount,proto3" json:"failed_or_timed_out_count,omitempty"`
-	// Up to ten targets, ordered by flaky summaries descending.
-	FlakyTargets  []*GroupFlakyTarget `protobuf:"bytes,4,rep,name=flaky_targets,json=flakyTargets,proto3" json:"flaky_targets,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state                 protoimpl.MessageState `protogen:"open.v1"`
+	SummaryCount          int64                  `protobuf:"varint,1,opt,name=summary_count,json=summaryCount,proto3" json:"summary_count,omitempty"`
+	FlakyCount            int64                  `protobuf:"varint,2,opt,name=flaky_count,json=flakyCount,proto3" json:"flaky_count,omitempty"`
+	FailedOrTimedOutCount int64                  `protobuf:"varint,3,opt,name=failed_or_timed_out_count,json=failedOrTimedOutCount,proto3" json:"failed_or_timed_out_count,omitempty"`
+	FlakyTargets          []*GroupFlakyTarget    `protobuf:"bytes,4,rep,name=flaky_targets,json=flakyTargets,proto3" json:"flaky_targets,omitempty"`
+	unknownFields         protoimpl.UnknownFields
+	sizeCache             protoimpl.SizeCache
 }
 
 func (x *GroupTestMetrics) Reset() {
 	*x = GroupTestMetrics{}
-	mi := &file_build_stack_bazel_invocation_v1_invocation_proto_msgTypes[18]
+	mi := &file_build_stack_bazel_invocation_v1_invocation_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1579,7 +1319,7 @@ func (x *GroupTestMetrics) String() string {
 func (*GroupTestMetrics) ProtoMessage() {}
 
 func (x *GroupTestMetrics) ProtoReflect() protoreflect.Message {
-	mi := &file_build_stack_bazel_invocation_v1_invocation_proto_msgTypes[18]
+	mi := &file_build_stack_bazel_invocation_v1_invocation_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1592,7 +1332,7 @@ func (x *GroupTestMetrics) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GroupTestMetrics.ProtoReflect.Descriptor instead.
 func (*GroupTestMetrics) Descriptor() ([]byte, []int) {
-	return file_build_stack_bazel_invocation_v1_invocation_proto_rawDescGZIP(), []int{18}
+	return file_build_stack_bazel_invocation_v1_invocation_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *GroupTestMetrics) GetSummaryCount() int64 {
@@ -1634,7 +1374,7 @@ type GroupFlakyTarget struct {
 
 func (x *GroupFlakyTarget) Reset() {
 	*x = GroupFlakyTarget{}
-	mi := &file_build_stack_bazel_invocation_v1_invocation_proto_msgTypes[19]
+	mi := &file_build_stack_bazel_invocation_v1_invocation_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1646,7 +1386,7 @@ func (x *GroupFlakyTarget) String() string {
 func (*GroupFlakyTarget) ProtoMessage() {}
 
 func (x *GroupFlakyTarget) ProtoReflect() protoreflect.Message {
-	mi := &file_build_stack_bazel_invocation_v1_invocation_proto_msgTypes[19]
+	mi := &file_build_stack_bazel_invocation_v1_invocation_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1659,7 +1399,7 @@ func (x *GroupFlakyTarget) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GroupFlakyTarget.ProtoReflect.Descriptor instead.
 func (*GroupFlakyTarget) Descriptor() ([]byte, []int) {
-	return file_build_stack_bazel_invocation_v1_invocation_proto_rawDescGZIP(), []int{19}
+	return file_build_stack_bazel_invocation_v1_invocation_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *GroupFlakyTarget) GetLabel() string {
@@ -1687,18 +1427,11 @@ var File_build_stack_bazel_invocation_v1_invocation_proto protoreflect.FileDescr
 
 const file_build_stack_bazel_invocation_v1_invocation_proto_rawDesc = "" +
 	"\n" +
-	"0build/stack/bazel/invocation/v1/invocation.proto\x12\x1fbuild.stack.bazel.invocation.v1\x1a\x1fgoogle/protobuf/timestamp.proto\x1a2google/devtools/build/v1/publish_build_event.proto\"\xbc\f\n" +
+	"0build/stack/bazel/invocation/v1/invocation.proto\x12\x1fbuild.stack.bazel.invocation.v1\x1a\x1fgoogle/protobuf/timestamp.proto\x1a2google/devtools/build/v1/publish_build_event.proto\"\xc0\t\n" +
 	"\n" +
 	"Invocation\x12#\n" +
 	"\rinvocation_id\x18\x01 \x01(\tR\finvocationId\x12\x19\n" +
-	"\bbuild_id\x18\x02 \x01(\tR\abuildId\x12:\n" +
-	"\x19correlated_invocations_id\x18\x03 \x01(\tR\x17correlatedInvocationsId\x120\n" +
-	"\x14parent_invocation_id\x18\x04 \x01(\tR\x12parentInvocationId\x12\x17\n" +
-	"\auser_id\x18\x05 \x01(\tR\x06userId\x12\x19\n" +
-	"\bgroup_id\x18\x06 \x01(\tR\agroupId\x12U\n" +
-	"\n" +
-	"visibility\x18\a \x01(\x0e25.build.stack.bazel.invocation.v1.InvocationVisibilityR\n" +
-	"visibility\x12F\n" +
+	"\bbuild_id\x18\x02 \x01(\tR\abuildId\x12F\n" +
 	"\x05state\x18\b \x01(\x0e20.build.stack.bazel.invocation.v1.InvocationStateR\x05state\x12I\n" +
 	"\x06result\x18\t \x01(\v21.build.stack.bazel.invocation.v1.InvocationResultR\x06result\x129\n" +
 	"\n" +
@@ -1720,17 +1453,12 @@ const file_build_stack_bazel_invocation_v1_invocation_proto_rawDesc = "" +
 	"\x13workspace_directory\x18\x14 \x01(\tR\x12workspaceDirectory\x12+\n" +
 	"\x11working_directory\x18\x15 \x01(\tR\x10workingDirectory\x12U\n" +
 	"\x0esource_control\x18\x16 \x01(\v2..build.stack.bazel.invocation.v1.SourceControlR\rsourceControl\x12\x12\n" +
-	"\x04role\x18\x17 \x01(\tR\x04role\x12\x12\n" +
-	"\x04tags\x18\x18 \x03(\tR\x04tags\x12e\n" +
-	"\x0ebuild_metadata\x18\x19 \x03(\v2>.build.stack.bazel.invocation.v1.Invocation.BuildMetadataEntryR\rbuildMetadata\x12:\n" +
-	"\x02ci\x18\x1a \x01(\v2*.build.stack.bazel.invocation.v1.CIContextR\x02ci\x12:\n" +
+	"\x04role\x18\x17 \x01(\tR\x04role\x12:\n" +
 	"\x17bazel_remote_cache_hits\x18\x1b \x01(\x03H\x00R\x14bazelRemoteCacheHits\x88\x01\x01\x12T\n" +
 	"\fremote_cache\x18\x1c \x01(\v21.build.stack.bazel.invocation.v1.RemoteCacheStatsR\vremoteCache\x12)\n" +
-	"\x10invocation_group\x18\x1d \x01(\tR\x0finvocationGroup\x1a@\n" +
-	"\x12BuildMetadataEntry\x12\x10\n" +
-	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01B\x1a\n" +
-	"\x18_bazel_remote_cache_hits\"\x9d\x01\n" +
+	"\x10invocation_group\x18\x1d \x01(\tR\x0finvocationGroupB\x1a\n" +
+	"\x18_bazel_remote_cache_hitsJ\x04\b\x03\x10\bJ\x04\b\x18\x10\x1bR\x19correlated_invocations_idR\x14parent_invocation_idR\auser_idR\bgroup_idR\n" +
+	"visibilityR\x04tagsR\x0ebuild_metadataR\x02ci\"\x9d\x01\n" +
 	"\x10RemoteCacheStats\x12L\n" +
 	"\ametrics\x18\x01 \x03(\v22.build.stack.bazel.invocation.v1.RemoteCacheMetricR\ametrics\x12;\n" +
 	"\vobserved_at\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\n" +
@@ -1744,22 +1472,12 @@ const file_build_stack_bazel_invocation_v1_invocation_proto_rawDesc = "" +
 	"\texit_code\x18\x01 \x01(\x05H\x00R\bexitCode\x88\x01\x01\x12$\n" +
 	"\x0eexit_code_name\x18\x02 \x01(\tR\fexitCodeNameB\f\n" +
 	"\n" +
-	"_exit_code\"\x8a\x01\n" +
+	"_exit_code\"~\n" +
 	"\rSourceControl\x12%\n" +
 	"\x0erepository_url\x18\x01 \x01(\tR\rrepositoryUrl\x12\x1d\n" +
 	"\n" +
 	"commit_sha\x18\x02 \x01(\tR\tcommitSha\x12\x16\n" +
-	"\x06branch\x18\x03 \x01(\tR\x06branch\x12\x1b\n" +
-	"\tchange_id\x18\x04 \x01(\tR\bchangeId\"\xb0\x01\n" +
-	"\tCIContext\x12\x1a\n" +
-	"\bprovider\x18\x01 \x01(\tR\bprovider\x12\x1a\n" +
-	"\bworkflow\x18\x02 \x01(\tR\bworkflow\x12\x10\n" +
-	"\x03job\x18\x03 \x01(\tR\x03job\x12\x15\n" +
-	"\x06run_id\x18\x04 \x01(\tR\x05runId\x12\x17\n" +
-	"\arun_url\x18\x05 \x01(\tR\x06runUrl\x12\x1d\n" +
-	"\aattempt\x18\x06 \x01(\rH\x00R\aattempt\x88\x01\x01B\n" +
-	"\n" +
-	"\b_attempt\"%\n" +
+	"\x06branch\x18\x03 \x01(\tR\x06branchJ\x04\b\x04\x10\x05R\tchange_id\"%\n" +
 	"\x0fInvocationGroup\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\"\x1d\n" +
 	"\x1bListInvocationGroupsRequest\"h\n" +
@@ -1850,12 +1568,7 @@ const file_build_stack_bazel_invocation_v1_invocation_proto_rawDesc = "" +
 	"\x1cINVOCATION_STATE_UNSPECIFIED\x10\x00\x12 \n" +
 	"\x1cINVOCATION_STATE_IN_PROGRESS\x10\x01\x12\x1d\n" +
 	"\x19INVOCATION_STATE_COMPLETE\x10\x02\x12\x1f\n" +
-	"\x1bINVOCATION_STATE_INCOMPLETE\x10\x03*\xa3\x01\n" +
-	"\x14InvocationVisibility\x12%\n" +
-	"!INVOCATION_VISIBILITY_UNSPECIFIED\x10\x00\x12!\n" +
-	"\x1dINVOCATION_VISIBILITY_PRIVATE\x10\x01\x12\x1f\n" +
-	"\x1bINVOCATION_VISIBILITY_GROUP\x10\x02\x12 \n" +
-	"\x1cINVOCATION_VISIBILITY_PUBLIC\x10\x032\xbf\x05\n" +
+	"\x1bINVOCATION_STATE_INCOMPLETE\x10\x032\xbf\x05\n" +
 	"\x11InvocationService\x12\x93\x01\n" +
 	"\x14ListInvocationGroups\x12<.build.stack.bazel.invocation.v1.ListInvocationGroupsRequest\x1a=.build.stack.bazel.invocation.v1.ListInvocationGroupsResponse\x12\x97\x01\n" +
 	"\x19GetInvocationGroupMetrics\x12A.build.stack.bazel.invocation.v1.GetInvocationGroupMetricsRequest\x1a7.build.stack.bazel.invocation.v1.InvocationGroupMetrics\x12\x84\x01\n" +
@@ -1875,75 +1588,69 @@ func file_build_stack_bazel_invocation_v1_invocation_proto_rawDescGZIP() []byte 
 	return file_build_stack_bazel_invocation_v1_invocation_proto_rawDescData
 }
 
-var file_build_stack_bazel_invocation_v1_invocation_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_build_stack_bazel_invocation_v1_invocation_proto_msgTypes = make([]protoimpl.MessageInfo, 21)
+var file_build_stack_bazel_invocation_v1_invocation_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
+var file_build_stack_bazel_invocation_v1_invocation_proto_msgTypes = make([]protoimpl.MessageInfo, 19)
 var file_build_stack_bazel_invocation_v1_invocation_proto_goTypes = []any{
 	(InvocationState)(0),                     // 0: build.stack.bazel.invocation.v1.InvocationState
-	(InvocationVisibility)(0),                // 1: build.stack.bazel.invocation.v1.InvocationVisibility
-	(*Invocation)(nil),                       // 2: build.stack.bazel.invocation.v1.Invocation
-	(*RemoteCacheStats)(nil),                 // 3: build.stack.bazel.invocation.v1.RemoteCacheStats
-	(*RemoteCacheMetric)(nil),                // 4: build.stack.bazel.invocation.v1.RemoteCacheMetric
-	(*InvocationResult)(nil),                 // 5: build.stack.bazel.invocation.v1.InvocationResult
-	(*SourceControl)(nil),                    // 6: build.stack.bazel.invocation.v1.SourceControl
-	(*CIContext)(nil),                        // 7: build.stack.bazel.invocation.v1.CIContext
-	(*InvocationGroup)(nil),                  // 8: build.stack.bazel.invocation.v1.InvocationGroup
-	(*ListInvocationGroupsRequest)(nil),      // 9: build.stack.bazel.invocation.v1.ListInvocationGroupsRequest
-	(*ListInvocationGroupsResponse)(nil),     // 10: build.stack.bazel.invocation.v1.ListInvocationGroupsResponse
-	(*ListInvocationsRequest)(nil),           // 11: build.stack.bazel.invocation.v1.ListInvocationsRequest
-	(*ListInvocationsResponse)(nil),          // 12: build.stack.bazel.invocation.v1.ListInvocationsResponse
-	(*GetInvocationRequest)(nil),             // 13: build.stack.bazel.invocation.v1.GetInvocationRequest
-	(*WatchInvocationRequest)(nil),           // 14: build.stack.bazel.invocation.v1.WatchInvocationRequest
-	(*InvocationEvent)(nil),                  // 15: build.stack.bazel.invocation.v1.InvocationEvent
-	(*GetInvocationGroupMetricsRequest)(nil), // 16: build.stack.bazel.invocation.v1.GetInvocationGroupMetricsRequest
-	(*InvocationGroupMetrics)(nil),           // 17: build.stack.bazel.invocation.v1.InvocationGroupMetrics
-	(*GroupBuildSample)(nil),                 // 18: build.stack.bazel.invocation.v1.GroupBuildSample
-	(*GroupCacheMetrics)(nil),                // 19: build.stack.bazel.invocation.v1.GroupCacheMetrics
-	(*GroupTestMetrics)(nil),                 // 20: build.stack.bazel.invocation.v1.GroupTestMetrics
-	(*GroupFlakyTarget)(nil),                 // 21: build.stack.bazel.invocation.v1.GroupFlakyTarget
-	nil,                                      // 22: build.stack.bazel.invocation.v1.Invocation.BuildMetadataEntry
-	(*timestamppb.Timestamp)(nil),            // 23: google.protobuf.Timestamp
-	(*build.OrderedBuildEvent)(nil),          // 24: google.devtools.build.v1.OrderedBuildEvent
+	(*Invocation)(nil),                       // 1: build.stack.bazel.invocation.v1.Invocation
+	(*RemoteCacheStats)(nil),                 // 2: build.stack.bazel.invocation.v1.RemoteCacheStats
+	(*RemoteCacheMetric)(nil),                // 3: build.stack.bazel.invocation.v1.RemoteCacheMetric
+	(*InvocationResult)(nil),                 // 4: build.stack.bazel.invocation.v1.InvocationResult
+	(*SourceControl)(nil),                    // 5: build.stack.bazel.invocation.v1.SourceControl
+	(*InvocationGroup)(nil),                  // 6: build.stack.bazel.invocation.v1.InvocationGroup
+	(*ListInvocationGroupsRequest)(nil),      // 7: build.stack.bazel.invocation.v1.ListInvocationGroupsRequest
+	(*ListInvocationGroupsResponse)(nil),     // 8: build.stack.bazel.invocation.v1.ListInvocationGroupsResponse
+	(*ListInvocationsRequest)(nil),           // 9: build.stack.bazel.invocation.v1.ListInvocationsRequest
+	(*ListInvocationsResponse)(nil),          // 10: build.stack.bazel.invocation.v1.ListInvocationsResponse
+	(*GetInvocationRequest)(nil),             // 11: build.stack.bazel.invocation.v1.GetInvocationRequest
+	(*WatchInvocationRequest)(nil),           // 12: build.stack.bazel.invocation.v1.WatchInvocationRequest
+	(*InvocationEvent)(nil),                  // 13: build.stack.bazel.invocation.v1.InvocationEvent
+	(*GetInvocationGroupMetricsRequest)(nil), // 14: build.stack.bazel.invocation.v1.GetInvocationGroupMetricsRequest
+	(*InvocationGroupMetrics)(nil),           // 15: build.stack.bazel.invocation.v1.InvocationGroupMetrics
+	(*GroupBuildSample)(nil),                 // 16: build.stack.bazel.invocation.v1.GroupBuildSample
+	(*GroupCacheMetrics)(nil),                // 17: build.stack.bazel.invocation.v1.GroupCacheMetrics
+	(*GroupTestMetrics)(nil),                 // 18: build.stack.bazel.invocation.v1.GroupTestMetrics
+	(*GroupFlakyTarget)(nil),                 // 19: build.stack.bazel.invocation.v1.GroupFlakyTarget
+	(*timestamppb.Timestamp)(nil),            // 20: google.protobuf.Timestamp
+	(*build.OrderedBuildEvent)(nil),          // 21: google.devtools.build.v1.OrderedBuildEvent
 }
 var file_build_stack_bazel_invocation_v1_invocation_proto_depIdxs = []int32{
-	1,  // 0: build.stack.bazel.invocation.v1.Invocation.visibility:type_name -> build.stack.bazel.invocation.v1.InvocationVisibility
-	0,  // 1: build.stack.bazel.invocation.v1.Invocation.state:type_name -> build.stack.bazel.invocation.v1.InvocationState
-	5,  // 2: build.stack.bazel.invocation.v1.Invocation.result:type_name -> build.stack.bazel.invocation.v1.InvocationResult
-	23, // 3: build.stack.bazel.invocation.v1.Invocation.created_at:type_name -> google.protobuf.Timestamp
-	23, // 4: build.stack.bazel.invocation.v1.Invocation.updated_at:type_name -> google.protobuf.Timestamp
-	23, // 5: build.stack.bazel.invocation.v1.Invocation.last_event_at:type_name -> google.protobuf.Timestamp
-	23, // 6: build.stack.bazel.invocation.v1.Invocation.started_at:type_name -> google.protobuf.Timestamp
-	23, // 7: build.stack.bazel.invocation.v1.Invocation.finished_at:type_name -> google.protobuf.Timestamp
-	6,  // 8: build.stack.bazel.invocation.v1.Invocation.source_control:type_name -> build.stack.bazel.invocation.v1.SourceControl
-	22, // 9: build.stack.bazel.invocation.v1.Invocation.build_metadata:type_name -> build.stack.bazel.invocation.v1.Invocation.BuildMetadataEntry
-	7,  // 10: build.stack.bazel.invocation.v1.Invocation.ci:type_name -> build.stack.bazel.invocation.v1.CIContext
-	3,  // 11: build.stack.bazel.invocation.v1.Invocation.remote_cache:type_name -> build.stack.bazel.invocation.v1.RemoteCacheStats
-	4,  // 12: build.stack.bazel.invocation.v1.RemoteCacheStats.metrics:type_name -> build.stack.bazel.invocation.v1.RemoteCacheMetric
-	23, // 13: build.stack.bazel.invocation.v1.RemoteCacheStats.observed_at:type_name -> google.protobuf.Timestamp
-	8,  // 14: build.stack.bazel.invocation.v1.ListInvocationGroupsResponse.groups:type_name -> build.stack.bazel.invocation.v1.InvocationGroup
-	2,  // 15: build.stack.bazel.invocation.v1.ListInvocationsResponse.invocations:type_name -> build.stack.bazel.invocation.v1.Invocation
-	2,  // 16: build.stack.bazel.invocation.v1.ListInvocationsResponse.active_invocation:type_name -> build.stack.bazel.invocation.v1.Invocation
-	23, // 17: build.stack.bazel.invocation.v1.InvocationEvent.received_at:type_name -> google.protobuf.Timestamp
-	24, // 18: build.stack.bazel.invocation.v1.InvocationEvent.ordered_event:type_name -> google.devtools.build.v1.OrderedBuildEvent
-	19, // 19: build.stack.bazel.invocation.v1.InvocationGroupMetrics.cache:type_name -> build.stack.bazel.invocation.v1.GroupCacheMetrics
-	20, // 20: build.stack.bazel.invocation.v1.InvocationGroupMetrics.tests:type_name -> build.stack.bazel.invocation.v1.GroupTestMetrics
-	18, // 21: build.stack.bazel.invocation.v1.InvocationGroupMetrics.builds:type_name -> build.stack.bazel.invocation.v1.GroupBuildSample
-	23, // 22: build.stack.bazel.invocation.v1.GroupBuildSample.started_at:type_name -> google.protobuf.Timestamp
-	21, // 23: build.stack.bazel.invocation.v1.GroupTestMetrics.flaky_targets:type_name -> build.stack.bazel.invocation.v1.GroupFlakyTarget
-	9,  // 24: build.stack.bazel.invocation.v1.InvocationService.ListInvocationGroups:input_type -> build.stack.bazel.invocation.v1.ListInvocationGroupsRequest
-	16, // 25: build.stack.bazel.invocation.v1.InvocationService.GetInvocationGroupMetrics:input_type -> build.stack.bazel.invocation.v1.GetInvocationGroupMetricsRequest
-	11, // 26: build.stack.bazel.invocation.v1.InvocationService.ListInvocations:input_type -> build.stack.bazel.invocation.v1.ListInvocationsRequest
-	13, // 27: build.stack.bazel.invocation.v1.InvocationService.GetInvocation:input_type -> build.stack.bazel.invocation.v1.GetInvocationRequest
-	14, // 28: build.stack.bazel.invocation.v1.InvocationService.WatchInvocation:input_type -> build.stack.bazel.invocation.v1.WatchInvocationRequest
-	10, // 29: build.stack.bazel.invocation.v1.InvocationService.ListInvocationGroups:output_type -> build.stack.bazel.invocation.v1.ListInvocationGroupsResponse
-	17, // 30: build.stack.bazel.invocation.v1.InvocationService.GetInvocationGroupMetrics:output_type -> build.stack.bazel.invocation.v1.InvocationGroupMetrics
-	12, // 31: build.stack.bazel.invocation.v1.InvocationService.ListInvocations:output_type -> build.stack.bazel.invocation.v1.ListInvocationsResponse
-	2,  // 32: build.stack.bazel.invocation.v1.InvocationService.GetInvocation:output_type -> build.stack.bazel.invocation.v1.Invocation
-	15, // 33: build.stack.bazel.invocation.v1.InvocationService.WatchInvocation:output_type -> build.stack.bazel.invocation.v1.InvocationEvent
-	29, // [29:34] is the sub-list for method output_type
-	24, // [24:29] is the sub-list for method input_type
-	24, // [24:24] is the sub-list for extension type_name
-	24, // [24:24] is the sub-list for extension extendee
-	0,  // [0:24] is the sub-list for field type_name
+	0,  // 0: build.stack.bazel.invocation.v1.Invocation.state:type_name -> build.stack.bazel.invocation.v1.InvocationState
+	4,  // 1: build.stack.bazel.invocation.v1.Invocation.result:type_name -> build.stack.bazel.invocation.v1.InvocationResult
+	20, // 2: build.stack.bazel.invocation.v1.Invocation.created_at:type_name -> google.protobuf.Timestamp
+	20, // 3: build.stack.bazel.invocation.v1.Invocation.updated_at:type_name -> google.protobuf.Timestamp
+	20, // 4: build.stack.bazel.invocation.v1.Invocation.last_event_at:type_name -> google.protobuf.Timestamp
+	20, // 5: build.stack.bazel.invocation.v1.Invocation.started_at:type_name -> google.protobuf.Timestamp
+	20, // 6: build.stack.bazel.invocation.v1.Invocation.finished_at:type_name -> google.protobuf.Timestamp
+	5,  // 7: build.stack.bazel.invocation.v1.Invocation.source_control:type_name -> build.stack.bazel.invocation.v1.SourceControl
+	2,  // 8: build.stack.bazel.invocation.v1.Invocation.remote_cache:type_name -> build.stack.bazel.invocation.v1.RemoteCacheStats
+	3,  // 9: build.stack.bazel.invocation.v1.RemoteCacheStats.metrics:type_name -> build.stack.bazel.invocation.v1.RemoteCacheMetric
+	20, // 10: build.stack.bazel.invocation.v1.RemoteCacheStats.observed_at:type_name -> google.protobuf.Timestamp
+	6,  // 11: build.stack.bazel.invocation.v1.ListInvocationGroupsResponse.groups:type_name -> build.stack.bazel.invocation.v1.InvocationGroup
+	1,  // 12: build.stack.bazel.invocation.v1.ListInvocationsResponse.invocations:type_name -> build.stack.bazel.invocation.v1.Invocation
+	1,  // 13: build.stack.bazel.invocation.v1.ListInvocationsResponse.active_invocation:type_name -> build.stack.bazel.invocation.v1.Invocation
+	20, // 14: build.stack.bazel.invocation.v1.InvocationEvent.received_at:type_name -> google.protobuf.Timestamp
+	21, // 15: build.stack.bazel.invocation.v1.InvocationEvent.ordered_event:type_name -> google.devtools.build.v1.OrderedBuildEvent
+	17, // 16: build.stack.bazel.invocation.v1.InvocationGroupMetrics.cache:type_name -> build.stack.bazel.invocation.v1.GroupCacheMetrics
+	18, // 17: build.stack.bazel.invocation.v1.InvocationGroupMetrics.tests:type_name -> build.stack.bazel.invocation.v1.GroupTestMetrics
+	16, // 18: build.stack.bazel.invocation.v1.InvocationGroupMetrics.builds:type_name -> build.stack.bazel.invocation.v1.GroupBuildSample
+	20, // 19: build.stack.bazel.invocation.v1.GroupBuildSample.started_at:type_name -> google.protobuf.Timestamp
+	19, // 20: build.stack.bazel.invocation.v1.GroupTestMetrics.flaky_targets:type_name -> build.stack.bazel.invocation.v1.GroupFlakyTarget
+	7,  // 21: build.stack.bazel.invocation.v1.InvocationService.ListInvocationGroups:input_type -> build.stack.bazel.invocation.v1.ListInvocationGroupsRequest
+	14, // 22: build.stack.bazel.invocation.v1.InvocationService.GetInvocationGroupMetrics:input_type -> build.stack.bazel.invocation.v1.GetInvocationGroupMetricsRequest
+	9,  // 23: build.stack.bazel.invocation.v1.InvocationService.ListInvocations:input_type -> build.stack.bazel.invocation.v1.ListInvocationsRequest
+	11, // 24: build.stack.bazel.invocation.v1.InvocationService.GetInvocation:input_type -> build.stack.bazel.invocation.v1.GetInvocationRequest
+	12, // 25: build.stack.bazel.invocation.v1.InvocationService.WatchInvocation:input_type -> build.stack.bazel.invocation.v1.WatchInvocationRequest
+	8,  // 26: build.stack.bazel.invocation.v1.InvocationService.ListInvocationGroups:output_type -> build.stack.bazel.invocation.v1.ListInvocationGroupsResponse
+	15, // 27: build.stack.bazel.invocation.v1.InvocationService.GetInvocationGroupMetrics:output_type -> build.stack.bazel.invocation.v1.InvocationGroupMetrics
+	10, // 28: build.stack.bazel.invocation.v1.InvocationService.ListInvocations:output_type -> build.stack.bazel.invocation.v1.ListInvocationsResponse
+	1,  // 29: build.stack.bazel.invocation.v1.InvocationService.GetInvocation:output_type -> build.stack.bazel.invocation.v1.Invocation
+	13, // 30: build.stack.bazel.invocation.v1.InvocationService.WatchInvocation:output_type -> build.stack.bazel.invocation.v1.InvocationEvent
+	26, // [26:31] is the sub-list for method output_type
+	21, // [21:26] is the sub-list for method input_type
+	21, // [21:21] is the sub-list for extension type_name
+	21, // [21:21] is the sub-list for extension extendee
+	0,  // [0:21] is the sub-list for field type_name
 }
 
 func init() { file_build_stack_bazel_invocation_v1_invocation_proto_init() }
@@ -1953,17 +1660,16 @@ func file_build_stack_bazel_invocation_v1_invocation_proto_init() {
 	}
 	file_build_stack_bazel_invocation_v1_invocation_proto_msgTypes[0].OneofWrappers = []any{}
 	file_build_stack_bazel_invocation_v1_invocation_proto_msgTypes[3].OneofWrappers = []any{}
-	file_build_stack_bazel_invocation_v1_invocation_proto_msgTypes[5].OneofWrappers = []any{}
+	file_build_stack_bazel_invocation_v1_invocation_proto_msgTypes[14].OneofWrappers = []any{}
 	file_build_stack_bazel_invocation_v1_invocation_proto_msgTypes[15].OneofWrappers = []any{}
 	file_build_stack_bazel_invocation_v1_invocation_proto_msgTypes[16].OneofWrappers = []any{}
-	file_build_stack_bazel_invocation_v1_invocation_proto_msgTypes[17].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_build_stack_bazel_invocation_v1_invocation_proto_rawDesc), len(file_build_stack_bazel_invocation_v1_invocation_proto_rawDesc)),
-			NumEnums:      2,
-			NumMessages:   21,
+			NumEnums:      1,
+			NumMessages:   19,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

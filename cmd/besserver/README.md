@@ -79,8 +79,7 @@ received each invocation. The viewer defaults to 30 days.
 
 The first valid `igroup` value sets membership. Group names are case sensitive
 and use up to 128 ASCII letters, digits, dots, underscores, or hyphens, starting
-with a letter or digit. Membership is an analytics label independent of
-invocation ownership and visibility.
+with a letter or digit. Membership is a client-supplied label for analytics.
 
 ## APIs and storage
 
@@ -201,8 +200,7 @@ their client-supplied metadata. Summaries populate command, tool version,
 workspace, timestamps, result, user, host, and selected source-control metadata.
 
 The legacy journal reconstructs its in-memory event index at startup.
-Journal-to-SQLite migration and timed finalization of interrupted uploads
-are pending. Completion means all observed
+Journal-to-SQLite migration is pending. Completion means all observed
 tool streams have terminal markers and contiguous sequence numbers. Stored runs
 remain available across restarts when the same database or journal is used.
 
