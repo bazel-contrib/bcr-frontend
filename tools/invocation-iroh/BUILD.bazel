@@ -1,0 +1,48 @@
+load("@invocation_iroh_crates//:defs.bzl", "RESOLVED_PLATFORMS")
+load("@rules_rust//rust:defs.bzl", "rust_binary", "rust_library")
+
+rust_library(
+    name = "invocation_iroh_lib",
+    srcs = ["src/lib.rs"],
+    crate_name = "invocation_iroh",
+    edition = "2024",
+    target_compatible_with = RESOLVED_PLATFORMS,
+    deps = [
+        "@invocation_iroh_crates//:anyhow",
+        "@invocation_iroh_crates//:base64",
+        "@invocation_iroh_crates//:iroh",
+        "@invocation_iroh_crates//:serde",
+        "@invocation_iroh_crates//:serde_json",
+    ],
+)
+
+rust_binary(
+    name = "invocation-iroh",
+    srcs = ["src/main.rs"],
+    edition = "2024",
+    target_compatible_with = RESOLVED_PLATFORMS,
+    deps = [
+        ":invocation_iroh_lib",
+        "@invocation_iroh_crates//:anyhow",
+        "@invocation_iroh_crates//:base64",
+        "@invocation_iroh_crates//:clap",
+        "@invocation_iroh_crates//:iroh",
+        "@invocation_iroh_crates//:reqwest",
+        "@invocation_iroh_crates//:serde_json",
+        "@invocation_iroh_crates//:subtle",
+        "@invocation_iroh_crates//:tokio",
+    ],
+)
+
+rust_binary(
+    name = "invocation-iroh-test-relay",
+    testonly = True,
+    srcs = ["tests/relay.rs"],
+    edition = "2024",
+    target_compatible_with = RESOLVED_PLATFORMS,
+    deps = [
+        "@invocation_iroh_crates//:anyhow",
+        "@invocation_iroh_crates//:iroh-relay",
+        "@invocation_iroh_crates//:tokio",
+    ],
+)

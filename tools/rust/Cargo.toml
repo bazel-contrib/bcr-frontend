@@ -4,11 +4,12 @@ version = "0.1.0"
 edition = "2021"
 publish = false
 
-# This package exists solely to make binary tools available to Bazel
-# via @crates//:protoc-gen-*__bin and @crates//:wasm-bindgen-cli__bin
+# Dependencies for Bazel's Rust protobuf generation and generated libraries.
 
 [dependencies]
+pbjson = "0.9.0"
+prost = "0.14.1"
 protoc-gen-tonic = "0.5.0"
 protoc-gen-prost = "0.5.0"
 protoc-gen-prost-serde = "0.4.0"
-wasm-bindgen-cli = "=0.2.130"
+serde = { version = "1.0", features = ["derive"] }

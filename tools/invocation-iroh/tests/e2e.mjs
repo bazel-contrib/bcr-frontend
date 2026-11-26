@@ -339,8 +339,8 @@ test("browser Iroh viewer follows real Bazel events and invocation groups", { ti
 	await usage.getByRole("figure", { name: "Build event flow from Bazel to the viewer" }).waitFor();
 	for (const snippet of [
 		"bazel build //cmd/besserver",
-		"cargo +1.95.0 build --locked --release",
-		"invocation-iroh --backend-port",
+		"bazel build -c opt //tools/invocation-iroh",
+		"--backend-port 1974 --key-file ./iroh.key",
 		"--build_metadata=igroup=release",
 	]) {
 		await usage.locator("pre:visible").filter({ hasText: snippet }).waitFor();

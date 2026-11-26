@@ -5,8 +5,8 @@ The Rust companion serves the read-only invocation API from a loopback
 the same machine.
 
 ```sh
-cargo +1.95.0 run --locked --manifest-path tools/invocation-iroh/Cargo.toml \
-  --bin invocation-iroh -- --key-file /path/to/private/iroh.key \
+bazel run -c opt //tools/invocation-iroh -- \
+  --key-file /path/to/private/iroh.key \
   --backend-port 1974 --invocation <invocation-id>
 ```
 
@@ -37,8 +37,7 @@ Install or update from prebuilt Linux executables:
 tools/invocation-iroh/systemd/install.sh /path/to/besserver /path/to/invocation-iroh
 ```
 
-To rebuild both executables from this checkout and then install them with the
-same script, use Bazel and the Rust 1.95.0 toolchain:
+To rebuild both executables with Bazel and install them from this checkout:
 
 ```sh
 tools/invocation-iroh/systemd/update.sh
@@ -94,9 +93,9 @@ journalctl --user -u bcr-besserver.service -u bcr-invocation-iroh.service
 ## Build the browser module
 
 ```sh
-rustup target add --toolchain 1.95.0 wasm32-unknown-unknown
-cargo +1.95.0 install wasm-bindgen-cli --version 0.2.130 --locked
-RUSTUP_TOOLCHAIN=1.95.0 tools/invocation-iroh/build-browser.sh
+rustup toolchain install 1.100.0 --profile minimal --target wasm32-unknown-unknown
+cargo +1.100.0 install wasm-bindgen-cli --version 0.2.130 --locked
+RUSTUP_TOOLCHAIN=1.100.0 tools/invocation-iroh/build-browser.sh
 bazel build //app/bcr:release
 ```
 
@@ -114,8 +113,13 @@ assets and permit WebSocket connections to its Iroh relay.
 
 Build the frontend archive after generating the WASM module. Use
 `--//app/bcr:release_type=dummy` for a small local fixture. Build
-`//cmd/besserver`, `//cmd/releaseserver`, and the companion with
-`cargo +1.95.0 build --locked --manifest-path tools/invocation-iroh/Cargo.toml --features test-relay`.
+`//cmd/besserver`, `//cmd/releaseserver`, the companion, and the test relay:
+
+```sh
+bazel build -c opt //cmd/besserver //cmd/releaseserver \
+  //tools/invocation-iroh //tools/invocation-iroh:invocation-iroh-test-relay
+```
+
 With Playwright installed, run:
 
 ```sh

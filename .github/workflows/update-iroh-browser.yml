@@ -33,7 +33,7 @@ jobs:
 
       - name: Build the Iroh browser module
         env:
-          RUSTUP_TOOLCHAIN: "1.95.0"
+          RUSTUP_TOOLCHAIN: "1.100.0"
         run: |
           rustup toolchain install "$RUSTUP_TOOLCHAIN" --profile minimal --target wasm32-unknown-unknown
           bindgen_root="$HOME/.cache/bcr-frontend/wasm-bindgen-0.2.130"

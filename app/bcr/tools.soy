@@ -244,11 +244,9 @@ import {sectionHeader} from 'app/bcr/registry.soy';
         </li>
         <li>
           <h3 class="h4">Build and start the Iroh companion for remote viewing</h3>
-          <p>On the backend machine, open another terminal in the same checkout. The build uses Rust 1.95.0.</p>
-          <pre><code>cargo +1.95.0 build --locked --release \{\n}
-          {'  '}--manifest-path tools/invocation-iroh/Cargo.toml \{\n}
-          {'  '}--target-dir tools/invocation-iroh/target --bin invocation-iroh{\n}
-          ./tools/invocation-iroh/target/release/invocation-iroh --backend-port 1974 --key-file ./iroh.key</code></pre>
+          <p>On the backend machine, open another terminal in the same checkout.</p>
+          <pre><code>{'bazel build -c opt //tools/invocation-iroh'}{\n}
+          {'"$(bazel info -c opt bazel-bin)/tools/invocation-iroh/invocation-iroh"'} --backend-port 1974 --key-file ./iroh.key</code></pre>
           <p>The companion creates <code>iroh.key</code> if it is missing. Reuse the same key file across restarts to keep a stable Iroh address.</p>
           <p>The printed Iroh ticket looks like <code>bcr-iroh-v1:eyJlbmRwb2ludCI6…</code>. Paste the full ticket into <strong>Backend URL or iroh ticket</strong> in the Backend form.</p>
           <p>The browser uses the relay address in the ticket to reach the companion and presents the ticket’s access credential. The companion reads group data and streams build events from the backend’s local HTTP API.</p>

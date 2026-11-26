@@ -52,7 +52,7 @@ deploy-ghpages:
 # Rust/Cargo targets
 .PHONY: cargo_update_lockfile
 cargo_update_lockfile:
-	cargo update --manifest-path app/api/Cargo.toml
+	cargo update
 
 # Example: generate documentation for a single module version
 .PHONY: build_docs_for_module_version

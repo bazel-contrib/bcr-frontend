@@ -2,6 +2,9 @@
 # Configuration: Rust/Cargo
 # -------------------------------------------------------------------
 
+rust = use_extension("@rules_rust//rust:extensions.bzl", "rust")
+rust.toolchain(edition = "2021", versions = ["1.100.0"])
+
 crate = use_extension("@rules_rs//rs:extensions.bzl", "crate")
 crate.from_cargo(
     name = "crates",
@@ -10,7 +13,6 @@ crate.from_cargo(
     platform_triples = [
         "aarch64-apple-darwin",
         "x86_64-unknown-linux-gnu",
-        "wasm32-unknown-unknown",
     ],
 )
 crate.annotation(
@@ -21,14 +23,15 @@ crate.annotation(
     crate = "protoc-gen-prost-serde",
     gen_binaries = ["protoc-gen-prost-serde"],
 )
-crate.annotation(
-    crate = "wasm-bindgen-cli",
-    gen_binaries = ["wasm-bindgen"],
+crate.from_cargo(
+    name = "invocation_iroh_crates",
+    cargo_lock = "//tools/invocation-iroh:Cargo.lock",
+    cargo_toml = "//tools/invocation-iroh:Cargo.toml",
+    platform_triples = [
+        "aarch64-apple-darwin",
+        "aarch64-unknown-linux-gnu",
+        "x86_64-apple-darwin",
+        "x86_64-unknown-linux-gnu",
+    ],
 )
-use_repo(crate, "crates")
-
-register_toolchains(
-    # override the default toolchain to match the wasm-bindgen version wanted by
-    # workerd API ("@rules_rust_wasm_bindgen//:default_wasm_bindgen_toolchain")
-    "//bazel_tools/rust:wasm_bindgen_toolchain",
-)
+use_repo(crate, "crates", "invocation_iroh_crates")
