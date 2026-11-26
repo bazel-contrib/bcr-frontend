@@ -36,6 +36,22 @@ impl InvocationClient {
         })
     }
 
+    pub async fn execution(&self, path: String) -> Result<String, JsError> {
+        self.summary(Operation::ExecutionRead { path })
+            .await
+            .map_err(js_error)
+    }
+
+    pub async fn wait_execution_activity(&self, path: String) -> Result<(), JsError> {
+        let mut stream = self
+            .open(Operation::ExecutionRead { path })
+            .await
+            .map_err(js_error)?;
+        let mut byte = [0; 1];
+        stream.read(&mut byte).await.map_err(js_error)?;
+        Ok(())
+    }
+
     pub async fn list(&self, token: Option<String>) -> Result<String, JsError> {
         self.summary(token.map_or(Operation::List, |token| Operation::ListPage { token }))
             .await

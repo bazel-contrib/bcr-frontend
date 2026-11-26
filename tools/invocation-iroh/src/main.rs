@@ -27,9 +27,9 @@ use tokio::{
 };
 
 #[derive(Parser)]
-#[command(about = "Serve a local besserver invocation API to authorized Iroh viewers")]
+#[command(about = "Serve a local bazel_backend invocation API to authorized Iroh viewers")]
 struct Options {
-    /// Port of besserver's local HTTP invocation API.
+    /// Port of bazel_backend's local HTTP invocation API.
     #[arg(long, default_value_t = 1974)]
     backend_port: u16,
     /// Private key path. A key is created with mode 0600 if it is missing.
@@ -41,6 +41,9 @@ struct Options {
     /// Limit this ticket to a specific invocation.
     #[arg(long)]
     invocation: Option<String>,
+    /// Issue a Remote Execution viewer ticket using this backend credential.
+    #[arg(long, conflicts_with = "invocation")]
+    execution_viewer_token_file: Option<PathBuf>,
     /// Lifetime of the ticket. Restarting revokes it.
     #[arg(long, default_value_t = 3600, value_parser = clap::value_parser!(u32).range(1..=86_400))]
     ttl_seconds: u32,
@@ -50,6 +53,7 @@ struct ViewerApi {
     upstream: Client,
     port: u16,
     scope: Option<String>,
+    execution_token: Option<String>,
     token: String,
     expires: Instant,
     streams: Arc<Semaphore>,
@@ -119,7 +123,12 @@ impl ViewerApi {
         };
         drop(request_slot);
 
+        let execution = matches!(request.operation, Operation::ExecutionRead { .. });
+        if execution != self.execution_token.is_some() {
+            return reply(send, 403, b"request outside viewer ticket scope").await;
+        }
         let scoped_list = matches!(request.operation, Operation::List) && self.scope.is_some();
+        let mut execution_watch = false;
         let path = match &request.operation {
             Operation::List => self.scope.as_ref().map_or_else(
                 || "/api/invocations".to_owned(),
@@ -159,6 +168,13 @@ impl ViewerApi {
                     _ => return reply(send, 400, b"invalid invocation group name").await,
                 }
             }
+            Operation::ExecutionRead { path } => {
+                let Some(watch) = execution_path(path) else {
+                    return reply(send, 400, b"invalid execution viewer route").await;
+                };
+                execution_watch = watch;
+                format!("/api/remote-execution{path}")
+            }
             Operation::Get { id } | Operation::Watch { id, .. } => {
                 if !valid_invocation_id(id) {
                     return reply(send, 400, b"invalid invocation ID").await;
@@ -175,15 +191,16 @@ impl ViewerApi {
             }
         };
 
-        let watch = matches!(request.operation, Operation::Watch { .. });
-        let mut upstream = match self
+        let watch = execution_watch || matches!(request.operation, Operation::Watch { .. });
+        let mut upstream_request = self
             .upstream
-            .get(format!("http://127.0.0.1:{}{path}", self.port))
-            .send()
-            .await
-        {
+            .get(format!("http://127.0.0.1:{}{path}", self.port));
+        if let Some(token) = &self.execution_token {
+            upstream_request = upstream_request.bearer_auth(token);
+        }
+        let mut upstream = match upstream_request.send().await {
             Ok(response) => response,
-            Err(_) => return reply(send, 502, b"invocation backend unavailable").await,
+            Err(_) => return reply(send, 502, b"viewer backend unavailable").await,
         };
         let status = upstream.status().as_u16();
         if status == 404 && scoped_list {
@@ -220,6 +237,62 @@ impl ViewerApi {
         }
         reply(send, status, &body).await
     }
+}
+
+fn execution_path(path: &str) -> Option<bool> {
+    let (route, query) = path.split_once('?').unwrap_or((path, ""));
+    if route == "/status" || route == "/instances" {
+        return query.is_empty().then_some(false);
+    }
+    let parts = route.strip_prefix('/')?.split('/').collect::<Vec<_>>();
+    let watch = match parts.as_slice() {
+        ["pools"] => false,
+        ["pools", pool] | ["pools", pool, "workers" | "operations"] if valid_group_name(pool) => {
+            false
+        }
+        ["pools", pool, "operations", operation]
+            if valid_group_name(pool) && valid_invocation_id(operation) =>
+        {
+            false
+        }
+        ["pools", pool, "activity"] if valid_group_name(pool) => true,
+        ["pools", pool, "timeline"] if valid_group_name(pool) => {
+            if query.is_empty()
+                || query
+                    .strip_prefix("after=")
+                    .is_some_and(|cursor| cursor.parse::<u64>().is_ok())
+            {
+                return Some(false);
+            }
+            return None;
+        }
+        ["pools", pool, "workers", worker] | ["pools", pool, "workers", worker, "attempts"]
+            if valid_group_name(pool) && valid_group_name(worker) =>
+        {
+            false
+        }
+        ["pools", pool, "workers", worker, "activity"]
+            if valid_group_name(pool) && valid_group_name(worker) =>
+        {
+            true
+        }
+        _ => return None,
+    };
+    if !query.is_empty() {
+        for field in query.split('&') {
+            let (name, value) = field.split_once('=')?;
+            let allowed = match name {
+                "after" if watch => value.parse::<u64>().is_ok(),
+                "page_size" if !watch => value.parse::<u32>().is_ok_and(|number| number <= 200),
+                "page_token" if !watch => valid_page_token(value),
+                _ => false,
+            };
+            if !allowed {
+                return None;
+            }
+        }
+    }
+    Some(watch)
 }
 
 fn valid_page_token(token: &str) -> bool {
@@ -304,10 +377,24 @@ async fn main() -> Result<()> {
         .connect_timeout(Duration::from_secs(5))
         .read_timeout(Duration::from_secs(30))
         .build()?;
+    let execution_token = options
+        .execution_viewer_token_file
+        .as_deref()
+        .map(|path| -> Result<_> {
+            ensure!(
+                fs::metadata(path)?.permissions().mode() & 0o077 == 0,
+                "viewer token file must be private"
+            );
+            let token = fs::read_to_string(path)?.trim().to_owned();
+            ensure!((24..=256).contains(&token.len()), "invalid viewer token");
+            Ok(token)
+        })
+        .transpose()?;
     let api = Arc::new(ViewerApi {
         upstream,
         port: options.backend_port,
         scope: options.invocation,
+        execution_token,
         token: token.clone(),
         expires: Instant::now() + Duration::from_secs(u64::from(options.ttl_seconds)),
         streams: Arc::new(Semaphore::new(128)),

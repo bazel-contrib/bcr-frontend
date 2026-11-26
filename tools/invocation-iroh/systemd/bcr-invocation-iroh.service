@@ -1,8 +1,8 @@
 [Unit]
 Description=Iroh companion for the Bazel invocation server
-Requires=bcr-besserver.service
-After=bcr-besserver.service
-PartOf=bcr-besserver.service
+Requires=bcr-bazel-backend.service
+After=bcr-bazel-backend.service
+PartOf=bcr-bazel-backend.service
 
 [Service]
 Type=exec

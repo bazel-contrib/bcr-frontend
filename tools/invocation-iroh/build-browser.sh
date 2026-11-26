@@ -4,13 +4,12 @@ set -euo pipefail
 crate=$(cd "$(dirname "$0")" && pwd)
 repo=$(cd "$crate/../.." && pwd)
 output=${1:-"$repo/app/bcr/iroh_wasm"}
-target=${CARGO_TARGET_DIR:-"$crate/target"}
-if [[ "$(wasm-bindgen --version)" != "wasm-bindgen 0.2.130" ]]; then
-  echo 'Install wasm-bindgen-cli 0.2.130 before building the viewer.' >&2
-  exit 1
-fi
+bazel=${BAZEL:-bazel}
 
-cargo build --locked --manifest-path "$crate/Cargo.toml" \
-  --target-dir "$target" --target wasm32-unknown-unknown --release --lib
-wasm-bindgen --target web --no-typescript --out-dir "$output" \
-  --out-name bcr_invocation_iroh "$target/wasm32-unknown-unknown/release/invocation_iroh.wasm"
+(cd "$repo" && "$bazel" build -c opt --action_env=PATH //tools/invocation-iroh:iroh_browser)
+bazel_bin=$(cd "$repo" && "$bazel" info -c opt bazel-bin)
+assets="$bazel_bin/tools/invocation-iroh/iroh_browser"
+test -s "$assets/bcr_invocation_iroh.js"
+test -s "$assets/bcr_invocation_iroh_bg.wasm"
+mkdir -p "$output"
+install -m 0644 "$assets/bcr_invocation_iroh.js" "$assets/bcr_invocation_iroh_bg.wasm" "$output/"

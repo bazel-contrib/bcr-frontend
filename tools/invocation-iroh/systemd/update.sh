@@ -12,9 +12,9 @@ fi
 
 script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 cd -- "$script_dir/../../.."
-bazel build -c opt //cmd/besserver //tools/invocation-iroh
+bazel build -c opt //cmd/bazel_backend //tools/invocation-iroh
 bazel_bin=$(bazel info -c opt bazel-bin)
 
 exec "$script_dir/install.sh" \
-  "$bazel_bin/cmd/besserver/besserver_/besserver" \
+  "$bazel_bin/cmd/bazel_backend/bazel_backend_/bazel_backend" \
   "$bazel_bin/tools/invocation-iroh/invocation-iroh"

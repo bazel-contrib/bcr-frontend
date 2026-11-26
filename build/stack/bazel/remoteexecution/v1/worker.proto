@@ -81,6 +81,7 @@ message HeartbeatRequest {
   // result is waiting for completion acknowledgment.
   repeated string active_lease_ids = 2;
   // Once set, this session finishes existing leases and receives no new work.
+  // With an empty active_lease_ids list, the drained session goes offline.
   bool draining = 3;
 }
 

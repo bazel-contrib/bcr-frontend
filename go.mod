@@ -3,6 +3,7 @@ module github.com/bazel-contrib/bcr-frontend
 go 1.26.0
 
 require (
+	cloud.google.com/go/longrunning v0.5.12
 	github.com/JohannesKaufmann/html-to-markdown v1.6.0
 	github.com/bazelbuild/bazel-gazelle v0.47.0
 	github.com/bazelbuild/bazelisk v1.27.0
@@ -32,7 +33,6 @@ require (
 )
 
 require (
-	cloud.google.com/go/longrunning v0.5.12 // indirect
 	github.com/PuerkitoBio/goquery v1.9.2 // indirect
 	github.com/andybalholm/cascadia v1.3.2 // indirect
 	github.com/bazel-contrib/bcr-frontend/proto/build v0.0.0

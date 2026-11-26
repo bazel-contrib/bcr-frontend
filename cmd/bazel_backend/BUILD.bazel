@@ -1,20 +1,24 @@
 load("@rules_go//go:def.bzl", "go_binary", "go_library", "go_test")
 
 go_library(
-    name = "besserver_lib",
+    name = "bazel_backend_lib",
     srcs = [
         "cache.go",
         "invocations.go",
         "main.go",
+        "proxy.go",
     ],
-    importpath = "github.com/bazel-contrib/bcr-frontend/cmd/besserver",
+    importpath = "github.com/bazel-contrib/bcr-frontend/cmd/bazel_backend",
     visibility = ["//visibility:private"],
     deps = [
         "//build/stack/bazel/invocation/v1:invocation",
         "//pkg/invocation",
         "//pkg/remotecache",
+        "//pkg/remoteexecution",
         "//bazel_tools/proto:buildeventstream",
         "//bazel_tools/proto:publish_build_event",
+        "@com_github_bazelbuild_remote_apis//build/bazel/remote/execution/v2:execution",
+        "@com_google_cloud_go_longrunning//autogen/longrunningpb",
         "@org_golang_google_grpc//:grpc",
         "@org_golang_google_grpc//codes",
         "@org_golang_google_grpc//credentials",
@@ -29,15 +33,15 @@ go_library(
 )
 
 go_binary(
-    name = "besserver",
-    embed = [":besserver_lib"],
+    name = "bazel_backend",
+    embed = [":bazel_backend_lib"],
     visibility = ["//visibility:public"],
 )
 
 go_test(
-    name = "besserver_test",
+    name = "bazel_backend_test",
     srcs = ["main_test.go"],
-    embed = [":besserver_lib"],
+    embed = [":bazel_backend_lib"],
     deps = [
         "//pkg/invocation",
         "//pkg/remotecache",

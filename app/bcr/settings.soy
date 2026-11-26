@@ -2,11 +2,14 @@
 
 import {
   octiconChevronRight16,
-  octiconPaintbrush16
+  octiconPaintbrush16,
+  octiconTools16
 } from 'app/bcr/octicons.soy';
 import {
   sectionHeader
 } from 'app/bcr/registry.soy';
+
+import {invocationGroupUsage, remoteExecutionUsage} from 'app/bcr/tools.soy';
 
 {template settingsSelect}
   {@inject pathUrl: string}
@@ -22,11 +25,154 @@ import {
             Appearance
             {octiconChevronRight16(fill: 'var(--color-fg-subtle)')}
           </a>
+          <a href="/{$pathUrl}/tools" class="SideNav-item d-flex flex-items-center p-1 pl-2 m-1 rounded" style="border: none; box-shadow: none">
+            {octiconTools16(class: 'mr-2', fill: 'var(--color-fg-emphasis)')}
+            {sp}
+            Tools
+            {octiconChevronRight16(fill: 'var(--color-fg-subtle)')}
+          </a>
         </nav>
       </div>
       <div class="PageLayout-content valign-top {css('content')}"></div>
     </div>
   </div>
+{/template}
+
+{template settingsToolsComponent}
+  <div class="tool-settings">
+    <h1 class="h2 mb-2">Tools</h1>
+    <p class="color-fg-muted">This browser saves connection settings, including tokens and Iroh tickets, across tabs and sessions.</p>
+    <p class="color-fg-danger text-small mb-0" data-tool-save role="status" hidden></p>
+    <div class="tool-settings-connections">
+      <form class="bes-backend-form" data-tool-probe="bes" aria-label="Build Events connection">
+        {sectionHeader(title: 'Build Events')}
+        {toolSettingField(label: 'Build Event Backend', key: 'bes', placeholder: 'HTTP URL or Iroh ticket')}
+        {toolConnectionTest()}
+      </form>
+      <form class="bes-backend-form" data-tool-probe="cache" aria-label="Remote Cache connection">
+        {sectionHeader(title: 'Remote Cache')}
+        {toolSettingField(label: 'Remote Cache status API', key: 'cache', placeholder: 'http://localhost:1974')}
+        {toolConnectionTest()}
+      </form>
+      <form class="bes-backend-form" data-tool-probe="scheduler" aria-label="Remote Execution viewer connection">
+        {sectionHeader(title: 'Remote Execution viewer')}
+        {toolSettingField(label: 'Remote Executor Scheduler', key: 'scheduler', placeholder: 'HTTP URL or Iroh ticket')}
+        {toolSettingField(label: 'Viewer token', key: 'viewer-token', secret: true)}
+        {toolConnectionTest()}
+      </form>
+      <form class="bes-backend-form" data-tool-probe="admin" aria-label="Remote Execution admin connection">
+        {sectionHeader(title: 'Remote Execution admin')}
+        {toolSettingField(label: 'Scheduler admin HTTP origin', key: 'admin', placeholder: 'Defaults to the scheduler’s HTTP origin')}
+        {toolSettingField(label: 'Admin token', key: 'admin-token', secret: true)}
+        {toolConnectionTest()}
+      </form>
+    </div>
+    <section class="bes-events-side-section">
+      {sectionHeader(title: 'Bazel and worker endpoints')}
+      <p class="color-fg-muted">These addresses label the diagram and flags. Use addresses reachable from Bazel and the workers.</p>
+      <div class="tool-settings-connections">
+        {toolSettingField(label: '--bes_backend', key: 'bazel-bes', placeholder: 'grpc://localhost:1973')}
+        {toolSettingField(label: '--remote_cache', key: 'bazel-cache', placeholder: 'grpc://localhost:1972')}
+        {toolSettingField(label: '--remote_executor', key: 'bazel-executor', placeholder: 'grpc://localhost:1971')}
+        {toolSettingField(label: 'Worker API or gateway endpoint', key: 'worker', placeholder: 'http://localhost:1974')}
+      </div>
+    </section>
+    <section class="bes-events-side-section" aria-label="Usage">
+      {sectionHeader(title: 'Usage')}
+      {toolArchitecture()}
+      <div class="tool-settings-usage">
+        {invocationGroupUsage()}
+        <section aria-label="Remote Cache usage">
+          {sectionHeader(title: 'Set up the remote cache')}
+          <p>Start <code>bazel_backend</code> with a cache listener and a storage directory. To proxy an existing cache and collect metrics, use <code>--remote_cache_backend=grpc://localhost:9072</code> as the storage backend. Use the HTTP listener for the status API.</p>
+          <pre><code>--remote_cache_grpc_listen=localhost:1972 \{\n}
+          --remote_cache_dir=./remote-cache --remote_cache_max_bytes=10737418240 \{\n}
+          --http_listen=localhost:1974</code></pre>
+          <p>Pass <code data-tool-endpoint="bazel-cache"></code> to Bazel. Open <a href="/tools/remote-cache">Remote Cache</a> and click <strong>Connect</strong>.</p>
+        </section>
+        {remoteExecutionUsage()}
+        <section aria-label="File-based tools usage">
+          {sectionHeader(title: 'Open action queries and execution logs')}
+          <p>Run these commands in your workspace, then drop the generated file into the corresponding tool.</p>
+          <p><a href="/tools/action-query">Action Query</a></p>
+          <pre><code>{'bazel aquery "deps(//pkg:target)" --output=proto > actions.pb'}</code></pre>
+          <p><a href="/tools/execution-log">Execution Log</a></p>
+          <pre><code>{'bazel build //pkg:target --execution_log_compact_file=execution.log.zst'}</code></pre>
+        </section>
+      </div>
+    </section>
+  </div>
+{/template}
+
+{template toolSettingField visibility="private"}
+  {@param label: string}
+  {@param key: string}
+  {@param? placeholder: string}
+  {@param? secret: bool}
+  <label class="FormControl-label width-full">{$label}
+    <input type="{if $secret}password{else}text{/if}" class="form-control input-block" data-tool-setting="{$key}"
+        placeholder="{$placeholder ?? ''}" autocomplete="off" spellcheck="false">
+  </label>
+{/template}
+
+{template toolConnectionTest visibility="private"}
+  <div class="bes-backend-actions">
+    <button class="btn btn-sm" type="submit">Test connection</button>
+    <span class="text-small color-fg-muted" role="status"></span>
+  </div>
+{/template}
+
+{template toolArchitecture visibility="private"}
+  <figure class="tool-architecture" aria-label="Bazel tool architecture">
+    <div class="tool-architecture-scroll">
+      <div class="tool-architecture-sheet">
+        <svg class="tool-architecture-art" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 530" aria-hidden="true">
+          <defs>
+            <marker id="tool-architecture-arrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto-start-reverse">
+              <path d="M0 0L6 3L0 6Z"/>
+            </marker>
+          </defs>
+          <g class="tool-architecture-edges">
+            <path d="M706 109V244" marker-end="url(#tool-architecture-arrow)"/>
+            <path d="M170 256H581" marker-end="url(#tool-architecture-arrow)"/>
+            <path d="M170 294H581" marker-end="url(#tool-architecture-arrow)"/>
+            <path d="M170 332H581" marker-end="url(#tool-architecture-arrow)"/>
+            <path d="M706 359V423H410V453M706 423H600V453M706 423H790V453"/>
+          </g>
+          <g class="tool-architecture-boxes">
+            <rect x="553" y="32" width="306" height="77" rx="7"/>
+            <path d="M553 58H859M570 45H573M580 45H583M590 45H593"/>
+            <rect x="33" y="244" width="137" height="115" rx="7"/>
+            <rect x="581" y="244" width="250" height="115" rx="7"/>
+            <rect x="336" y="453" width="148" height="54" rx="7"/>
+            <rect x="526" y="453" width="148" height="54" rx="7"/>
+            <rect x="716" y="453" width="148" height="54" rx="7"/>
+          </g>
+        </svg>
+        <div class="tool-architecture-node" style="--x:78.44%;--y:15.5%"><strong>Browser tab</strong></div>
+        <div class="tool-architecture-node" style="--x:11.28%;--y:56.9%"><strong>Bazel</strong></div>
+        <div class="tool-architecture-node" style="--x:78.44%;--y:56.9%">
+          <strong>bazel_backend</strong><span>Build events · Cache · Scheduler</span>
+        </div>
+        <div class="tool-architecture-node" style="--x:45.56%;--y:90.55%"><strong>Worker 1</strong></div>
+        <div class="tool-architecture-node" style="--x:66.67%;--y:90.55%"><strong>Worker 2</strong></div>
+        <div class="tool-architecture-node" style="--x:87.78%;--y:90.55%"><strong>Worker 3</strong></div>
+        <div class="tool-architecture-edge tool-architecture-browser" style="--x:78.44%;--y:33.35%">
+          <div>Build Events <code data-tool-endpoint="bes"></code></div>
+          <div>Remote Cache <code data-tool-endpoint="cache"></code></div>
+          <div>Scheduler <code data-tool-endpoint="scheduler"></code></div>
+          <div>Scheduler admin <code data-tool-endpoint="admin"></code></div>
+        </div>
+        <code class="tool-architecture-edge" style="--x:41.67%;--y:48.3%" data-tool-endpoint="bazel-bes"></code>
+        <code class="tool-architecture-edge" style="--x:41.67%;--y:55.47%" data-tool-endpoint="bazel-cache"></code>
+        <code class="tool-architecture-edge" style="--x:41.67%;--y:62.64%" data-tool-endpoint="bazel-executor"></code>
+        <div class="tool-architecture-edge tool-architecture-worker" style="--x:78.44%;--y:74.2%">
+          Workers <code data-tool-endpoint="worker"></code>
+        </div>
+      </div>
+    </div>
+    <figcaption class="color-fg-muted text-small mt-2">Bazel uses its configured RPC endpoints. The browser reads the APIs directly or through Iroh. Workers poll the scheduler for actions and exchange data with its cache.<span class="tool-architecture-scroll-note"> Scroll sideways to see all connections.</span></figcaption>
+  </figure>
 {/template}
 
 {template settingsAppearanceComponent}

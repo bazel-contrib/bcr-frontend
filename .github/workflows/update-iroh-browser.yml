@@ -4,7 +4,15 @@ on:
   push:
     branches: [main]
     paths:
+      - .bazelrc
+      - .bazelversion
       - .github/workflows/update-iroh-browser.yml
+      - MODULE.bazel
+      - bazel_tools/deps/bcr.MODULE.bazel
+      - bazel_tools/deps/rust.MODULE.bazel
+      - bazel_tools/deps/tools.MODULE.bazel
+      - multitool.lock.json
+      - tools/invocation-iroh/BUILD.bazel
       - tools/invocation-iroh/build-browser.sh
       - tools/invocation-iroh/Cargo.toml
       - tools/invocation-iroh/Cargo.lock
@@ -33,14 +41,8 @@ jobs:
 
       - name: Build the Iroh browser module
         env:
-          RUSTUP_TOOLCHAIN: "1.100.0"
-        run: |
-          rustup toolchain install "$RUSTUP_TOOLCHAIN" --profile minimal --target wasm32-unknown-unknown
-          bindgen_root="$HOME/.cache/bcr-frontend/wasm-bindgen-0.2.130"
-          cargo install --locked --version 0.2.130 --root "$bindgen_root" wasm-bindgen-cli
-          PATH="$bindgen_root/bin:$PATH" tools/invocation-iroh/build-browser.sh
-          test -s app/bcr/iroh_wasm/bcr_invocation_iroh.js
-          test -s app/bcr/iroh_wasm/bcr_invocation_iroh_bg.wasm
+          BAZEL: bazelisk
+        run: tools/invocation-iroh/build-browser.sh
 
       - name: Commit generated browser assets
         id: publish

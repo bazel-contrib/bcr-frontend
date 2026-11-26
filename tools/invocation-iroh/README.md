@@ -1,7 +1,7 @@
 # Iroh invocation viewer
 
 The Rust companion serves the read-only invocation API from a loopback
-`besserver` over Iroh. Start `besserver` as usual, then run the companion on
+`bazel_backend` over Iroh. Start `bazel_backend` as usual, then run the companion on
 the same machine.
 
 ```sh
@@ -34,7 +34,7 @@ companion so they release the listeners and database lock.
 Install or update from prebuilt Linux executables:
 
 ```sh
-tools/invocation-iroh/systemd/install.sh /path/to/besserver /path/to/invocation-iroh
+tools/invocation-iroh/systemd/install.sh /path/to/bazel_backend /path/to/invocation-iroh
 ```
 
 To rebuild both executables with Bazel and install them from this checkout:
@@ -43,7 +43,7 @@ To rebuild both executables with Bazel and install them from this checkout:
 tools/invocation-iroh/systemd/update.sh
 ```
 
-The installer enables and restarts `bcr-besserver.service` and
+The installer enables and restarts `bcr-bazel-backend.service` and
 `bcr-invocation-iroh.service` under the user systemd manager. To start them at
 boot and keep them running after logout, enable lingering for the account:
 
@@ -79,31 +79,35 @@ BCR_IROH_ARGS="--relay=https://relay.example.com"
 
 `BCR_BES_LISTEN` sets the BES address, `BCR_INVOCATION_HTTP_PORT` sets the
 loopback API port for both services, and `BCR_BES_ARGS` accepts additional
-backend flags such as cache settings. Use `BCR_IROH_ARGS` to configure a relay
-or scope tickets to a single invocation with `--invocation`. If you set
+backend flags such as `--remote_cache_dir` and extra `--http_allow_origin`
+flags. Set `--http_allow_origin` once per origin. When upgrading an existing
+deployment, update custom flags in `BCR_BES_ARGS` to match `bazel_backend --help`
+before restarting. Use `BCR_IROH_ARGS` to configure a relay or scope tickets
+to a single invocation with `--invocation`. If you set
 `BCR_IROH_TTL_SECONDS`, set the companion's `RuntimeMaxSec` to match with
 a systemd drop-in.
 
 ```sh
-systemctl --user restart bcr-besserver.service bcr-invocation-iroh.service
-systemctl --user status bcr-besserver.service bcr-invocation-iroh.service
-journalctl --user -u bcr-besserver.service -u bcr-invocation-iroh.service
+systemctl --user restart bcr-bazel-backend.service bcr-invocation-iroh.service
+systemctl --user status bcr-bazel-backend.service bcr-invocation-iroh.service
+journalctl --user -u bcr-bazel-backend.service -u bcr-invocation-iroh.service
 ```
 
 ## Build the browser module
 
+Put a WebAssembly-capable `clang` and `llvm-ar` on the build machine's PATH.
+
 ```sh
-rustup toolchain install 1.100.0 --profile minimal --target wasm32-unknown-unknown
-cargo +1.100.0 install wasm-bindgen-cli --version 0.2.130 --locked
-RUSTUP_TOOLCHAIN=1.100.0 tools/invocation-iroh/build-browser.sh
+tools/invocation-iroh/build-browser.sh
 bazel build //app/bcr:release
 ```
 
-The build helper regenerates the JavaScript bindings and WASM binary in
-`app/bcr/iroh_wasm`. GitHub Pages deploys package the checked-in files.
+The helper builds `//tools/invocation-iroh:iroh_browser` and copies the JavaScript
+bindings and WASM binary into `app/bcr/iroh_wasm`. GitHub Pages deployments
+package the checked-in files.
 The **Update Iroh Browser Module** workflow refreshes them when the Iroh
-crate or build script changes on `main`. If the files change, it commits
-them to `main` and starts the GitHub Pages deploy. Run it manually with
+crate or Bazel build configuration changes on `main`. If the files change, it
+commits them to `main` and starts the GitHub Pages deploy. Run it manually with
 `gh workflow run update-iroh-browser.yml --ref main` to rebuild and deploy
 on demand.
 A hosted deployment needs to serve the generated JavaScript and WebAssembly
@@ -113,17 +117,17 @@ assets and permit WebSocket connections to its Iroh relay.
 
 Build the frontend archive after generating the WASM module. Use
 `--//app/bcr:release_type=dummy` for a small local fixture. Build
-`//cmd/besserver`, `//cmd/releaseserver`, the companion, and the test relay:
+`//cmd/bazel_backend`, `//cmd/releaseserver`, the companion, and the test relay:
 
 ```sh
-bazel build -c opt //cmd/besserver //cmd/releaseserver \
+bazel build -c opt //cmd/bazel_backend //cmd/releaseserver \
   //tools/invocation-iroh //tools/invocation-iroh:invocation-iroh-test-relay
 ```
 
 With Playwright installed, run:
 
 ```sh
-BESSERVER=/path/to/besserver RELEASESERVER=/path/to/releaseserver \
+BAZEL_BACKEND=/path/to/bazel_backend RELEASESERVER=/path/to/releaseserver \
 FRONTEND_ARCHIVE=/path/to/release.tar IROH_COMPANION=/path/to/invocation-iroh \
 IROH_RELAY=/path/to/invocation-iroh-test-relay \
 node --test tools/invocation-iroh/tests/e2e.mjs

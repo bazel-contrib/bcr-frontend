@@ -46,6 +46,23 @@ func NewFileCache(root string) (Backend, error) {
 	return &fileCache{root: root}, nil
 }
 
+// CheckReady checks that the cache's root directory can be opened.
+func (f *fileCache) CheckReady(context.Context) error {
+	dir, err := os.Open(f.root)
+	if err != nil {
+		return err
+	}
+	defer dir.Close()
+	info, err := dir.Stat()
+	if err != nil {
+		return err
+	}
+	if !info.IsDir() {
+		return errors.New("cache root is not a directory")
+	}
+	return nil
+}
+
 func (f *fileCache) GetCapabilities(context.Context, *re.GetCapabilitiesRequest) (*re.ServerCapabilities, error) {
 	return &re.ServerCapabilities{
 		CacheCapabilities: &re.CacheCapabilities{

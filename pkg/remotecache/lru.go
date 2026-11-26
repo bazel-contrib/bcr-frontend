@@ -26,14 +26,16 @@ type diskEntry struct {
 }
 
 type diskBudget struct {
-	mu       sync.Mutex
-	lock     *os.File
-	limit    int64
-	block    int64
-	used     int64
-	reserved int64
-	entries  map[string]*list.Element
-	lru      list.List
+	mu             sync.Mutex
+	lock           *os.File
+	limit          int64
+	block          int64
+	used           int64
+	reserved       int64
+	evictedEntries int64
+	evictedBytes   int64
+	entries        map[string]*list.Element
+	lru            list.List
 }
 
 // NewBoundedFileCache opens a dedicated cache directory with a shared AC and CAS
@@ -205,7 +207,10 @@ func (b *diskBudget) makeRoom(size int64) error {
 		next := elem.Next()
 		entry := elem.Value.(*diskEntry)
 		if entry.pins == 0 {
-			if err := os.Remove(entry.path); err != nil && !os.IsNotExist(err) {
+			if err := os.Remove(entry.path); err == nil {
+				b.evictedEntries++
+				b.evictedBytes += entry.size
+			} else if !os.IsNotExist(err) {
 				return fileError(err)
 			}
 			b.forget(elem)

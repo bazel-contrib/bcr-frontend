@@ -1,0 +1,109 @@
+load("@build_stack_rules_proto//rules:proto_compile.bzl", "proto_compile")
+load("@remote_execution_worker_crates//:defs.bzl", "RESOLVED_PLATFORMS")
+load("@rules_rust//rust:defs.bzl", "rust_binary", "rust_library")
+
+proto_compile(
+    name = "worker_protocol_generated",
+    outputs = [
+        "build.bazel.remote.execution.v2.rs",
+        "build.bazel.semver.rs",
+        "build.stack.bazel.remoteexecution.v1.rs",
+        "google.longrunning.rs",
+        "google.rpc.rs",
+    ],
+    output_mappings = [
+        "build.bazel.remote.execution.v2.rs=build/bazel/remote/execution/v2/build.bazel.remote.execution.v2.rs",
+        "build.bazel.semver.rs=build/bazel/semver/build.bazel.semver.rs",
+        "build.stack.bazel.remoteexecution.v1.rs=build/stack/bazel/remoteexecution/v1/build.stack.bazel.remoteexecution.v1.rs",
+        "google.longrunning.rs=google/longrunning/google.longrunning.rs",
+        "google.rpc.rs=google/rpc/google.rpc.rs",
+    ],
+    plugins = ["//bazel_tools/rust:protoc-gen-prost"],
+    protos = [
+        "//build/stack/bazel/remoteexecution/v1:worker_proto",
+        "@googleapis//google/longrunning:operations_proto",
+        "@googleapis//google/rpc:status_proto",
+        "@remoteapis//build/bazel/remote/execution/v2:remote_execution_proto",
+        "@remoteapis//build/bazel/semver:semver_proto",
+    ],
+)
+
+genrule(
+    name = "protocol_root",
+    srcs = ["src/protocol.rs"],
+    outs = ["protocol.rs"],
+    cmd = "cp $< $@",
+)
+
+rust_library(
+    name = "worker_protocol",
+    srcs = [
+        ":protocol_root",
+        ":worker_protocol_generated",
+    ],
+    crate_root = ":protocol_root",
+    edition = "2024",
+    target_compatible_with = RESOLVED_PLATFORMS,
+    deps = [
+        "@remote_execution_worker_crates//:prost",
+        "@remote_execution_worker_crates//:prost-types",
+    ],
+)
+
+rust_library(
+    name = "remote_execution_tunnel",
+    srcs = ["src/tunnel.rs"],
+    edition = "2024",
+    target_compatible_with = RESOLVED_PLATFORMS,
+    deps = [
+        "@remote_execution_worker_crates//:anyhow",
+        "@remote_execution_worker_crates//:base64",
+        "@remote_execution_worker_crates//:iroh",
+        "@remote_execution_worker_crates//:serde",
+        "@remote_execution_worker_crates//:serde_json",
+        "@remote_execution_worker_crates//:subtle",
+        "@remote_execution_worker_crates//:tempfile",
+        "@remote_execution_worker_crates//:tokio",
+    ],
+)
+
+rust_binary(
+    name = "remote-execution-worker",
+    srcs = [
+        "src/api.rs",
+        "src/execute.rs",
+        "src/main.rs",
+    ],
+    crate_root = "src/main.rs",
+    edition = "2024",
+    target_compatible_with = RESOLVED_PLATFORMS,
+    deps = [
+        ":remote_execution_tunnel",
+        ":worker_protocol",
+        "@remote_execution_worker_crates//:anyhow",
+        "@remote_execution_worker_crates//:clap",
+        "@remote_execution_worker_crates//:prost",
+        "@remote_execution_worker_crates//:reqwest",
+        "@remote_execution_worker_crates//:sha2",
+        "@remote_execution_worker_crates//:tempfile",
+        "@remote_execution_worker_crates//:tokio",
+        "@remote_execution_worker_crates//:tokio-util",
+        "@remote_execution_worker_crates//:uuid",
+    ],
+)
+
+rust_binary(
+    name = "remote-execution-gateway",
+    srcs = ["src/gateway.rs"],
+    crate_root = "src/gateway.rs",
+    edition = "2024",
+    target_compatible_with = RESOLVED_PLATFORMS,
+    deps = [
+        ":remote_execution_tunnel",
+        "@remote_execution_worker_crates//:anyhow",
+        "@remote_execution_worker_crates//:clap",
+        "@remote_execution_worker_crates//:iroh",
+        "@remote_execution_worker_crates//:tempfile",
+        "@remote_execution_worker_crates//:tokio",
+    ],
+)

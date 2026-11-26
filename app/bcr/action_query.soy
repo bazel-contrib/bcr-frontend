@@ -2,6 +2,7 @@
 
 import {octiconFile16} from 'app/bcr/octicons.soy';
 import {sectionHeader} from 'app/bcr/registry.soy';
+import {toolsSidebar, toolSettingsLink} from 'app/bcr/tools.soy';
 
 {template actionQuery}
   <div class="PageLayout PageLayout--panePos-start PageLayout--hasPaneDivider PageLayout--responsive-stackRegions PageLayout--responsive-panePos-start">
@@ -9,7 +10,7 @@ import {sectionHeader} from 'app/bcr/registry.soy';
       <div class="PageLayout-pane action-query-sidebar">
         <h1 class="h2 mb-2">Action Query</h1>
         <p class="color-fg-muted">Explore Bazel actions and the files that connect them.</p>
-        <pre class="action-query-command"><code>bazel aquery 'deps(//pkg:target)' --output=proto > actions.pb</code></pre>
+        <p>{toolSettingsLink()}</p>
         <p class="text-small color-fg-muted" id="action-query-summary" role="status"></p>
         <section class="mb-3" id="action-query-filters" aria-label="Mnemonics" hidden>
           {sectionHeader(title: 'Mnemonics')}
@@ -27,6 +28,7 @@ import {sectionHeader} from 'app/bcr/registry.soy';
           {actionQueryShortcut(label: 'Pan focused canvas', key: 'Arrow keys')}
           {actionQueryShortcut(label: 'Zoom focused canvas', key: '+ / −')}
         </section>
+        {toolsSidebar(current: 'action-query')}
       </div>
       <div class="PageLayout-content action-query-content" id="action-query-content">
         <input type="file" class="d-none" id="action-query-file" aria-label="Choose a binary action query file">

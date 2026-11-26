@@ -1,5 +1,5 @@
 /**
- * @fileoverview Settings components for theme and appearance configuration.
+ * @fileoverview Settings components for appearance and tool preferences.
  */
 goog.module("bcrfrontend.settings");
 
@@ -10,9 +10,19 @@ const { Component, Route } = goog.require("stack.ui");
 const { ContentSelect } = goog.require("bcrfrontend.ContentSelect");
 const { getApplication } = goog.require("bcrfrontend.common");
 const { RefreshController, RefreshMode } = goog.require("bcrfrontend.refresh");
-const { settingsAppearanceComponent, settingsSelect } = goog.require(
-	"soy.bcrfrontend.settings",
+const { openInvocationBackend, openExecutionIrohBackend } = goog.require(
+	"bcrfrontend.invocationTransport",
 );
+const {
+	ToolSetting,
+	readToolSetting,
+	writeToolSetting,
+	toolSetting,
+	schedulerOrigin,
+	cacheStatusURL,
+} = goog.require("bcrfrontend.toolSettings");
+const { settingsAppearanceComponent, settingsSelect, settingsToolsComponent } =
+	goog.require("soy.bcrfrontend.settings");
 
 /**
  * @enum {string}
@@ -36,6 +46,7 @@ const DisplayMode = {
  */
 const TabName = {
 	APPEARANCE: "appearance",
+	TOOLS: "tools",
 };
 
 /**
@@ -66,11 +77,19 @@ class SettingsSelect extends ContentSelect {
 
 	/**
 	 * @override
+	 * @param {string} name
+	 * @param {!Route} route
 	 */
-	enterDocument() {
-		super.enterDocument();
-
-		this.addTab(TabName.APPEARANCE, new SettingsAppearanceComponent(this.dom_));
+	selectFail(name, route) {
+		if (name === TabName.APPEARANCE) {
+			this.addTab(name, new SettingsAppearanceComponent(this.dom_));
+		} else if (name === TabName.TOOLS) {
+			this.addTab(name, new SettingsToolsComponent(this.dom_));
+		} else {
+			super.selectFail(name, route);
+			return;
+		}
+		this.select(name, route);
 	}
 
 	/**
@@ -79,6 +98,221 @@ class SettingsSelect extends ContentSelect {
 	 */
 	goHere(route) {
 		this.select(TabName.APPEARANCE, route.add(TabName.APPEARANCE));
+	}
+}
+
+/** @type {!Object<string, !ToolSetting>} */
+const TOOL_FIELDS = {
+	"bes": ToolSetting.BUILD_EVENT_BACKEND,
+	"scheduler": ToolSetting.REMOTE_EXECUTION_SCHEDULER,
+	"viewer-token": ToolSetting.REMOTE_EXECUTION_VIEWER_TOKEN,
+	"admin": ToolSetting.REMOTE_EXECUTION_ADMIN_ORIGIN,
+	"admin-token": ToolSetting.REMOTE_EXECUTION_ADMIN_TOKEN,
+	"cache": ToolSetting.REMOTE_CACHE_STATUS,
+	"bazel-bes": ToolSetting.BAZEL_BES_BACKEND,
+	"bazel-cache": ToolSetting.BAZEL_REMOTE_CACHE,
+	"bazel-executor": ToolSetting.BAZEL_REMOTE_EXECUTOR,
+	"worker": ToolSetting.WORKER_ENDPOINT,
+};
+
+/** @type {!Object<string, string>} */
+const BAZEL_FLAGS = {
+	"bazel-bes": "--bes_backend=",
+	"bazel-cache": "--remote_cache=",
+	"bazel-executor": "--remote_executor=",
+};
+
+/**
+ * @param {string} value
+ * @return {string}
+ */
+function endpointLabel(value) {
+	if (value.startsWith("bcr-iroh-v1:")) return "Iroh viewer ticket";
+	try {
+		const url = new URL(value);
+		url.username = "";
+		url.password = "";
+		url.search = "";
+		url.hash = "";
+		return url.href.replace(/\/$/, "");
+	} catch (_error) {
+		return /^[a-z0-9.[\]:-]+$/i.test(value) ? value : "—";
+	}
+}
+
+/**
+ * @param {string} kind
+ * @param {!AbortSignal} signal
+ * @return {!Promise<void>}
+ */
+async function testToolConnection(kind, signal) {
+	if (kind === "bes") {
+		const backend = await openInvocationBackend(
+			toolSetting(ToolSetting.BUILD_EVENT_BACKEND),
+		);
+		const close = () => backend.close();
+		try {
+			if (signal.aborted) return;
+			signal.addEventListener("abort", close, { once: true });
+			await backend.list();
+			return;
+		} finally {
+			signal.removeEventListener("abort", close);
+			close();
+		}
+	}
+	const scheduler = toolSetting(ToolSetting.REMOTE_EXECUTION_SCHEDULER);
+	if (kind === "scheduler" && scheduler.startsWith("bcr-iroh-v1:")) {
+		const backend = await openExecutionIrohBackend(scheduler);
+		const close = () => backend.close();
+		try {
+			if (signal.aborted) return;
+			signal.addEventListener("abort", close, { once: true });
+			await backend.read("/pools?page_size=1");
+			return;
+		} finally {
+			signal.removeEventListener("abort", close);
+			close();
+		}
+	}
+
+	const headers = new Headers();
+	let url;
+	if (kind === "cache") {
+		url = cacheStatusURL(toolSetting(ToolSetting.REMOTE_CACHE_STATUS));
+	} else {
+		const admin = kind === "admin";
+		const address = admin
+			? toolSetting(ToolSetting.REMOTE_EXECUTION_ADMIN_ORIGIN)
+			: scheduler;
+		const token = toolSetting(
+			admin
+				? ToolSetting.REMOTE_EXECUTION_ADMIN_TOKEN
+				: ToolSetting.REMOTE_EXECUTION_VIEWER_TOKEN,
+		);
+		if (!token)
+			throw new Error(
+				admin ? "Enter an admin token." : "Enter a viewer token.",
+			);
+		url =
+			schedulerOrigin(address) +
+			"/api/remote-execution" +
+			(admin ? "/admin/pools" : "/pools?page_size=1");
+		headers.set("Authorization", "Bearer " + token);
+	}
+	const response = await fetch(url, {
+		signal,
+		headers,
+		cache: "no-store",
+		credentials: "omit",
+		redirect: "error",
+	});
+	if (!response.ok)
+		throw new Error("Server returned HTTP " + response.status + ".");
+	const data = /** @type {!Object<string, *>} */ (await response.json());
+	if (kind === "cache" && (!data["startedAt"] || !data["storage"]))
+		throw new Error("The endpoint did not return a cache status snapshot.");
+}
+
+class SettingsToolsComponent extends Component {
+	/** @override */
+	createDom() {
+		this.setElementInternal(soy.renderAsElement(settingsToolsComponent));
+	}
+
+	/** @override */
+	enterDocument() {
+		super.enterDocument();
+		const root = this.getElementStrict();
+		const status = /** @type {!HTMLElement} */ (
+			root.querySelector("[data-tool-save]")
+		);
+		for (const input of root.querySelectorAll("input[data-tool-setting]")) {
+			const field = /** @type {!HTMLInputElement} */ (input);
+			const key = TOOL_FIELDS[String(field.getAttribute("data-tool-setting"))];
+			field.value = readToolSetting(key);
+			if (
+				!field.value &&
+				key !== ToolSetting.REMOTE_EXECUTION_ADMIN_ORIGIN &&
+				toolSetting(key)
+			)
+				field.placeholder = toolSetting(key);
+			this.getHandler().listen(field, events.EventType.INPUT, () => {
+				const saved = writeToolSetting(key, field.value);
+				status.hidden = saved;
+				status.textContent = saved
+					? ""
+					: "Could not save tool settings in this browser.";
+				this.updateDiagram_();
+			});
+		}
+		for (const item of root.querySelectorAll("form[data-tool-probe]")) {
+			const form = /** @type {!HTMLFormElement} */ (item);
+			this.getHandler().listen(
+				form,
+				events.EventType.SUBMIT,
+				(/** !events.BrowserEvent */ event) => {
+					event.preventDefault();
+					void this.probe_(form);
+				},
+			);
+		}
+		this.updateDiagram_();
+	}
+
+	/** @private */
+	updateDiagram_() {
+		for (const node of this.getElementStrict().querySelectorAll(
+			"[data-tool-endpoint]",
+		)) {
+			const name = String(node.getAttribute("data-tool-endpoint"));
+			const label =
+				(BAZEL_FLAGS[name] || "") +
+				endpointLabel(toolSetting(TOOL_FIELDS[name]));
+			node.textContent = label;
+			node.setAttribute("title", label);
+		}
+	}
+
+	/**
+	 * @private
+	 * @param {!HTMLFormElement} form
+	 */
+	async probe_(form) {
+		const button = /** @type {!HTMLButtonElement} */ (
+			form.querySelector("button")
+		);
+		const status = /** @type {!HTMLElement} */ (
+			form.querySelector("[role=status]")
+		);
+		button.disabled = true;
+		status.textContent = "Connecting…";
+		status.className = "text-small color-fg-muted";
+		const controller = new AbortController();
+		let timer = 0;
+		try {
+			await Promise.race([
+				testToolConnection(
+					String(form.getAttribute("data-tool-probe")),
+					controller.signal,
+				),
+				new Promise((resolve, reject) => {
+					timer = setTimeout(() => {
+						reject(new Error("The connection timed out."));
+						controller.abort();
+					}, 7000);
+				}),
+			]);
+			status.textContent = "Connected";
+			status.className = "text-small color-fg-success";
+		} catch (/** @type {*} */ error) {
+			status.textContent =
+				error instanceof Error ? error.message : "Could not connect.";
+			status.className = "text-small color-fg-danger";
+		} finally {
+			clearTimeout(timer);
+			button.disabled = false;
+		}
 	}
 }
 

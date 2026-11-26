@@ -187,4 +187,56 @@ async function openInvocationBackend(address) {
 	};
 }
 
-exports = { InvocationBackend, openInvocationBackend };
+/** @typedef {{read: function(string): !Promise<!Object<string, *>>,
+ *     waitForActivity: function(string): !Promise<void>, close: function():void}} */
+let ExecutionIrohBackend;
+
+/**
+ * @param {string} ticket
+ * @return {!Promise<!ExecutionIrohBackend>}
+ */
+async function openExecutionIrohBackend(ticket) {
+	const factory = await loadIrohModule();
+	const backend = factory(ticket);
+	const read = /** @type {function(string): !Promise<!Object<string, *>>} */ (
+		backend["execution"]
+	);
+	const waitForActivity = /** @type {function(string): !Promise<void>} */ (
+		backend["executionActivity"]
+	);
+	const close = /** @type {function():void} */ (backend["close"]);
+	return { read, waitForActivity, close };
+}
+
+/**
+ * @param {string} id
+ * @param {string} address
+ */
+function rememberExecutionInvocationBackend(id, address) {
+	try {
+		window.sessionStorage.setItem("bcr.viewer.execution." + id, address);
+	} catch (_error) {
+		// The configured Build Events backend is still available.
+	}
+}
+
+/**
+ * @param {string} id
+ * @return {string}
+ */
+function executionInvocationBackend(id) {
+	try {
+		return window.sessionStorage.getItem("bcr.viewer.execution." + id) || "";
+	} catch (_error) {
+		return "";
+	}
+}
+
+exports = {
+	InvocationBackend,
+	openInvocationBackend,
+	ExecutionIrohBackend,
+	openExecutionIrohBackend,
+	rememberExecutionInvocationBackend,
+	executionInvocationBackend,
+};

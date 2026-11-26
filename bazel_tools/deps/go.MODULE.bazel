@@ -28,6 +28,7 @@ use_repo(
     "com_github_schollz_progressbar_v3",
     "com_github_shurcool_githubv4",
     "com_github_teacat_noire",
+    "com_google_cloud_go_longrunning",
     "in_gopkg_yaml_v3",
     "net_starlark_go",
     "org_golang_google_genproto_googleapis_api",

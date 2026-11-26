@@ -22,21 +22,37 @@ type proxy struct {
 	capabilities   re.CapabilitiesClient
 	blobs          bs.ByteStreamClient
 	forwardHeaders bool
+	execution      bool
 }
 
 func NewProxy(conn grpc.ClientConnInterface, forwardHeaders bool) Backend {
+	return newProxy(conn, forwardHeaders, false)
+}
+
+// NewExecutionProxy also forwards the upstream's remote execution capabilities.
+func NewExecutionProxy(conn grpc.ClientConnInterface, forwardHeaders bool) Backend {
+	return newProxy(conn, forwardHeaders, true)
+}
+
+func newProxy(conn grpc.ClientConnInterface, forwardHeaders, execution bool) Backend {
 	return &proxy{
 		ac: re.NewActionCacheClient(conn), cas: re.NewContentAddressableStorageClient(conn),
 		capabilities: re.NewCapabilitiesClient(conn), blobs: bs.NewByteStreamClient(conn),
 		forwardHeaders: forwardHeaders,
+		execution:      execution,
 	}
 }
 
 func (p *proxy) upstreamContext(ctx context.Context) context.Context {
+	return ProxyContext(ctx, p.forwardHeaders)
+}
+
+// ProxyContext forwards Bazel request metadata and, on trusted links, caller metadata.
+func ProxyContext(ctx context.Context, forwardHeaders bool) context.Context {
 	incoming, _ := metadata.FromIncomingContext(ctx)
 	// gRPC supplies these hop-specific values on the new connection.
 	for key := range incoming {
-		if (!p.forwardHeaders && key != requestMetadataKey) || strings.HasPrefix(key, "grpc-") || strings.HasPrefix(key, ":") ||
+		if (!forwardHeaders && key != requestMetadataKey) || strings.HasPrefix(key, "grpc-") || strings.HasPrefix(key, ":") ||
 			key == "content-type" || key == "user-agent" || key == "te" {
 			delete(incoming, key)
 		}
@@ -81,7 +97,9 @@ func (p *proxy) GetCapabilities(ctx context.Context, req *re.GetCapabilitiesRequ
 	if err != nil {
 		return nil, err
 	}
-	response.ExecutionCapabilities = nil
+	if !p.execution {
+		response.ExecutionCapabilities = nil
+	}
 	if caps := response.GetCacheCapabilities(); caps != nil && (caps.MaxBatchTotalSizeBytes == 0 || caps.MaxBatchTotalSizeBytes > maxBatchBytes) {
 		caps.MaxBatchTotalSizeBytes = maxBatchBytes
 	}

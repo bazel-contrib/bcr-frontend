@@ -80,6 +80,27 @@ message ExecutionOperation {
   bool cached_result = 14;
 }
 
+// The process is available while its action and command are retained in CAS.
+message ExecutionOperationDetail {
+  ExecutionOperation operation = 1;
+  repeated ExecutionAttempt attempts = 2;
+  string instance_name = 3;
+  int64 timeout_millis = 4;
+  bool cacheable = 5;
+  ExecutionProcess process = 6;
+  build.bazel.remote.execution.v2.ExecutedActionMetadata execution_metadata = 7;
+  build.bazel.remote.execution.v2.Digest stdout_digest = 8;
+  build.bazel.remote.execution.v2.Digest stderr_digest = 9;
+  int64 stdout_bytes = 10;
+  int64 stderr_bytes = 11;
+}
+
+message ExecutionProcess {
+  repeated string arguments = 1;
+  string working_directory = 2;
+  repeated string output_paths = 3;
+}
+
 enum OperationState {
   OPERATION_STATE_UNSPECIFIED = 0;
   OPERATION_STATE_QUEUED = 1;

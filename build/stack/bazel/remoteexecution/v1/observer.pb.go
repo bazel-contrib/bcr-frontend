@@ -588,6 +588,190 @@ func (x *ExecutionOperation) GetCachedResult() bool {
 	return false
 }
 
+type ExecutionOperationDetail struct {
+	state             protoimpl.MessageState     `protogen:"open.v1"`
+	Operation         *ExecutionOperation        `protobuf:"bytes,1,opt,name=operation,proto3" json:"operation,omitempty"`
+	Attempts          []*ExecutionAttempt        `protobuf:"bytes,2,rep,name=attempts,proto3" json:"attempts,omitempty"`
+	InstanceName      string                     `protobuf:"bytes,3,opt,name=instance_name,json=instanceName,proto3" json:"instance_name,omitempty"`
+	TimeoutMillis     int64                      `protobuf:"varint,4,opt,name=timeout_millis,json=timeoutMillis,proto3" json:"timeout_millis,omitempty"`
+	Cacheable         bool                       `protobuf:"varint,5,opt,name=cacheable,proto3" json:"cacheable,omitempty"`
+	Process           *ExecutionProcess          `protobuf:"bytes,6,opt,name=process,proto3" json:"process,omitempty"`
+	ExecutionMetadata *v2.ExecutedActionMetadata `protobuf:"bytes,7,opt,name=execution_metadata,json=executionMetadata,proto3" json:"execution_metadata,omitempty"`
+	StdoutDigest      *v2.Digest                 `protobuf:"bytes,8,opt,name=stdout_digest,json=stdoutDigest,proto3" json:"stdout_digest,omitempty"`
+	StderrDigest      *v2.Digest                 `protobuf:"bytes,9,opt,name=stderr_digest,json=stderrDigest,proto3" json:"stderr_digest,omitempty"`
+	StdoutBytes       int64                      `protobuf:"varint,10,opt,name=stdout_bytes,json=stdoutBytes,proto3" json:"stdout_bytes,omitempty"`
+	StderrBytes       int64                      `protobuf:"varint,11,opt,name=stderr_bytes,json=stderrBytes,proto3" json:"stderr_bytes,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
+}
+
+func (x *ExecutionOperationDetail) Reset() {
+	*x = ExecutionOperationDetail{}
+	mi := &file_build_stack_bazel_remoteexecution_v1_observer_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ExecutionOperationDetail) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ExecutionOperationDetail) ProtoMessage() {}
+
+func (x *ExecutionOperationDetail) ProtoReflect() protoreflect.Message {
+	mi := &file_build_stack_bazel_remoteexecution_v1_observer_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ExecutionOperationDetail.ProtoReflect.Descriptor instead.
+func (*ExecutionOperationDetail) Descriptor() ([]byte, []int) {
+	return file_build_stack_bazel_remoteexecution_v1_observer_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *ExecutionOperationDetail) GetOperation() *ExecutionOperation {
+	if x != nil {
+		return x.Operation
+	}
+	return nil
+}
+
+func (x *ExecutionOperationDetail) GetAttempts() []*ExecutionAttempt {
+	if x != nil {
+		return x.Attempts
+	}
+	return nil
+}
+
+func (x *ExecutionOperationDetail) GetInstanceName() string {
+	if x != nil {
+		return x.InstanceName
+	}
+	return ""
+}
+
+func (x *ExecutionOperationDetail) GetTimeoutMillis() int64 {
+	if x != nil {
+		return x.TimeoutMillis
+	}
+	return 0
+}
+
+func (x *ExecutionOperationDetail) GetCacheable() bool {
+	if x != nil {
+		return x.Cacheable
+	}
+	return false
+}
+
+func (x *ExecutionOperationDetail) GetProcess() *ExecutionProcess {
+	if x != nil {
+		return x.Process
+	}
+	return nil
+}
+
+func (x *ExecutionOperationDetail) GetExecutionMetadata() *v2.ExecutedActionMetadata {
+	if x != nil {
+		return x.ExecutionMetadata
+	}
+	return nil
+}
+
+func (x *ExecutionOperationDetail) GetStdoutDigest() *v2.Digest {
+	if x != nil {
+		return x.StdoutDigest
+	}
+	return nil
+}
+
+func (x *ExecutionOperationDetail) GetStderrDigest() *v2.Digest {
+	if x != nil {
+		return x.StderrDigest
+	}
+	return nil
+}
+
+func (x *ExecutionOperationDetail) GetStdoutBytes() int64 {
+	if x != nil {
+		return x.StdoutBytes
+	}
+	return 0
+}
+
+func (x *ExecutionOperationDetail) GetStderrBytes() int64 {
+	if x != nil {
+		return x.StderrBytes
+	}
+	return 0
+}
+
+type ExecutionProcess struct {
+	state            protoimpl.MessageState `protogen:"open.v1"`
+	Arguments        []string               `protobuf:"bytes,1,rep,name=arguments,proto3" json:"arguments,omitempty"`
+	WorkingDirectory string                 `protobuf:"bytes,2,opt,name=working_directory,json=workingDirectory,proto3" json:"working_directory,omitempty"`
+	OutputPaths      []string               `protobuf:"bytes,3,rep,name=output_paths,json=outputPaths,proto3" json:"output_paths,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
+}
+
+func (x *ExecutionProcess) Reset() {
+	*x = ExecutionProcess{}
+	mi := &file_build_stack_bazel_remoteexecution_v1_observer_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ExecutionProcess) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ExecutionProcess) ProtoMessage() {}
+
+func (x *ExecutionProcess) ProtoReflect() protoreflect.Message {
+	mi := &file_build_stack_bazel_remoteexecution_v1_observer_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ExecutionProcess.ProtoReflect.Descriptor instead.
+func (*ExecutionProcess) Descriptor() ([]byte, []int) {
+	return file_build_stack_bazel_remoteexecution_v1_observer_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *ExecutionProcess) GetArguments() []string {
+	if x != nil {
+		return x.Arguments
+	}
+	return nil
+}
+
+func (x *ExecutionProcess) GetWorkingDirectory() string {
+	if x != nil {
+		return x.WorkingDirectory
+	}
+	return ""
+}
+
+func (x *ExecutionProcess) GetOutputPaths() []string {
+	if x != nil {
+		return x.OutputPaths
+	}
+	return nil
+}
+
 type ExecutionAttempt struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	OperationName string                 `protobuf:"bytes,1,opt,name=operation_name,json=operationName,proto3" json:"operation_name,omitempty"`
@@ -607,7 +791,7 @@ type ExecutionAttempt struct {
 
 func (x *ExecutionAttempt) Reset() {
 	*x = ExecutionAttempt{}
-	mi := &file_build_stack_bazel_remoteexecution_v1_observer_proto_msgTypes[3]
+	mi := &file_build_stack_bazel_remoteexecution_v1_observer_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -619,7 +803,7 @@ func (x *ExecutionAttempt) String() string {
 func (*ExecutionAttempt) ProtoMessage() {}
 
 func (x *ExecutionAttempt) ProtoReflect() protoreflect.Message {
-	mi := &file_build_stack_bazel_remoteexecution_v1_observer_proto_msgTypes[3]
+	mi := &file_build_stack_bazel_remoteexecution_v1_observer_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -632,7 +816,7 @@ func (x *ExecutionAttempt) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ExecutionAttempt.ProtoReflect.Descriptor instead.
 func (*ExecutionAttempt) Descriptor() ([]byte, []int) {
-	return file_build_stack_bazel_remoteexecution_v1_observer_proto_rawDescGZIP(), []int{3}
+	return file_build_stack_bazel_remoteexecution_v1_observer_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *ExecutionAttempt) GetOperationName() string {
@@ -722,7 +906,7 @@ type ListPoolsRequest struct {
 
 func (x *ListPoolsRequest) Reset() {
 	*x = ListPoolsRequest{}
-	mi := &file_build_stack_bazel_remoteexecution_v1_observer_proto_msgTypes[4]
+	mi := &file_build_stack_bazel_remoteexecution_v1_observer_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -734,7 +918,7 @@ func (x *ListPoolsRequest) String() string {
 func (*ListPoolsRequest) ProtoMessage() {}
 
 func (x *ListPoolsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_build_stack_bazel_remoteexecution_v1_observer_proto_msgTypes[4]
+	mi := &file_build_stack_bazel_remoteexecution_v1_observer_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -747,7 +931,7 @@ func (x *ListPoolsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListPoolsRequest.ProtoReflect.Descriptor instead.
 func (*ListPoolsRequest) Descriptor() ([]byte, []int) {
-	return file_build_stack_bazel_remoteexecution_v1_observer_proto_rawDescGZIP(), []int{4}
+	return file_build_stack_bazel_remoteexecution_v1_observer_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *ListPoolsRequest) GetPageSize() int32 {
@@ -774,7 +958,7 @@ type ListPoolsResponse struct {
 
 func (x *ListPoolsResponse) Reset() {
 	*x = ListPoolsResponse{}
-	mi := &file_build_stack_bazel_remoteexecution_v1_observer_proto_msgTypes[5]
+	mi := &file_build_stack_bazel_remoteexecution_v1_observer_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -786,7 +970,7 @@ func (x *ListPoolsResponse) String() string {
 func (*ListPoolsResponse) ProtoMessage() {}
 
 func (x *ListPoolsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_build_stack_bazel_remoteexecution_v1_observer_proto_msgTypes[5]
+	mi := &file_build_stack_bazel_remoteexecution_v1_observer_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -799,7 +983,7 @@ func (x *ListPoolsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListPoolsResponse.ProtoReflect.Descriptor instead.
 func (*ListPoolsResponse) Descriptor() ([]byte, []int) {
-	return file_build_stack_bazel_remoteexecution_v1_observer_proto_rawDescGZIP(), []int{5}
+	return file_build_stack_bazel_remoteexecution_v1_observer_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *ListPoolsResponse) GetPools() []*Pool {
@@ -825,7 +1009,7 @@ type GetPoolRequest struct {
 
 func (x *GetPoolRequest) Reset() {
 	*x = GetPoolRequest{}
-	mi := &file_build_stack_bazel_remoteexecution_v1_observer_proto_msgTypes[6]
+	mi := &file_build_stack_bazel_remoteexecution_v1_observer_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -837,7 +1021,7 @@ func (x *GetPoolRequest) String() string {
 func (*GetPoolRequest) ProtoMessage() {}
 
 func (x *GetPoolRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_build_stack_bazel_remoteexecution_v1_observer_proto_msgTypes[6]
+	mi := &file_build_stack_bazel_remoteexecution_v1_observer_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -850,7 +1034,7 @@ func (x *GetPoolRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetPoolRequest.ProtoReflect.Descriptor instead.
 func (*GetPoolRequest) Descriptor() ([]byte, []int) {
-	return file_build_stack_bazel_remoteexecution_v1_observer_proto_rawDescGZIP(), []int{6}
+	return file_build_stack_bazel_remoteexecution_v1_observer_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *GetPoolRequest) GetPoolId() string {
@@ -870,7 +1054,7 @@ type GetPoolResponse struct {
 
 func (x *GetPoolResponse) Reset() {
 	*x = GetPoolResponse{}
-	mi := &file_build_stack_bazel_remoteexecution_v1_observer_proto_msgTypes[7]
+	mi := &file_build_stack_bazel_remoteexecution_v1_observer_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -882,7 +1066,7 @@ func (x *GetPoolResponse) String() string {
 func (*GetPoolResponse) ProtoMessage() {}
 
 func (x *GetPoolResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_build_stack_bazel_remoteexecution_v1_observer_proto_msgTypes[7]
+	mi := &file_build_stack_bazel_remoteexecution_v1_observer_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -895,7 +1079,7 @@ func (x *GetPoolResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetPoolResponse.ProtoReflect.Descriptor instead.
 func (*GetPoolResponse) Descriptor() ([]byte, []int) {
-	return file_build_stack_bazel_remoteexecution_v1_observer_proto_rawDescGZIP(), []int{7}
+	return file_build_stack_bazel_remoteexecution_v1_observer_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *GetPoolResponse) GetPool() *Pool {
@@ -923,7 +1107,7 @@ type ListWorkersRequest struct {
 
 func (x *ListWorkersRequest) Reset() {
 	*x = ListWorkersRequest{}
-	mi := &file_build_stack_bazel_remoteexecution_v1_observer_proto_msgTypes[8]
+	mi := &file_build_stack_bazel_remoteexecution_v1_observer_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -935,7 +1119,7 @@ func (x *ListWorkersRequest) String() string {
 func (*ListWorkersRequest) ProtoMessage() {}
 
 func (x *ListWorkersRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_build_stack_bazel_remoteexecution_v1_observer_proto_msgTypes[8]
+	mi := &file_build_stack_bazel_remoteexecution_v1_observer_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -948,7 +1132,7 @@ func (x *ListWorkersRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListWorkersRequest.ProtoReflect.Descriptor instead.
 func (*ListWorkersRequest) Descriptor() ([]byte, []int) {
-	return file_build_stack_bazel_remoteexecution_v1_observer_proto_rawDescGZIP(), []int{8}
+	return file_build_stack_bazel_remoteexecution_v1_observer_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *ListWorkersRequest) GetPoolId() string {
@@ -982,7 +1166,7 @@ type ListWorkersResponse struct {
 
 func (x *ListWorkersResponse) Reset() {
 	*x = ListWorkersResponse{}
-	mi := &file_build_stack_bazel_remoteexecution_v1_observer_proto_msgTypes[9]
+	mi := &file_build_stack_bazel_remoteexecution_v1_observer_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -994,7 +1178,7 @@ func (x *ListWorkersResponse) String() string {
 func (*ListWorkersResponse) ProtoMessage() {}
 
 func (x *ListWorkersResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_build_stack_bazel_remoteexecution_v1_observer_proto_msgTypes[9]
+	mi := &file_build_stack_bazel_remoteexecution_v1_observer_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1007,7 +1191,7 @@ func (x *ListWorkersResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListWorkersResponse.ProtoReflect.Descriptor instead.
 func (*ListWorkersResponse) Descriptor() ([]byte, []int) {
-	return file_build_stack_bazel_remoteexecution_v1_observer_proto_rawDescGZIP(), []int{9}
+	return file_build_stack_bazel_remoteexecution_v1_observer_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *ListWorkersResponse) GetWorkers() []*Worker {
@@ -1034,7 +1218,7 @@ type GetWorkerRequest struct {
 
 func (x *GetWorkerRequest) Reset() {
 	*x = GetWorkerRequest{}
-	mi := &file_build_stack_bazel_remoteexecution_v1_observer_proto_msgTypes[10]
+	mi := &file_build_stack_bazel_remoteexecution_v1_observer_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1046,7 +1230,7 @@ func (x *GetWorkerRequest) String() string {
 func (*GetWorkerRequest) ProtoMessage() {}
 
 func (x *GetWorkerRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_build_stack_bazel_remoteexecution_v1_observer_proto_msgTypes[10]
+	mi := &file_build_stack_bazel_remoteexecution_v1_observer_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1059,7 +1243,7 @@ func (x *GetWorkerRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetWorkerRequest.ProtoReflect.Descriptor instead.
 func (*GetWorkerRequest) Descriptor() ([]byte, []int) {
-	return file_build_stack_bazel_remoteexecution_v1_observer_proto_rawDescGZIP(), []int{10}
+	return file_build_stack_bazel_remoteexecution_v1_observer_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *GetWorkerRequest) GetPoolId() string {
@@ -1086,7 +1270,7 @@ type GetWorkerResponse struct {
 
 func (x *GetWorkerResponse) Reset() {
 	*x = GetWorkerResponse{}
-	mi := &file_build_stack_bazel_remoteexecution_v1_observer_proto_msgTypes[11]
+	mi := &file_build_stack_bazel_remoteexecution_v1_observer_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1098,7 +1282,7 @@ func (x *GetWorkerResponse) String() string {
 func (*GetWorkerResponse) ProtoMessage() {}
 
 func (x *GetWorkerResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_build_stack_bazel_remoteexecution_v1_observer_proto_msgTypes[11]
+	mi := &file_build_stack_bazel_remoteexecution_v1_observer_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1111,7 +1295,7 @@ func (x *GetWorkerResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetWorkerResponse.ProtoReflect.Descriptor instead.
 func (*GetWorkerResponse) Descriptor() ([]byte, []int) {
-	return file_build_stack_bazel_remoteexecution_v1_observer_proto_rawDescGZIP(), []int{11}
+	return file_build_stack_bazel_remoteexecution_v1_observer_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *GetWorkerResponse) GetWorker() *Worker {
@@ -1140,7 +1324,7 @@ type ListOperationsRequest struct {
 
 func (x *ListOperationsRequest) Reset() {
 	*x = ListOperationsRequest{}
-	mi := &file_build_stack_bazel_remoteexecution_v1_observer_proto_msgTypes[12]
+	mi := &file_build_stack_bazel_remoteexecution_v1_observer_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1152,7 +1336,7 @@ func (x *ListOperationsRequest) String() string {
 func (*ListOperationsRequest) ProtoMessage() {}
 
 func (x *ListOperationsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_build_stack_bazel_remoteexecution_v1_observer_proto_msgTypes[12]
+	mi := &file_build_stack_bazel_remoteexecution_v1_observer_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1165,7 +1349,7 @@ func (x *ListOperationsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListOperationsRequest.ProtoReflect.Descriptor instead.
 func (*ListOperationsRequest) Descriptor() ([]byte, []int) {
-	return file_build_stack_bazel_remoteexecution_v1_observer_proto_rawDescGZIP(), []int{12}
+	return file_build_stack_bazel_remoteexecution_v1_observer_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *ListOperationsRequest) GetPoolId() string {
@@ -1206,7 +1390,7 @@ type ListOperationsResponse struct {
 
 func (x *ListOperationsResponse) Reset() {
 	*x = ListOperationsResponse{}
-	mi := &file_build_stack_bazel_remoteexecution_v1_observer_proto_msgTypes[13]
+	mi := &file_build_stack_bazel_remoteexecution_v1_observer_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1218,7 +1402,7 @@ func (x *ListOperationsResponse) String() string {
 func (*ListOperationsResponse) ProtoMessage() {}
 
 func (x *ListOperationsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_build_stack_bazel_remoteexecution_v1_observer_proto_msgTypes[13]
+	mi := &file_build_stack_bazel_remoteexecution_v1_observer_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1231,7 +1415,7 @@ func (x *ListOperationsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListOperationsResponse.ProtoReflect.Descriptor instead.
 func (*ListOperationsResponse) Descriptor() ([]byte, []int) {
-	return file_build_stack_bazel_remoteexecution_v1_observer_proto_rawDescGZIP(), []int{13}
+	return file_build_stack_bazel_remoteexecution_v1_observer_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *ListOperationsResponse) GetOperations() []*ExecutionOperation {
@@ -1260,7 +1444,7 @@ type ListWorkerAttemptsRequest struct {
 
 func (x *ListWorkerAttemptsRequest) Reset() {
 	*x = ListWorkerAttemptsRequest{}
-	mi := &file_build_stack_bazel_remoteexecution_v1_observer_proto_msgTypes[14]
+	mi := &file_build_stack_bazel_remoteexecution_v1_observer_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1272,7 +1456,7 @@ func (x *ListWorkerAttemptsRequest) String() string {
 func (*ListWorkerAttemptsRequest) ProtoMessage() {}
 
 func (x *ListWorkerAttemptsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_build_stack_bazel_remoteexecution_v1_observer_proto_msgTypes[14]
+	mi := &file_build_stack_bazel_remoteexecution_v1_observer_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1285,7 +1469,7 @@ func (x *ListWorkerAttemptsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListWorkerAttemptsRequest.ProtoReflect.Descriptor instead.
 func (*ListWorkerAttemptsRequest) Descriptor() ([]byte, []int) {
-	return file_build_stack_bazel_remoteexecution_v1_observer_proto_rawDescGZIP(), []int{14}
+	return file_build_stack_bazel_remoteexecution_v1_observer_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *ListWorkerAttemptsRequest) GetPoolId() string {
@@ -1326,7 +1510,7 @@ type ListWorkerAttemptsResponse struct {
 
 func (x *ListWorkerAttemptsResponse) Reset() {
 	*x = ListWorkerAttemptsResponse{}
-	mi := &file_build_stack_bazel_remoteexecution_v1_observer_proto_msgTypes[15]
+	mi := &file_build_stack_bazel_remoteexecution_v1_observer_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1338,7 +1522,7 @@ func (x *ListWorkerAttemptsResponse) String() string {
 func (*ListWorkerAttemptsResponse) ProtoMessage() {}
 
 func (x *ListWorkerAttemptsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_build_stack_bazel_remoteexecution_v1_observer_proto_msgTypes[15]
+	mi := &file_build_stack_bazel_remoteexecution_v1_observer_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1351,7 +1535,7 @@ func (x *ListWorkerAttemptsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListWorkerAttemptsResponse.ProtoReflect.Descriptor instead.
 func (*ListWorkerAttemptsResponse) Descriptor() ([]byte, []int) {
-	return file_build_stack_bazel_remoteexecution_v1_observer_proto_rawDescGZIP(), []int{15}
+	return file_build_stack_bazel_remoteexecution_v1_observer_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *ListWorkerAttemptsResponse) GetAttempts() []*ExecutionAttempt {
@@ -1379,7 +1563,7 @@ type WatchActivityRequest struct {
 
 func (x *WatchActivityRequest) Reset() {
 	*x = WatchActivityRequest{}
-	mi := &file_build_stack_bazel_remoteexecution_v1_observer_proto_msgTypes[16]
+	mi := &file_build_stack_bazel_remoteexecution_v1_observer_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1391,7 +1575,7 @@ func (x *WatchActivityRequest) String() string {
 func (*WatchActivityRequest) ProtoMessage() {}
 
 func (x *WatchActivityRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_build_stack_bazel_remoteexecution_v1_observer_proto_msgTypes[16]
+	mi := &file_build_stack_bazel_remoteexecution_v1_observer_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1404,7 +1588,7 @@ func (x *WatchActivityRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WatchActivityRequest.ProtoReflect.Descriptor instead.
 func (*WatchActivityRequest) Descriptor() ([]byte, []int) {
-	return file_build_stack_bazel_remoteexecution_v1_observer_proto_rawDescGZIP(), []int{16}
+	return file_build_stack_bazel_remoteexecution_v1_observer_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *WatchActivityRequest) GetPoolId() string {
@@ -1447,7 +1631,7 @@ type ActivityEvent struct {
 
 func (x *ActivityEvent) Reset() {
 	*x = ActivityEvent{}
-	mi := &file_build_stack_bazel_remoteexecution_v1_observer_proto_msgTypes[17]
+	mi := &file_build_stack_bazel_remoteexecution_v1_observer_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1459,7 +1643,7 @@ func (x *ActivityEvent) String() string {
 func (*ActivityEvent) ProtoMessage() {}
 
 func (x *ActivityEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_build_stack_bazel_remoteexecution_v1_observer_proto_msgTypes[17]
+	mi := &file_build_stack_bazel_remoteexecution_v1_observer_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1472,7 +1656,7 @@ func (x *ActivityEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ActivityEvent.ProtoReflect.Descriptor instead.
 func (*ActivityEvent) Descriptor() ([]byte, []int) {
-	return file_build_stack_bazel_remoteexecution_v1_observer_proto_rawDescGZIP(), []int{17}
+	return file_build_stack_bazel_remoteexecution_v1_observer_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *ActivityEvent) GetSequence() uint64 {
@@ -1628,7 +1812,24 @@ const file_build_stack_bazel_remoteexecution_v1_observer_proto_rawDesc = "" +
 	"\rcached_result\x18\x0e \x01(\bR\fcachedResultB\x11\n" +
 	"\x0f_execution_codeB\f\n" +
 	"\n" +
-	"_exit_code\"\xb7\x04\n" +
+	"_exit_code\"\xcc\x05\n" +
+	"\x18ExecutionOperationDetail\x12V\n" +
+	"\toperation\x18\x01 \x01(\v28.build.stack.bazel.remoteexecution.v1.ExecutionOperationR\toperation\x12R\n" +
+	"\battempts\x18\x02 \x03(\v26.build.stack.bazel.remoteexecution.v1.ExecutionAttemptR\battempts\x12#\n" +
+	"\rinstance_name\x18\x03 \x01(\tR\finstanceName\x12%\n" +
+	"\x0etimeout_millis\x18\x04 \x01(\x03R\rtimeoutMillis\x12\x1c\n" +
+	"\tcacheable\x18\x05 \x01(\bR\tcacheable\x12P\n" +
+	"\aprocess\x18\x06 \x01(\v26.build.stack.bazel.remoteexecution.v1.ExecutionProcessR\aprocess\x12f\n" +
+	"\x12execution_metadata\x18\a \x01(\v27.build.bazel.remote.execution.v2.ExecutedActionMetadataR\x11executionMetadata\x12L\n" +
+	"\rstdout_digest\x18\b \x01(\v2'.build.bazel.remote.execution.v2.DigestR\fstdoutDigest\x12L\n" +
+	"\rstderr_digest\x18\t \x01(\v2'.build.bazel.remote.execution.v2.DigestR\fstderrDigest\x12!\n" +
+	"\fstdout_bytes\x18\n" +
+	" \x01(\x03R\vstdoutBytes\x12!\n" +
+	"\fstderr_bytes\x18\v \x01(\x03R\vstderrBytes\"\x80\x01\n" +
+	"\x10ExecutionProcess\x12\x1c\n" +
+	"\targuments\x18\x01 \x03(\tR\targuments\x12+\n" +
+	"\x11working_directory\x18\x02 \x01(\tR\x10workingDirectory\x12!\n" +
+	"\foutput_paths\x18\x03 \x03(\tR\voutputPaths\"\xb7\x04\n" +
 	"\x10ExecutionAttempt\x12%\n" +
 	"\x0eoperation_name\x18\x01 \x01(\tR\roperationName\x12\x17\n" +
 	"\apool_id\x18\x02 \x01(\tR\x06poolId\x12\x1b\n" +
@@ -1749,7 +1950,7 @@ func file_build_stack_bazel_remoteexecution_v1_observer_proto_rawDescGZIP() []by
 }
 
 var file_build_stack_bazel_remoteexecution_v1_observer_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
-var file_build_stack_bazel_remoteexecution_v1_observer_proto_msgTypes = make([]protoimpl.MessageInfo, 18)
+var file_build_stack_bazel_remoteexecution_v1_observer_proto_msgTypes = make([]protoimpl.MessageInfo, 20)
 var file_build_stack_bazel_remoteexecution_v1_observer_proto_goTypes = []any{
 	(WorkerState)(0),                   // 0: build.stack.bazel.remoteexecution.v1.WorkerState
 	(OperationState)(0),                // 1: build.stack.bazel.remoteexecution.v1.OperationState
@@ -1757,77 +1958,86 @@ var file_build_stack_bazel_remoteexecution_v1_observer_proto_goTypes = []any{
 	(*Pool)(nil),                       // 3: build.stack.bazel.remoteexecution.v1.Pool
 	(*Worker)(nil),                     // 4: build.stack.bazel.remoteexecution.v1.Worker
 	(*ExecutionOperation)(nil),         // 5: build.stack.bazel.remoteexecution.v1.ExecutionOperation
-	(*ExecutionAttempt)(nil),           // 6: build.stack.bazel.remoteexecution.v1.ExecutionAttempt
-	(*ListPoolsRequest)(nil),           // 7: build.stack.bazel.remoteexecution.v1.ListPoolsRequest
-	(*ListPoolsResponse)(nil),          // 8: build.stack.bazel.remoteexecution.v1.ListPoolsResponse
-	(*GetPoolRequest)(nil),             // 9: build.stack.bazel.remoteexecution.v1.GetPoolRequest
-	(*GetPoolResponse)(nil),            // 10: build.stack.bazel.remoteexecution.v1.GetPoolResponse
-	(*ListWorkersRequest)(nil),         // 11: build.stack.bazel.remoteexecution.v1.ListWorkersRequest
-	(*ListWorkersResponse)(nil),        // 12: build.stack.bazel.remoteexecution.v1.ListWorkersResponse
-	(*GetWorkerRequest)(nil),           // 13: build.stack.bazel.remoteexecution.v1.GetWorkerRequest
-	(*GetWorkerResponse)(nil),          // 14: build.stack.bazel.remoteexecution.v1.GetWorkerResponse
-	(*ListOperationsRequest)(nil),      // 15: build.stack.bazel.remoteexecution.v1.ListOperationsRequest
-	(*ListOperationsResponse)(nil),     // 16: build.stack.bazel.remoteexecution.v1.ListOperationsResponse
-	(*ListWorkerAttemptsRequest)(nil),  // 17: build.stack.bazel.remoteexecution.v1.ListWorkerAttemptsRequest
-	(*ListWorkerAttemptsResponse)(nil), // 18: build.stack.bazel.remoteexecution.v1.ListWorkerAttemptsResponse
-	(*WatchActivityRequest)(nil),       // 19: build.stack.bazel.remoteexecution.v1.WatchActivityRequest
-	(*ActivityEvent)(nil),              // 20: build.stack.bazel.remoteexecution.v1.ActivityEvent
-	(*v2.Platform)(nil),                // 21: build.bazel.remote.execution.v2.Platform
-	(*timestamppb.Timestamp)(nil),      // 22: google.protobuf.Timestamp
-	(*v2.Digest)(nil),                  // 23: build.bazel.remote.execution.v2.Digest
-	(v2.DigestFunction_Value)(0),       // 24: build.bazel.remote.execution.v2.DigestFunction.Value
-	(code.Code)(0),                     // 25: google.rpc.Code
+	(*ExecutionOperationDetail)(nil),   // 6: build.stack.bazel.remoteexecution.v1.ExecutionOperationDetail
+	(*ExecutionProcess)(nil),           // 7: build.stack.bazel.remoteexecution.v1.ExecutionProcess
+	(*ExecutionAttempt)(nil),           // 8: build.stack.bazel.remoteexecution.v1.ExecutionAttempt
+	(*ListPoolsRequest)(nil),           // 9: build.stack.bazel.remoteexecution.v1.ListPoolsRequest
+	(*ListPoolsResponse)(nil),          // 10: build.stack.bazel.remoteexecution.v1.ListPoolsResponse
+	(*GetPoolRequest)(nil),             // 11: build.stack.bazel.remoteexecution.v1.GetPoolRequest
+	(*GetPoolResponse)(nil),            // 12: build.stack.bazel.remoteexecution.v1.GetPoolResponse
+	(*ListWorkersRequest)(nil),         // 13: build.stack.bazel.remoteexecution.v1.ListWorkersRequest
+	(*ListWorkersResponse)(nil),        // 14: build.stack.bazel.remoteexecution.v1.ListWorkersResponse
+	(*GetWorkerRequest)(nil),           // 15: build.stack.bazel.remoteexecution.v1.GetWorkerRequest
+	(*GetWorkerResponse)(nil),          // 16: build.stack.bazel.remoteexecution.v1.GetWorkerResponse
+	(*ListOperationsRequest)(nil),      // 17: build.stack.bazel.remoteexecution.v1.ListOperationsRequest
+	(*ListOperationsResponse)(nil),     // 18: build.stack.bazel.remoteexecution.v1.ListOperationsResponse
+	(*ListWorkerAttemptsRequest)(nil),  // 19: build.stack.bazel.remoteexecution.v1.ListWorkerAttemptsRequest
+	(*ListWorkerAttemptsResponse)(nil), // 20: build.stack.bazel.remoteexecution.v1.ListWorkerAttemptsResponse
+	(*WatchActivityRequest)(nil),       // 21: build.stack.bazel.remoteexecution.v1.WatchActivityRequest
+	(*ActivityEvent)(nil),              // 22: build.stack.bazel.remoteexecution.v1.ActivityEvent
+	(*v2.Platform)(nil),                // 23: build.bazel.remote.execution.v2.Platform
+	(*timestamppb.Timestamp)(nil),      // 24: google.protobuf.Timestamp
+	(*v2.Digest)(nil),                  // 25: build.bazel.remote.execution.v2.Digest
+	(v2.DigestFunction_Value)(0),       // 26: build.bazel.remote.execution.v2.DigestFunction.Value
+	(code.Code)(0),                     // 27: google.rpc.Code
+	(*v2.ExecutedActionMetadata)(nil),  // 28: build.bazel.remote.execution.v2.ExecutedActionMetadata
 }
 var file_build_stack_bazel_remoteexecution_v1_observer_proto_depIdxs = []int32{
-	21, // 0: build.stack.bazel.remoteexecution.v1.Pool.platform:type_name -> build.bazel.remote.execution.v2.Platform
-	22, // 1: build.stack.bazel.remoteexecution.v1.Pool.oldest_queued_at:type_name -> google.protobuf.Timestamp
-	21, // 2: build.stack.bazel.remoteexecution.v1.Worker.platform:type_name -> build.bazel.remote.execution.v2.Platform
+	23, // 0: build.stack.bazel.remoteexecution.v1.Pool.platform:type_name -> build.bazel.remote.execution.v2.Platform
+	24, // 1: build.stack.bazel.remoteexecution.v1.Pool.oldest_queued_at:type_name -> google.protobuf.Timestamp
+	23, // 2: build.stack.bazel.remoteexecution.v1.Worker.platform:type_name -> build.bazel.remote.execution.v2.Platform
 	0,  // 3: build.stack.bazel.remoteexecution.v1.Worker.state:type_name -> build.stack.bazel.remoteexecution.v1.WorkerState
-	22, // 4: build.stack.bazel.remoteexecution.v1.Worker.registered_at:type_name -> google.protobuf.Timestamp
-	22, // 5: build.stack.bazel.remoteexecution.v1.Worker.last_seen_at:type_name -> google.protobuf.Timestamp
-	23, // 6: build.stack.bazel.remoteexecution.v1.ExecutionOperation.action_digest:type_name -> build.bazel.remote.execution.v2.Digest
-	24, // 7: build.stack.bazel.remoteexecution.v1.ExecutionOperation.digest_function:type_name -> build.bazel.remote.execution.v2.DigestFunction.Value
+	24, // 4: build.stack.bazel.remoteexecution.v1.Worker.registered_at:type_name -> google.protobuf.Timestamp
+	24, // 5: build.stack.bazel.remoteexecution.v1.Worker.last_seen_at:type_name -> google.protobuf.Timestamp
+	25, // 6: build.stack.bazel.remoteexecution.v1.ExecutionOperation.action_digest:type_name -> build.bazel.remote.execution.v2.Digest
+	26, // 7: build.stack.bazel.remoteexecution.v1.ExecutionOperation.digest_function:type_name -> build.bazel.remote.execution.v2.DigestFunction.Value
 	1,  // 8: build.stack.bazel.remoteexecution.v1.ExecutionOperation.state:type_name -> build.stack.bazel.remoteexecution.v1.OperationState
-	22, // 9: build.stack.bazel.remoteexecution.v1.ExecutionOperation.queued_at:type_name -> google.protobuf.Timestamp
-	22, // 10: build.stack.bazel.remoteexecution.v1.ExecutionOperation.started_at:type_name -> google.protobuf.Timestamp
-	22, // 11: build.stack.bazel.remoteexecution.v1.ExecutionOperation.finished_at:type_name -> google.protobuf.Timestamp
-	25, // 12: build.stack.bazel.remoteexecution.v1.ExecutionOperation.execution_code:type_name -> google.rpc.Code
-	2,  // 13: build.stack.bazel.remoteexecution.v1.ExecutionAttempt.state:type_name -> build.stack.bazel.remoteexecution.v1.AttemptState
-	22, // 14: build.stack.bazel.remoteexecution.v1.ExecutionAttempt.leased_at:type_name -> google.protobuf.Timestamp
-	22, // 15: build.stack.bazel.remoteexecution.v1.ExecutionAttempt.started_at:type_name -> google.protobuf.Timestamp
-	22, // 16: build.stack.bazel.remoteexecution.v1.ExecutionAttempt.finished_at:type_name -> google.protobuf.Timestamp
-	25, // 17: build.stack.bazel.remoteexecution.v1.ExecutionAttempt.execution_code:type_name -> google.rpc.Code
-	3,  // 18: build.stack.bazel.remoteexecution.v1.ListPoolsResponse.pools:type_name -> build.stack.bazel.remoteexecution.v1.Pool
-	3,  // 19: build.stack.bazel.remoteexecution.v1.GetPoolResponse.pool:type_name -> build.stack.bazel.remoteexecution.v1.Pool
-	4,  // 20: build.stack.bazel.remoteexecution.v1.ListWorkersResponse.workers:type_name -> build.stack.bazel.remoteexecution.v1.Worker
-	4,  // 21: build.stack.bazel.remoteexecution.v1.GetWorkerResponse.worker:type_name -> build.stack.bazel.remoteexecution.v1.Worker
-	1,  // 22: build.stack.bazel.remoteexecution.v1.ListOperationsRequest.state:type_name -> build.stack.bazel.remoteexecution.v1.OperationState
-	5,  // 23: build.stack.bazel.remoteexecution.v1.ListOperationsResponse.operations:type_name -> build.stack.bazel.remoteexecution.v1.ExecutionOperation
-	6,  // 24: build.stack.bazel.remoteexecution.v1.ListWorkerAttemptsResponse.attempts:type_name -> build.stack.bazel.remoteexecution.v1.ExecutionAttempt
-	22, // 25: build.stack.bazel.remoteexecution.v1.ActivityEvent.observed_at:type_name -> google.protobuf.Timestamp
-	3,  // 26: build.stack.bazel.remoteexecution.v1.ActivityEvent.pool:type_name -> build.stack.bazel.remoteexecution.v1.Pool
-	4,  // 27: build.stack.bazel.remoteexecution.v1.ActivityEvent.worker:type_name -> build.stack.bazel.remoteexecution.v1.Worker
-	5,  // 28: build.stack.bazel.remoteexecution.v1.ActivityEvent.operation:type_name -> build.stack.bazel.remoteexecution.v1.ExecutionOperation
-	6,  // 29: build.stack.bazel.remoteexecution.v1.ActivityEvent.attempt:type_name -> build.stack.bazel.remoteexecution.v1.ExecutionAttempt
-	7,  // 30: build.stack.bazel.remoteexecution.v1.ExecutionObserverService.ListPools:input_type -> build.stack.bazel.remoteexecution.v1.ListPoolsRequest
-	9,  // 31: build.stack.bazel.remoteexecution.v1.ExecutionObserverService.GetPool:input_type -> build.stack.bazel.remoteexecution.v1.GetPoolRequest
-	11, // 32: build.stack.bazel.remoteexecution.v1.ExecutionObserverService.ListWorkers:input_type -> build.stack.bazel.remoteexecution.v1.ListWorkersRequest
-	13, // 33: build.stack.bazel.remoteexecution.v1.ExecutionObserverService.GetWorker:input_type -> build.stack.bazel.remoteexecution.v1.GetWorkerRequest
-	15, // 34: build.stack.bazel.remoteexecution.v1.ExecutionObserverService.ListOperations:input_type -> build.stack.bazel.remoteexecution.v1.ListOperationsRequest
-	17, // 35: build.stack.bazel.remoteexecution.v1.ExecutionObserverService.ListWorkerAttempts:input_type -> build.stack.bazel.remoteexecution.v1.ListWorkerAttemptsRequest
-	19, // 36: build.stack.bazel.remoteexecution.v1.ExecutionObserverService.WatchActivity:input_type -> build.stack.bazel.remoteexecution.v1.WatchActivityRequest
-	8,  // 37: build.stack.bazel.remoteexecution.v1.ExecutionObserverService.ListPools:output_type -> build.stack.bazel.remoteexecution.v1.ListPoolsResponse
-	10, // 38: build.stack.bazel.remoteexecution.v1.ExecutionObserverService.GetPool:output_type -> build.stack.bazel.remoteexecution.v1.GetPoolResponse
-	12, // 39: build.stack.bazel.remoteexecution.v1.ExecutionObserverService.ListWorkers:output_type -> build.stack.bazel.remoteexecution.v1.ListWorkersResponse
-	14, // 40: build.stack.bazel.remoteexecution.v1.ExecutionObserverService.GetWorker:output_type -> build.stack.bazel.remoteexecution.v1.GetWorkerResponse
-	16, // 41: build.stack.bazel.remoteexecution.v1.ExecutionObserverService.ListOperations:output_type -> build.stack.bazel.remoteexecution.v1.ListOperationsResponse
-	18, // 42: build.stack.bazel.remoteexecution.v1.ExecutionObserverService.ListWorkerAttempts:output_type -> build.stack.bazel.remoteexecution.v1.ListWorkerAttemptsResponse
-	20, // 43: build.stack.bazel.remoteexecution.v1.ExecutionObserverService.WatchActivity:output_type -> build.stack.bazel.remoteexecution.v1.ActivityEvent
-	37, // [37:44] is the sub-list for method output_type
-	30, // [30:37] is the sub-list for method input_type
-	30, // [30:30] is the sub-list for extension type_name
-	30, // [30:30] is the sub-list for extension extendee
-	0,  // [0:30] is the sub-list for field type_name
+	24, // 9: build.stack.bazel.remoteexecution.v1.ExecutionOperation.queued_at:type_name -> google.protobuf.Timestamp
+	24, // 10: build.stack.bazel.remoteexecution.v1.ExecutionOperation.started_at:type_name -> google.protobuf.Timestamp
+	24, // 11: build.stack.bazel.remoteexecution.v1.ExecutionOperation.finished_at:type_name -> google.protobuf.Timestamp
+	27, // 12: build.stack.bazel.remoteexecution.v1.ExecutionOperation.execution_code:type_name -> google.rpc.Code
+	5,  // 13: build.stack.bazel.remoteexecution.v1.ExecutionOperationDetail.operation:type_name -> build.stack.bazel.remoteexecution.v1.ExecutionOperation
+	8,  // 14: build.stack.bazel.remoteexecution.v1.ExecutionOperationDetail.attempts:type_name -> build.stack.bazel.remoteexecution.v1.ExecutionAttempt
+	7,  // 15: build.stack.bazel.remoteexecution.v1.ExecutionOperationDetail.process:type_name -> build.stack.bazel.remoteexecution.v1.ExecutionProcess
+	28, // 16: build.stack.bazel.remoteexecution.v1.ExecutionOperationDetail.execution_metadata:type_name -> build.bazel.remote.execution.v2.ExecutedActionMetadata
+	25, // 17: build.stack.bazel.remoteexecution.v1.ExecutionOperationDetail.stdout_digest:type_name -> build.bazel.remote.execution.v2.Digest
+	25, // 18: build.stack.bazel.remoteexecution.v1.ExecutionOperationDetail.stderr_digest:type_name -> build.bazel.remote.execution.v2.Digest
+	2,  // 19: build.stack.bazel.remoteexecution.v1.ExecutionAttempt.state:type_name -> build.stack.bazel.remoteexecution.v1.AttemptState
+	24, // 20: build.stack.bazel.remoteexecution.v1.ExecutionAttempt.leased_at:type_name -> google.protobuf.Timestamp
+	24, // 21: build.stack.bazel.remoteexecution.v1.ExecutionAttempt.started_at:type_name -> google.protobuf.Timestamp
+	24, // 22: build.stack.bazel.remoteexecution.v1.ExecutionAttempt.finished_at:type_name -> google.protobuf.Timestamp
+	27, // 23: build.stack.bazel.remoteexecution.v1.ExecutionAttempt.execution_code:type_name -> google.rpc.Code
+	3,  // 24: build.stack.bazel.remoteexecution.v1.ListPoolsResponse.pools:type_name -> build.stack.bazel.remoteexecution.v1.Pool
+	3,  // 25: build.stack.bazel.remoteexecution.v1.GetPoolResponse.pool:type_name -> build.stack.bazel.remoteexecution.v1.Pool
+	4,  // 26: build.stack.bazel.remoteexecution.v1.ListWorkersResponse.workers:type_name -> build.stack.bazel.remoteexecution.v1.Worker
+	4,  // 27: build.stack.bazel.remoteexecution.v1.GetWorkerResponse.worker:type_name -> build.stack.bazel.remoteexecution.v1.Worker
+	1,  // 28: build.stack.bazel.remoteexecution.v1.ListOperationsRequest.state:type_name -> build.stack.bazel.remoteexecution.v1.OperationState
+	5,  // 29: build.stack.bazel.remoteexecution.v1.ListOperationsResponse.operations:type_name -> build.stack.bazel.remoteexecution.v1.ExecutionOperation
+	8,  // 30: build.stack.bazel.remoteexecution.v1.ListWorkerAttemptsResponse.attempts:type_name -> build.stack.bazel.remoteexecution.v1.ExecutionAttempt
+	24, // 31: build.stack.bazel.remoteexecution.v1.ActivityEvent.observed_at:type_name -> google.protobuf.Timestamp
+	3,  // 32: build.stack.bazel.remoteexecution.v1.ActivityEvent.pool:type_name -> build.stack.bazel.remoteexecution.v1.Pool
+	4,  // 33: build.stack.bazel.remoteexecution.v1.ActivityEvent.worker:type_name -> build.stack.bazel.remoteexecution.v1.Worker
+	5,  // 34: build.stack.bazel.remoteexecution.v1.ActivityEvent.operation:type_name -> build.stack.bazel.remoteexecution.v1.ExecutionOperation
+	8,  // 35: build.stack.bazel.remoteexecution.v1.ActivityEvent.attempt:type_name -> build.stack.bazel.remoteexecution.v1.ExecutionAttempt
+	9,  // 36: build.stack.bazel.remoteexecution.v1.ExecutionObserverService.ListPools:input_type -> build.stack.bazel.remoteexecution.v1.ListPoolsRequest
+	11, // 37: build.stack.bazel.remoteexecution.v1.ExecutionObserverService.GetPool:input_type -> build.stack.bazel.remoteexecution.v1.GetPoolRequest
+	13, // 38: build.stack.bazel.remoteexecution.v1.ExecutionObserverService.ListWorkers:input_type -> build.stack.bazel.remoteexecution.v1.ListWorkersRequest
+	15, // 39: build.stack.bazel.remoteexecution.v1.ExecutionObserverService.GetWorker:input_type -> build.stack.bazel.remoteexecution.v1.GetWorkerRequest
+	17, // 40: build.stack.bazel.remoteexecution.v1.ExecutionObserverService.ListOperations:input_type -> build.stack.bazel.remoteexecution.v1.ListOperationsRequest
+	19, // 41: build.stack.bazel.remoteexecution.v1.ExecutionObserverService.ListWorkerAttempts:input_type -> build.stack.bazel.remoteexecution.v1.ListWorkerAttemptsRequest
+	21, // 42: build.stack.bazel.remoteexecution.v1.ExecutionObserverService.WatchActivity:input_type -> build.stack.bazel.remoteexecution.v1.WatchActivityRequest
+	10, // 43: build.stack.bazel.remoteexecution.v1.ExecutionObserverService.ListPools:output_type -> build.stack.bazel.remoteexecution.v1.ListPoolsResponse
+	12, // 44: build.stack.bazel.remoteexecution.v1.ExecutionObserverService.GetPool:output_type -> build.stack.bazel.remoteexecution.v1.GetPoolResponse
+	14, // 45: build.stack.bazel.remoteexecution.v1.ExecutionObserverService.ListWorkers:output_type -> build.stack.bazel.remoteexecution.v1.ListWorkersResponse
+	16, // 46: build.stack.bazel.remoteexecution.v1.ExecutionObserverService.GetWorker:output_type -> build.stack.bazel.remoteexecution.v1.GetWorkerResponse
+	18, // 47: build.stack.bazel.remoteexecution.v1.ExecutionObserverService.ListOperations:output_type -> build.stack.bazel.remoteexecution.v1.ListOperationsResponse
+	20, // 48: build.stack.bazel.remoteexecution.v1.ExecutionObserverService.ListWorkerAttempts:output_type -> build.stack.bazel.remoteexecution.v1.ListWorkerAttemptsResponse
+	22, // 49: build.stack.bazel.remoteexecution.v1.ExecutionObserverService.WatchActivity:output_type -> build.stack.bazel.remoteexecution.v1.ActivityEvent
+	43, // [43:50] is the sub-list for method output_type
+	36, // [36:43] is the sub-list for method input_type
+	36, // [36:36] is the sub-list for extension type_name
+	36, // [36:36] is the sub-list for extension extendee
+	0,  // [0:36] is the sub-list for field type_name
 }
 
 func init() { file_build_stack_bazel_remoteexecution_v1_observer_proto_init() }
@@ -1836,8 +2046,8 @@ func file_build_stack_bazel_remoteexecution_v1_observer_proto_init() {
 		return
 	}
 	file_build_stack_bazel_remoteexecution_v1_observer_proto_msgTypes[2].OneofWrappers = []any{}
-	file_build_stack_bazel_remoteexecution_v1_observer_proto_msgTypes[3].OneofWrappers = []any{}
-	file_build_stack_bazel_remoteexecution_v1_observer_proto_msgTypes[17].OneofWrappers = []any{
+	file_build_stack_bazel_remoteexecution_v1_observer_proto_msgTypes[5].OneofWrappers = []any{}
+	file_build_stack_bazel_remoteexecution_v1_observer_proto_msgTypes[19].OneofWrappers = []any{
 		(*ActivityEvent_Pool)(nil),
 		(*ActivityEvent_Worker)(nil),
 		(*ActivityEvent_Operation)(nil),
@@ -1849,7 +2059,7 @@ func file_build_stack_bazel_remoteexecution_v1_observer_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_build_stack_bazel_remoteexecution_v1_observer_proto_rawDesc), len(file_build_stack_bazel_remoteexecution_v1_observer_proto_rawDesc)),
 			NumEnums:      3,
-			NumMessages:   18,
+			NumMessages:   20,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

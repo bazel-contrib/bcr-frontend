@@ -5,16 +5,16 @@ For a persistent deployment, see [installing the backend and Iroh companion as s
 Start the backend from the repository root.
 
 ```sh
-go run ./cmd/besserver \
-  --listen=localhost:1973 \
+go run ./cmd/bazel_backend \
+  --bes_backend_grpc_listen=localhost:1973 \
   --http_listen=localhost:1974 \
-  --frontend_origin=http://localhost:8080 \
-  --sqlite=invocations.sqlite
+  --http_allow_origin=http://localhost:8080 \
+  --bes_backend_sqlite=invocations.sqlite
 ```
 
-Repeat `--frontend_origin` to allow multiple browser origins. For example, set
-`--frontend_origin=https://registry.bazel.build` and
-`--frontend_origin=http://localhost:1971` for the hosted viewer and an SSH-forwarded
+Repeat `--http_allow_origin` to allow multiple browser origins. For example, set
+`--http_allow_origin=https://registry.bazel.build` and
+`--http_allow_origin=http://localhost:8081` for the hosted viewer and an SSH-forwarded
 local viewer. Each value must match the URL's scheme, host, and port.
 
 Serve the Closure frontend with the existing release server.
@@ -35,7 +35,7 @@ with a backend URL or Iroh ticket supplied by the reader.
 Publish a build to the backend.
 
 ```sh
-bazel build //cmd/besserver \
+bazel build //cmd/bazel_backend \
   --bes_backend=grpc://localhost:1973 \
   --bes_results_url=https://registry.bazel.build/tools/invocation/ \
   --bes_upload_mode=wait_for_upload_complete
@@ -54,7 +54,7 @@ the page is open.
 Publish builds with a shared group name.
 
 ```sh
-bazel build //cmd/besserver \
+bazel build //cmd/bazel_backend \
   --bes_backend=grpc://localhost:1973 \
   --bes_results_url=https://registry.bazel.build/tools/invocations/release/ \
   --build_metadata=igroup=release
@@ -145,7 +145,7 @@ The [Storage interface](../../pkg/invocation/storage.go) provides these operatio
 SQLite is the default at `invocations.sqlite`. It uses WAL mode with full
 synchronous commits and one BES service per database. Indexed point lookups and
 replay require no startup scan. Existing journals can be reopened with
-`--journal=invocations.journal`. Each backend has its own cursor history.
+`--bes_backend_journal=invocations.journal`. Each backend has its own cursor history.
 
 ### Local analytics
 
@@ -211,8 +211,8 @@ remain available across restarts when the same database or journal is used.
 
 An invocation with an ended attempt and missing tool events is marked incomplete.
 An abandoned publisher has five minutes to reconnect before its invocation is
-marked incomplete. Configure the grace period with `--incomplete_after` such as
-`--incomplete_after=10m`. A live publishing connection protects a quiet build.
+marked incomplete. Configure the grace period with `--bes_backend_incomplete_after` such as
+`--bes_backend_incomplete_after=10m`. A live publishing connection protects a quiet build.
 Late events can still restore completeness when all terminal sequences arrive.
 
 The invocation list returns 100 runs by default, newest first. Follow
@@ -226,13 +226,13 @@ Configure a dedicated private REAPI CAS instance with durable storage and evicti
 disabled. This example uses the file-backed cache in the same process:
 
 ```sh
-besserver --sqlite=invocations.sqlite \
-  --cache_listen=127.0.0.1:1975 --cache_dir=/var/lib/bcr/archive-cache \
-  --archive_cache=grpc://127.0.0.1:1975 --archive_instance=build-events \
-  --archive_after=720h
+bazel_backend --bes_backend_sqlite=invocations.sqlite \
+  --remote_cache_grpc_listen=127.0.0.1:1975 --remote_cache_dir=/var/lib/bcr/archive-cache \
+  --remote_cache_archive_url=grpc://127.0.0.1:1975 --remote_cache_archive_instance=build-events \
+  --remote_cache_archive_after=720h
 ```
 
-To use a separate CAS server, set `--archive_cache` to its `grpc://` or
+To use a separate CAS server, set `--remote_cache_archive_url` to its `grpc://` or
 `grpcs://` address and omit the local cache listener and directory. Bazel can
 continue using its normal build cache. Back up both SQLite and the archive
 instance. Replay depends on the archived blobs after the local copy is cleared,
@@ -244,7 +244,7 @@ back to verify the digest, and then clears the SQLite payloads in a transaction.
 The database retains summaries, metrics, test facts, original cursors, and
 event deduplication keys. Replay reads archived chunks transparently. SQLite
 reuses the freed pages for future writes. To stop offloading new events while
-keeping archived replay available, omit `--archive_after` and retain the
+keeping archived replay available, omit `--remote_cache_archive_after` and retain the
 cache address and instance flags.
 
 The browser coalesces timeline redraws in 250 ms batches and preserves the event
@@ -257,15 +257,15 @@ Use the same process for BES, the invocation API, and the cache frontend so the
 API can read both Bazel's remote hit count and the observed cache traffic.
 
 ```sh
-bazel run //cmd/besserver -- \
-  --sqlite=invocations.sqlite \
-  --cache_listen=localhost:1975 \
-  --cache_dir=./remote-cache \
-  --cache_max_bytes=10737418240
+bazel run //cmd/bazel_backend -- \
+  --bes_backend_sqlite=invocations.sqlite \
+  --remote_cache_grpc_listen=localhost:1975 \
+  --remote_cache_dir=./remote-cache \
+  --remote_cache_max_bytes=10737418240
 ```
 
-To proxy an existing Bazel gRPC cache, omit `--cache_max_bytes` and replace `--cache_dir` with
-`--cache_upstream=grpcs://cache.example.com:443`. The proxy forwards Bazel's
+To proxy an existing Bazel gRPC cache, omit `--remote_cache_max_bytes` and replace `--remote_cache_dir` with
+`--remote_cache_backend=grpcs://cache.example.com:443`. The proxy forwards Bazel's
 request metadata and instance namespace. Custom headers are forwarded to TLS
 upstreams. Use the plaintext frontend on a trusted listener. The existing BES
 service and cache frontend share a local trust boundary.
@@ -281,6 +281,19 @@ bazel build //path:target \
 The invocation detail API returns `bazelRemoteCacheHits` when BEP reports a
 runner breakdown and `remoteCache` when the proxy observes requests carrying
 the matching REAPI tool invocation ID. SQLite retains both across restarts.
+Open **Tools → Remote Cache** and connect to the server's HTTP address
+(`--http_listen`, normally `http://localhost:1974`). The dashboard polls
+`GET /api/remote-cache/status`, which uses the same allowed frontend origins
+as the invocation API. It reports gRPC connections, active transfers, CAS
+payload bytes, and action-cache lookups across all clients since process
+startup. Choose an REAPI instance to filter traffic, active transfers, and
+action-cache hit rate. The instance list reflects requests observed since
+startup. Connection counts and disk budget remain shared across instances.
+A bounded file cache also reports disk budget usage and LRU
+evictions. The rate chart covers the most recent two minutes sampled by the
+browser. When a process serves both a standalone cache and a dedicated
+execution cache, this endpoint reports the standalone cache.
+
 The cache counts observed RPC attempts, including client retries. Use
 `ac_lookup` hits and misses for the lookup hit rate. CAS presence and download
 counts are independent. Transfer sizes are observed cache blob payload bytes.
@@ -290,7 +303,7 @@ SHA-256 uploads, and publishes completed writes atomically. It supports
 uncompressed transfers and discards interrupted uploads so clients can retry
 from offset zero.
 
-Set `--cache_max_bytes` to bound stored files and in-flight uploads across both
+Set `--remote_cache_max_bytes` to bound stored files and in-flight uploads across both
 namespaces and all instance names. File sizes are rounded up to the filesystem
 block size. When an upload would exceed the budget, the cache removes the
 least recently used entries until projected usage is at or below 90%, where
@@ -299,3 +312,140 @@ restarts. An action result whose output blobs were evicted is a cache miss.
 Use a dedicated directory for this cache. The default budget of zero leaves
 eviction disabled. Keep build-event archives on a separate, non-evicting cache
 directory and listener.
+
+## Remote execution
+
+Start the scheduler with private, distinct Bazel client, viewer, and admin
+credentials. Pool settings and worker registration history live in SQLite.
+
+```sh
+umask 077
+for role in client viewer admin; do
+  openssl rand -hex 32 > "$role-token"
+done
+bazel build //cmd/bazel_backend //tools/remote-execution-worker/...
+bazel-bin/cmd/bazel_backend/bazel_backend_/bazel_backend \
+  --remote_execution_client_token_file=client-token --remote_execution_viewer_token_file=viewer-token \
+  --remote_execution_admin_token_file=admin-token --remote_execution_sqlite=execution.sqlite \
+  --remote_execution_grpc_listen=127.0.0.1:1971 \
+  --remote_cache_grpc_listen=127.0.0.1:1972 --remote_cache_dir=cache \
+  --bes_backend_grpc_listen=127.0.0.1:1973 --http_listen=127.0.0.1:1974 \
+  --http_allow_origin=http://localhost:8081
+```
+
+### Create a pool and issue an Iroh ticket
+
+Set `IROH_RELAY` to your relay URL. In another terminal, generate a pool
+credential and start the gateway. Repeat `--pool-token=POOL_ID=PATH` for
+each pool the gateway serves.
+
+```sh
+umask 077
+openssl rand -hex 32 > linux-enrollment-token
+bazel-bin/tools/remote-execution-worker/remote-execution-gateway \
+  --backend=127.0.0.1:1974 --relay="$IROH_RELAY" --key-file=gateway.key \
+  --ticket-dir=tickets --pool-token=linux=linux-enrollment-token
+```
+
+Open **Tools → Remote Execution → Manage pools and instances**. Connect to the
+scheduler's HTTP origin with the admin token, create the REAPI instance `builds`,
+then create pool `linux` and select that instance. Give the pool platform property
+`OSFamily=Linux` and the gateway ID from
+`tickets/gateway.id`. To serve the UI locally, run
+`bazel run //app/bcr:release --//app/bcr:release_type=dummy -- --port=8081`.
+
+Distribute `tickets/pool-linux.ticket` to each worker. The same ticket can
+enroll multiple workers and has no automatic expiration. Give each worker a
+separate persistent identity file and an optional human-readable name. A worker
+reuses its identity when it restarts with the same key. Use **Manage pools and instances** to
+revoke a registered worker by its `iroh-…` ID. To replace the shared ticket,
+rotate the enrollment token, restart the gateway, and distribute the new ticket.
+
+```sh
+bazel-bin/tools/remote-execution-worker/remote-execution-worker \
+  --ticket-file=tickets/pool-linux.ticket --identity-file=worker-01.key \
+  --name=worker-01
+```
+
+Workers require Linux x86-64, Bubblewrap, and `prlimit`. Each worker runs one
+action at a time with a private network and process namespace, an isolated
+output workspace, and read-only system tool directories. Put platform-specific
+tools in the worker image or supply them as action inputs. Terminate TLS at a
+proxy for non-loopback HTTP or gRPC clients and keep the plaintext listeners
+private.
+
+### Run and observe a build
+
+Direct Bazel at the gRPC listener and match the pool's instance and platform.
+
+```sh
+bazel build //path:target \
+  --remote_executor=grpc://127.0.0.1:1971 --remote_cache=grpc://127.0.0.1:1971 \
+  --remote_instance_name=builds \
+  --remote_header="authorization=Bearer $EXECUTION_CLIENT_TOKEN" \
+  --remote_default_exec_properties=OSFamily=Linux \
+  --spawn_strategy=remote --remote_local_fallback=false
+```
+
+In the UI, enter the scheduler's HTTP origin and viewer token. **Pools** lists
+capacity, **Pool** shows the queue and its workers, and **Worker** shows
+assignment history. **Scheduler** shows health, work in flight, and recent
+activity. **Instances** lists the configured REAPI namespaces, their pools,
+and queue totals on the connected scheduler. Existing pool settings are
+migrated to instance records in place. A graceful stop shows the worker going offline as soon as it drains.
+If the worker disappears, its heartbeat lease expires after 30 seconds.
+
+Build Events, Remote Execution observation, and the Iroh gateway backend
+can all share `--http_listen` (1974 here). The optional separate
+`--remote_execution_http_listen` is for deployments that want a distinct worker
+listener. `--remote_execution_grpc_listen` serves authenticated execution and
+its cache. Its storage defaults to the SQLite path plus `.cache`. Set
+`--remote_execution_cache_dir` to keep using an existing execution cache.
+Cache-only clients continue to use `--remote_cache_grpc_listen` and its
+own storage. If the dedicated execution listener is omitted, execution
+and the cache use the existing authenticated shared-listener configuration.
+Use `GET /api/remote-execution/readyz` on the HTTP listener for readiness
+monitoring. It returns 204 when ready and 503 when unavailable. Viewer-authenticated
+`GET /api/remote-execution/status` includes details.
+
+To view over Iroh, build and start the companion and paste
+its read-only ticket into the scheduler field.
+
+```sh
+bazel build //tools/invocation-iroh
+bazel-bin/tools/invocation-iroh/invocation-iroh \
+  --backend-port=1974 --relay="$IROH_RELAY" --key-file=viewer.key \
+  --execution-viewer-token-file=viewer-token
+```
+
+Existing deployments can continue using `--remote_execution_config=execution.json`
+with preconfigured workers over HTTP or per-worker tickets from
+`--worker-token=WORKER_ID=PATH`. Pools defined in that file are managed there.
+
+## Proxy another backend
+
+Enable forwarding independently for each service. This example keeps the
+usual local listener ports and forwards to a backend listening on the 907x ports.
+
+```sh
+bazel_backend \
+  --bes_backend_grpc_listen=127.0.0.1:1973 --bes_backend=grpc://localhost:9073 \
+  --remote_cache_grpc_listen=127.0.0.1:1972 --remote_cache_backend=grpc://localhost:9072 \
+  --remote_execution_grpc_listen=127.0.0.1:1971 --remote_execution_backend=grpc://localhost:9071 \
+  --http_listen=127.0.0.1:1974 --remote_execution_http_backend=http://localhost:9074
+```
+
+- **Build Events** forwards lifecycle events and bidirectional publish streams,
+  relays upstream acknowledgments, and records events in the proxy's invocation
+  store for its own Build Events viewer.
+- **Remote Cache** forwards cache RPCs while collecting per-invocation and
+  aggregate cache metrics locally. The upstream owns the cache storage.
+- **Remote Execution** forwards REAPI execution, operations, capabilities, and
+  CAS over gRPC. The optional HTTP backend handles scheduler status, pool
+  management, activity streams, and worker requests. The upstream owns the
+  scheduler state and checks credentials. The proxy applies its configured
+  browser origins to the HTTP endpoints.
+
+Use HTTPS for scheduler HTTP upstreams outside loopback. Caller gRPC
+headers travel over TLS or a loopback connection. Bazel request metadata
+also travels over plaintext links so cache metrics can be correlated.

@@ -34,4 +34,37 @@ crate.from_cargo(
         "x86_64-unknown-linux-gnu",
     ],
 )
-use_repo(crate, "crates", "invocation_iroh_crates")
+crate.from_cargo(
+    name = "remote_execution_worker_crates",
+    cargo_lock = "//tools/remote-execution-worker:Cargo.lock",
+    cargo_toml = "//tools/remote-execution-worker:Cargo.toml",
+    platform_triples = ["x86_64-unknown-linux-gnu"],
+)
+use_repo(crate, "crates", "invocation_iroh_crates", "remote_execution_worker_crates")
+
+# The browser build needs Cargo's target-specific feature resolution.
+browser_crate = use_extension("@rules_rust//crate_universe:extensions.bzl", "crate")
+browser_crate.from_cargo(
+    name = "invocation_iroh_browser_crates",
+    cargo_lockfile = "//tools/invocation-iroh:Cargo.lock",
+    manifests = ["//tools/invocation-iroh:Cargo.toml"],
+    skip_cargo_lockfile_overwrite = True,
+    supported_platform_triples = [
+        "aarch64-apple-darwin",
+        "aarch64-unknown-linux-gnu",
+        "wasm32-unknown-unknown",
+        "x86_64-apple-darwin",
+        "x86_64-unknown-linux-gnu",
+    ],
+)
+# ring compiles C for wasm32, which the default Bazel C++ toolchain lacks.
+browser_crate.annotation(
+    crate = "ring",
+    build_script_env = {
+        "AR_wasm32_unknown_unknown": "llvm-ar",
+        "CC_wasm32_unknown_unknown": "clang",
+    },
+)
+use_repo(browser_crate, "invocation_iroh_browser_crates")
+
+register_toolchains("//tools/invocation-iroh:browser_bindgen_toolchain")

@@ -4,16 +4,20 @@ import {
   octiconAlert16,
   octiconBeaker16,
   octiconCheckCircleFill16,
-  octiconChevronRight16,
   octiconCircle16,
   octiconCircleSlash16,
+  octiconDatabase16,
   octiconFile16,
+  octiconGraph16,
+  octiconLog16,
+  octiconPulse16,
+  octiconServer16,
   octiconStop16,
   octiconTerminal16,
-  octiconTools16,
   octiconXCircleFill16
 } from 'app/bcr/octicons.soy';
 
+import {logo} from 'app/bcr/app.soy';
 import {sectionHeader} from 'app/bcr/registry.soy';
 
 {template toolsSelect}
@@ -50,36 +54,83 @@ import {sectionHeader} from 'app/bcr/registry.soy';
   {/switch}
 {/template}
 
+{template toolSettingsLink}
+  <a class="text-small" href="/settings/tools">Tools settings</a>
+{/template}
+
+{template toolsSidebar}
+  {@param current: string}
+  <section class="bes-events-side-section">
+    {sectionHeader(title: 'Tools')}
+    <nav class="tools-sidebar-links" aria-label="Tools">
+      <a class="tools-sidebar-index" href="/tools">All tools</a>
+      {toolLinks(current: $current)}
+    </nav>
+  </section>
+{/template}
+
+{template toolLinks visibility="private"}
+  {@param? current: string}
+  {@param? diagram: bool}
+  {toolLink(id: 'invocations', label: 'Build Events', current: $current, diagram: $diagram)}
+  {toolLink(id: 'remote-execution', label: 'Remote Execution', current: $current, diagram: $diagram)}
+  {toolLink(id: 'action-query', label: 'Action Query', current: $current, diagram: $diagram)}
+  {toolLink(id: 'execution-log', label: 'Execution Log', current: $current, diagram: $diagram)}
+  {toolLink(id: 'remote-cache', label: 'Remote Cache', current: $current, diagram: $diagram)}
+{/template}
+
+{template toolLink visibility="private"}
+  {@param id: string}
+  {@param label: string}
+  {@param? current: string}
+  {@param? diagram: bool}
+  <a href="/tools/{$id}" class="{if $diagram}tools-net-face tools-net-face-{$id}{else}tools-sidebar-link{/if}"
+    {if $id == $current}aria-current="page"{/if}>
+    <span class="tools-link-icon" aria-hidden="true">
+      {switch $id}
+        {case 'invocations'}{octiconPulse16()}
+        {case 'remote-execution'}{octiconServer16()}
+        {case 'action-query'}{octiconGraph16()}
+        {case 'execution-log'}{octiconLog16()}
+        {case 'remote-cache'}{octiconDatabase16()}
+      {/switch}
+    </span>
+    <span>{$label}</span>
+  </a>
+{/template}
+
 {template toolsCatalog}
-  <div>
-    <h1 class="h2 mb-3">Tools</h1>
-    <p class="color-fg-muted mb-3">Browser-based utilities for working with Bazel data.</p>
-    <div class="Box">
-      <a href="/tools/invocations" class="Box-row d-flex flex-items-center color-fg-default no-underline">
-        <span class="mr-3">{octiconTools16()}</span>
-        <span class="flex-auto">
-          <span class="text-bold d-block">Build Events</span>
-          <span class="color-fg-muted text-small">Open a build event file, follow live invocations, or view group metrics.</span>
-        </span>
-        {octiconChevronRight16(fill: 'var(--color-fg-muted)')}
-      </a>
-      <a href="/tools/action-query" class="Box-row d-flex flex-items-center color-fg-default no-underline">
-        <span class="mr-3">{octiconTools16()}</span>
-        <span class="flex-auto">
-          <span class="text-bold d-block">Action Query</span>
-          <span class="color-fg-muted text-small">Explore the action graph from a Bazel aquery file.</span>
-        </span>
-        {octiconChevronRight16(fill: 'var(--color-fg-muted)')}
-      </a>
-      <a href="/tools/execution-log" class="Box-row d-flex flex-items-center color-fg-default no-underline">
-        <span class="mr-3">{octiconTools16()}</span>
-        <span class="flex-auto">
-          <span class="text-bold d-block">Execution Log</span>
-          <span class="color-fg-muted text-small">Inspect actions and cache hits from a compact Bazel execution log.</span>
-        </span>
-        {octiconChevronRight16(fill: 'var(--color-fg-muted)')}
-      </a>
-    </div>
+  <div class="tools-catalog">
+    <h1 class="h2 mb-2">Tools</h1>
+    <p class="color-fg-muted">Explore Bazel builds, action graphs, remote execution, and cache activity.</p>
+    <figure class="tools-net">
+      <div class="tools-net-window">
+        <div class="tools-net-sheet">
+          <svg class="tools-net-art" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 820 556"
+            aria-hidden="true" focusable="false">
+            <path class="tools-net-paper" d="M458 100H475L485 82H651L661 100H678V186H764V201L782 211V273L764 283V312L782 322V381L764 391V406H690L678 394V296H568V406H678V492H552L542 510H484L474 492H458V406H360L350 424H284L274 406H262V296H152V283L134 273V211L152 201V186H163L173 168H240L250 186H274L284 168H350L360 186H458Z"/>
+            <path class="tools-net-face-shade" d="M458 100H678V186H458Z M458 186H764V296H568V406H458Z"/>
+            <path class="tools-net-back" d="M152 186H372V406H262V296H152Z"/>
+            <path class="tools-net-score" d="M458 186H678V296H764 M458 186V406H568V492 M372 186V406 M475 100H661 M764 201V283 M764 312V391 M474 492H552 M274 406H360 M152 201V283 M163 186H250 M274 186H360"/>
+            <path class="tools-net-face-seam" d="M568 186V296H458 M372 296H262V186"/>
+          </svg>
+          <nav class="tools-net-links" aria-label="Bazel tools">
+            {toolLinks(diagram: true)}
+          </nav>
+        </div>
+      </div>
+      <figcaption class="tools-net-caption">
+        <span class="tools-net-preview" aria-hidden="true">{logo()}</span>
+        <div>
+          <strong>Bazel logo fold-out</strong>
+          <div class="tools-net-key">
+            <span><i aria-hidden="true"></i>Cut along solid lines</span>
+            <span><i aria-hidden="true"></i>Fold along dashed lines</span>
+            <span>Tuck the tabs inside</span>
+          </div>
+        </div>
+      </figcaption>
+    </figure>
   </div>
 {/template}
 
@@ -94,19 +145,16 @@ import {sectionHeader} from 'app/bcr/registry.soy';
         <section class="bes-events-side-section" aria-label="Backend">
           {sectionHeader(title: 'Backend')}
           <form class="bes-backend-form {css('igroup-form')}" aria-label="Backend">
-            <label>Backend URL or iroh ticket
-              <input class="form-control input-block {css('igroup-backend')}" type="text"
-                  autocomplete="off" spellcheck="false" value="http://localhost:1974">
-            </label>
             <label>Group
               <input class="form-control input-block {css('igroup-name')}" type="text"
                   maxlength="128" pattern="[A-Za-z0-9][A-Za-z0-9._\-]*" placeholder="release">
             </label>
             <div class="bes-backend-actions">
               <button type="submit" class="btn btn-primary btn-sm">Connect</button>
+              {toolSettingsLink()}
               <span class="Label {css('igroup-backend-label')}" role="status">Disconnected</span>
             </div>
-            <div class="bes-backend-detail text-small color-fg-muted {css('igroup-backend-detail')}">Enter a backend address and connect.</div>
+            <div class="bes-backend-detail text-small color-fg-muted {css('igroup-backend-detail')}">Uses the Build Event Backend in Tools settings.</div>
             <div class="bes-group-controls text-small color-fg-muted">
               <label class="bes-group-option" title="Open new group builds automatically. Opening a run pauses follow. Check Follow to resume.">
                 <input type="checkbox" class="{css('igroup-follow')}" checked> Follow
@@ -123,9 +171,9 @@ import {sectionHeader} from 'app/bcr/registry.soy';
           {buildEventShortcut(view: 'group', label: 'Group', key: '2', altKeyLabel: $altKeyLabel)}
           {buildEventShortcut(view: 'groups', label: 'Groups', key: '3', altKeyLabel: $altKeyLabel)}
           {buildEventShortcut(view: 'tests', label: 'Tests', key: '4', altKeyLabel: $altKeyLabel)}
-          {buildEventShortcut(view: 'usage', label: 'Usage', key: '5', altKeyLabel: $altKeyLabel)}
-          {buildEventShortcut(view: 'upload', label: 'Upload', key: '6', altKeyLabel: $altKeyLabel)}
+          {buildEventShortcut(view: 'upload', label: 'Upload', key: '5', altKeyLabel: $altKeyLabel)}
         </section>
+        {toolsSidebar(current: 'invocations')}
       </div>
       <div class="PageLayout-content bes-events-content">
         <nav class="UnderlineNav bes-events-nav" aria-label="Build event views">
@@ -136,7 +184,6 @@ import {sectionHeader} from 'app/bcr/registry.soy';
             <a class="UnderlineNav-item" id="igroup-nav-groups" href="/tools/invocations/-/groups" data-view="groups">Groups</a>
             <a class="UnderlineNav-item" id="igroup-nav-tests" href="/tools/invocations/-/tests" data-view="tests">Tests</a>
             <a class="UnderlineNav-item" id="igroup-nav-upload" href="/tools/invocations/-/upload" data-view="upload">Upload</a>
-            <a class="UnderlineNav-item" id="igroup-nav-usage" href="/tools/invocations/-/usage" data-view="usage">Usage</a>
           </div>
         </nav>
         <div class="{css('igroup-content')}">
@@ -232,9 +279,6 @@ import {sectionHeader} from 'app/bcr/registry.soy';
             </div>
             <div class="mt-3 d-none {css('igroup-upload-viewer')}"></div>
           </div>
-          <div role="region" id="igroup-panel-usage" aria-labelledby="igroup-nav-usage" tabindex="0" hidden>
-            {invocationGroupUsage()}
-          </div>
         </div>
       </div>
     </div>
@@ -258,23 +302,14 @@ import {sectionHeader} from 'app/bcr/registry.soy';
   <section>
     {sectionHeader(title: 'How Invocation Groups work')}
     <div class="bes-group-usage">
-      <figure class="bes-group-architecture" aria-label="Build event flow from Bazel to the viewer">
-        <div><strong>Bazel</strong><span>Publishes build events over gRPC</span></div>
-        <span aria-hidden="true">→</span>
-        <div><strong>BES backend</strong><span>Stores events and group metrics in SQLite</span></div>
-        <span aria-hidden="true">→</span>
-        <div><strong>HTTP and event stream</strong><span>or Rust companion via Iroh relay</span></div>
-        <span aria-hidden="true">→</span>
-        <div><strong>Browser viewer</strong><span>Follows runs and shows group metrics</span></div>
-      </figure>
       <p>Run these commands from the root of the source checkout.</p>
       <ol class="bes-group-setup">
         <li>
           <h3 class="h4">Build and start the backend</h3>
-          <pre><code>{'bazel build //cmd/besserver'}{\n}
-          {'"$(bazel info bazel-bin)/cmd/besserver/besserver_/besserver"'} \{\n}
-          {'  '}--listen=localhost:1973 --http_listen=localhost:1974 \{\n}
-          {'  '}--frontend_origin=https://registry.bazel.build --sqlite=invocations.sqlite</code></pre>
+          <pre><code>{'bazel build //cmd/bazel_backend'}{\n}
+          {'"$(bazel info bazel-bin)/cmd/bazel_backend/bazel_backend_/bazel_backend"'} \{\n}
+          {'  '}--bes_backend_grpc_listen=localhost:1973 --http_listen=localhost:1974 \{\n}
+          {'  '}--http_allow_origin=https://registry.bazel.build --bes_backend_sqlite=invocations.sqlite</code></pre>
         </li>
         <li>
           <h3 class="h4">Build and start the Iroh companion for remote viewing</h3>
@@ -282,7 +317,7 @@ import {sectionHeader} from 'app/bcr/registry.soy';
           <pre><code>{'bazel build -c opt //tools/invocation-iroh'}{\n}
           {'"$(bazel info -c opt bazel-bin)/tools/invocation-iroh/invocation-iroh"'} --backend-port 1974 --key-file ./iroh.key</code></pre>
           <p>The companion creates <code>iroh.key</code> if it is missing. Reuse the same key file across restarts to keep a stable Iroh address.</p>
-          <p>The printed Iroh ticket looks like <code>bcr-iroh-v1:eyJlbmRwb2ludCI6…</code>. Paste the full ticket into <strong>Backend URL or iroh ticket</strong> in the Backend form.</p>
+          <p>The printed Iroh ticket looks like <code>bcr-iroh-v1:eyJlbmRwb2ludCI6…</code>. Paste the full ticket into <strong>Build Event Backend</strong> in Tools settings.</p>
           <p>The browser uses the relay address in the ticket to reach the companion and presents the ticket’s access credential. The companion reads group data and streams build events from the backend’s local HTTP API.</p>
         </li>
         <li>
@@ -298,7 +333,7 @@ import {sectionHeader} from 'app/bcr/registry.soy';
       </ol>
       <details>
         <summary class="text-small color-fg-muted">Run the backend with Bazel or develop the viewer locally</summary>
-        <p class="mt-2 mb-0">To run the backend with Bazel, use <code>{'bazel run //cmd/besserver --'}</code> followed by the same flags. For local viewer development, set <code>--frontend_origin=http://localhost:8080</code> and run:</p>
+        <p class="mt-2 mb-0">To run the backend with Bazel, use <code>{'bazel run //cmd/bazel_backend --'}</code> followed by the same flags. For local viewer development, set <code>--http_allow_origin=http://localhost:8080</code> and run:</p>
         <pre><code>{'bazel run //app/bcr:release --//app/bcr:release_type=dummy'}</code></pre>
       </details>
     </div>
@@ -414,4 +449,239 @@ import {sectionHeader} from 'app/bcr/registry.soy';
       </div>
     </div>
   </div>
+{/template}
+
+{template remoteCache}
+  <div class="PageLayout PageLayout--panePos-start PageLayout--hasPaneDivider PageLayout--responsive-stackRegions PageLayout--responsive-panePos-start">
+    <div class="PageLayout-columns">
+      <aside class="PageLayout-pane bes-events-sidebar">
+        <h1 class="h2 mb-2">Remote Cache</h1>
+        <p class="color-fg-muted mb-0">Watch live Bazel cache traffic, hit rate, and disk usage.</p>
+        <section class="bes-events-side-section" aria-label="Cache server">
+          {sectionHeader(title: 'Cache server')}
+          <form class="bes-backend-form" data-cache="connect">
+            <div class="bes-backend-actions">
+              <button class="btn btn-primary btn-sm" type="submit">Connect</button>
+              {toolSettingsLink()}
+              <span class="Label" data-cache="state" role="status">Disconnected</span>
+            </div>
+            <div class="bes-backend-detail text-small color-fg-muted" data-cache="detail">Uses the Remote Cache status API in Tools settings.</div>
+          </form>
+        </section>
+        {toolsSidebar(current: 'remote-cache')}
+      </aside>
+      <div class="PageLayout-content bes-events-content">
+        <p class="color-fg-muted" data-cache="empty">Connect to a cache server to see its activity.</p>
+        <div class="cache-dashboard" data-cache="dashboard" hidden>
+          <section aria-label="Cache overview">
+            <label class="d-block mb-3">REAPI instance
+              <select class="form-select ml-2" data-cache="instance">
+                <option value="">All instances</option>
+              </select>
+            </label>
+            <div class="cache-dashboard-cards">
+              {remoteCacheStat(label: 'Upload', key: 'upload')}
+              {remoteCacheStat(label: 'Download', key: 'download')}
+              {remoteCacheStat(label: 'Active transfers', key: 'transfers')}
+              {remoteCacheStat(label: 'Connections', key: 'connections')}
+              {remoteCacheStat(label: 'Action cache hit rate', key: 'hit-rate')}
+            </div>
+          </section>
+          <section aria-label="Traffic">
+            {sectionHeader(title: 'Live traffic')}
+            <div class="cache-chart-key text-small">
+              <span><i class="cache-upload-line"></i>Upload</span>
+              <span><i class="cache-download-line"></i>Download</span>
+            </div>
+            <div class="cache-chart">
+              <div class="cache-chart-axis text-small color-fg-muted" aria-hidden="true">
+                <span data-cache="chart-max">—</span>
+                <span data-cache="chart-mid">—</span>
+                <span>0</span>
+              </div>
+              <svg class="cache-chart-plot" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 100" preserveAspectRatio="none"
+                  role="img" aria-label="Cache upload and download speeds over the last two minutes">
+                <path class="cache-chart-grid" d="M0 1H120 M0 25H120 M0 50H120 M0 75H120 M0 99H120 M30 1V99 M60 1V99 M90 1V99"/>
+                <polyline data-cache="chart-upload" class="cache-upload-line"/>
+                <polyline data-cache="chart-download" class="cache-download-line"/>
+              </svg>
+            </div>
+            <div class="cache-chart-time text-small color-fg-muted"><span>2 min ago</span><span>Now</span></div>
+          </section>
+          <section aria-label="Storage">
+            {sectionHeader(title: 'Shared storage')}
+            <p data-cache="storage-summary"></p>
+            <progress class="cache-storage-progress" data-cache="storage-progress" aria-label="Cache disk budget used" hidden></progress>
+            <div class="cache-dashboard-cards">
+              {remoteCacheStat(label: 'Available on disk', key: 'disk-free')}
+              {remoteCacheStat(label: 'Upload space reserved', key: 'reserved')}
+              {remoteCacheStat(label: 'Evicted since startup', key: 'evicted')}
+            </div>
+          </section>
+        </div>
+      </div>
+    </div>
+  </div>
+{/template}
+
+{template remoteCacheStat visibility="private"}
+  {@param label: string}
+  {@param key: string}
+  <dl class="cache-dashboard-card">
+    <dt class="text-small color-fg-muted">{$label}</dt>
+    <dd class="h3" data-cache="{$key}">—</dd>
+    <dd class="text-small color-fg-muted" data-cache="{$key}-detail"></dd>
+  </dl>
+{/template}
+
+{template remoteExecution}
+  <div class="PageLayout PageLayout--panePos-start PageLayout--hasPaneDivider PageLayout--responsive-stackRegions PageLayout--responsive-panePos-start bes-events-layout">
+    <div class="PageLayout-columns">
+      <aside class="PageLayout-pane bes-events-sidebar">
+        <h1 class="h2 mb-2">Remote Execution</h1>
+        <p class="color-fg-muted mb-0">Run Bazel build actions on a pool of workers. Connect to a scheduler to see pool capacity, queued and running actions, and worker history.</p>
+        <section class="bes-events-side-section" aria-label="Scheduler">
+          {sectionHeader(title: 'Scheduler')}
+          <form class="bes-backend-form" data-rex="connect" aria-label="Scheduler">
+            <div class="bes-backend-actions">
+              <button class="btn btn-primary btn-sm" type="submit">Connect</button>
+              {toolSettingsLink()}
+              <span class="Label" data-rex="status" role="status">Disconnected</span>
+            </div>
+            <div class="bes-backend-detail text-small color-fg-muted" data-rex="status-detail"></div>
+          </form>
+        </section>
+        {toolsSidebar(current: 'remote-execution')}
+      </aside>
+      <div class="PageLayout-content bes-events-content">
+        <header class="rex-navigation">
+          <nav aria-label="Remote execution breadcrumb">
+            <ol class="rex-breadcrumb" data-rex="breadcrumb"><li><span aria-current="page">Scheduler</span></li></ol>
+          </nav>
+          <div class="d-flex flex-wrap gap-2">
+            <a href="/tools/remote-execution/instances" class="btn btn-sm">Instances</a>
+            <a href="/tools/remote-execution/manage" class="btn btn-sm">Manage pools and instances</a>
+          </div>
+        </header>
+        <div class="mt-3" data-rex="instance-filter" hidden>
+          <label>Execution instance
+            <select class="form-select ml-2" data-rex="instance-choice">
+              <option value="">All instances</option>
+            </select>
+          </label>
+        </div>
+        <section class="rex-timeline" data-rex="timeline" aria-label="Live scheduling" hidden></section>
+        <section class="pt-3 rex-panel" data-rex="panel" aria-label="Pools">
+          <p class="color-fg-muted">Connect to a scheduler to view worker pools.</p>
+        </section>
+        {remoteExecutionPoolSettings()}
+      </div>
+    </div>
+  </div>
+{/template}
+
+{template remoteExecutionPoolSettings visibility="private"}
+  <section class="pt-3" data-rex="manage" aria-label="Manage pools and instances" hidden>
+    <h2 class="h3 mb-2">Manage pools and instances</h2>
+    <p>Load settings using the scheduler admin connection from {toolSettingsLink()}.</p>
+    <form class="bes-backend-form mb-3" data-rex="admin-connect" aria-label="Pool administration">
+      <button class="btn" data-rex="admin-load" type="submit">Load settings</button>
+    </form>
+    <p class="color-fg-muted" data-rex="admin-status" role="status"></p>
+    <form class="mb-4" data-rex="admin-instance-form" aria-label="Instance settings" hidden>
+      <h3 class="h4">Execution instance</h3>
+      <div class="bes-backend-form">
+        <label>REAPI instance name
+          <input class="form-control input-block" data-rex="admin-instance-name" type="text" placeholder="builds">
+        </label>
+        <label>Instance display name
+          <input class="form-control input-block" data-rex="admin-instance-display" type="text" maxlength="256">
+        </label>
+        <p class="text-small color-fg-muted mb-0">Leave the REAPI name blank for the default instance. Reuse a name to update its display name.</p>
+        <button class="btn" data-rex="admin-save-instance" type="submit">Save instance</button>
+      </div>
+    </form>
+    <form data-rex="admin-form" aria-label="Pool settings" hidden>
+      <h3 class="h4">Worker pool</h3>
+      <div class="bes-backend-form">
+        <label>Pool to configure
+          <select class="form-select input-block" data-rex="admin-pool"></select>
+        </label>
+        <label>Pool ID
+          <input class="form-control input-block" data-rex="admin-id" type="text" maxlength="128" required>
+        </label>
+        <label>Display name
+          <input class="form-control input-block" data-rex="admin-name" type="text" maxlength="256" required>
+        </label>
+        <label>Bazel remote instance
+          <select class="form-select input-block" data-rex="admin-instance"></select>
+        </label>
+        <label>Platform properties (one NAME=VALUE per line)
+          <textarea class="form-control input-block" data-rex="admin-platform" rows="2" placeholder="OSFamily=Linux"></textarea>
+        </label>
+        <label>Iroh gateway ID (from gateway.id)
+          <input class="form-control input-block" data-rex="admin-gateway" type="text" maxlength="64" autocomplete="off">
+        </label>
+        <label>Revoked Iroh worker IDs (one per line)
+          <textarea class="form-control input-block" data-rex="admin-revoked" rows="2"></textarea>
+        </label>
+        <button class="btn btn-primary" data-rex="admin-save" type="submit">Save pool</button>
+      </div>
+    </form>
+  </section>
+{/template}
+
+{template remoteExecutionUsage}
+  <section aria-label="Remote execution usage">
+    <div class="bes-group-usage">
+      <h2 class="h3 mb-0">Set up remote execution</h2>
+      <p class="mb-0"><code>bazel_backend</code> schedules actions and serves the remote cache. Bazel submits actions over gRPC. Workers connect to the scheduler over HTTP or through an Iroh gateway.</p>
+      <ol class="bes-group-setup">
+        <li>
+          <h3 class="h4">Start the scheduler</h3>
+          <p>Run these commands in the BCR frontend source checkout. Set <code>--http_allow_origin</code> to the origin serving this page.</p>
+          <pre><code>umask 077{\n}
+          {'for role in client viewer admin; do openssl rand -hex 32 > "$role-token"; done'}{\n}
+          {'bazel build //cmd/bazel_backend //tools/remote-execution-worker/...'}{\n}
+          {'bazel-bin/cmd/bazel_backend/bazel_backend_/bazel_backend'} \{\n}
+          {'  '}--remote_execution_client_token_file=client-token --remote_execution_viewer_token_file=viewer-token \{\n}
+          {'  '}--remote_execution_admin_token_file=admin-token --remote_execution_sqlite=execution.sqlite \{\n}
+          {'  '}--remote_execution_grpc_listen=127.0.0.1:1971 \{\n}
+          {'  '}--remote_cache_grpc_listen=127.0.0.1:1972 --remote_cache_dir=cache \{\n}
+          {'  '}--bes_backend_grpc_listen=127.0.0.1:1973 --http_listen=127.0.0.1:1974 \{\n}
+          {'  '}--http_allow_origin=http://localhost:8081</code></pre>
+          <p>To serve this page locally on port 8081, run <code>{'bazel run //app/bcr:release --//app/bcr:release_type=dummy -- --port=8081'}</code>.</p>
+        </li>
+        <li>
+          <h3 class="h4">Issue a pool ticket and save the pool</h3>
+          <p>Set <code>IROH_RELAY</code> to your relay URL, then start the gateway in another terminal.</p>
+          <pre><code>umask 077{\n}
+          {'openssl rand -hex 32 > linux-enrollment-token'}{\n}
+          {'bazel-bin/tools/remote-execution-worker/remote-execution-gateway'} \{\n}
+          {'  --backend=127.0.0.1:1974 --relay="$IROH_RELAY" --key-file=gateway.key'} \{\n}
+          {'  '}--ticket-dir=tickets --pool-token=linux=linux-enrollment-token</code></pre>
+          <p>Save the scheduler admin HTTP origin and admin token in Tools settings. Open <strong>Manage pools and instances</strong> and load the settings. Create the REAPI instance <code>builds</code>, then assign it to a pool with ID <code>linux</code>, property <code>OSFamily=Linux</code>, and the gateway ID from <code>tickets/gateway.id</code>.</p>
+        </li>
+        <li>
+          <h3 class="h4">Start workers and connect the viewer</h3>
+          <p>Give each worker the same <code>tickets/pool-linux.ticket</code>. The ticket has no automatic expiration. Each worker needs its own persistent identity file, Linux x86-64, Bubblewrap, and <code>prlimit</code>.</p>
+          <pre><code>{'bazel-bin/tools/remote-execution-worker/remote-execution-worker'} \{\n}
+          {'  '}--ticket-file=tickets/pool-linux.ticket --identity-file=worker-01.key --name=worker-01</code></pre>
+          <p>In Tools settings, enter the scheduler origin and viewer token, or paste a read-only Iroh viewer ticket. In Remote Execution, click <strong>Connect</strong> and check <strong>Pools</strong> for an online worker.</p>
+          <p><strong>Scheduler</strong> shows readiness, work in flight, and recent activity. Open a pool to watch queued actions move onto worker lanes and into completed work. A service monitor can check <code>/api/remote-execution/readyz</code> on the shared HTTP listener.</p>
+        </li>
+        <li>
+          <h3 class="h4">Run a Bazel build</h3>
+          <p>In your build workspace, set <code>EXECUTION_CLIENT_TOKEN</code> to the configured client token. Use the execution gRPC listener for both <code>--remote_executor</code> and <code>--remote_cache</code>, and match the pool’s instance and platform properties.</p>
+          <pre><code>{'bazel build //path:target'} \{\n}
+          {'  '}--remote_executor=grpc://127.0.0.1:1971 --remote_cache=grpc://127.0.0.1:1971 \{\n}
+          {'  '}--remote_instance_name=builds \{\n}
+          {'  --remote_header="authorization=Bearer $EXECUTION_CLIENT_TOKEN"'} \{\n}
+          {'  '}--remote_default_exec_properties=OSFamily=Linux \{\n}
+          {'  '}--spawn_strategy=remote --remote_local_fallback=false</code></pre>
+          <p>Add <code>--remote_accept_cached=false</code> to test worker execution with remote cache reads disabled. The <strong>Pool</strong> tab shows which worker ran each action.</p>
+        </li>
+      </ol>
+    </div>
+  </section>
 {/template}

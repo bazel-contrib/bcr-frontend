@@ -15,9 +15,8 @@ const { Component, Route } = goog.require("stack.ui");
 const { METRICS, metricValue, metricLabel } = goog.require(
 	"bcrfrontend.invocationCharts",
 );
-const { InvocationBackend, openInvocationBackend } = goog.require(
-	"bcrfrontend.invocationTransport",
-);
+const { InvocationBackend, executionInvocationBackend, openInvocationBackend } =
+	goog.require("bcrfrontend.invocationTransport");
 const {
 	InvocationStatus,
 	incompleteStatus,
@@ -31,6 +30,9 @@ const { formatBytes, formatElapsed, groupRate } = goog.require(
 );
 const { formatRelativeShort } = goog.require("bcrfrontend.format");
 const { getApplication } = goog.require("bcrfrontend.common");
+const { ToolSetting, readToolSetting, toolSetting } = goog.require(
+	"bcrfrontend.toolSettings",
+);
 const { invocationGroups } = goog.require("soy.bcrfrontend.tools");
 
 const MAX_FILE_BYTES = 256 * 1024 * 1024;
@@ -93,11 +95,11 @@ const GROUP_VIEWS = new Set([
 	"metrics",
 	"tests",
 	"cache",
-	"usage",
 	"upload",
 ]);
 
 const NO_GROUP = "-";
+const RUNNING_STATUS = "Running";
 
 /**
  * @param {!Array<string>} parts Encoded path segments after /tools.
@@ -230,6 +232,7 @@ class InvocationGroupsComponent extends Component {
 			new Map();
 		/** @private @const {!Set<string>} */ this.statusFilter_ = new Set([
 			"SUCCESS",
+			RUNNING_STATUS,
 		]);
 		/** @private */ this.filterOptionsKey_ = "";
 		/** @private @type {?BuildEventViewerComponent} */ this.uploadViewer_ =
@@ -351,7 +354,7 @@ class InvocationGroupsComponent extends Component {
 					key.ctrlKey ||
 					key.metaKey ||
 					key.repeat ||
-					!/^Digit[1-6]$/.test(key.code) ||
+					!/^Digit[1-5]$/.test(key.code) ||
 					document.activeElement?.closest(
 						"input, textarea, select, [contenteditable]",
 					)
@@ -525,12 +528,12 @@ class InvocationGroupsComponent extends Component {
 		const remembered =
 			(group && readViewerBackend("group." + group)) ||
 			readViewerBackend("invocation");
-		if (remembered)
-			this.input_(goog.getCssName("igroup-backend")).value = remembered;
+
 		if (
-			((group || id) &&
-				this.input_(goog.getCssName("igroup-backend")).value.trim()) ||
-			(view === "groups" && remembered) ||
+			group ||
+			id ||
+			remembered ||
+			readToolSetting(ToolSetting.BUILD_EVENT_BACKEND) ||
 			!sameGroup ||
 			this.watchedId_
 		) {
@@ -545,6 +548,7 @@ class InvocationGroupsComponent extends Component {
 	hide() {
 		this.uploadGeneration_++;
 		this.closeGroup_();
+		this.setBackendStatus_("Disconnected", "", "");
 		super.hide();
 	}
 
@@ -572,12 +576,18 @@ class InvocationGroupsComponent extends Component {
 	async openGroup_(view = "") {
 		this.closeGroup_();
 		const generation = this.generation_;
-		this.address_ = this.input_(goog.getCssName("igroup-backend")).value.trim();
 		this.group_ = this.input_(goog.getCssName("igroup-name")).value.trim();
+		this.address_ =
+			readToolSetting(ToolSetting.BUILD_EVENT_BACKEND) ||
+			(this.group_ && readViewerBackend("group." + this.group_)) ||
+			readViewerBackend("invocation") ||
+			toolSetting(ToolSetting.BUILD_EVENT_BACKEND);
 		const url = new URL(window.location.href);
 		const path = viewerLocation(url);
 		const singleId =
 			!this.group_ && !path.group && view !== "groups" ? path.id : "";
+		const fromExecution =
+			singleId && url.searchParams.get("source") === "execution";
 		this.runs_ = [];
 		this.olderRuns_ = [];
 		this.activeRun_ = null;
@@ -624,7 +634,10 @@ class InvocationGroupsComponent extends Component {
 			"Opening the invocation backend…",
 		);
 		try {
-			const backend = await openInvocationBackend(this.address_);
+			const backend = fromExecution
+				? await this.findExecutionInvocation_(singleId, generation)
+				: await openInvocationBackend(this.address_);
+			if (!backend) return;
 			if (generation !== this.generation_) {
 				backend.close();
 				return;
@@ -632,7 +645,7 @@ class InvocationGroupsComponent extends Component {
 			this.backend_ = backend;
 			if (this.activeView_ === "groups") void this.refreshCatalog_();
 			if (singleId) {
-				rememberViewerBackend("invocation", this.address_);
+				if (!fromExecution) rememberViewerBackend("invocation", this.address_);
 				this.watch_(singleId);
 				const result = await backend.list();
 				if (generation !== this.generation_) return;
@@ -669,6 +682,58 @@ class InvocationGroupsComponent extends Component {
 				);
 			}
 		}
+	}
+
+	/**
+	 * @private
+	 * @param {string} id
+	 * @param {number} generation
+	 * @return {!Promise<?InvocationBackend>}
+	 */
+	async findExecutionInvocation_(id, generation) {
+		const scheduler = executionInvocationBackend(id);
+		/** @type {!Array<string>} */
+		const addresses = [this.address_];
+		if (scheduler && scheduler !== this.address_) addresses.push(scheduler);
+		let reachable = false;
+		let detail = "";
+		for (const address of addresses) {
+			if (!address) continue;
+			/** @type {?InvocationBackend} */
+			let backend = null;
+			try {
+				backend = await openInvocationBackend(address);
+				if (generation !== this.generation_) {
+					backend.close();
+					return null;
+				}
+				await backend.get(id);
+				if (generation !== this.generation_) {
+					backend.close();
+					return null;
+				}
+				this.address_ = address;
+				return backend;
+			} catch (/** @type {*} */ error) {
+				backend?.close();
+				if (generation !== this.generation_) return null;
+				detail = error instanceof Error ? error.message : String(error);
+				if (/\bHTTP 404\b/.test(detail)) reachable = true;
+			}
+		}
+		const message = reachable
+			? "No build events found for this invocation. Check where Bazel published its build events."
+			: "Could not look up this invocation. Check the Build Events backend address.";
+		this.setBackendStatus_(
+			reachable ? "Invocation unavailable" : "Connection failed",
+			reachable ? "Label--attention" : "Label--danger",
+			reachable
+				? "Connect to the backend used by the build’s --bes_backend flag."
+				: detail,
+		);
+		this.setGroupWaitingMessage_(message);
+		this.renderCatalog_([], message);
+		return null;
 	}
 
 	/**
@@ -1351,7 +1416,7 @@ class InvocationGroupsComponent extends Component {
 					? incompleteStatus(result)
 					: result ||
 						(run["state"] === "INVOCATION_STATE_IN_PROGRESS"
-							? invocationStatus("Running", "running")
+							? invocationStatus(RUNNING_STATUS, "running")
 							: invocationStatus("Finished", "neutral"));
 			const last =
 				run["state"] === COLLECTION_INCOMPLETE ? run["lastEventAt"] : null;
@@ -1507,6 +1572,7 @@ class InvocationGroupsComponent extends Component {
 		/** @type {!Map<string, !InvocationStatus>} */
 		const statuses = new Map();
 		statuses.set("SUCCESS", invocationStatus("SUCCESS", "success"));
+		statuses.set(RUNNING_STATUS, invocationStatus(RUNNING_STATUS, "running"));
 		for (const row of rows) statuses.set(row.status.label, row.status);
 		/** @type {!Set<string>} */
 		const uniqueCommands = new Set(rows.map((row) => row.command));

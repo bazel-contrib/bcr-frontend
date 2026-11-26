@@ -93,6 +93,8 @@ function openBackend(ticket) {
 		listGroups: () => readGroup((transport) => transport.list_groups()),
 		listGroup: (name, token) => readGroup((transport) => transport.list_group(name, token || undefined)),
 		groupMetrics: (name, days) => readGroup((transport) => transport.group_metrics(name, days)),
+		execution: (path) => readGroup((transport) => transport.execution(path)),
+		executionActivity: async (path) => (await client()).wait_execution_activity(path),
 		get: async (id) => JSON.parse(await (await client()).get(id)),
 		watch: (...args) => void follow(...args),
 		close: () => {
@@ -113,7 +115,7 @@ async function readEvents(stream, onEvent) {
 		if (!chunk) return;
 		pending += decoder.decode(chunk, { stream: true });
 		if (pending.length > 64 * 1024 * 1024) throw new Error("Invocation event exceeds the viewer limit.");
-		// The companion forwards besserver's LF-delimited SSE stream unchanged.
+		// The companion forwards bazel_backend's LF-delimited SSE stream unchanged.
 		let start = 0;
 		for (let end; (end = pending.indexOf("\n\n", start)) !== -1; start = end + 2) {
 			const frame = pending.slice(start, end);

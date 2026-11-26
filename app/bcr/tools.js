@@ -10,6 +10,10 @@ const { ContentSelect } = goog.require("bcrfrontend.ContentSelect");
 const { InvocationGroupsComponent } = goog.require(
 	"bcrfrontend.invocationGroups",
 );
+const { RemoteCacheComponent } = goog.require("bcrfrontend.remoteCache");
+const { RemoteExecutionComponent } = goog.require(
+	"bcrfrontend.remoteExecution",
+);
 const { toolsCatalog, toolsSelect } = goog.require("soy.bcrfrontend.tools");
 
 class ToolsSelect extends ContentSelect {
@@ -50,6 +54,16 @@ class ToolsSelect extends ContentSelect {
 		}
 		if (name === "invocations") {
 			this.addTab(name, new InvocationGroupsComponent(this.dom_));
+			this.select(name, route);
+			return;
+		}
+		if (name === "remote-cache") {
+			this.addTab(name, new RemoteCacheComponent(this.dom_));
+			this.select(name, route);
+			return;
+		}
+		if (name === "remote-execution") {
+			this.addTab(name, new RemoteExecutionComponent(this.dom_));
 			this.select(name, route);
 			return;
 		}

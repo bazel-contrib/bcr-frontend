@@ -32,12 +32,12 @@ type Backend interface {
 
 type Observer func(context.Context, string, []*pb.RemoteCacheMetric) error
 
-func NewServer(backend Backend, observe Observer, logger *log.Logger) *grpc.Server {
+func NewServer(backend Backend, observe Observer, logger *log.Logger, options ...grpc.ServerOption) *grpc.Server {
 	m := instrumentation{observe: observe, logger: logger}
-	server := grpc.NewServer(
+	server := grpc.NewServer(append([]grpc.ServerOption{
 		grpc.MaxRecvMsgSize(MaxMessageBytes), grpc.MaxSendMsgSize(MaxMessageBytes),
 		grpc.UnaryInterceptor(m.unary), grpc.StreamInterceptor(m.stream),
-	)
+	}, options...)...)
 	re.RegisterActionCacheServer(server, backend)
 	re.RegisterContentAddressableStorageServer(server, backend)
 	re.RegisterCapabilitiesServer(server, backend)
@@ -54,17 +54,8 @@ func (m instrumentation) record(ctx context.Context, metrics ...*pb.RemoteCacheM
 	if m.observe == nil || len(metrics) == 0 {
 		return
 	}
-	incoming, _ := metadata.FromIncomingContext(ctx)
-	values := incoming.Get(requestMetadataKey)
-	if len(values) != 1 {
-		return
-	}
-	var request re.RequestMetadata
-	if err := proto.Unmarshal([]byte(values[0]), &request); err != nil {
-		return
-	}
-	id := request.GetToolInvocationId()
-	if id == "" || len(id) > 128 {
+	id := RequestInvocationID(ctx)
+	if id == "" {
 		return
 	}
 	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 2*time.Second)
@@ -72,6 +63,24 @@ func (m instrumentation) record(ctx context.Context, metrics ...*pb.RemoteCacheM
 	if err := m.observe(ctx, id, metrics); err != nil && m.logger != nil {
 		m.logger.Printf("record remote cache metrics: %v", err)
 	}
+}
+
+// RequestInvocationID extracts the Bazel invocation ID from REAPI metadata.
+func RequestInvocationID(ctx context.Context) string {
+	incoming, _ := metadata.FromIncomingContext(ctx)
+	values := incoming.Get(requestMetadataKey)
+	if len(values) != 1 {
+		return ""
+	}
+	var request re.RequestMetadata
+	if err := proto.Unmarshal([]byte(values[0]), &request); err != nil {
+		return ""
+	}
+	id := request.GetToolInvocationId()
+	if id == "" || len(id) > 128 {
+		return ""
+	}
+	return id
 }
 
 func outcome(err error, success string) string {

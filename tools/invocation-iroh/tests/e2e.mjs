@@ -12,6 +12,14 @@ import test from "node:test";
 const require = createRequire(import.meta.url);
 const { chromium } = require(process.env.PLAYWRIGHT_MODULE || "playwright");
 
+async function setToolTestSetting(page, name, value) {
+	await page.evaluate(({ name, value }) => {
+		const key = "bcr.tools." + name;
+		if (value) localStorage.setItem(key, value);
+		else localStorage.removeItem(key);
+	}, { name, value });
+}
+
 function command(name) {
 	const path = process.env[name];
 	assert.ok(path, `Set ${name} to the built executable or archive.`);
@@ -100,8 +108,8 @@ test("browser Iroh viewer follows real Bazel events and invocation groups", { ti
 	t.after(() => rm(dir, { recursive: true, force: true }));
 	const relay = launch(t, command("IROH_RELAY"), []);
 	const relayUrl = await relay.ready(/Relay URL: (http:\/\/[^\s]+)/);
-	const bes = launch(t, command("BESSERVER"), [
-		"--listen=127.0.0.1:0", "--http_listen=127.0.0.1:0", "--sqlite=" + join(dir, "invocations.sqlite"),
+	const bes = launch(t, command("BAZEL_BACKEND"), [
+		"--bes_backend_grpc_listen=127.0.0.1:0", "--http_listen=127.0.0.1:0", "--bes_backend_sqlite=" + join(dir, "invocations.sqlite"),
 	]);
 	const publishAddr = await bes.ready(/BES listening on ([^\s]+)/);
 	const backendPort = await bes.ready(/invocation API listening on http:\/\/127\.0\.0\.1:(\d+)/);
@@ -131,7 +139,7 @@ test("browser Iroh viewer follows real Bazel events and invocation groups", { ti
 	const errors = [];
 	page.on("pageerror", (error) => errors.push(error.message));
 	await page.goto(site + "/tools/invocation/" + id);
-	await page.getByLabel("Backend URL or iroh ticket").fill(ticket);
+	await setToolTestSetting(page, "build-event-backend", ticket);
 	await page.getByRole("button", { name: "Connect" }).click();
 	await page.getByRole("form", {name: "Backend"}).getByText("Connected", {exact: true}).waitFor({timeout: 30000});
 	const waitingIcon = await buildIcon.boundingBox();
@@ -202,7 +210,7 @@ test("browser Iroh viewer follows real Bazel events and invocation groups", { ti
 	await filePage.addInitScript(() => Object.defineProperty(navigator, "platform", { value: "MacIntel" }));
 	await filePage.goto(site + "/tools/invocations");
 	const macShortcuts = filePage.getByRole("region", { name: "Keyboard Shortcuts" });
-	assert.equal(await macShortcuts.locator("kbd", { hasText: /^Option$/ }).count(), 6);
+	assert.equal(await macShortcuts.locator("kbd", { hasText: /^Option$/ }).count(), 5);
 	assert.equal(await filePage.getByRole("link", { name: "build event stream backend", exact: true }).getAttribute("href"),
 		"https://github.com/bazel-contrib/bcr-frontend");
 	await filePage.getByText("Upload a build events file or connect to a build event stream backend.", { exact: true }).waitFor();
@@ -293,7 +301,7 @@ test("browser Iroh viewer follows real Bazel events and invocation groups", { ti
 		finally { backend.close(); }
 	}, expiredTicket);
 	assert.match(expired, /HTTP 403/);
-	await page.getByLabel("Backend URL or iroh ticket").fill(expiredTicket);
+	await setToolTestSetting(page, "build-event-backend", expiredTicket);
 	await page.getByRole("button", { name: "Connect" }).click();
 	await page.getByText("The Iroh viewer ticket or invocation was denied.", { exact: true }).waitFor();
 
@@ -303,7 +311,7 @@ test("browser Iroh viewer follows real Bazel events and invocation groups", { ti
 	const groupTicket = await groupServer.ready(/Viewer ticket: ([^\s]+)/);
 	await page.goto(site + "/tools/invocations");
 	await page.getByRole("heading", { level: 1, name: "Build Events" }).waitFor();
-	assert.equal(await page.getByRole("heading", { name: "Tools", exact: true }).count(), 0);
+	assert.equal(await page.getByRole("heading", { name: "Tools", exact: true }).count(), 1);
 	const backendForm = page.getByRole("form", { name: "Backend" });
 	const backendStatus = backendForm;
 	const connectGroup = backendForm.getByRole("button", { name: "Connect" });
@@ -316,11 +324,11 @@ test("browser Iroh viewer follows real Bazel events and invocation groups", { ti
 	assert.equal(groupDefaults.get("showLast"), "1");
 	assert.match(await followBuilds.locator("xpath=..").getAttribute("title"), /Open new group builds automatically/);
 	assert.match(await showLastRun.locator("xpath=..").getAttribute("title"), /Open the latest finished run/);
-	assert.equal((await connectGroup.boundingBox()).x, (await backendForm.getByLabel("Backend URL or iroh ticket").boundingBox()).x);
+	assert.equal((await connectGroup.boundingBox()).x, (await backendForm.getByLabel("Group", {exact: true}).boundingBox()).x);
 	const viewNav = page.getByRole("navigation", { name: "Build event views" });
 	const sidebar = page.locator(".bes-events-sidebar");
 	const groupView = (name) => viewNav.getByRole("link", { name, exact: true });
-	await backendStatus.getByText("Disconnected", { exact: true }).waitFor();
+	await backendStatus.getByRole("button", { name: "Connect", exact: true }).waitFor();
 	assert.ok((await page.getByRole("region", { name: "Groups", exact: true }).boundingBox()).x >
 		(await sidebar.boundingBox()).x);
 	for (const name of ["Invocation", "Group", "Tests"]) {
@@ -328,29 +336,29 @@ test("browser Iroh viewer follows real Bazel events and invocation groups", { ti
 		await page.getByRole("region", { name, exact: true }).getByText(/Connect to a backend and choose a group/).first().waitFor();
 		assert.equal(await groupView(name).getAttribute("aria-current"), "location");
 	}
-	await page.keyboard.press("Alt+Shift+Digit5");
+	await backendForm.getByRole("link", { name: "Tools settings" }).click();
 	const usage = page.getByRole("region", { name: "Usage", exact: true });
-	await usage.getByRole("figure", { name: "Build event flow from Bazel to the viewer" }).waitFor();
+	await usage.getByRole("figure", { name: "Bazel tool architecture" }).waitFor();
 	for (const snippet of [
-		"bazel build //cmd/besserver",
+		"bazel build //cmd/bazel_backend",
 		"bazel build -c opt //tools/invocation-iroh",
 		"--backend-port 1974 --key-file ./iroh.key",
 		"--build_metadata=igroup=release",
 	]) {
-		await usage.locator("pre:visible").filter({ hasText: snippet }).waitFor();
+		await usage.locator("pre:visible").filter({ hasText: snippet }).first().waitFor();
 	}
 	assert.match(await usage.innerText(), /bcr-iroh-v1:eyJlbmRwb2ludCI6…/);
-	assert.match(await usage.innerText(), /Paste the full ticket into Backend URL or iroh ticket in the Backend form/);
+	assert.match(await usage.innerText(), /Paste the full ticket into Build Event Backend in Tools settings/);
 	assert.match(await usage.innerText(), /Reuse the same key file across restarts to keep a stable Iroh address/);
 	assert.equal(await usage.locator("details[open]").count(), 0);
 	await usage.locator("summary").click();
 	await usage.locator("pre").filter({ hasText: "bazel run //app/bcr:release" }).waitFor();
-	await groupView("Invocation").click();
-	await backendForm.getByLabel("Backend URL or iroh ticket").fill("ftp://localhost");
+	await page.goto(site + "/tools/invocations/-/current");
+	await setToolTestSetting(page, "build-event-backend", "ftp://localhost");
 	await backendForm.getByRole("button", { name: "Connect" }).click();
 	await backendStatus.getByText("Connection failed", { exact: true }).waitFor();
 	await backendStatus.getByText(/Enter an HTTP or HTTPS backend URL/).waitFor();
-	await backendForm.getByLabel("Backend URL or iroh ticket").fill(groupTicket);
+	await setToolTestSetting(page, "build-event-backend", groupTicket);
 	await backendForm.getByRole("button", { name: "Connect" }).click();
 	await page.getByRole("button", { name: "saved", exact: true }).waitFor();
 	await backendForm.getByLabel("Group", { exact: true }).fill("release");
@@ -413,8 +421,6 @@ test("browser Iroh viewer follows real Bazel events and invocation groups", { ti
 		await inspectWaitingEvent();
 		nextRun = startGroupedBuild();
 		await runsTab.click();
-		await runs.locator("summary").click();
-		await runs.getByRole("checkbox", {name: "Running", exact: true}).check();
 		const runningRow = runs.getByRole("row", { name: new RegExp(nextRun.id) });
 		await runningRow.getByRole("img", { name: "Running", exact: true }).waitFor();
 		await runningRow.locator(".color-fg-attention .bes-invocation-spinner").waitFor();
@@ -775,8 +781,8 @@ test("group Follow picks up the next invocation across views", async (t) => {
 
 	await page.goto(site + "/tools/invocations");
 	const viewNav = page.getByRole("navigation", {name: "Build event views"});
-	assert.equal(await page.locator(".bes-events-sidebar").getByRole("navigation").count(), 0);
-	assert.deepEqual(await viewNav.getByRole("link").allTextContents(), ["Invocation", "Group", "Groups", "Tests", "Upload", "Usage"]);
+	assert.equal(await page.locator(".bes-events-sidebar").getByRole("navigation", {name: "Build event views"}).count(), 0);
+	assert.deepEqual(await viewNav.getByRole("link").allTextContents(), ["Invocation", "Group", "Groups", "Tests", "Upload"]);
 	await viewNav.getByRole("link", {name: "Invocation", exact: true}).click();
 	await page.getByRole("region", {name: "Invocation", exact: true}).waitFor();
 	await viewNav.getByRole("link", {name: "Groups", exact: true}).click();
@@ -864,7 +870,12 @@ test("group Follow picks up the next invocation across views", async (t) => {
 	await groupByFilter.selectOption({label: "Day (UTC)"});
 	await table.getByText("Average 1 s", {exact: true}).waitFor();
 	await table.getByText("Status", {exact: true}).click();
-	await table.getByRole("checkbox", {name: "Running", exact: true}).check();
+	const runningFilter = table.getByRole("checkbox", {name: "Running", exact: true});
+	assert.equal(await runningFilter.isChecked(), true);
+	await row("latest").waitFor();
+	await runningFilter.uncheck();
+	await row("latest").waitFor({state: "hidden"});
+	await runningFilter.check();
 	await row("latest").waitFor();
 	await table.getByRole("checkbox", {name: "SUCCESS", exact: true}).uncheck();
 	await row("fast").waitFor({state: "hidden"});
@@ -954,4 +965,310 @@ test("test attempt details keep large output lists collapsed", async (t) => {
 	assert.ok((await list.getByText("output-0.log", {exact: true}).getAttribute("title")).includes(uri));
 	assert.equal((await list.innerText()).includes(uri), false);
 	assert.ok(await list.evaluate((element) => element.scrollHeight > element.clientHeight));
+});
+
+test("Tools settings save endpoints, test connections, and update the usage diagram", async (t) => {
+	const web = launch(t, command("RELEASESERVER"), [
+		"--host=127.0.0.1", "--port=0", command("FRONTEND_ARCHIVE"),
+	]);
+	const site = await web.ready(/Starting server on (http:\/\/[^\s]+)/);
+	const browser = await chromium.launch(process.env.CHROME_BIN ? { executablePath: process.env.CHROME_BIN } : {});
+	t.after(() => browser.close());
+	const context = await browser.newContext();
+	const page = await context.newPage();
+	page.setDefaultTimeout(8000);
+	const bes = "http://localhost:3974";
+	const scheduler = "http://localhost:1984";
+	const toolsSettings = site + "/settings/tools";
+	const cors = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization" };
+	await page.route(bes + "/api/**", (route) => route.fulfill({ headers: cors, json: { invocations: [] } }));
+	await page.route(scheduler + "/api/remote-execution/**", (route) => route.fulfill({
+		headers: cors,
+		status: route.request().headers()["authorization"] === "Bearer test-viewer" ? 200 : 403,
+		json: { pools: [] },
+	}));
+	await page.goto(site + "/settings");
+	await page.getByText("Display Preferences", { exact: true }).waitFor();
+	await page.locator('a[href="/settings/tools"]').click();
+	await page.waitForURL(toolsSettings);
+	const backendSetting = page.getByLabel("Build Event Backend", { exact: true });
+	const schedulerSetting = page.getByLabel("Remote Executor Scheduler", { exact: true });
+	assert.equal(await backendSetting.getAttribute("placeholder"), "http://localhost:1974");
+	await backendSetting.fill(bes);
+	await schedulerSetting.fill(scheduler);
+	await page.getByLabel("Viewer token", { exact: true }).fill("test-viewer");
+	await page.getByLabel("--remote_cache", { exact: true }).fill("http://localhost:9876");
+	const diagram = page.getByRole("figure", { name: "Bazel tool architecture" });
+	await diagram.getByText("--remote_cache=http://localhost:9876", { exact: true }).waitFor();
+	assert.equal(await diagram.locator('[data-tool-endpoint="scheduler"]').innerText(), scheduler);
+	assert.ok(!(await diagram.innerText()).includes("test-viewer"));
+	for (const name of ["Build Events connection", "Remote Execution viewer connection"]) {
+		const form = page.getByRole("form", { name, exact: true });
+		await form.getByRole("button", { name: "Test connection" }).click();
+		await form.getByText("Connected", { exact: true }).waitFor();
+	}
+	const admin = page.getByRole("form", { name: "Remote Execution admin connection" });
+	await admin.getByRole("button", { name: "Test connection" }).click();
+	await admin.getByText("Enter an admin token.", { exact: true }).waitFor();
+	assert.equal(await page.evaluate(() => localStorage.getItem("bcr.tools.remote-execution-viewer-token")), "test-viewer");
+	const anotherTab = await context.newPage();
+	await anotherTab.goto(toolsSettings);
+	assert.equal(await anotherTab.getByLabel("Viewer token", { exact: true }).inputValue(), "test-viewer");
+	await anotherTab.close();
+
+	const ticketKey = "bcr.tools.remote-execution-scheduler";
+	const ticket = "bcr-iroh-v1:test-ticket";
+	await page.evaluate(({ key, ticket }) => {
+		localStorage.removeItem(key);
+		sessionStorage.setItem(key, ticket);
+	}, { key: ticketKey, ticket });
+	await page.reload();
+	assert.equal(await schedulerSetting.inputValue(), ticket);
+	assert.deepEqual(await page.evaluate((key) => [
+		localStorage.getItem(key), sessionStorage.getItem(key),
+	], ticketKey), [ticket, null]);
+	await schedulerSetting.fill(scheduler);
+	await page.reload();
+	await page.locator('a[href="/settings/appearance"]').click();
+	await page.getByText("Display Preferences", { exact: true }).waitFor();
+	await page.locator('a[href="/settings/tools"]').click();
+	assert.equal(await backendSetting.inputValue(), bes);
+	assert.equal(await page.getByLabel("Viewer token", { exact: true }).inputValue(), "test-viewer");
+
+	const request = page.waitForRequest(bes + "/api/invocations?group=release");
+	await page.goto(site + "/tools/invocations/release");
+	await request;
+	const backendForm = page.getByRole("form", { name: "Backend" });
+	assert.equal(await backendForm.getByLabel("Build Event Backend").count(), 0);
+	await backendForm.getByRole("link", { name: "Tools settings" }).click();
+	await page.waitForURL((url) => url.pathname === "/settings/tools");
+
+	await page.goto(site + "/tools/remote-execution");
+	assert.equal(await page.getByLabel("Viewer token").count(), 0);
+	await page.getByRole("button", { name: "Connect", exact: true }).click();
+	await page.getByText("Connected", { exact: true }).waitFor();
+});
+
+test("Remote Execution restores breadcrumb routes, operation details, and invocation links", async (t) => {
+	const web = launch(t, command("RELEASESERVER"), [
+		"--host=127.0.0.1", "--port=0", command("FRONTEND_ARCHIVE"),
+	]);
+	const site = await web.ready(/Starting server on (http:\/\/[^\s]+)/);
+	const browser = await chromium.launch(process.env.CHROME_BIN ? { executablePath: process.env.CHROME_BIN } : {});
+	t.after(() => browser.close());
+	const page = await browser.newPage();
+	page.setDefaultTimeout(8000);
+	const scheduler = "http://127.0.0.1:2974";
+	const buildEvents = "http://localhost:1974";
+	const workerId = "iroh-" + "a".repeat(64);
+	const operationId = "f".repeat(32);
+	const operationName = "operations/" + operationId;
+	const base = "/tools/remote-execution";
+	const poolPath = base + "/pools/local";
+	const workerPath = poolPath + "/workers/" + workerId;
+	const detailPath = workerPath + "/operations/" + operationId;
+	const saved = randomUUID();
+	const missing = randomUUID();
+	const upcoming = randomUUID();
+	const time = new Date(Date.now() - 7200000).toISOString();
+	const summary = { invocationId: saved, state: "INVOCATION_STATE_IN_PROGRESS", startedAt: time };
+	const cors = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization" };
+	const watched = [];
+	const found = [];
+	for (const address of [scheduler, buildEvents]) {
+		await page.route(address + "/api/**", (route) => {
+			const url = new URL(route.request().url());
+			const json = (data) => route.fulfill({ headers: cors, json: data });
+			if (url.pathname.endsWith("/operations/" + operationId)) return json({
+				operation: { operationName, workerId, invocationId: saved, exitCode: 0, state: "OPERATION_STATE_COMPLETED" },
+				attempts: [{ operationName, workerId, attemptNumber: 1, state: "ATTEMPT_STATE_COMPLETED" }],
+				process: { arguments: ["/bin/sh", "-c", "echo hello"], workingDirectory: "src", outputPaths: ["test.out"] },
+				stdoutBytes: "14",
+			});
+			if (url.pathname.endsWith("/workers/" + workerId)) return json({
+				worker: { workerId, displayName: "worker-01", state: "WORKER_STATE_ONLINE", lastSeenAt: time },
+			});
+			if (url.pathname.endsWith("/attempts")) return json({
+				attempts: [{ operationName, workerId, invocationId: saved, attemptNumber: 1, state: "ATTEMPT_STATE_COMPLETED" }],
+			});
+			if (url.pathname.endsWith("/remote-execution/pools")) return json({
+				pools: [{ poolId: "local", displayName: "Local Linux" }],
+			});
+			if (url.pathname.endsWith("/workers")) {
+				return json({ workers: [{ workerId, displayName: "worker-01", state: "WORKER_STATE_ONLINE", lastSeenAt: time }] });
+			}
+			if (url.pathname.endsWith("/operations")) {
+				return json({ operations: [saved, missing].map((invocationId) => ({
+					operationName, invocationId, workerId, state: "OPERATION_STATE_COMPLETED",
+					actionDigest: { hash: "b".repeat(64) }, queuedAt: time,
+				})) });
+			}
+			if (url.pathname.endsWith("/activity")) return route.fulfill({ headers: cors, status: 204 });
+			if (url.pathname.endsWith("/pools/local")) return json({ pool: { displayName: "Local Linux" } });
+			if (url.pathname.endsWith("/events")) {
+				watched.push(url.href);
+				return route.fulfill({ headers: cors, contentType: "text/event-stream", body: ": connected\n\n" });
+			}
+			if (url.pathname === "/api/invocations") return json({ invocations: [] });
+			found.push(url.href);
+			if (address === scheduler && url.pathname.endsWith("/" + saved)) return json(summary);
+			return route.fulfill({ headers: cors, status: 404 });
+		});
+	}
+
+	const connected = page.locator('.bes-backend-actions [data-rex="status"].Label--success').getByText("Connected", { exact: true });
+	await page.goto(site + base);
+	await setToolTestSetting(page, "remote-execution-scheduler", scheduler);
+	await setToolTestSetting(page, "remote-execution-viewer-token", "test-token");
+	await page.reload();
+	await connected.waitFor();
+	await page.getByRole("table", { name: "Pools" }).getByRole("link", { name: "Local Linux" }).click();
+	await page.waitForURL((url) => url.pathname === poolPath);
+	const breadcrumb = page.getByRole("navigation", { name: "Remote execution breadcrumb" });
+	await breadcrumb.getByText("Local Linux", { exact: true }).waitFor();
+	const operations = page.getByRole("table", { name: "Operations" });
+	const row = operations.locator("tbody tr").first();
+	await row.waitFor();
+	assert.equal(await operations.evaluate((el) => getComputedStyle(el).tableLayout), "fixed");
+	assert.equal(await row.getByRole("link", { name: "worker-01" }).getAttribute("title"), workerId);
+	assert.equal(await row.locator("time").getAttribute("datetime"), time);
+	assert.equal(await row.locator('.rex-table-value').last().evaluate((el) => getComputedStyle(el).whiteSpace), "nowrap");
+	assert.equal(await page.locator('[data-rex="status-detail"]').innerText(), scheduler);
+
+	await page.getByRole("table", { name: "Workers" }).getByRole("link", { name: "worker-01" }).click();
+	await page.waitForURL((url) => url.pathname === workerPath);
+	await page.getByRole("table", { name: "Attempts" }).getByRole("link", { name: operationId.slice(0, 12) }).click();
+	await page.waitForURL((url) => url.pathname === detailPath);
+	for (const reload of [false, true]) {
+		if (reload) await page.reload();
+		await page.getByText("Working directory:", { exact: false }).waitFor();
+		await page.locator(".rex-operation-command").getByText("echo hello", { exact: false }).waitFor();
+		assert.equal(await breadcrumb.getByRole("link", { name: "Local Linux" }).getAttribute("href"), poolPath);
+		assert.equal(await breadcrumb.getByRole("link", { name: "worker-01" }).getAttribute("href"), workerPath);
+		assert.match(await breadcrumb.locator("[aria-current=page]").innerText(), /^Operation /);
+	}
+	await page.goBack();
+	await page.waitForURL((url) => url.pathname === workerPath);
+	await breadcrumb.getByRole("link", { name: "Local Linux" }).click();
+	await page.waitForURL((url) => url.pathname === poolPath);
+
+	const watchSaved = page.waitForRequest((request) => request.url().startsWith(scheduler + "/api/invocations/" + saved + "/events"));
+	await operations.getByRole("link", { name: saved }).click();
+	await watchSaved;
+	assert.equal(new URL(page.url()).searchParams.get("source"), "execution");
+	assert.ok(found.includes(buildEvents + "/api/invocations/" + saved));
+
+	await page.goto(site + poolPath);
+	await connected.waitFor();
+	await operations.getByRole("link", { name: missing }).click();
+	await page.getByText(/^No build events found for this invocation/).first().waitFor();
+	assert.ok(found.includes(scheduler + "/api/invocations/" + missing));
+	assert.ok(!watched.some((url) => url.includes(missing)));
+
+	const watchUpcoming = page.waitForRequest((request) => request.url().startsWith(buildEvents + "/api/invocations/" + upcoming + "/events"));
+	await page.goto(site + "/tools/invocation/" + upcoming);
+	await watchUpcoming;
+});
+
+test("Tools catalog faces and shared sidebar links open all tools", async (t) => {
+	const web = launch(t, command("RELEASESERVER"), [
+		"--host=127.0.0.1", "--port=0", command("FRONTEND_ARCHIVE"),
+	]);
+	const site = await web.ready(/Starting server on (http:\/\/[^\s]+)/);
+	const browser = await chromium.launch(process.env.CHROME_BIN ? { executablePath: process.env.CHROME_BIN } : {});
+	t.after(() => browser.close());
+	const page = await browser.newPage();
+	page.setDefaultTimeout(8000);
+	const tools = [
+		["Build Events", "invocations"],
+		["Remote Execution", "remote-execution"],
+		["Action Query", "action-query"],
+		["Execution Log", "execution-log"],
+		["Remote Cache", "remote-cache"],
+	];
+	await page.goto(site + "/tools");
+	const catalog = page.getByRole("navigation", { name: "Bazel tools", exact: true });
+	const sidebar = page.getByRole("navigation", { name: "Tools", exact: true });
+	await catalog.getByRole("link", { name: "Build Events" }).waitFor();
+	assert.equal(await page.locator(".tools-net-art").count(), 1);
+	assert.equal(await catalog.getByRole("link").count(), tools.length);
+	for (const [name, route] of tools) {
+		const link = catalog.getByRole("link", { name, exact: true });
+		await link.focus();
+		assert.equal(await link.evaluate((element) => element === document.activeElement), true);
+		await page.keyboard.press("Enter");
+		await page.waitForURL((url) => url.pathname === "/tools/" + route);
+		await sidebar.getByRole("link", { name, exact: true }).waitFor();
+		assert.equal(await sidebar.getByRole("link", { name, exact: true }).getAttribute("aria-current"), "page");
+		assert.equal(await sidebar.getByRole("link").count(), tools.length + 1);
+		await sidebar.getByRole("link", { name: "All tools", exact: true }).click();
+		await catalog.waitFor();
+	}
+	await page.setViewportSize({ width: 320, height: 720 });
+	const netWindow = page.locator(".tools-net-window");
+	const bounds = await netWindow.boundingBox();
+	for (const [name] of tools) {
+		const face = await catalog.getByRole("link", { name, exact: true }).boundingBox();
+		assert.ok(face.x >= bounds.x && face.x + face.width <= bounds.x + bounds.width, name);
+	}
+	assert.ok(await netWindow.evaluate((element) => {
+		element.scrollLeft = -element.scrollWidth;
+		const canPan = element.scrollLeft < 0;
+		element.scrollLeft = 0;
+		return canPan;
+	}));
+	await catalog.getByRole("link", { name: "Execution Log", exact: true }).click();
+	await page.waitForURL((url) => url.pathname === "/tools/execution-log");
+	await sidebar.getByRole("link", { name: "Action Query", exact: true }).click();
+	await page.waitForURL((url) => url.pathname === "/tools/action-query");
+});
+
+test("Remote Cache updates live traffic and storage from the status API", async (t) => {
+	const web = launch(t, command("RELEASESERVER"), [
+		"--host=127.0.0.1", "--port=0", command("FRONTEND_ARCHIVE"),
+	]);
+	const site = await web.ready(/Starting server on (http:\/\/[^\s]+)/);
+	const browser = await chromium.launch(process.env.CHROME_BIN ? { executablePath: process.env.CHROME_BIN } : {});
+	t.after(() => browser.close());
+	const page = await browser.newPage();
+	page.setDefaultTimeout(8000);
+	const endpoint = "http://localhost:1974/api/remote-cache/status";
+	let polls = 0;
+	await page.route(endpoint, (route) => {
+		const poll = polls++;
+		return route.fulfill({
+			headers: { "Access-Control-Allow-Origin": "*" },
+			json: {
+				startedAt: "2026-06-02T10:00:00Z",
+				sampledAt: new Date(Date.UTC(2026, 5, 2, 10, 5) + poll * 2000).toISOString(),
+				uploadedBytes: 8192 * poll,
+				downloadedBytes: 4096 * poll,
+				activeUploads: 1,
+				activeDownloads: 2,
+				connections: 1,
+				actionHits: 3,
+				actionMisses: 1,
+				actionErrors: 1,
+				storage: { mode: "bounded", usedBytes: 8192, limitBytes: 16384, filesystemFreeBytes: 65536, reservedBytes: 2048, evictedBytes: 1024, evictedEntries: 1 },
+			},
+		});
+	});
+	await page.goto(site + "/tools/remote-cache");
+	await page.getByRole("button", { name: "Connect", exact: true }).click();
+	await page.getByText("Connected", { exact: true }).waitFor();
+	assert.equal(await page.locator('[data-cache="transfers"]').innerText(), "3");
+	assert.equal(await page.locator('[data-cache="connections"]').innerText(), "1");
+	assert.equal(await page.locator('[data-cache="hit-rate"]').innerText(), "75.0%");
+	assert.equal(await page.locator('[data-cache="storage-summary"]').innerText(), "8.0 KiB used of 16.0 KiB cache budget");
+	await page.getByText("4.0 KiB/s", { exact: true }).first().waitFor();
+	assert.equal(await page.locator('[data-cache="upload"]').innerText(), "4.0 KiB/s");
+	assert.equal(await page.locator('[data-cache="download"]').innerText(), "2.0 KiB/s");
+	await page.waitForFunction(() => document.querySelector('[data-cache="chart-upload"]')?.getAttribute("points")?.includes(" "));
+	await page.reload();
+	await page.getByText("Connected", { exact: true }).waitFor();
+	await page.getByRole("link", { name: "All tools", exact: true }).click();
+	await page.waitForURL((url) => url.pathname === "/tools");
+	const stopped = polls;
+	await page.waitForTimeout(2200);
+	assert.equal(polls, stopped);
 });

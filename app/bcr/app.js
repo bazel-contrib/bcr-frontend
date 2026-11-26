@@ -612,6 +612,8 @@ class RegistryApp extends App {
 		const tgt = anchor.target;
 		if (tgt && tgt !== "_self") return false;
 		if (anchor.hasAttribute("download")) return false;
+		// Keep the source query on links into Build Events from scheduler history.
+		if (anchor.hasAttribute("data-rex-invocation")) return false;
 		const rawHref = anchor.getAttribute("href");
 		if (!rawHref) return false;
 		if (

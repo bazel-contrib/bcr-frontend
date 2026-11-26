@@ -2,6 +2,7 @@
 
 import {octiconFile16} from 'app/bcr/octicons.soy';
 import {sectionHeader} from 'app/bcr/registry.soy';
+import {toolsSidebar, toolSettingsLink} from 'app/bcr/tools.soy';
 
 {template executionLog}
   <div class="PageLayout PageLayout--panePos-start PageLayout--hasPaneDivider PageLayout--responsive-stackRegions PageLayout--responsive-panePos-start">
@@ -9,7 +10,7 @@ import {sectionHeader} from 'app/bcr/registry.soy';
       <div class="PageLayout-pane execution-log-sidebar">
         <h1 class="h2 mb-2">Execution Log</h1>
         <p class="color-fg-muted">Inspect Bazel spawns, cache hits, and failures. The log stays in this browser.</p>
-        <pre class="action-query-command"><code>bazel build {'//pkg:target'} --execution_log_compact_file=execution.log.zst</code></pre>
+        <p>{toolSettingsLink()}</p>
         <p class="text-small color-fg-muted" id="execution-log-summary" role="status"></p>
         <div id="execution-log-invocation" class="text-small color-fg-muted"></div>
         <section class="mb-3" id="execution-log-filters" aria-label="Mnemonics" hidden>
@@ -17,6 +18,7 @@ import {sectionHeader} from 'app/bcr/registry.soy';
           <p class="text-small color-fg-muted mb-2">Uncheck a mnemonic to hide its entries.</p>
           <div class="tool-mnemonics" id="execution-log-mnemonics"></div>
         </section>
+        {toolsSidebar(current: 'execution-log')}
       </div>
       <div class="PageLayout-content execution-log-content" id="execution-log-content">
         <div class="execution-log-toolbar flex-items-center flex-justify-between mb-3">

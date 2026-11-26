@@ -63,6 +63,9 @@ pub enum Operation {
     Get {
         id: String,
     },
+    ExecutionRead {
+        path: String,
+    },
     Watch {
         id: String,
         after: u64,

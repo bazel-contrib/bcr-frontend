@@ -6,6 +6,7 @@ import (
 	"io"
 	"log"
 	"net"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -24,6 +25,75 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
 )
+
+func TestDedicatedExecutionCacheDirectory(t *testing.T) {
+	root := t.TempDir()
+	cacheDir := filepath.Join(root, "cache")
+	cache := &cacheOptions{dir: cacheDir}
+	options := executionOptions{grpcListen: "127.0.0.1:0", clientToken: "token", database: filepath.Join(root, "execution.sqlite")}
+	dedicated, err := options.dedicatedCache(cache)
+	if err != nil || dedicated.dir != options.database+".cache" {
+		t.Fatalf("dedicated cache = %+v, error = %v", dedicated, err)
+	}
+	alias := filepath.Join(root, "alias")
+	if err := os.Symlink(cacheDir, alias); err != nil {
+		t.Fatal(err)
+	}
+	for _, path := range []string{cacheDir, filepath.Join(cacheDir, "nested"), alias, root} {
+		options.cacheDir = path
+		if _, err := options.dedicatedCache(cache); err == nil {
+			t.Errorf("accepted overlapping execution cache %q", path)
+		}
+	}
+}
+
+type rejectingBuildEventServer struct {
+	buildpb.UnimplementedPublishBuildEventServer
+}
+
+func (rejectingBuildEventServer) PublishBuildToolEventStream(stream buildpb.PublishBuildEvent_PublishBuildToolEventStreamServer) error {
+	if _, err := stream.Recv(); err != nil {
+		return err
+	}
+	return status.Error(codes.PermissionDenied, "upstream rejected event")
+}
+
+func TestBuildEventProxyReturnsUpstreamStatus(t *testing.T) {
+	connect := func(publisher buildpb.PublishBuildEventServer) buildpb.PublishBuildEventClient {
+		t.Helper()
+		listener := bufconn.Listen(1024 * 1024)
+		server := grpc.NewServer()
+		buildpb.RegisterPublishBuildEventServer(server, publisher)
+		go server.Serve(listener)
+		t.Cleanup(server.Stop)
+		conn, err := grpc.NewClient("passthrough:///bes",
+			grpc.WithTransportCredentials(insecure.NewCredentials()),
+			grpc.WithContextDialer(func(ctx context.Context, _ string) (net.Conn, error) {
+				return listener.DialContext(ctx)
+			}))
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() { conn.Close() })
+		return buildpb.NewPublishBuildEventClient(conn)
+	}
+	client := connect(&publishServer{upstream: connect(rejectingBuildEventServer{}), logger: log.New(io.Discard, "", 0)})
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	stream, err := client.PublishBuildToolEventStream(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := stream.Send(&buildpb.PublishBuildToolEventStreamRequest{OrderedBuildEvent: &buildpb.OrderedBuildEvent{
+		StreamId:       &buildpb.StreamId{InvocationId: "test", Component: buildpb.StreamId_TOOL},
+		SequenceNumber: 1, Event: &buildpb.BuildEvent{},
+	}}); err != nil {
+		t.Fatal(err)
+	}
+	if reply, err := stream.Recv(); status.Code(err) != codes.PermissionDenied {
+		t.Fatalf("expected upstream rejection, got reply %v, err %v", reply, err)
+	}
+}
 
 func TestPublish(t *testing.T) {
 	storage, err := invocation.OpenSQLite(filepath.Join(t.TempDir(), "events.sqlite"))
@@ -109,7 +179,7 @@ func TestArchiveReplayFromRemoteCache(t *testing.T) {
 	cacheServer := remotecache.NewServer(cache, nil, nil)
 	go cacheServer.Serve(listener)
 	defer cacheServer.Stop()
-	conn, err := dialCache("grpc://" + listener.Addr().String())
+	conn, err := dialBackend("grpc://" + listener.Addr().String())
 	if err != nil {
 		t.Fatal(err)
 	}

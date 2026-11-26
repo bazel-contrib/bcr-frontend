@@ -1,5 +1,6 @@
 load("@invocation_iroh_crates//:defs.bzl", "RESOLVED_PLATFORMS")
-load("@rules_rust//rust:defs.bzl", "rust_binary", "rust_library")
+load("@rules_rust//rust:defs.bzl", "rust_binary", "rust_library", "rust_shared_library")
+load("@rules_rust_wasm_bindgen//:defs.bzl", "rust_wasm_bindgen", "rust_wasm_bindgen_toolchain")
 
 rust_library(
     name = "invocation_iroh_lib",
@@ -45,4 +46,45 @@ rust_binary(
         "@invocation_iroh_crates//:iroh-relay",
         "@invocation_iroh_crates//:tokio",
     ],
+)
+
+rust_shared_library(
+    name = "browser_wasm",
+    srcs = ["src/browser.rs", "src/lib.rs"],
+    crate_name = "invocation_iroh",
+    crate_root = "src/lib.rs",
+    edition = "2024",
+    target_compatible_with = ["@platforms//cpu:wasm32"],
+    deps = [
+        "@invocation_iroh_browser_crates//:anyhow",
+        "@invocation_iroh_browser_crates//:base64",
+        "@invocation_iroh_browser_crates//:getrandom",
+        "@invocation_iroh_browser_crates//:iroh",
+        "@invocation_iroh_browser_crates//:serde",
+        "@invocation_iroh_browser_crates//:serde_json",
+        "@invocation_iroh_browser_crates//:wasm-bindgen",
+        "@invocation_iroh_browser_crates//:wasm-bindgen-futures",
+    ],
+)
+
+rust_wasm_bindgen(
+    name = "iroh_browser",
+    bindgen_flags = [
+        "--no-typescript",
+        "--remove-name-section",
+    ],
+    out_name = "bcr_invocation_iroh",
+    target = "web",
+    wasm_file = ":browser_wasm",
+)
+
+rust_wasm_bindgen_toolchain(
+    name = "browser_bindgen",
+    wasm_bindgen_cli = "@multitool//tools/wasm-bindgen:wasm-bindgen",
+)
+
+toolchain(
+    name = "browser_bindgen_toolchain",
+    toolchain = ":browser_bindgen",
+    toolchain_type = "@rules_rust_wasm_bindgen//:toolchain_type",
 )

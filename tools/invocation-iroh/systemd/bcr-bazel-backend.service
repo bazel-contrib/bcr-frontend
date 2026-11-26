@@ -10,7 +10,9 @@ EnvironmentFile=-%E/bcr-invocation-observer/environment
 StateDirectory=bcr-invocation-observer
 StateDirectoryMode=0700
 UMask=0077
-ExecStart=/bin/sh -c 'exec "$${XDG_DATA_HOME:-$$HOME/.local/share}/bcr-invocation-observer/current/besserver" "$$@"' bcr-besserver --listen=${BCR_BES_LISTEN} --http_listen=127.0.0.1:${BCR_INVOCATION_HTTP_PORT} --frontend_origin=${BCR_FRONTEND_ORIGIN} --sqlite=${STATE_DIRECTORY}/invocations.sqlite $BCR_BES_ARGS
+ExecStart=/bin/sh -c 'exec "$${XDG_DATA_HOME:-$$HOME/.local/share}/bcr-invocation-observer/current/bazel_backend" "$$@"' bcr-bazel-backend \
+  --bes_backend_grpc_listen=${BCR_BES_LISTEN} --http_listen=127.0.0.1:${BCR_INVOCATION_HTTP_PORT} \
+  --http_allow_origin=${BCR_FRONTEND_ORIGIN} --bes_backend_sqlite=${STATE_DIRECTORY}/invocations.sqlite $BCR_BES_ARGS
 Restart=on-failure
 RestartSec=5s
 TimeoutStopSec=15s
