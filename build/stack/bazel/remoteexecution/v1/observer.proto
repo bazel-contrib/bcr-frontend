@@ -1,0 +1,207 @@
+syntax = "proto3";
+
+package build.stack.bazel.remoteexecution.v1;
+
+import "build/bazel/remote/execution/v2/remote_execution.proto";
+import "google/protobuf/timestamp.proto";
+import "google/rpc/code.proto";
+
+option go_package = "github.com/bazel-contrib/bcr-frontend/build/stack/bazel/remoteexecution/v1;remoteexecutionpb";
+
+// Read-only data for the Remote Execution UI. HTTP JSON and SSE and the
+// Iroh viewer transport expose these same snapshots and events.
+service ExecutionObserverService {
+  rpc ListPools(ListPoolsRequest) returns (ListPoolsResponse);
+  rpc GetPool(GetPoolRequest) returns (GetPoolResponse);
+  rpc ListWorkers(ListWorkersRequest) returns (ListWorkersResponse);
+  rpc GetWorker(GetWorkerRequest) returns (GetWorkerResponse);
+  rpc ListOperations(ListOperationsRequest) returns (ListOperationsResponse);
+  rpc ListWorkerAttempts(ListWorkerAttemptsRequest) returns (ListWorkerAttemptsResponse);
+  rpc WatchActivity(WatchActivityRequest) returns (stream ActivityEvent);
+}
+
+message Pool {
+  string pool_id = 1;
+  string display_name = 2;
+  string instance_name = 3;
+  build.bazel.remote.execution.v2.Platform platform = 4;
+  uint32 online_workers = 5;
+  uint32 draining_workers = 6;
+  // Capacity and occupancy of online workers, including draining workers.
+  uint32 total_slots = 7;
+  uint32 occupied_slots = 8;
+  uint64 queued_operations = 9;
+  uint64 running_operations = 10;
+  // Absent when the queue is empty.
+  google.protobuf.Timestamp oldest_queued_at = 11;
+  uint64 leased_operations = 12;
+}
+
+message Worker {
+  string worker_id = 1;
+  string pool_id = 2;
+  string display_name = 3;
+  string version = 4;
+  build.bazel.remote.execution.v2.Platform platform = 5;
+  WorkerState state = 6;
+  uint32 total_slots = 7;
+  uint32 occupied_slots = 8;
+  google.protobuf.Timestamp registered_at = 9;
+  google.protobuf.Timestamp last_seen_at = 10;
+}
+
+enum WorkerState {
+  WORKER_STATE_UNSPECIFIED = 0;
+  WORKER_STATE_ONLINE = 1;
+  WORKER_STATE_DRAINING = 2;
+  WORKER_STATE_OFFLINE = 3;
+}
+
+message ExecutionOperation {
+  string operation_name = 1;
+  string pool_id = 2;
+  // REAPI RequestMetadata.tool_invocation_id, when supplied. This links to
+  // Build Events even if the invocation has not reached the BES server yet.
+  string invocation_id = 3;
+  build.bazel.remote.execution.v2.Digest action_digest = 4;
+  build.bazel.remote.execution.v2.DigestFunction.Value digest_function = 5;
+  OperationState state = 6;
+  // Zero until the first lease is issued. Increases with each assignment.
+  uint32 attempt_count = 7;
+  // Empty while queued. Identifies the current or final worker otherwise.
+  string worker_id = 8;
+  google.protobuf.Timestamp queued_at = 9;
+  google.protobuf.Timestamp started_at = 10;
+  google.protobuf.Timestamp finished_at = 11;
+  // Absent before the operation completes. A nonzero command exit is
+  // represented by exit_code and can have an OK execution status.
+  optional google.rpc.Code execution_code = 12;
+  optional int32 exit_code = 13;
+  bool cached_result = 14;
+}
+
+enum OperationState {
+  OPERATION_STATE_UNSPECIFIED = 0;
+  OPERATION_STATE_QUEUED = 1;
+  OPERATION_STATE_LEASED = 2;
+  OPERATION_STATE_RUNNING = 3;
+  OPERATION_STATE_COMPLETED = 4;
+}
+
+// A worker's own record of an assignment, even if the operation later ran
+// on a different worker.
+message ExecutionAttempt {
+  string operation_name = 1;
+  string pool_id = 2;
+  string worker_id = 3;
+  uint32 attempt_number = 4;
+  AttemptState state = 5;
+  google.protobuf.Timestamp leased_at = 6;
+  google.protobuf.Timestamp started_at = 7;
+  google.protobuf.Timestamp finished_at = 8;
+  optional google.rpc.Code execution_code = 9;
+  optional int32 exit_code = 10;
+  string invocation_id = 11;
+}
+
+enum AttemptState {
+  ATTEMPT_STATE_UNSPECIFIED = 0;
+  ATTEMPT_STATE_LEASED = 1;
+  ATTEMPT_STATE_RUNNING = 2;
+  ATTEMPT_STATE_COMPLETED = 3;
+  ATTEMPT_STATE_FAILED = 4;
+  ATTEMPT_STATE_LOST = 5;
+  ATTEMPT_STATE_CANCELLED = 6;
+}
+
+message ListPoolsRequest {
+  int32 page_size = 1;
+  string page_token = 2;
+}
+
+message ListPoolsResponse {
+  repeated Pool pools = 1;
+  string next_page_token = 2;
+}
+
+message GetPoolRequest {
+  string pool_id = 1;
+}
+
+message GetPoolResponse {
+  Pool pool = 1;
+  // High-water mark captured in the same read transaction as the snapshot.
+  uint64 activity_sequence = 2;
+}
+
+message ListWorkersRequest {
+  string pool_id = 1;
+  int32 page_size = 2;
+  string page_token = 3;
+}
+
+message ListWorkersResponse {
+  repeated Worker workers = 1;
+  string next_page_token = 2;
+}
+
+message GetWorkerRequest {
+  string pool_id = 1;
+  string worker_id = 2;
+}
+
+message GetWorkerResponse {
+  Worker worker = 1;
+  uint64 activity_sequence = 2;
+}
+
+message ListOperationsRequest {
+  string pool_id = 1;
+  // UNSPECIFIED includes every state.
+  OperationState state = 2;
+  int32 page_size = 3;
+  string page_token = 4;
+}
+
+message ListOperationsResponse {
+  repeated ExecutionOperation operations = 1;
+  string next_page_token = 2;
+}
+
+message ListWorkerAttemptsRequest {
+  string pool_id = 1;
+  string worker_id = 2;
+  int32 page_size = 3;
+  string page_token = 4;
+}
+
+message ListWorkerAttemptsResponse {
+  repeated ExecutionAttempt attempts = 1;
+  string next_page_token = 2;
+}
+
+message WatchActivityRequest {
+  string pool_id = 1;
+  // An empty worker ID follows all activity in the pool.
+  string worker_id = 2;
+  // Replay events strictly after this position, then follow live activity.
+  // OUT_OF_RANGE indicates an expired position and requests a fresh snapshot.
+  uint64 after_sequence = 3;
+}
+
+message ActivityEvent {
+  // Monotonic across this scheduler's SQLite database. Filtered streams can
+  // have gaps. The viewer resumes after the last event it applied.
+  uint64 sequence = 1;
+  google.protobuf.Timestamp observed_at = 2;
+  string pool_id = 3;
+  // The worker associated with this transition, when applicable. Remains set
+  // on a requeue event even though the operation no longer has a worker.
+  string worker_id = 4;
+  oneof update {
+    Pool pool = 5;
+    Worker worker = 6;
+    ExecutionOperation operation = 7;
+    ExecutionAttempt attempt = 8;
+  }
+}

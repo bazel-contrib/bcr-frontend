@@ -108,6 +108,7 @@ proto_compile_assets(
         "//build/stack/bazel/help/v1:bhpb_go_compiled_sources",
         "//build/stack/bazel/invocation/v1:invocation_go_compiled_sources",
         "//build/stack/bazel/registry/v1:bzpb_go_compiled_sources",
+        "//build/stack/bazel/remoteexecution/v1:remoteexecution_go_compiled_sources",
         "//build/stack/bazel/symbol/v1:sympb_go_compiled_sources",
         "//build/stack/livegrep/v1:livegrep_go_compiled_sources",
         "//build/stack/starlark/v1beta1:v1beta1_go_compiled_sources",

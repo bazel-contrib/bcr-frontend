@@ -1,0 +1,141 @@
+syntax = "proto3";
+
+package build.stack.bazel.remoteexecution.v1;
+
+import "build/bazel/remote/execution/v2/remote_execution.proto";
+import "google/protobuf/duration.proto";
+import "google/protobuf/timestamp.proto";
+import "google/rpc/status.proto";
+
+option go_package = "github.com/bazel-contrib/bcr-frontend/build/stack/bazel/remoteexecution/v1;remoteexecutionpb";
+
+// Workers initiate all calls. HTTP and Iroh carry the same messages and
+// authenticate workers before dispatch. Session and lease IDs fence updates.
+// Action inputs and outputs are transferred via REAPI CAS and ByteStream.
+service WorkerService {
+  rpc RegisterWorker(RegisterWorkerRequest) returns (RegisterWorkerResponse);
+  rpc LeaseWork(LeaseWorkRequest) returns (LeaseWorkResponse);
+  rpc AcknowledgeLease(AcknowledgeLeaseRequest) returns (AcknowledgeLeaseResponse);
+  rpc Heartbeat(HeartbeatRequest) returns (HeartbeatResponse);
+  rpc CompleteLease(CompleteLeaseRequest) returns (CompleteLeaseResponse);
+}
+
+message RegisterWorkerRequest {
+  // A stable identity bound to the authenticated worker.
+  string worker_id = 1;
+  // Unique per worker process. Reuse on registration retries. A new
+  // registration supersedes the previous session for the same worker.
+  string registration_id = 2;
+  string display_name = 3;
+  string version = 4;
+  build.bazel.remote.execution.v2.Platform platform = 5;
+  // Maximum number of actions this worker can run concurrently.
+  uint32 slots = 6;
+}
+
+message RegisterWorkerResponse {
+  string session_id = 1;
+  // The scheduler assigns pool membership from the worker's authorization.
+  string pool_id = 2;
+  google.protobuf.Duration heartbeat_interval = 3;
+}
+
+message LeaseWorkRequest {
+  string session_id = 1;
+  // Unique per poll within the session. Reuse it after a lost response to
+  // retrieve the same assignment.
+  string request_id = 2;
+}
+
+message LeaseWorkResponse {
+  // Absent if the long poll ends without work or the session is draining.
+  LeaseOffer offer = 1;
+}
+
+message LeaseOffer {
+  string lease_id = 1;
+  // The REAPI long-running operation name.
+  string operation_name = 2;
+  string instance_name = 3;
+  build.bazel.remote.execution.v2.Digest action_digest = 4;
+  build.bazel.remote.execution.v2.DigestFunction.Value digest_function = 5;
+  google.protobuf.Timestamp acknowledge_by = 6;
+  // Effective execution timeout, including the default if Action omits it.
+  google.protobuf.Duration execution_timeout = 7;
+}
+
+message AcknowledgeLeaseRequest {
+  string session_id = 1;
+  string lease_id = 2;
+}
+
+message AcknowledgeLeaseResponse {
+  // The worker starts execution only after acknowledgment succeeds. Repeating
+  // a successful acknowledgment for a current lease is idempotent.
+  google.protobuf.Timestamp lease_expires_at = 1;
+}
+
+message HeartbeatRequest {
+  string session_id = 1;
+  // All acknowledged leases this worker still owns, including leases whose
+  // result is waiting for completion acknowledgment.
+  repeated string active_lease_ids = 2;
+  // Once set, this session finishes existing leases and receives no new work.
+  bool draining = 3;
+}
+
+message HeartbeatResponse {
+  // One directive per reported lease.
+  repeated LeaseDirective leases = 1;
+}
+
+message LeaseDirective {
+  string lease_id = 1;
+  oneof directive {
+    google.protobuf.Timestamp renewed_until = 2;
+    // Stop local execution and discard any unsubmitted result.
+    LeaseRevocationReason revoke = 3;
+  }
+}
+
+enum LeaseRevocationReason {
+  LEASE_REVOCATION_REASON_UNSPECIFIED = 0;
+  LEASE_REVOCATION_REASON_CANCELLED = 1;
+  LEASE_REVOCATION_REASON_EXPIRED = 2;
+  LEASE_REVOCATION_REASON_SUPERSEDED = 3;
+}
+
+message CompleteLeaseRequest {
+  string session_id = 1;
+  string lease_id = 2;
+  oneof outcome {
+    // Upload all referenced blobs before submitting a result. A nonzero
+    // command exit code is an ActionResult, even when execution itself worked.
+    WorkerExecutionResult result = 3;
+    WorkerFailure worker_failure = 4;
+  }
+}
+
+message WorkerExecutionResult {
+  build.bazel.remote.execution.v2.ActionResult action_result = 1;
+  // The execution status, such as DEADLINE_EXCEEDED on an action timeout.
+  // An OK status requires an ActionResult, including for nonzero exit codes.
+  google.rpc.Status execution_status = 2;
+}
+
+message WorkerFailure {
+  WorkerFailureKind kind = 1;
+  // Diagnostic for the scheduler. This may contain private build details.
+  string diagnostic = 2;
+}
+
+enum WorkerFailureKind {
+  WORKER_FAILURE_KIND_UNSPECIFIED = 0;
+  WORKER_FAILURE_KIND_INPUT_STAGING = 1;
+  WORKER_FAILURE_KIND_RUNNER = 2;
+  WORKER_FAILURE_KIND_OUTPUT_UPLOAD = 3;
+}
+
+// Identical retries for an already accepted completion succeed. The scheduler
+// rejects new completions from expired or superseded leases.
+message CompleteLeaseResponse {}
