@@ -133,7 +133,7 @@ test("browser Iroh viewer follows real Bazel events and invocation groups", { ti
 	await page.goto(site + "/tools/invocation/" + id);
 	await page.getByLabel("Backend URL or iroh ticket").fill(ticket);
 	await page.getByRole("button", { name: "Connect" }).click();
-	await page.getByText(/Connected over Iroh/).waitFor({ timeout: 30000 });
+	await page.getByRole("form", {name: "Backend"}).getByText("Connected", {exact: true}).waitFor({timeout: 30000});
 	const waitingIcon = await buildIcon.boundingBox();
 
 	const finishBuild = join(dir, "finish-build");
@@ -164,7 +164,7 @@ test("browser Iroh viewer follows real Bazel events and invocation groups", { ti
 		api.interruptWatch();
 		await page.getByText(/reconnecting from the last event/).waitFor({ state: "attached" });
 		api.resumeWatch();
-		await page.getByText(/Connected over Iroh|Following .* events/).waitFor({ state: "attached" });
+		await page.getByText(/Watching invocation|Following .* events/).waitFor({ state: "attached" });
 		assert.equal(api.cursors.length, 2);
 		assert.match(api.cursors[1], /^[1-9]\d*$/);
 	} finally {
@@ -193,7 +193,7 @@ test("browser Iroh viewer follows real Bazel events and invocation groups", { ti
 	await buildStatus.getByText("SUCCESS", { exact: true }).waitFor();
 	await page.getByText(/Stream ended/).waitFor();
 
-	await page.getByRole("navigation", { name: "Build event views" }).getByRole("link", { name: "Runs", exact: true }).click();
+	await page.getByRole("navigation", { name: "Build event views" }).getByRole("link", { name: "Group", exact: true }).click();
 	await page.getByRole("table", { name: "Invocation runs" }).getByRole("button", { name: id }).waitFor();
 	await page.getByRole("button", { name: id, exact: true }).click();
 
@@ -207,9 +207,9 @@ test("browser Iroh viewer follows real Bazel events and invocation groups", { ti
 		"https://github.com/bazel-contrib/bcr-frontend");
 	await filePage.getByText("Upload a build events file or connect to a build event stream backend.", { exact: true }).waitFor();
 	const fileInput = filePage.getByLabel("Choose a binary build event file");
-	const uploadsTab = filePage.getByRole("region", { name: "Upload", exact: true }).getByRole("link", { name: "Uploads", exact: true });
-	await uploadsTab.click();
-	await filePage.getByText("Upload a build events file to see it here.").waitFor();
+	const uploadTab = filePage.getByRole("navigation", {name: "Build event views"}).getByRole("link", {name: "Upload", exact: true});
+	await uploadTab.click();
+	await filePage.getByRole("button", {name: "Choose File", exact: true}).waitFor();
 	await fileInput.setInputFiles(binaryEvents);
 	await filePage.getByRole("heading", { name: id, exact: true }).waitFor();
 	await filePage.locator(".bes-invocation-state").getByText("SUCCESS", { exact: true }).waitFor();
@@ -218,7 +218,7 @@ test("browser Iroh viewer follows real Bazel events and invocation groups", { ti
 	await filePage.getByRole("region", { name: "Build statistics" }).getByRole("article", { name: "Actions" }).waitFor();
 	await filePage.getByRole("region", { name: "Build frontier" }).waitFor();
 	// A length-delimited BuildEvent with an empty Progress payload and no start or finish.
-	await filePage.getByRole("region", { name: "Current", exact: true }).evaluate((target) => {
+	await filePage.getByRole("region", { name: "Upload build events", exact: true }).evaluate((target) => {
 		const dataTransfer = new DataTransfer();
 		dataTransfer.items.add(new File([new Uint8Array([2, 26, 0])], "partial.bep"));
 		target.dispatchEvent(new DragEvent("dragenter", { bubbles: true, cancelable: true, dataTransfer }));
@@ -227,13 +227,10 @@ test("browser Iroh viewer follows real Bazel events and invocation groups", { ti
 	await filePage.getByRole("heading", { name: /^file-[0-9a-f]{16}$/ }).waitFor();
 	await filePage.locator(".bes-invocation-state").getByText("Incomplete", { exact: true }).waitFor();
 	assert.equal(await filePage.getByLabel("Build elapsed time").innerText(), "—");
-	assert.equal(new URL(filePage.url()).pathname, "/tools/invocations");
-	await uploadsTab.click();
-	const uploads = filePage.getByRole("table", { name: "Uploaded invocations" });
-	assert.equal(await uploads.locator("tbody tr").count(), 2);
-	await uploads.getByRole("row", { name: /partial.bep/ }).getByRole("img", { name: "Incomplete" }).waitFor();
-	await uploads.getByRole("button", { name: id, exact: true }).press("Enter");
-	await filePage.getByRole("heading", { name: id, exact: true }).waitFor();
+	assert.equal(new URL(filePage.url()).pathname, "/tools/invocations/-/upload");
+	assert.equal(await filePage.getByRole("heading", {name: id, exact: true}).count(), 0);
+	await fileInput.setInputFiles(binaryEvents);
+	await filePage.getByRole("heading", {name: id, exact: true}).waitFor();
 	await filePage.close();
 
 	const [first, resumed] = await page.evaluate(async ({ ticket, id }) => {
@@ -308,7 +305,7 @@ test("browser Iroh viewer follows real Bazel events and invocation groups", { ti
 	await page.getByRole("heading", { level: 1, name: "Build Events" }).waitFor();
 	assert.equal(await page.getByRole("heading", { name: "Tools", exact: true }).count(), 0);
 	const backendForm = page.getByRole("form", { name: "Backend" });
-	const backendStatus = backendForm.getByRole("status");
+	const backendStatus = backendForm;
 	const connectGroup = backendForm.getByRole("button", { name: "Connect" });
 	const followBuilds = backendForm.getByRole("checkbox", { name: "Follow" });
 	const showLastRun = backendForm.getByRole("checkbox", { name: "Show last" });
@@ -320,16 +317,13 @@ test("browser Iroh viewer follows real Bazel events and invocation groups", { ti
 	assert.match(await followBuilds.locator("xpath=..").getAttribute("title"), /Open new group builds automatically/);
 	assert.match(await showLastRun.locator("xpath=..").getAttribute("title"), /Open the latest finished run/);
 	assert.equal((await connectGroup.boundingBox()).x, (await backendForm.getByLabel("Backend URL or iroh ticket").boundingBox()).x);
-	const uploadTarget = page.getByRole("region", { name: "Upload build events" });
-	const backendBox = await backendForm.boundingBox();
-	assert.ok((await uploadTarget.boundingBox()).y > backendBox.y + backendBox.height);
 	const viewNav = page.getByRole("navigation", { name: "Build event views" });
 	const sidebar = page.locator(".bes-events-sidebar");
 	const groupView = (name) => viewNav.getByRole("link", { name, exact: true });
 	await backendStatus.getByText("Disconnected", { exact: true }).waitFor();
-	assert.ok((await page.getByRole("region", { name: "Current", exact: true }).boundingBox()).x >
+	assert.ok((await page.getByRole("region", { name: "Groups", exact: true }).boundingBox()).x >
 		(await sidebar.boundingBox()).x);
-	for (const name of ["Current", "Runs", "Metrics", "Tests"]) {
+	for (const name of ["Invocation", "Group", "Tests"]) {
 		await groupView(name).click();
 		await page.getByRole("region", { name, exact: true }).getByText(/Connect to a backend and choose a group/).first().waitFor();
 		assert.equal(await groupView(name).getAttribute("aria-current"), "location");
@@ -351,7 +345,7 @@ test("browser Iroh viewer follows real Bazel events and invocation groups", { ti
 	assert.equal(await usage.locator("details[open]").count(), 0);
 	await usage.locator("summary").click();
 	await usage.locator("pre").filter({ hasText: "bazel run //app/bcr:release" }).waitFor();
-	await groupView("Current").click();
+	await groupView("Invocation").click();
 	await backendForm.getByLabel("Backend URL or iroh ticket").fill("ftp://localhost");
 	await backendForm.getByRole("button", { name: "Connect" }).click();
 	await backendStatus.getByText("Connection failed", { exact: true }).waitFor();
@@ -359,16 +353,19 @@ test("browser Iroh viewer follows real Bazel events and invocation groups", { ti
 	await backendForm.getByLabel("Backend URL or iroh ticket").fill(groupTicket);
 	await backendForm.getByRole("button", { name: "Connect" }).click();
 	await page.getByRole("button", { name: "saved", exact: true }).waitFor();
-	await page.getByLabel("Group", { exact: true }).fill("release");
+	await backendForm.getByLabel("Group", { exact: true }).fill("release");
 	await page.getByRole("button", { name: "Connect" }).click();
 	await backendStatus.getByText("Connected", { exact: true }).waitFor();
-	await backendStatus.getByText("Connected over Iroh · Watching group release (Set --build_metadata=igroup=release on a build to add it to the release group.)").waitFor();
+	await backendStatus.getByText("Watching group release", {exact: true}).waitFor();
+	await backendStatus.getByText("Set --build_metadata=igroup=release on a build to add it to the release group.", {exact: true}).waitFor();
+	assert.equal(await backendStatus.getByRole("status").locator("..").getByRole("button", {name: "Connect"}).count(), 1);
 	assert.equal(await backendStatus.locator("strong.text-mono").innerText(), "release");
 	assert.equal(await backendStatus.locator("code").innerText(), "--build_metadata=igroup=release");
+	await groupView("Invocation").click();
 	await page.getByText("release · Waiting for the next build", { exact: true }).waitFor();
-	const runsTab = groupView("Runs");
-	const currentTab = groupView("Current");
-	const lastTab = groupView("Last");
+	const runsTab = groupView("Group");
+	const currentTab = groupView("Invocation");
+	const lastTab = currentTab;
 	const runs = page.getByRole("table", { name: "Invocation runs" });
 	const invocationHeading = (id) => page.getByRole("heading", { name: id, exact: true });
 
@@ -395,7 +392,7 @@ test("browser Iroh viewer follows real Bazel events and invocation groups", { ti
 		await buildStatus.getByText("Building", { exact: true }).waitFor();
 		assert.equal(await currentTab.getAttribute("aria-current"), "location");
 		assert.ok(await page.locator(".bes-invocation-heading").getByLabel("Build elapsed time").isVisible());
-		assert.equal(new URL(page.url()).pathname, "/tools/invocations/release/" + firstRun.id);
+		assert.equal(new URL(page.url()).pathname, "/tools/invocations/release/" + firstRun.id + "/current");
 		assert.equal(new URL(page.url()).searchParams.get("follow"), "auto");
 		const activeFrontier = page.getByRole("region", { name: "Build frontier" });
 		const inspectWaitingEvent = async () => {
@@ -416,6 +413,8 @@ test("browser Iroh viewer follows real Bazel events and invocation groups", { ti
 		await inspectWaitingEvent();
 		nextRun = startGroupedBuild();
 		await runsTab.click();
+		await runs.locator("summary").click();
+		await runs.getByRole("checkbox", {name: "Running", exact: true}).check();
 		const runningRow = runs.getByRole("row", { name: new RegExp(nextRun.id) });
 		await runningRow.getByRole("img", { name: "Running", exact: true }).waitFor();
 		await runningRow.locator(".color-fg-attention .bes-invocation-spinner").waitFor();
@@ -466,7 +465,7 @@ test("browser Iroh viewer follows real Bazel events and invocation groups", { ti
 	await page.goto(firstRunUrl);
 	await invocationHeading(firstRun.id).waitFor();
 	assert.equal(await followBuilds.isChecked(), false);
-	for (const [view, link] of [["runs", runsTab], ["metrics", groupView("Metrics")], ["tests", groupView("Tests")], ["current", lastTab]]) {
+	for (const [view, link] of [["group", runsTab], ["groups", groupView("Groups")], ["tests", groupView("Tests")], ["current", lastTab]]) {
 		await link.click();
 		assert.equal(new URL(page.url()).pathname, selected.pathname.replace(/current$/, view));
 		await page.reload();
@@ -531,58 +530,32 @@ test("browser Iroh viewer follows real Bazel events and invocation groups", { ti
 	await collapse.click();
 	assert.equal(await commandHeading.evaluate((heading) => heading.clientHeight), collapsedHeight);
 	await page.setViewportSize({width: 1280, height: 720});
-	await groupView("Metrics").click();
-	const builds = page.getByRole("region", { name: "Metrics", exact: true });
-	await page.getByLabel("Time range", { exact: true }).selectOption("7");
+	await groupView("Group").click();
+	const builds = page.getByRole("region", { name: "Group", exact: true });
+	await runs.getByLabel("Time", { exact: true }).selectOption("7");
 	await builds.getByText("Average build time", { exact: true }).waitFor();
 	assert.equal(api.metricWindows.at(-1), "7");
 	const invocationCount = builds.locator("dl > div").filter({ has: page.getByText("Invocations", { exact: true }) });
 	assert.equal(await invocationCount.locator("dd").innerText(), "3");
-	assert.ok(await builds.locator(".bes-group-totals + .bes-group-chart").isVisible());
+	await runs.locator("summary").click();
 	const successFilter = builds.getByRole("checkbox", { name: "SUCCESS", exact: true });
 	assert.ok(await successFilter.isChecked());
 	assert.equal(await builds.getByLabel("Metric", { exact: true }).inputValue(), "0");
-	const metricBars = builds.locator('.bes-chart-segment[aria-label*=" · Build time · "]');
-	const track = builds.locator(".bes-chart-track").first();
-	const lightTrack = await track.evaluate((element) => getComputedStyle(element).backgroundColor);
-	await page.evaluate(() => document.documentElement.setAttribute("data-color-mode", "dark"));
-	const darkTrack = await track.evaluate((element) => getComputedStyle(element).backgroundColor);
-	assert.notEqual(darkTrack, lightTrack);
-	assert.notEqual(darkTrack, "rgb(255, 255, 255)");
-	await page.evaluate(() => document.documentElement.setAttribute("data-color-mode", "light"));
-	assert.equal(await metricBars.count(), 3);
-	assert.match(await metricBars.first().getAttribute("title"), new RegExp(shortRun.id));
-	const newestBuildBar = builds.getByRole("link", { name: new RegExp(shortRun.id + ".*Build time") });
-	assert.match(await newestBuildBar.getAttribute("href"), new RegExp("/tools/invocations/release/" + shortRun.id + "/current\\?follow=manual"));
-	assert.ok(await builds.locator(".bes-chart-separator").first().isVisible());
-	assert.ok(await metricBars.first().evaluate((bar) => parseFloat(bar.style.width) > 0));
-	const barValue = (title) => Number(title.match(/ · Build time · ([\d,.]+) s/)[1].replaceAll(",", ""));
-	const individualValues = (await metricBars.evaluateAll((bars) => bars.map((bar) => bar.getAttribute("title")))).map(barValue);
+	const metricValues = runs.locator(".bes-group-run-value");
+	await metricValues.nth(2).waitFor();
+	assert.equal(await metricValues.count(), 3);
 	const groupBy = builds.getByLabel("Group by", { exact: true });
-	for (const option of ["Hourly average (UTC)", "Daily average (UTC)"]) {
-		await groupBy.selectOption({ label: option });
-		assert.equal(await builds.locator(".bes-chart-separator").count(), await builds.locator(".bes-chart-row").count());
-		const titles = await metricBars.evaluateAll((bars) => bars.map((bar) => bar.getAttribute("title")));
-		const measurementCount = (title) => Number(title.match(/\((\d+) measured\)$/)[1]);
-		assert.equal(titles.reduce((total, title) => total + measurementCount(title), 0), 3);
-		const binnedTotal = titles.reduce((total, title) => total + barValue(title) * measurementCount(title), 0);
-		assert.ok(Math.abs(binnedTotal - individualValues.reduce((total, value) => total + value, 0)) < 0.004);
-	}
-	await groupBy.selectOption({ label: "Per build" });
-	await builds.getByLabel("Metric 2", { exact: true }).selectOption({ label: "Actions executed" });
-	await builds.getByLabel("Metric 3", { exact: true }).selectOption({ label: "CPU time" });
-	await builds.getByLabel("Metric 4", { exact: true }).selectOption({ label: "Configured targets" });
-	assert.equal(await builds.locator(".bes-chart-axis").count(), 2);
-	assert.equal(await builds.locator(".bes-chart-row").first().locator(".bes-chart-lane").count(), 4);
-	assert.equal(await builds.getByRole("link", { name: / · Actions executed · \d+ count/ }).count(), 3);
-	assert.ok(await builds.getByLabel("Metric 4", { exact: true }).locator('option', { hasText: "Output size" }).isDisabled());
-	await newestBuildBar.press("Enter");
+	await groupBy.selectOption("86400000");
+	assert.ok(await runs.locator(".bes-group-bin").first().isVisible());
+	assert.equal(await metricValues.count(), 3);
+	await groupBy.selectOption("0");
+	await runs.getByRole("button", {name: shortRun.id, exact: true}).press("Enter");
 	await invocationHeading(shortRun.id).waitFor();
 	assert.equal(new URL(page.url()).pathname, "/tools/invocations/release/" + shortRun.id + "/current");
 	assert.equal(new URL(page.url()).searchParams.get("follow"), "manual");
 	await followBuilds.check();
-	await groupView("Metrics").click();
-	await builds.getByText(/No action cache lookups recorded/).waitFor();
+	await groupView("Group").click();
+	assert.equal(await builds.getByText("Action cache hit rate", {exact: true}).count(), 0);
 	await page.keyboard.press("Alt+Shift+Digit4");
 	await page.getByRole("region", { name: "Tests", exact: true }).getByText("No test summaries recorded.").waitFor();
 	await lastTab.click();
@@ -692,7 +665,7 @@ test("browser Iroh viewer follows real Bazel events and invocation groups", { ti
 	assert.equal(new URL(page.url()).searchParams.get("follow"), "off");
 	assert.equal(new URL(page.url()).searchParams.get("showLast"), "0");
 	await page.goto(site + "/tools/invocations/release?follow=off&showLast=0");
-	await page.getByText("Select a run from the Runs tab.", { exact: true }).waitFor();
+	await page.getByText("Select a run from the Group tab.", { exact: true }).waitFor();
 	assert.equal(await followBuilds.isChecked(), false);
 	assert.equal(await showLastRun.isChecked(), false);
 	assert.equal(new URL(page.url()).pathname, "/tools/invocations/release");
@@ -703,44 +676,32 @@ test("browser Iroh viewer follows real Bazel events and invocation groups", { ti
 	await failedReader.getByText("broken.txt", { exact: true }).waitFor();
 	assert.equal(await flightLayer.locator(".bes-frontier-particle").count(), 0);
 	assert.equal(new URL(page.url()).searchParams.get("follow"), "off");
-	await groupView("Metrics").click();
+	await groupView("Group").click();
+	await runs.locator("summary").click();
 	const failureFilter = builds.getByRole("checkbox", { name: "BUILD_FAILURE", exact: true });
 	await failureFilter.waitFor();
 	assert.equal(await failureFilter.isChecked(), false);
-	assert.equal(await metricBars.count(), 3);
 	await failureFilter.check();
-	assert.equal(await metricBars.count(), 4);
-	assert.match(await metricBars.first().getAttribute("class"), /color-fg-danger/);
-	const days = await metricBars.evaluateAll((bars) => new Set(bars.map((bar) => bar.title.split(" · ")[1].slice(0, 10))).size);
-	await groupBy.selectOption({ label: "Daily average (UTC)" });
-	assert.equal(await builds.locator(".bes-chart-row").count(), days);
-	if (days === 1) {
-		const stack = builds.locator(".bes-chart-track");
-		assert.equal(await stack.locator(".bes-chart-segment").count(), 2);
-		assert.equal(await stack.locator(".color-fg-success").count(), 1);
-		assert.equal(await stack.locator(".color-fg-danger").count(), 1);
-		const totalWidth = await stack.locator(".bes-chart-segment").evaluateAll((segments) =>
-			segments.reduce((sum, segment) => sum + parseFloat(segment.style.width), 0));
-		assert.ok(totalWidth > 0 && totalWidth <= 100.001);
-	}
-	await groupBy.selectOption({ label: "Per build" });
+	const failedRow = runs.getByRole("row", {name: new RegExp(failedRun.id)});
+	await failedRow.getByRole("img", {name: "BUILD_FAILURE", exact: true}).waitFor();
 	await successFilter.uncheck();
-	assert.equal(await metricBars.count(), 1);
-	assert.match(await metricBars.getAttribute("title"), new RegExp(failedRun.id));
+	assert.equal(await runs.locator(".bes-group-run").count(), 1);
 	await failureFilter.uncheck();
-	await builds.getByText("No completed builds match the selected statuses.", { exact: true }).waitFor();
+	await builds.getByText("No loaded invocations match these filters.", { exact: true }).waitFor();
+	await successFilter.check();
+	await failureFilter.check();
 	await backendForm.getByLabel("Group", { exact: true }).fill("saved");
 	await connectGroup.click();
 	await backendStatus.getByText(/Watching group saved/).waitFor();
 	assert.equal(await backendStatus.locator("code").innerText(), "--build_metadata=igroup=saved");
 	const savedRunPath = "/tools/invocations/saved/" + id;
-	await page.waitForURL((url) => url.pathname === savedRunPath + "/metrics");
+	await page.waitForURL((url) => url.pathname === savedRunPath + "/group");
+	await groupView("Upload").click();
 	await page.getByLabel("Choose a binary build event file").setInputFiles(binaryEvents);
 	await page.getByText(/events\.bep ·/).waitFor();
-	assert.equal(new URL(page.url()).pathname, savedRunPath + "/current");
+	assert.equal(new URL(page.url()).pathname, savedRunPath + "/upload");
 	await backendStatus.getByText(/Watching group saved/).waitFor();
-	await page.getByRole("region", { name: "Upload", exact: true }).getByRole("link", { name: "Uploads", exact: true }).click();
-	await page.getByRole("table", { name: "Uploaded invocations" }).getByRole("button", { name: id, exact: true }).waitFor();
+	await page.getByRole("region", {name: "Upload", exact: true}).getByRole("heading", {name: id, exact: true}).waitFor();
 	api.limitPages(2);
 	await backendForm.getByLabel("Group", { exact: true }).fill("release");
 	await connectGroup.click();
@@ -753,5 +714,244 @@ test("browser Iroh viewer follows real Bazel events and invocation groups", { ti
 	await page.getByText("All runs loaded.", { exact: true }).waitFor();
 	assert.equal(await runs.locator("tbody tr").count(), 4);
 	await runs.getByRole("button", { name: firstRun.id, exact: true }).waitFor();
+
 	assert.deepEqual(errors, []);
+});
+
+test("group Follow picks up the next invocation across views", async (t) => {
+	const web = launch(t, command("RELEASESERVER"), [
+		"--host=127.0.0.1", "--port=0", command("FRONTEND_ARCHIVE"),
+	]);
+	const site = await web.ready(/Starting server on (http:\/\/[^\s]+)/);
+	const browser = await chromium.launch(process.env.CHROME_BIN ? { executablePath: process.env.CHROME_BIN } : {});
+	t.after(() => browser.close());
+	const page = await browser.newPage();
+	page.setDefaultTimeout(8000);
+	const backend = "http://localhost:1974";
+	const cors = {"Access-Control-Allow-Origin": "*"};
+	const group = "release";
+	const groupPath = "/tools/invocations/" + group;
+	const running = "INVOCATION_STATE_IN_PROGRESS";
+	const complete = "INVOCATION_STATE_COMPLETE";
+	const run = (invocationId, state) => ({
+		invocationId, invocationGroup: group, state, command: "build",
+		targetPatterns: ["//:" + invocationId],
+		startedAt: new Date().toISOString(),
+		result: state === complete ? {exitCodeName: "SUCCESS", exitCode: 0} : undefined,
+	});
+	const first = run("first", running);
+	const fast = run("fast", complete);
+	fast.targetPatterns.push("//:" + "long_target_".repeat(20));
+	const next = run("next", running);
+	const latest = run("latest", running);
+	const older = run("older", complete);
+	older.startedAt = new Date(Date.now() - 10 * 86400000).toISOString();
+	let invocations = [first];
+	let activeInvocation = first;
+
+	await page.addInitScript(({backend, group}) => {
+		sessionStorage.setItem("bcr.viewer.backend.group." + group, backend);
+	}, {backend, group});
+	await page.route(backend + "/api/**", (route) => {
+		const {pathname} = new URL(route.request().url());
+		if (pathname.endsWith("/events"))
+			return route.fulfill({headers: cors, contentType: "text/event-stream", body: ": connected\n\n"});
+		if (pathname === "/api/invocations")
+			return route.fulfill({headers: cors, json: {invocations, activeInvocation}});
+		if (pathname === "/api/invocation-groups")
+			return route.fulfill({headers: cors, json: {groups: [
+				{name: group, invocationCount: "12", latestInvocationAt: first.startedAt},
+				{name: "archive", invocationCount: "0"},
+			]}});
+		if (pathname.endsWith("/metrics"))
+			return route.fulfill({headers: cors, json: {
+				invocationCount: invocations.length,
+				cache: {actionCacheHits: 3, actionCacheMisses: 1, actionCacheInvocationCount: 1},
+				builds: invocations.map((build) => ({invocationId: build.invocationId, durationMs: 2000, cpuMs: 1000})),
+			}});
+		const invocation = invocations.find(({invocationId}) => pathname.endsWith("/" + invocationId));
+		return route.fulfill({headers: cors, json: invocation || {}});
+	});
+
+	await page.goto(site + "/tools/invocations");
+	const viewNav = page.getByRole("navigation", {name: "Build event views"});
+	assert.equal(await page.locator(".bes-events-sidebar").getByRole("navigation").count(), 0);
+	assert.deepEqual(await viewNav.getByRole("link").allTextContents(), ["Invocation", "Group", "Groups", "Tests", "Upload", "Usage"]);
+	await viewNav.getByRole("link", {name: "Invocation", exact: true}).click();
+	await page.getByRole("region", {name: "Invocation", exact: true}).waitFor();
+	await viewNav.getByRole("link", {name: "Groups", exact: true}).click();
+	await page.getByRole("button", {name: "Connect", exact: true}).click();
+	const catalog = page.getByRole("table", {name: "Available invocation groups"});
+	await catalog.getByRole("button", {name: group, exact: true}).waitFor();
+	assert.deepEqual(await catalog.getByRole("button").allTextContents(), [group, "archive"]);
+	const newestGroupRow = catalog.locator("tbody tr").first();
+	assert.equal(await newestGroupRow.getByRole("cell").nth(1).innerText(), "12");
+	assert.equal(await newestGroupRow.locator("time").getAttribute("datetime"), first.startedAt);
+	assert.ok(await newestGroupRow.locator("time").getAttribute("title"));
+	assert.equal(await catalog.locator("tbody tr").last().getByRole("cell").nth(1).innerText(), "0");
+	await catalog.getByRole("button", {name: group, exact: true}).click();
+	await page.waitForURL((url) => url.pathname === groupPath + "/first/group");
+	const backendForm = page.getByRole("form", {name: "Backend"});
+	const connected = backendForm.getByRole("status").getByText("Connected", {exact: true});
+	assert.equal(await connected.locator("xpath=..").getByRole("button", {name: "Connect"}).count(), 1);
+	const details = backendForm.locator(".bes-backend-detail > div");
+	assert.deepEqual(await details.allTextContents(), [
+		"Watching group release",
+		"Set --build_metadata=igroup=release on a build to add it to the release group.",
+	]);
+	await page.goto(site + groupPath + "/first/current?follow=auto");
+	await page.getByText(/Watching group release/).waitFor();
+	const goToView = (view) => page.locator("#igroup-nav-" + view).click();
+	const waitForRun = (id, view) => page.waitForURL((url) => url.pathname === groupPath + "/" + id + "/" + view);
+	await goToView("group");
+	await waitForRun("first", "group");
+	invocations = [fast, first];
+	await page.getByRole("button", {name: "fast", exact: true}).waitFor();
+	await waitForRun("first", "group");
+
+	first.state = complete;
+	activeInvocation = undefined;
+	await waitForRun("fast", "group");
+	assert.equal(await page.locator("#igroup-nav-group").getAttribute("aria-current"), "location");
+
+	await goToView("tests");
+	await waitForRun("fast", "tests");
+	invocations = [next, fast, first];
+	activeInvocation = next;
+	await waitForRun("next", "tests");
+
+	await goToView("current");
+	await waitForRun("next", "current");
+	next.state = complete;
+	invocations = [latest, next, fast, first];
+	activeInvocation = latest;
+	await waitForRun("latest", "current");
+	assert.equal(new URL(page.url()).searchParams.get("follow"), "auto");
+
+	invocations = [latest, fast, older];
+	await goToView("group");
+	const table = page.getByRole("table", {name: "Invocation runs"});
+	const row = (id) => table.locator("tr[data-invocation-id=" + id + "]");
+	await row("older").waitFor();
+	const metricCell = row("fast").getByRole("cell").last();
+	await metricCell.getByText("2 s", {exact: true}).waitFor();
+	assert.equal(await metricCell.locator("[title]").getAttribute("title"), "Build time: 2 s");
+	assert.ok((await row("fast").boundingBox()).height <= 24);
+	const commandText = row("fast").getByText(/^bazel build/);
+	assert.ok(await commandText.evaluate((element) => element.scrollWidth > element.clientWidth));
+	assert.match(await commandText.getAttribute("title"), /long_target_/);
+	const statusHeading = table.getByRole("columnheader", {name: "Status", exact: true});
+	assert.ok((await statusHeading.boundingBox()).width < 96);
+	assert.match(await row("fast").evaluate((element) => getComputedStyle(element).backgroundImage), /linear-gradient/);
+	assert.match(await row("fast").evaluate((element) => getComputedStyle(element).backgroundSize), /calc\(100% - 4px\)/);
+	await table.getByLabel("Invocation", {exact: true}).fill("fa");
+	await row("older").waitFor({state: "hidden"});
+	await table.getByLabel("Invocation", {exact: true}).fill("");
+	const commandFilter = table.getByLabel("Command", {exact: true});
+	assert.ok(await page.locator("#igroup-command-options option[value='bazel build //:older']").count());
+	await commandFilter.fill("//:older");
+	await row("fast").waitFor({state: "hidden"});
+	await commandFilter.fill("");
+	await table.getByLabel("Time", {exact: true}).selectOption("7");
+	await row("older").waitFor({state: "hidden"});
+	const metricFilter = page.getByLabel("Metric", {exact: true});
+	const groupByFilter = page.getByLabel("Group by", {exact: true});
+	for (const filter of [metricFilter, groupByFilter])
+		assert.equal(await filter.evaluate((element) => getComputedStyle(element.parentElement).columnGap), "8px");
+	await metricFilter.selectOption({label: "CPU time"});
+	await table.getByRole("columnheader", {name: "CPU time", exact: true}).waitFor();
+	await row("fast").getByText("1 s", {exact: true}).waitFor();
+	await groupByFilter.selectOption({label: "Day (UTC)"});
+	await table.getByText("Average 1 s", {exact: true}).waitFor();
+	await table.getByText("Status", {exact: true}).click();
+	await table.getByRole("checkbox", {name: "Running", exact: true}).check();
+	await row("latest").waitFor();
+	await table.getByRole("checkbox", {name: "SUCCESS", exact: true}).uncheck();
+	await row("fast").waitFor({state: "hidden"});
+
+	const groupView = page.getByRole("region", {name: "Group", exact: true});
+	const cacheRate = groupView.locator("dl > div").filter({
+		has: page.getByText("Action cache hit rate", {exact: true}),
+	});
+	await cacheRate.getByText("75.0%", {exact: true}).waitFor();
+	assert.equal(await table.getByLabel("Time", {exact: true}).inputValue(), "7");
+
+	await goToView("upload");
+	const upload = page.getByRole("region", {name: "Upload", exact: true});
+	const chooser = upload.getByRole("button", {name: "Choose File", exact: true});
+	const [fileChooser] = await Promise.all([page.waitForEvent("filechooser"), chooser.click()]);
+	await fileChooser.setFiles({name: "first.bep", mimeType: "application/octet-stream", buffer: Buffer.from([2, 26, 0])});
+	await upload.getByText("Loaded first.bep.", {exact: true}).waitFor();
+	const replay = upload.getByRole("heading", {name: /^file-/});
+	const firstFileId = await replay.innerText();
+	const dropTarget = upload.getByRole("region", {name: "Upload build events"});
+	await dropTarget.evaluate((target) => {
+		const dataTransfer = new DataTransfer();
+		dataTransfer.items.add(new File([new Uint8Array([2, 26, 0])], "second.bep"));
+		target.dispatchEvent(new DragEvent("dragenter", {bubbles: true, cancelable: true, dataTransfer}));
+		target.dispatchEvent(new DragEvent("drop", {bubbles: true, cancelable: true, dataTransfer}));
+	});
+	await upload.getByText("Loaded second.bep.", {exact: true}).waitFor();
+	assert.notEqual(await replay.innerText(), firstFileId);
+	assert.equal(await replay.count(), 1);
+	await goToView("current");
+	await waitForRun("latest", "current");
+	assert.equal(await page.getByRole("region", {name: "Invocation", exact: true}).getByRole("heading", {name: "latest", exact: true}).count(), 1);
+	await page.goto(site + groupPath + "/latest/cache?follow=auto");
+	await waitForRun("latest", "group");
+	await cacheRate.getByText("75.0%", {exact: true}).waitFor();
+});
+
+test("test attempt details keep large output lists collapsed", async (t) => {
+	const web = launch(t, command("RELEASESERVER"), [
+		"--host=127.0.0.1", "--port=0", command("FRONTEND_ARCHIVE"),
+	]);
+	const site = await web.ready(/Starting server on (http:\/\/[^\s]+)/);
+	const browser = await chromium.launch(process.env.CHROME_BIN ? {executablePath: process.env.CHROME_BIN} : {});
+	t.after(() => browser.close());
+	const page = await browser.newPage();
+	page.setDefaultTimeout(8000);
+
+	function varint(value) {
+		const bytes = [];
+		while (value >= 128) {
+			bytes.push((value & 127) | 128);
+			value >>>= 7;
+		}
+		return Buffer.from([...bytes, value]);
+	}
+	function bytesField(field, data) {
+		const bytes = Buffer.from(data);
+		return Buffer.concat([varint((field << 3) | 2), varint(bytes.length), bytes]);
+	}
+	const fileCount = 64;
+	const uri = "bytestream://cache.example/blobs/" + "a".repeat(64) + "/10";
+	const status = "Assertion failed. " + "Additional test context. ".repeat(20).trim();
+	const outputs = Array.from({length: fileCount}, (_, index) =>
+		bytesField(2, Buffer.concat([bytesField(1, `output-${index}.log`), bytesField(2, uri)])),
+	);
+	// Length-delimited BuildEvent with a TestResultId and TestResult payload.
+	const attempt = bytesField(8, Buffer.concat([bytesField(1, "//:large_outputs"), Buffer.from([16, 1, 32, 1])]));
+	const result = Buffer.concat([Buffer.from([40, 4]), bytesField(9, status), ...outputs]);
+	const event = Buffer.concat([bytesField(1, attempt), bytesField(10, result)]);
+	const buffer = Buffer.concat([varint(event.length), event]);
+
+	await page.goto(site + "/tools/invocations/-/upload");
+	await page.getByLabel("Choose a binary build event file").setInputFiles({
+		name: "test-outputs.bep", mimeType: "application/octet-stream", buffer,
+	});
+	await page.getByRole("tab", {name: "Tests", exact: true}).click();
+	await page.getByText("//:large_outputs", {exact: true}).click();
+	const details = page.getByRole("tabpanel", {name: "Tests"}).getByRole("cell").last();
+	const preview = details.getByText(status, {exact: true});
+	assert.equal(await preview.getAttribute("title"), status);
+	assert.ok(await preview.evaluate((element) => element.scrollWidth > element.clientWidth));
+	assert.equal(await details.getByRole("listitem", {includeHidden: true}).count(), 0);
+	await details.getByText("64 output files", {exact: true}).click();
+	const list = details.getByRole("list");
+	await list.getByText("output-0.log", {exact: true}).waitFor();
+	assert.equal(await list.getByRole("listitem").count(), fileCount);
+	assert.ok((await list.getByText("output-0.log", {exact: true}).getAttribute("title")).includes(uri));
+	assert.equal((await list.innerText()).includes(uri), false);
+	assert.ok(await list.evaluate((element) => element.scrollHeight > element.clientHeight));
 });

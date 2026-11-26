@@ -29,14 +29,11 @@ const (
 // InvocationServiceClient is the client API for InvocationService service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
-//
-// Query and follow invocations accepted by this server.
 type InvocationServiceClient interface {
 	ListInvocationGroups(ctx context.Context, in *ListInvocationGroupsRequest, opts ...grpc.CallOption) (*ListInvocationGroupsResponse, error)
 	GetInvocationGroupMetrics(ctx context.Context, in *GetInvocationGroupMetricsRequest, opts ...grpc.CallOption) (*InvocationGroupMetrics, error)
 	ListInvocations(ctx context.Context, in *ListInvocationsRequest, opts ...grpc.CallOption) (*ListInvocationsResponse, error)
 	GetInvocation(ctx context.Context, in *GetInvocationRequest, opts ...grpc.CallOption) (*Invocation, error)
-	// Replays events after the cursor, then follows newly accepted events.
 	WatchInvocation(ctx context.Context, in *WatchInvocationRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[InvocationEvent], error)
 }
 
@@ -110,14 +107,11 @@ type InvocationService_WatchInvocationClient = grpc.ServerStreamingClient[Invoca
 // InvocationServiceServer is the server API for InvocationService service.
 // All implementations must embed UnimplementedInvocationServiceServer
 // for forward compatibility.
-//
-// Query and follow invocations accepted by this server.
 type InvocationServiceServer interface {
 	ListInvocationGroups(context.Context, *ListInvocationGroupsRequest) (*ListInvocationGroupsResponse, error)
 	GetInvocationGroupMetrics(context.Context, *GetInvocationGroupMetricsRequest) (*InvocationGroupMetrics, error)
 	ListInvocations(context.Context, *ListInvocationsRequest) (*ListInvocationsResponse, error)
 	GetInvocation(context.Context, *GetInvocationRequest) (*Invocation, error)
-	// Replays events after the cursor, then follows newly accepted events.
 	WatchInvocation(*WatchInvocationRequest, grpc.ServerStreamingServer[InvocationEvent]) error
 	mustEmbedUnimplementedInvocationServiceServer()
 }

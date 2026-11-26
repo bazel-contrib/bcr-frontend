@@ -4,6 +4,7 @@ goog.module("bcrfrontend.invocationViewer");
 const BuildEvent = goog.require("proto.build_event_stream.BuildEvent");
 const BuildMetrics = goog.require("proto.build_event_stream.BuildMetrics");
 const BuildToolLogs = goog.require("proto.build_event_stream.BuildToolLogs");
+const TestResult = goog.requireType("proto.build_event_stream.TestResult");
 const EventHandler = goog.requireType("goog.events.EventHandler");
 const base64 = goog.require("goog.crypt.base64");
 const dom = goog.require("goog.dom");
@@ -125,9 +126,14 @@ function showViewerTab(tablist, content, index) {
 }
 
 class BuildEventViewerComponent extends Component {
-	/** @param {?dom.DomHelper=} opt_domHelper */
-	constructor(opt_domHelper) {
+	/**
+	 * @param {?dom.DomHelper=} opt_domHelper
+	 * @param {boolean=} upload
+	 */
+	constructor(opt_domHelper, upload = false) {
 		super(opt_domHelper);
+		/** @private @const */
+		this.upload_ = upload;
 		/** @private @type {!InvocationProgress} */
 		this.progress_ = new InvocationProgress();
 		/** @private @type {?InvocationFrontier} */
@@ -193,7 +199,9 @@ class BuildEventViewerComponent extends Component {
 
 	/** @override */
 	createDom() {
-		this.setElementInternal(soy.renderAsElement(invocationViewer));
+		this.setElementInternal(
+			soy.renderAsElement(invocationViewer, { idPrefix: this.getId() }),
+		);
 	}
 
 	/** @override */
@@ -388,6 +396,7 @@ class BuildEventViewerComponent extends Component {
 		const tabs = this.getElement_(goog.getCssName("bes-tabs"));
 		this.terminal_ = new InvocationTerminal(
 			this.getElement_(goog.getCssName("bes-log-full")),
+			this.upload_ ? "bes-upload-terminal-match" : "bes-terminal-match",
 		);
 		bindViewerTabs(this.getHandler(), tabs, (index) => this.selectTab_(index));
 		this.getHandler().listen(
@@ -974,9 +983,7 @@ class BuildEventViewerComponent extends Component {
 				a.configuration.localeCompare(b.configuration),
 		);
 		for (const group of groups) {
-			body.appendChild(
-				this.createTestGroup_(group, ended, open.has(group.key)),
-			);
+			body.appendChild(this.createTestGroup_(group, ended, open));
 		}
 	}
 
@@ -984,7 +991,7 @@ class BuildEventViewerComponent extends Component {
 	 * @private
 	 * @param {!InvocationTest} group
 	 * @param {boolean} ended
-	 * @param {boolean} open
+	 * @param {!Set<string>} open
 	 * @return {!HTMLElement}
 	 */
 	createTestGroup_(group, ended, open) {
@@ -992,7 +999,7 @@ class BuildEventViewerComponent extends Component {
 			document.createElement("details")
 		);
 		details.className = "bes-data-details";
-		details.open = open;
+		details.open = open.has(group.key);
 		details.setAttribute("data-test-key", group.key);
 		const payload = group.summary && group.summary.getTestSummary();
 		const summary = document.createElement("summary");
@@ -1050,11 +1057,12 @@ class BuildEventViewerComponent extends Component {
 			const row = /** @type {!HTMLTableRowElement} */ (rows.insertRow());
 			const ordinal = row.insertCell(-1);
 			ordinal.className = "text-mono";
-			ordinal.textContent = [
+			const attemptLabel = [
 				attempt.getRun(),
 				attempt.getShard(),
 				attempt.getAttempt(),
 			].join(" / ");
+			ordinal.textContent = attemptLabel;
 			row.insertCell(-1).appendChild(testStatusLabel(result.getStatus()));
 			const elapsed = result.getTestAttemptDuration();
 			const legacyMillis = Number(result.getTestAttemptDurationMillis());
@@ -1070,18 +1078,83 @@ class BuildEventViewerComponent extends Component {
 					? "Remote cache"
 					: (execution && execution.getStrategy()) || "—";
 			const info = row.insertCell(-1);
-			const text = result.getStatusDetails();
-			if (text) info.appendChild(document.createTextNode(text));
-			for (const output of result.getTestActionOutputList()) {
-				const file = document.createElement("div");
-				file.className = "text-mono";
-				file.textContent = fileSummary(output);
-				info.appendChild(file);
-			}
-			if (!info.hasChildNodes()) info.textContent = "—";
+			const outputKey = group.key + "/outputs/" + attemptLabel;
+			this.renderTestAttemptDetails_(
+				info,
+				result,
+				outputKey,
+				open.has(outputKey),
+			);
 		}
 		body.appendChild(table);
 		return details;
+	}
+
+	/**
+	 * @private
+	 * @param {!HTMLElement} cell
+	 * @param {!TestResult} result
+	 * @param {string} key
+	 * @param {boolean} open
+	 */
+	renderTestAttemptDetails_(cell, result, key, open) {
+		const status = result.getStatusDetails().trim();
+		const outputs = result.getTestActionOutputList();
+		if (status) {
+			cell.appendChild(
+				dom.createDom(
+					"span",
+					{
+						"class": "bes-test-detail-preview",
+						"title": status,
+					},
+					status,
+				),
+			);
+		}
+		if (!outputs.length) {
+			if (!status) cell.textContent = "—";
+			return;
+		}
+		const details = /** @type {!HTMLDetailsElement} */ (
+			dom.createDom(
+				"details",
+				{ "class": "bes-test-outputs", "data-test-key": key },
+				dom.createDom(
+					"summary",
+					null,
+					outputs.length +
+						(outputs.length === 1 ? " output file" : " output files"),
+				),
+			)
+		);
+		const renderOutputs = () => {
+			if (!details.open || details.lastElementChild?.tagName === "UL") return;
+			const list = dom.createDom("ul", "bes-test-output-list");
+			for (const output of outputs) {
+				list.appendChild(
+					dom.createDom(
+						"li",
+						null,
+						dom.createDom(
+							"code",
+							{
+								"class": "bes-test-detail-preview",
+								"title": fileSummary(output),
+							},
+							output.getName() ||
+								output.getPathPrefixList().join("/") ||
+								"Unnamed file",
+						),
+					),
+				);
+			}
+			details.appendChild(list);
+		};
+		details.open = open;
+		renderOutputs();
+		details.addEventListener("toggle", renderOutputs);
+		cell.appendChild(details);
 	}
 
 	/**
@@ -1366,7 +1439,9 @@ class BuildEventViewerComponent extends Component {
 			);
 			button.onclick = () => {
 				this.selectTab_(1);
-				const tab = this.getElementStrict().querySelector("#bes-tab-terminal");
+				const tab = this.getDomHelper().getElement(
+					this.getId() + "-bes-tab-terminal",
+				);
 				if (tab) /** @type {!HTMLElement} */ (tab).focus();
 			};
 			summary.appendChild(button);

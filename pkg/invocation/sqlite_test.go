@@ -480,7 +480,7 @@ func TestSQLiteInvocationGroups(t *testing.T) {
 	}
 	appendGroup("first", "release", 1)
 	appendGroup("second", "release", 1)
-	appendGroup("third", "continuous", 1)
+	appendGroup("third", "z-continuous", 1)
 	appendGroup("fourth", "../invalid", 1)
 	appendGroup("first", "changed", 2)
 	pattern := &beppb.BuildEventId{Id: &beppb.BuildEventId_Pattern{
@@ -506,13 +506,25 @@ func TestSQLiteInvocationGroups(t *testing.T) {
 	checkGroups := func() {
 		t.Helper()
 		groups, err := store.ListInvocationGroups(ctx, &pb.ListInvocationGroupsRequest{})
-		if err != nil || len(groups.GetGroups()) != 2 || groups.Groups[0].Name != "continuous" || groups.Groups[1].Name != "release" {
+		if err != nil || len(groups.GetGroups()) != 2 || groups.Groups[0].Name != "z-continuous" || groups.Groups[1].Name != "release" {
 			t.Fatalf("list groups: %v, %v", groups, err)
+		}
+		if groups.Groups[0].GetInvocationCount() != 1 || groups.Groups[1].GetInvocationCount() != 2 {
+			t.Fatalf("group counts: %v", groups)
+		}
+		third, err := storage.Get(ctx, "third")
+		if err != nil || groups.Groups[0].GetLatestInvocationAt() == nil ||
+			groups.Groups[0].GetLatestInvocationAt().AsTime().UnixMicro() != third.GetCreatedAt().AsTime().UnixMicro() {
+			t.Fatalf("latest z-continuous invocation: groups=%v, invocation=%v, error=%v", groups, third, err)
 		}
 		release, err := store.ListInvocations(ctx, &pb.ListInvocationsRequest{InvocationGroup: "release"})
 		if err != nil || len(release.GetInvocations()) != 2 || release.Invocations[0].InvocationId != "second" ||
 			release.Invocations[1].InvocationId != "first" || release.Invocations[1].InvocationGroup != "release" {
 			t.Fatalf("release membership: %v, %v", release, err)
+		}
+		if groups.Groups[1].GetLatestInvocationAt() == nil ||
+			groups.Groups[1].GetLatestInvocationAt().AsTime().UnixMicro() != release.Invocations[0].GetCreatedAt().AsTime().UnixMicro() {
+			t.Fatalf("latest release invocation: groups=%v, invocations=%v", groups, release)
 		}
 		first := release.Invocations[1]
 		if first.Command != "build" || !slices.Equal(first.TargetPatterns, []string{"//:one", "//:two"}) {

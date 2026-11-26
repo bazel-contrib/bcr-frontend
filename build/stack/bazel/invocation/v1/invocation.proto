@@ -115,6 +115,10 @@ service InvocationService {
 
 message InvocationGroup {
   string name = 1;
+  // All stored invocations in this group, across all outcomes.
+  optional int64 invocation_count = 2;
+  // Server receipt time of the first event for the newest invocation.
+  google.protobuf.Timestamp latest_invocation_at = 3;
 }
 message ListInvocationGroupsRequest {}
 message ListInvocationGroupsResponse {

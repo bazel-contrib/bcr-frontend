@@ -91,14 +91,6 @@ import {sectionHeader} from 'app/bcr/registry.soy';
         <h1 class="h2 mb-2">Build Events</h1>
         <p class="color-fg-muted mb-0">Upload a build events file or connect to a{sp}
           <a href="https://github.com/bazel-contrib/bcr-frontend">build event stream backend</a>.</p>
-        <nav class="SideNav bes-events-nav" aria-label="Build event views">
-          <a class="SideNav-item {css('igroup-current-tab')}" id="igroup-nav-current" href="/tools/invocations"
-              data-view="current" aria-current="location">Current</a>
-          <a class="SideNav-item" id="igroup-nav-runs" href="/tools/invocations/-/runs" data-view="runs">Runs</a>
-          <a class="SideNav-item" id="igroup-nav-metrics" href="/tools/invocations/-/metrics" data-view="metrics">Metrics</a>
-          <a class="SideNav-item" id="igroup-nav-tests" href="/tools/invocations/-/tests" data-view="tests">Tests</a>
-          <a class="SideNav-item" id="igroup-nav-usage" href="/tools/invocations/-/usage" data-view="usage">Usage</a>
-        </nav>
         <section class="bes-events-side-section" aria-label="Backend">
           {sectionHeader(title: 'Backend')}
           <form class="bes-backend-form {css('igroup-form')}" aria-label="Backend">
@@ -110,13 +102,13 @@ import {sectionHeader} from 'app/bcr/registry.soy';
               <input class="form-control input-block {css('igroup-name')}" type="text"
                   maxlength="128" pattern="[A-Za-z0-9][A-Za-z0-9._\-]*" placeholder="release">
             </label>
-            <button type="submit" class="btn btn-primary btn-sm">Connect</button>
-            <div class="bes-backend-status text-small" role="status">
-              <span class="Label {css('igroup-backend-label')}">Disconnected</span>
-              <span class="color-fg-muted {css('igroup-backend-detail')}">Enter a backend address and connect.</span>
+            <div class="bes-backend-actions">
+              <button type="submit" class="btn btn-primary btn-sm">Connect</button>
+              <span class="Label {css('igroup-backend-label')}" role="status">Disconnected</span>
             </div>
+            <div class="bes-backend-detail text-small color-fg-muted {css('igroup-backend-detail')}">Enter a backend address and connect.</div>
             <div class="bes-group-controls text-small color-fg-muted">
-              <label class="bes-group-option" title="Open new group builds automatically. Opening a run pauses follow until you return to Runs.">
+              <label class="bes-group-option" title="Open new group builds automatically. Opening a run pauses follow. Check Follow to resume.">
                 <input type="checkbox" class="{css('igroup-follow')}" checked> Follow
               </label>
               <label class="bes-group-option" title="Open the latest finished run when you connect and no active build is being followed.">
@@ -125,78 +117,120 @@ import {sectionHeader} from 'app/bcr/registry.soy';
             </div>
           </form>
         </section>
-        <section class="bes-events-side-section" aria-label="Upload">
-          {sectionHeader(title: 'Upload')}
-          <div class="bes-upload-target" role="region" aria-label="Upload build events">
-            <span class="color-fg-muted">{octiconFile16()}</span>
-            <strong>Drop a build events file</strong>
-            <p class="text-small color-fg-muted mb-1">Use a file from <code>--build_event_binary_file</code>.</p>
-            <button type="button" class="btn btn-outline btn-sm {css('igroup-choose-file')}">Upload file</button>
-            <input type="file" class="d-none {css('igroup-file-input')}" aria-label="Choose a binary build event file">
-            <p class="text-small mb-0 {css('igroup-upload-status')}" role="status" hidden></p>
-          </div>
-          <a class="d-inline-block mt-2" id="igroup-nav-uploads" href="/tools/invocations/-/uploads" data-view="uploads">Uploads</a>
-        </section>
         <section class="bes-events-side-section" aria-label="Keyboard Shortcuts">
           {sectionHeader(title: 'Keyboard Shortcuts')}
-          {buildEventShortcut(view: 'current', label: 'Current / Last', key: '1', altKeyLabel: $altKeyLabel)}
-          {buildEventShortcut(view: 'runs', label: 'Runs', key: '2', altKeyLabel: $altKeyLabel)}
-          {buildEventShortcut(view: 'metrics', label: 'Metrics', key: '3', altKeyLabel: $altKeyLabel)}
+          {buildEventShortcut(view: 'current', label: 'Invocation', key: '1', altKeyLabel: $altKeyLabel)}
+          {buildEventShortcut(view: 'group', label: 'Group', key: '2', altKeyLabel: $altKeyLabel)}
+          {buildEventShortcut(view: 'groups', label: 'Groups', key: '3', altKeyLabel: $altKeyLabel)}
           {buildEventShortcut(view: 'tests', label: 'Tests', key: '4', altKeyLabel: $altKeyLabel)}
           {buildEventShortcut(view: 'usage', label: 'Usage', key: '5', altKeyLabel: $altKeyLabel)}
-          {buildEventShortcut(view: 'uploads', label: 'Uploads', key: '6', altKeyLabel: $altKeyLabel)}
+          {buildEventShortcut(view: 'upload', label: 'Upload', key: '6', altKeyLabel: $altKeyLabel)}
         </section>
       </div>
       <div class="PageLayout-content bes-events-content">
-        <div class="Box mb-3 d-none {css('igroup-list')}"></div>
-        <div class="mb-3 {css('igroup-window-control')}" hidden>
-          <label for="igroup-time-range">Time range</label>
-          <select id="igroup-time-range" class="form-select select-sm ml-2 {css('igroup-window')}">
-            <option value="7">Last 7 days</option>
-            <option value="30" selected>Last 30 days</option>
-            <option value="90">Last 90 days</option>
-          </select>
-        </div>
+        <nav class="UnderlineNav bes-events-nav" aria-label="Build event views">
+          <div class="UnderlineNav-body">
+            <a class="UnderlineNav-item" id="igroup-nav-current" href="/tools/invocations/-/current"
+                data-view="current" aria-current="location">Invocation</a>
+            <a class="UnderlineNav-item" id="igroup-nav-group" href="/tools/invocations/-/group" data-view="group">Group</a>
+            <a class="UnderlineNav-item" id="igroup-nav-groups" href="/tools/invocations/-/groups" data-view="groups">Groups</a>
+            <a class="UnderlineNav-item" id="igroup-nav-tests" href="/tools/invocations/-/tests" data-view="tests">Tests</a>
+            <a class="UnderlineNav-item" id="igroup-nav-upload" href="/tools/invocations/-/upload" data-view="upload">Upload</a>
+            <a class="UnderlineNav-item" id="igroup-nav-usage" href="/tools/invocations/-/usage" data-view="usage">Usage</a>
+          </div>
+        </nav>
         <div class="{css('igroup-content')}">
           <div role="region" id="igroup-panel-current" aria-labelledby="igroup-nav-current" tabindex="0">
             <p class="bes-group-empty {css('igroup-status')}" role="status">Connect to a backend and choose a group to follow builds.</p>
             <div class="d-none {css('igroup-viewer')}"></div>
           </div>
-          <div role="region" id="igroup-panel-runs" aria-labelledby="igroup-nav-runs" tabindex="0" hidden>
-            <p class="bes-group-empty {css('igroup-runs-empty')}">Connect to a backend and choose a group to see its runs.</p>
-            <div class="bes-group-runs {css('igroup-runs-table')}" hidden>
-              <table class="bes-group-run-table" aria-label="Invocation runs">
-                <thead><tr><th scope="col">Status</th><th scope="col">Invocation</th><th scope="col">Command</th><th scope="col">Time</th></tr></thead>
+          <div role="region" id="igroup-panel-group" aria-labelledby="igroup-nav-group" tabindex="0" hidden>
+            <div class="bes-group-totals {css('igroup-totals')}" hidden>
+              <div class="{css('igroup-build-metrics')}"></div>
+            </div>
+            <div class="bes-group-controls bes-group-table-controls">
+              <label><span id="igroup-metric-label">Metric</span>
+                <select class="form-select select-sm {css('igroup-metric')}" aria-labelledby="igroup-metric-label"></select>
+              </label>
+              <label><span id="igroup-binning-label">Group by</span>
+                <select class="form-select select-sm {css('igroup-binning')}" aria-labelledby="igroup-binning-label">
+                  <option value="0">Per build</option>
+                  <option value="3600000">Hour (UTC)</option>
+                  <option value="86400000">Day (UTC)</option>
+                </select>
+              </label>
+            </div>
+            <div class="bes-group-runs">
+              <table class="bes-group-run-table bes-group-filter-table" aria-label="Invocation runs">
+                <thead>
+                  <tr>
+                    <th scope="col" aria-labelledby="igroup-status-heading">
+                      <details class="bes-group-status-filter">
+                        <summary id="igroup-status-heading">Status</summary>
+                        <fieldset class="{css('igroup-status-options')}" aria-label="Filter by status"></fieldset>
+                      </details>
+                    </th>
+                    <th scope="col">
+                      <label>Invocation
+                        <input class="form-control input-sm {css('igroup-id-filter')}" type="search" placeholder="ID prefix">
+                      </label>
+                    </th>
+                    <th scope="col">
+                      <label>Command
+                        <input class="form-control input-sm {css('igroup-command-filter')}" type="search"
+                            placeholder="Filter commands" list="igroup-command-options">
+                      </label>
+                      <datalist id="igroup-command-options"></datalist>
+                    </th>
+                    <th scope="col">
+                      <label><span id="igroup-window-label">Time</span>
+                        <select class="form-select select-sm {css('igroup-window')}" aria-labelledby="igroup-window-label">
+                          <option value="7">Last 7 days</option>
+                          <option value="30" selected>Last 30 days</option>
+                          <option value="90">Last 90 days</option>
+                        </select>
+                      </label>
+                    </th>
+                    <th scope="col" class="bes-group-run-stat">
+                      <span class="bes-group-run-heading {css('igroup-metric-heading')}" title="Build time">Build time</span>
+                    </th>
+                  </tr>
+                </thead>
                 <tbody class="{css('igroup-runs')}"></tbody>
               </table>
             </div>
+            <p class="bes-group-empty {css('igroup-runs-empty')}">Connect to a backend and choose a group to see its runs.</p>
             <div class="mt-2">
               <button type="button" class="btn btn-sm {css('igroup-older-runs')}" hidden>Load older runs</button>
               <span class="text-small color-fg-muted ml-2 {css('igroup-page-status')}" role="status"></span>
             </div>
           </div>
-          <div role="region" id="igroup-panel-metrics" aria-labelledby="igroup-nav-metrics" tabindex="0" hidden>
-            <div class="{css('igroup-build-metrics')}">
-              <p class="bes-group-empty">Connect to a backend and choose a group to see build metrics.</p>
-            </div>
-            {sectionHeader(title: 'Cache', class: 'bes-group-cache-title')}
-            <div class="{css('igroup-cache-metrics')}">
-              <p class="bes-group-empty">Connect to a backend and choose a group to see cache metrics.</p>
-            </div>
+          <div role="region" id="igroup-panel-groups" aria-labelledby="igroup-nav-groups" tabindex="0" hidden>
+            <p class="bes-group-empty {css('igroup-catalog-status')}" role="status">Connect to a backend to see its groups.</p>
+            <table class="bes-group-run-table bes-group-catalog" aria-label="Available invocation groups" hidden>
+              <thead><tr>
+                <th scope="col">Group name</th>
+                <th scope="col" class="bes-group-catalog-count">Invocations</th>
+                <th scope="col" class="bes-group-catalog-time">Last invocation</th>
+              </tr></thead>
+              <tbody class="{css('igroup-list')}"></tbody>
+            </table>
           </div>
           <div role="region" id="igroup-panel-tests" aria-labelledby="igroup-nav-tests" tabindex="0" hidden>
             <div class="{css('igroup-test-metrics')}">
               <p class="bes-group-empty">Connect to a backend and choose a group to see test results.</p>
             </div>
           </div>
-          <div role="region" id="igroup-panel-uploads" aria-labelledby="igroup-nav-uploads" tabindex="0" hidden>
-            <p class="bes-group-empty {css('igroup-uploads-empty')}">Upload a build events file to see it here.</p>
-            <div class="bes-group-runs {css('igroup-uploads-table')}" hidden>
-              <table class="bes-group-run-table" aria-label="Uploaded invocations">
-                <thead><tr><th scope="col">Status</th><th scope="col">Invocation</th><th scope="col">Command</th><th scope="col">Time</th></tr></thead>
-                <tbody class="{css('igroup-uploads')}"></tbody>
-              </table>
+          <div role="region" id="igroup-panel-upload" aria-labelledby="igroup-nav-upload" tabindex="0" hidden>
+            <div class="bes-upload-target bes-upload-target-large" role="region" aria-label="Upload build events">
+              <span class="color-fg-muted" aria-hidden="true">{octiconFile16()}</span>
+              <strong>Drop a build events file</strong>
+              <p class="text-small color-fg-muted mb-1">Use a file from <code>--build_event_binary_file</code>.</p>
+              <button type="button" class="btn btn-outline {css('igroup-choose-file')}">Choose File</button>
+              <input type="file" class="d-none {css('igroup-file-input')}" aria-label="Choose a binary build event file">
+              <p class="text-small mb-0 {css('igroup-upload-status')}" role="status" hidden></p>
             </div>
+            <div class="mt-3 d-none {css('igroup-upload-viewer')}"></div>
           </div>
           <div role="region" id="igroup-panel-usage" aria-labelledby="igroup-nav-usage" tabindex="0" hidden>
             {invocationGroupUsage()}
@@ -272,18 +306,19 @@ import {sectionHeader} from 'app/bcr/registry.soy';
 {/template}
 
 {template invocationViewer}
+  {@param idPrefix: string}
   <div class="bes-invocation">
     <header class="bes-invocation-heading">
       <span class="bes-invocation-icon {css('bes-heading-icon')}" aria-hidden="true"></span>
       <h2 class="bes-invocation-title"><code class="{css('bes-heading-id')}"></code></h2>
       <div class="bes-tabs d-none {css('bes-tabs')}" role="tablist" aria-label="Invocation views">
-        <button type="button" role="tab" id="bes-tab-overview" aria-controls="bes-panel-overview"
+        <button type="button" role="tab" id="{$idPrefix}-bes-tab-overview" aria-controls="{$idPrefix}-bes-panel-overview"
             aria-selected="true" tabindex="0">Overview</button>
-        <button type="button" role="tab" id="bes-tab-terminal" aria-controls="bes-panel-terminal"
+        <button type="button" role="tab" id="{$idPrefix}-bes-tab-terminal" aria-controls="{$idPrefix}-bes-panel-terminal"
             aria-selected="false" tabindex="-1">Terminal</button>
-        <button type="button" role="tab" id="bes-tab-tests" aria-controls="bes-panel-tests"
+        <button type="button" role="tab" id="{$idPrefix}-bes-tab-tests" aria-controls="{$idPrefix}-bes-panel-tests"
             aria-selected="false" tabindex="-1">Tests</button>
-        <button type="button" role="tab" id="bes-tab-metrics" aria-controls="bes-panel-metrics"
+        <button type="button" role="tab" id="{$idPrefix}-bes-tab-metrics" aria-controls="{$idPrefix}-bes-panel-metrics"
             aria-selected="false" tabindex="-1">Metrics</button>
       </div>
       <div class="bes-invocation-timing">
@@ -292,7 +327,7 @@ import {sectionHeader} from 'app/bcr/registry.soy';
       </div>
     </header>
     <div class="d-none {css('results')}">
-      <div role="tabpanel" id="bes-panel-overview" aria-labelledby="bes-tab-overview" tabindex="0">
+      <div class="bes-overview-panel" role="tabpanel" id="{$idPrefix}-bes-panel-overview" aria-labelledby="{$idPrefix}-bes-tab-overview" tabindex="0">
         <div class="{css('summary')}"></div>
         <div class="bes-invocation-log {css('bes-log-body')}" hidden>
           <div class="bes-terminal {css('bes-log')}" tabindex="0" role="region" aria-label="Build terminal output"></div>
@@ -302,9 +337,9 @@ import {sectionHeader} from 'app/bcr/registry.soy';
         <section class="bes-build-stats {css('bes-build-stats')}" aria-label="Build statistics" hidden></section>
         <div class="bes-overview-path {css('bes-critical-path')}"></div>
 
-        <section class="Box Box--condensed mb-3" aria-labelledby="bes-frontier-title">
+        <section class="Box Box--condensed mb-3" aria-labelledby="{$idPrefix}-bes-frontier-title">
           <header class="Box-header">
-            <h2 class="Box-title" id="bes-frontier-title">Build frontier</h2>
+            <h2 class="Box-title" id="{$idPrefix}-bes-frontier-title">Build frontier</h2>
             <div class="d-flex flex-wrap flex-items-center flex-justify-between">
               <span class="color-fg-muted text-small {css('bes-frontier-count')}"></span>
               <span class="bes-frontier-key color-fg-muted text-small">
@@ -354,23 +389,23 @@ import {sectionHeader} from 'app/bcr/registry.soy';
 
       </div>
 
-      <div role="tabpanel" id="bes-panel-terminal" aria-labelledby="bes-tab-terminal" tabindex="0" hidden>
+      <div role="tabpanel" id="{$idPrefix}-bes-panel-terminal" aria-labelledby="{$idPrefix}-bes-tab-terminal" tabindex="0" hidden>
         <div class="bes-terminal-tools mb-2">
           <input type="search" class="form-control input-sm {css('bes-log-search')}" placeholder="Search terminal"
                  aria-label="Search terminal" aria-describedby="bes-log-search-result"
                  title="Enter for next match. Shift+Enter for previous match.">
-          <span id="bes-log-search-result" class="text-small color-fg-muted {css('bes-log-search-result')}" role="status"></span>
+          <span id="{$idPrefix}-bes-log-search-result" class="text-small color-fg-muted {css('bes-log-search-result')}" role="status"></span>
           <button type="button" class="btn btn-sm {css('bes-download-log')}" disabled>Download log</button>
         </div>
         <div class="bes-terminal bes-terminal-full {css('bes-log-full')}" tabindex="0"
              role="region" aria-label="Full build terminal output"></div>
       </div>
 
-      <div role="tabpanel" id="bes-panel-tests" aria-labelledby="bes-tab-tests" tabindex="0" hidden>
+      <div role="tabpanel" id="{$idPrefix}-bes-panel-tests" aria-labelledby="{$idPrefix}-bes-tab-tests" tabindex="0" hidden>
         <div class="{css('bes-tests')}"></div>
       </div>
 
-      <div role="tabpanel" id="bes-panel-metrics" aria-labelledby="bes-tab-metrics" tabindex="0" hidden>
+      <div role="tabpanel" id="{$idPrefix}-bes-panel-metrics" aria-labelledby="{$idPrefix}-bes-tab-metrics" tabindex="0" hidden>
         <div class="{css('bes-metrics')}"></div>
         <section class="mt-4">
           {sectionHeader(title: 'Remote cache')}

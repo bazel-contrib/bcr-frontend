@@ -395,17 +395,33 @@ func (s *journalStorage) list(group string) ([]*pb.Invocation, error) {
 func (s *journalStorage) ListGroups(_ context.Context) ([]*pb.InvocationGroup, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	names := make(map[string]bool)
+	byName := make(map[string]*pb.InvocationGroup)
+	var groups []*pb.InvocationGroup
 	for _, inv := range s.summaries {
-		if name := inv.InvocationGroup; name != "" {
-			names[name] = true
+		name := inv.GetInvocationGroup()
+		if name == "" {
+			continue
+		}
+		group := byName[name]
+		if group == nil {
+			group = &pb.InvocationGroup{Name: name, InvocationCount: proto.Int64(0)}
+			byName[name] = group
+			groups = append(groups, group)
+		}
+		*group.InvocationCount += 1
+		if created := inv.GetCreatedAt(); created != nil {
+			if group.LatestInvocationAt == nil || created.AsTime().After(group.LatestInvocationAt.AsTime()) {
+				group.LatestInvocationAt = proto.Clone(created).(*timestamppb.Timestamp)
+			}
 		}
 	}
-	var groups []*pb.InvocationGroup
-	for name := range names {
-		groups = append(groups, &pb.InvocationGroup{Name: name})
-	}
-	sort.Slice(groups, func(i, j int) bool { return groups[i].Name < groups[j].Name })
+	sort.Slice(groups, func(i, j int) bool {
+		a, b := groups[i].LatestInvocationAt.AsTime(), groups[j].LatestInvocationAt.AsTime()
+		if a.Equal(b) {
+			return groups[i].Name < groups[j].Name
+		}
+		return a.After(b)
+	})
 	return groups, nil
 }
 

@@ -9,22 +9,18 @@ const soy = goog.require("goog.soy");
 const { BuildEventViewerComponent } = goog.require(
 	"bcrfrontend.invocationViewer",
 );
-const {
-	COLLECTION_INCOMPLETE,
-	InvocationFile,
-	InvocationProgress,
-	decodeDelimitedMessages,
-	eventTimestampMillis,
-} = goog.require("bcrfrontend.invocationEvents");
+const { COLLECTION_INCOMPLETE, InvocationProgress, decodeDelimitedMessages } =
+	goog.require("bcrfrontend.invocationEvents");
 const { Component, Route } = goog.require("stack.ui");
-const { GroupBuildChart } = goog.require("bcrfrontend.invocationCharts");
+const { METRICS, metricValue, metricLabel } = goog.require(
+	"bcrfrontend.invocationCharts",
+);
 const { InvocationBackend, openInvocationBackend } = goog.require(
 	"bcrfrontend.invocationTransport",
 );
 const {
 	InvocationStatus,
 	incompleteStatus,
-	invocationExitStatus,
 	invocationStatus,
 	renderInvocationStatusIcon,
 	replayResultStatus,
@@ -91,11 +87,14 @@ const GROUP_VIEW_ID_PREFIX = "igroup-panel-";
 
 const GROUP_VIEWS = new Set([
 	"current",
+	"group",
+	"groups",
 	"runs",
 	"metrics",
 	"tests",
+	"cache",
 	"usage",
-	"uploads",
+	"upload",
 ]);
 
 const NO_GROUP = "-";
@@ -105,6 +104,9 @@ const NO_GROUP = "-";
  * @return {?{group: string, id: string, view: string}}
  */
 function parseViewerPath(parts) {
+	/** @type {function(string):string} */
+	const viewName = (view) =>
+		view === "runs" || view === "metrics" || view === "cache" ? "group" : view;
 	try {
 		const [tool, first = "", second = "", third = ""] =
 			parts.map(decodeURIComponent);
@@ -113,7 +115,7 @@ function parseViewerPath(parts) {
 			parts.length <= 3 &&
 			(!second || GROUP_VIEWS.has(second))
 		) {
-			return { group: "", id: first, view: second };
+			return { group: "", id: first, view: viewName(second) };
 		}
 		if (
 			tool !== "invocations" ||
@@ -123,12 +125,12 @@ function parseViewerPath(parts) {
 			return null;
 		if (first === NO_GROUP) {
 			return !third && GROUP_VIEWS.has(second)
-				? { group: "", id: "", view: second }
+				? { group: "", id: "", view: viewName(second) }
 				: null;
 		}
 		if (!third && GROUP_VIEWS.has(second))
-			return { group: first, id: "", view: second };
-		return { group: first, id: second, view: third };
+			return { group: first, id: "", view: viewName(second) };
+		return { group: first, id: second, view: viewName(third) };
 	} catch (_error) {
 		return null;
 	}
@@ -155,7 +157,6 @@ function viewerLocation(url) {
  * @param {string} view
  */
 function setViewerPath(url, group, id, view) {
-	if (!group && !id && view === "current") view = "";
 	const base = id && !group ? INVOCATION_PATH : GROUP_INVOCATIONS_PATH;
 	/** @type {!Array<string>} */
 	const parts = [
@@ -189,6 +190,10 @@ function groupFollowMode(url) {
 	return group && id ? "manual" : "auto";
 }
 
+/** @typedef {{id: string, command: string, status: !InvocationStatus, time: string,
+ *     timeLabel: string, started: number, recorded: number}} */
+let InvocationRow;
+
 class InvocationGroupsComponent extends Component {
 	/** @param {?dom.DomHelper=} opt_domHelper */
 	constructor(opt_domHelper) {
@@ -209,6 +214,7 @@ class InvocationGroupsComponent extends Component {
 		/** @private */ this.metricsRequest_ = 0;
 		/** @private @type {?Set<string>} */
 		this.seenRuns_ = null;
+		/** @private */ this.pendingRunId_ = "";
 		/** @private */ this.generation_ = 0;
 		/** @private */ this.pollTimer_ = 0;
 		/** @private */ this.address_ = "";
@@ -220,10 +226,14 @@ class InvocationGroupsComponent extends Component {
 		/** @private */ this.activeView_ = "current";
 		/** @private */ this.metricsInFlight_ = false;
 		/** @private */ this.lastMetricsRead_ = 0;
-		/** @private @type {?GroupBuildChart} */ this.buildChart_ = null;
-		/** @private @type {?Element} */ this.buildSummary_ = null;
-		/** @private @const {!Array<!InvocationProgress>} */ this.uploads_ = [];
-		/** @private */ this.viewingUpload_ = false;
+		/** @private @type {!Map<string, !Object<string, *>>} */ this.buildSamples_ =
+			new Map();
+		/** @private @const {!Set<string>} */ this.statusFilter_ = new Set([
+			"SUCCESS",
+		]);
+		/** @private */ this.filterOptionsKey_ = "";
+		/** @private @type {?BuildEventViewerComponent} */ this.uploadViewer_ =
+			null;
 		/** @private */ this.uploadGeneration_ = 0;
 	}
 
@@ -239,7 +249,8 @@ class InvocationGroupsComponent extends Component {
 	enterDocument() {
 		super.enterDocument();
 		this.historyClock_ = setInterval(() => {
-			if (this.activeView_ === "runs") this.refreshHistoryTimes_();
+			if (this.activeView_ === "group" || this.activeView_ === "groups")
+				this.refreshRelativeTimes_();
 		}, 30000);
 		const groupInput = this.input_(goog.getCssName("igroup-name"));
 		const showLast = this.input_(goog.getCssName("igroup-show-last"));
@@ -256,11 +267,45 @@ class InvocationGroupsComponent extends Component {
 			if (follow.checked) this.returnToGroup_();
 			this.renderGroupStatus_();
 		});
-		const windowSelect = this.groupElement_(goog.getCssName("igroup-window"));
-		this.getHandler().listen(windowSelect, "change", () => {
-			this.windowDays_ = Number(
-				/** @type {!HTMLSelectElement} */ (windowSelect).value,
+		const metric = this.groupElement_(goog.getCssName("igroup-metric"));
+		METRICS.forEach(({ label }, index) =>
+			metric.appendChild(
+				dom.createDom("option", { value: String(index) }, label),
+			),
+		);
+		const handler = this.getHandler();
+		/** @type {!Array<string>} */
+		const searchFields = [
+			goog.getCssName("igroup-id-filter"),
+			goog.getCssName("igroup-command-filter"),
+		];
+		for (const css of searchFields)
+			handler.listen(this.groupElement_(css), "input", () =>
+				this.renderHistory_(),
 			);
+		handler.listen(metric, "change", () => this.renderHistory_());
+		handler.listen(
+			this.groupElement_(goog.getCssName("igroup-binning")),
+			"change",
+			() => this.renderHistory_(),
+		);
+		handler.listen(
+			this.groupElement_(goog.getCssName("igroup-status-options")),
+			"change",
+			(/** !events.BrowserEvent */ event) => {
+				const input = /** @type {!HTMLInputElement} */ (event.target);
+				if (input.checked) this.statusFilter_.add(input.value);
+				else this.statusFilter_.delete(input.value);
+				this.renderHistory_();
+			},
+		);
+		const windowSelect = /** @type {!HTMLSelectElement} */ (
+			this.groupElement_(goog.getCssName("igroup-window"))
+		);
+		handler.listen(windowSelect, "change", () => {
+			this.windowDays_ = Number(windowSelect.value);
+			this.buildSamples_.clear();
+			this.renderHistory_();
 			this.metricsRequest_++;
 			this.metricsInFlight_ = false;
 			this.lastMetricsRead_ = 0;
@@ -295,7 +340,7 @@ class InvocationGroupsComponent extends Component {
 			},
 		);
 		this.getHandler().listen(
-			this,
+			root,
 			"keydown",
 			(/** !events.BrowserEvent */ event) => {
 				const key = /** @type {!KeyboardEvent} */ (event.getBrowserEvent());
@@ -323,7 +368,16 @@ class InvocationGroupsComponent extends Component {
 			"submit",
 			(/** !events.BrowserEvent */ event) => {
 				event.preventDefault();
-				this.openGroup_();
+				const { group, id } = viewerLocation(new URL(window.location.href));
+				const single = id && !group && this.activeView_ !== "groups";
+				const destination = groupInput.value.trim()
+					? this.activeView_ === "groups"
+						? "group"
+						: ""
+					: single
+						? ""
+						: "groups";
+				this.openGroup_(destination);
 			},
 		);
 		this.getHandler().listen(
@@ -335,7 +389,7 @@ class InvocationGroupsComponent extends Component {
 				);
 				if (!target) return;
 				groupInput.value = target.getAttribute("data-group-name") || "";
-				this.openGroup_();
+				this.openGroup_("group");
 			},
 		);
 		this.getHandler().listen(
@@ -352,7 +406,6 @@ class InvocationGroupsComponent extends Component {
 		const input = this.input_(goog.getCssName("igroup-file-input"));
 		const drop = new FileDropHandler(root, true);
 		this.registerDisposable(drop);
-		const handler = this.getHandler();
 		handler.listen(
 			this.groupElement_(goog.getCssName("igroup-choose-file")),
 			"click",
@@ -382,20 +435,6 @@ class InvocationGroupsComponent extends Component {
 				if (file) this.loadUpload_(file);
 			},
 		);
-		handler.listen(
-			this.groupElement_(goog.getCssName("igroup-uploads")),
-			"click",
-			(/** !events.BrowserEvent */ event) => {
-				const row = /** @type {!Element} */ (event.target).closest(
-					"[data-invocation-id]",
-				);
-				const id = row?.getAttribute("data-invocation-id");
-				const invocation = this.uploads_.find(
-					(upload) => upload.sourceId === id,
-				);
-				if (invocation) this.openUpload_(invocation);
-			},
-		);
 	}
 
 	/** @private @param {string} id */
@@ -411,6 +450,7 @@ class InvocationGroupsComponent extends Component {
 	syncGroupOptions_(url) {
 		const follow = groupFollowMode(url);
 		const showLast = url.searchParams.get("showLast") !== "0";
+		if (follow !== "auto") this.pendingRunId_ = "";
 		url.searchParams.set("follow", follow);
 		url.searchParams.set("showLast", showLast ? "1" : "0");
 		this.input_(goog.getCssName("igroup-follow")).checked = follow === "auto";
@@ -426,6 +466,7 @@ class InvocationGroupsComponent extends Component {
 	setFollowMode_(mode) {
 		const url = new URL(window.location.href);
 		url.searchParams.set("follow", mode);
+		if (mode !== "auto") this.pendingRunId_ = "";
 		this.input_(goog.getCssName("igroup-follow")).checked = mode === "auto";
 		replaceViewerLocation(url);
 		this.updateViewLinks_(url);
@@ -454,10 +495,12 @@ class InvocationGroupsComponent extends Component {
 		const location = parseViewerPath(route.path().slice(2));
 		if (!location) return;
 		const { group, id, view } = location;
+		if (/\/(runs|metrics|cache)$/.test(url.pathname) && view === "group")
+			setViewerPath(url, group, id, view);
 		this.syncGroupOptions_(url);
 		replaceViewerLocation(url);
 		this.updateViewLinks_(url);
-		this.selectView_(view || "current");
+		this.selectView_(view || (group || id ? "current" : "groups"));
 		const sameGroup = group === this.group_;
 		const sameRun = id === (this.requestedId_ || this.watchedId_);
 		if (
@@ -487,6 +530,7 @@ class InvocationGroupsComponent extends Component {
 		if (
 			((group || id) &&
 				this.input_(goog.getCssName("igroup-backend")).value.trim()) ||
+			(view === "groups" && remembered) ||
 			!sameGroup ||
 			this.watchedId_
 		) {
@@ -524,15 +568,16 @@ class InvocationGroupsComponent extends Component {
 		this.stopWatching_();
 	}
 
-	/** @private */
-	async openGroup_() {
+	/** @private @param {string=} view */
+	async openGroup_(view = "") {
 		this.closeGroup_();
 		const generation = this.generation_;
 		this.address_ = this.input_(goog.getCssName("igroup-backend")).value.trim();
 		this.group_ = this.input_(goog.getCssName("igroup-name")).value.trim();
 		const url = new URL(window.location.href);
 		const path = viewerLocation(url);
-		const singleId = !this.group_ && !path.group ? path.id : "";
+		const singleId =
+			!this.group_ && !path.group && view !== "groups" ? path.id : "";
 		this.runs_ = [];
 		this.olderRuns_ = [];
 		this.activeRun_ = null;
@@ -545,10 +590,10 @@ class InvocationGroupsComponent extends Component {
 		this.nextPage_ = "";
 		this.groupElement_(goog.getCssName("igroup-page-status")).textContent = "";
 		this.seenRuns_ = null;
+		this.buildSamples_.clear();
+		this.renderCatalog_([], "Connecting to the backend…");
+		this.pendingRunId_ = "";
 		this.historyKey_ = "";
-		this.groupElement_(goog.getCssName("igroup-list")).classList.add("d-none");
-		this.groupElement_(goog.getCssName("igroup-current-tab")).textContent =
-			"Current";
 		this.renderHistory_();
 		const pending = singleId
 			? "Waiting for this invocation…"
@@ -569,9 +614,10 @@ class InvocationGroupsComponent extends Component {
 		this.syncGroupOptions_(url);
 		this.requestedId_ = sameGroup ? path.id : "";
 		if (!singleId)
-			setViewerPath(url, this.group_, this.requestedId_, path.view);
+			setViewerPath(url, this.group_, this.requestedId_, view || path.view);
 		replaceViewerLocation(url);
 		this.updateViewLinks_(url);
+		if (view) this.selectView_(view);
 		this.setBackendStatus_(
 			"Connecting",
 			"Label--accent",
@@ -584,6 +630,7 @@ class InvocationGroupsComponent extends Component {
 				return;
 			}
 			this.backend_ = backend;
+			if (this.activeView_ === "groups") void this.refreshCatalog_();
 			if (singleId) {
 				rememberViewerBackend("invocation", this.address_);
 				this.watch_(singleId);
@@ -598,29 +645,13 @@ class InvocationGroupsComponent extends Component {
 			} else {
 				const runsResult = await backend.list();
 				if (generation !== this.generation_) return;
-				/** @type {!Array<!Object<string, *>>} */
-				let groups = [];
-				try {
-					const result = await backend.listGroups();
-					groups = /** @type {!Array<!Object<string, *>>} */ (
-						result["groups"] || []
-					);
-				} catch (_error) {
-					// A ticket scoped to one invocation can list its run but cannot list groups.
-				}
-				if (generation !== this.generation_) return;
 				this.setRunPage_(runsResult);
 				rememberViewerBackend("invocation", this.address_);
 				this.setBackendStatus_(
 					"Connected",
 					"Label--success",
-					groups.length
-						? "Choose a group or open an invocation from Runs."
-						: this.runs_.length
-							? "Open an invocation from Runs."
-							: "Enter a group name to wait for its first build.",
+					"Choose a group from Groups.",
 				);
-				this.renderCatalog_(groups);
 				this.renderHistory_();
 			}
 		} catch (/** @type {*} */ error) {
@@ -632,6 +663,7 @@ class InvocationGroupsComponent extends Component {
 						? error.message
 						: "Could not connect to invocation groups.",
 				);
+				this.renderCatalog_([], "Could not connect to the backend.");
 				this.setGroupWaitingMessage_(
 					"Connect to a backend and choose a group.",
 				);
@@ -668,18 +700,30 @@ class InvocationGroupsComponent extends Component {
 		const message = this.groupElement_(
 			goog.getCssName("igroup-backend-detail"),
 		);
+		if (!group) {
+			if (message.textContent !== detail) message.textContent = detail;
+			return;
+		}
 		const flag = "--build_metadata=igroup=" + group;
-		const suffix = " on a build to add it to the " + group + " group.)";
-		const text = group ? detail + group + " (Set " + flag + suffix : detail;
-		if (message.textContent === text) return;
-		message.textContent = detail;
-		if (group)
-			message.append(
+		const instruction = " on a build to add it to the " + group + " group.";
+		const watching = "Watching group ";
+		if (message.textContent === watching + group + "Set " + flag + instruction)
+			return;
+		message.replaceChildren(
+			dom.createDom(
+				"div",
+				null,
+				watching,
 				dom.createDom("strong", "text-mono", group),
-				" (Set ",
+			),
+			dom.createDom(
+				"div",
+				null,
+				"Set ",
 				dom.createDom("code", null, flag),
-				suffix,
-			);
+				instruction,
+			),
+		);
 	}
 
 	/**
@@ -691,20 +735,19 @@ class InvocationGroupsComponent extends Component {
 		try {
 			const result = await backend.listGroup(this.group_);
 			if (generation !== this.generation_) return;
-			const transport = this.address_.startsWith("bcr-iroh-v1:")
-				? "Iroh"
-				: "HTTP";
-			this.setBackendStatus_(
-				"Connected",
-				"Label--success",
-				"Connected over " + transport + " · Watching group ",
-				this.group_,
-			);
+			this.setBackendStatus_("Connected", "Label--success", "", this.group_);
 			this.setRunPage_(result);
 			const seen = this.seenRuns_;
-			const newestUnseen =
-				seen &&
-				this.runs_.find((run) => !seen.has(String(run["invocationId"])));
+			if (seen && this.followMode_() === "auto") {
+				const newestUnseen = this.runs_.find((run) => {
+					const id = String(run["invocationId"]);
+					return (
+						id !== this.watchedId_ && id !== this.requestedId_ && !seen.has(id)
+					);
+				});
+				if (newestUnseen)
+					this.pendingRunId_ = String(newestUnseen["invocationId"]);
+			}
 			this.seenRuns_ = new Set(
 				this.runs_.map((run) => String(run["invocationId"])),
 			);
@@ -718,7 +761,7 @@ class InvocationGroupsComponent extends Component {
 						? this.activeRun_
 						: null)
 				: null;
-			if (lookup && !this.watchedRun_ && !this.viewingUpload_) {
+			if (lookup && !this.watchedRun_) {
 				try {
 					const found = await backend.get(lookup);
 					if (generation !== this.generation_) return;
@@ -732,25 +775,24 @@ class InvocationGroupsComponent extends Component {
 					// A link can arrive before its first build event.
 				}
 			}
-			if (!this.viewingUpload_ && this.requestedId_) {
-				if (this.watchedRun_?.["invocationId"] === this.requestedId_)
-					this.watch_(this.requestedId_);
-			} else if (!this.viewingUpload_) {
-				this.selectActiveRun_(
-					newestUnseen ? String(newestUnseen["invocationId"]) : "",
+			if (
+				this.requestedId_ &&
+				this.watchedRun_?.["invocationId"] === this.requestedId_
+			)
+				this.watch_(this.requestedId_);
+			this.selectActiveRun_();
+			if (
+				!seen &&
+				!this.requestedId_ &&
+				!this.watchedId_ &&
+				new URL(window.location.href).searchParams.get("showLast") !== "0"
+			) {
+				const last = this.runs_.find(
+					(run) =>
+						run["state"] === "INVOCATION_STATE_COMPLETE" ||
+						run["state"] === "INVOCATION_STATE_INCOMPLETE",
 				);
-				if (
-					!seen &&
-					!this.watchedId_ &&
-					new URL(window.location.href).searchParams.get("showLast") !== "0"
-				) {
-					const last = this.runs_.find(
-						(run) =>
-							run["state"] === "INVOCATION_STATE_COMPLETE" ||
-							run["state"] === "INVOCATION_STATE_INCOMPLETE",
-					);
-					if (last) this.watch_(String(last["invocationId"]));
-				}
+				if (last) this.watch_(String(last["invocationId"]));
 			}
 			this.renderGroupStatus_();
 			this.refreshMetrics_();
@@ -822,9 +864,8 @@ class InvocationGroupsComponent extends Component {
 		}
 		if (!selected) return;
 		this.activeView_ = view;
-		if (view === "runs") this.refreshHistoryTimes_();
-		this.groupElement_(goog.getCssName("igroup-window-control")).hidden =
-			view !== "metrics" && view !== "tests";
+		if (view === "group" || view === "groups") this.refreshRelativeTimes_();
+		if (view === "groups") void this.refreshCatalog_();
 		for (const panel of panels) {
 			if (panel instanceof HTMLElement) panel.hidden = panel !== selected;
 		}
@@ -841,10 +882,6 @@ class InvocationGroupsComponent extends Component {
 	/** @private */
 	returnToGroup_() {
 		this.requestedId_ = "";
-		if (this.viewingUpload_ && this.group_) {
-			if (this.watchedId_) this.watch_(this.watchedId_);
-			else this.stopWatching_();
-		}
 		if (this.group_) {
 			const url = new URL(window.location.href);
 			setViewerPath(
@@ -864,8 +901,9 @@ class InvocationGroupsComponent extends Component {
 		const backend = this.backend_;
 		if (
 			!backend ||
+			!this.group_ ||
 			!this.seenRuns_ ||
-			(this.activeView_ !== "metrics" && this.activeView_ !== "tests") ||
+			(this.activeView_ !== "group" && this.activeView_ !== "tests") ||
 			this.metricsInFlight_ ||
 			Date.now() - this.lastMetricsRead_ < 10000
 		)
@@ -892,15 +930,11 @@ class InvocationGroupsComponent extends Component {
 	 * @param {string} message
 	 */
 	setMetricsMessage_(message) {
-		/** @type {!Array<string>} */
-		const panels = [
-			goog.getCssName("igroup-build-metrics"),
-			goog.getCssName("igroup-cache-metrics"),
-			goog.getCssName("igroup-test-metrics"),
-		];
-		for (const css of panels) {
-			this.renderMetricBlankslate_(this.groupElement_(css), message);
-		}
+		this.groupElement_(goog.getCssName("igroup-totals")).hidden = true;
+		this.renderMetricBlankslate_(
+			this.groupElement_(goog.getCssName("igroup-test-metrics")),
+			message,
+		);
 	}
 
 	/**
@@ -923,6 +957,12 @@ class InvocationGroupsComponent extends Component {
 		/** @type {function(string):string} */
 		const time = (field) =>
 			metrics[field] == null ? "—" : formatElapsed(Number(metrics[field]));
+		this.buildSamples_ = new Map(
+			/** @type {!Array<!Object<string, *>>} */ (metrics["builds"] || []).map(
+				(sample) => [String(sample["invocationId"]), sample],
+			),
+		);
+		this.renderHistory_();
 		const total = count("invocationCount");
 		if (!total) {
 			this.setMetricsMessage_("No builds in this time range.");
@@ -932,37 +972,9 @@ class InvocationGroupsComponent extends Component {
 		const succeeded = count("succeededCount");
 		const failed = count("failedCount");
 		const body = this.groupElement_(goog.getCssName("igroup-build-metrics"));
-		if (!this.buildChart_)
-			this.buildChart_ = new GroupBuildChart(
-				(status) =>
-					status === "UNKNOWN"
-						? invocationStatus(status, "unknown").color
-						: invocationExitStatus(status, null).color,
-				(id) => {
-					const url = new URL(window.location.href);
-					setViewerPath(url, this.group_, id, "current");
-					url.searchParams.set("follow", "manual");
-					return url.pathname + url.search;
-				},
-				(id) => this.openRun_(id),
-			);
-		if (!this.buildSummary_) this.buildSummary_ = document.createElement("div");
-		if (this.buildChart_.element.parentElement !== body) {
-			dom.removeChildren(body);
-			body.append(
-				dom.createDom(
-					"section",
-					"bes-group-totals",
-					dom.createDom("h3", "h5 mb-2", "Window totals"),
-					this.buildSummary_,
-				),
-				this.buildChart_.element,
-			);
-		}
-		this.buildChart_.setBuilds(
-			/** @type {!Array<!Object<string, *>>} */ (metrics["builds"] || []),
-		);
-		renderGroupMetricList(this.buildSummary_, [
+		this.groupElement_(goog.getCssName("igroup-totals")).hidden = false;
+		/** @type {!Array<!Array<string>>} */
+		const stats = [
 			["Invocations", total.toLocaleString()],
 			["Running", running.toLocaleString()],
 			["Succeeded", succeeded.toLocaleString()],
@@ -975,14 +987,26 @@ class InvocationGroupsComponent extends Component {
 			["Average build time", time("averageDurationMs")],
 			["Median build time", time("medianDurationMs")],
 			["P95 build time", time("p95DurationMs")],
-			[
-				"Completed builds with timing",
-				count("timingSampleCount").toLocaleString(),
-			],
-		]);
-		this.renderGroupCache_(
-			/** @type {!Object<string, *>} */ (metrics["cache"] || {}),
-		);
+		];
+		const cache = /** @type {!Object<string, *>} */ (metrics["cache"] || {});
+		const hits = Number(cache["actionCacheHits"] || 0);
+		const misses = Number(cache["actionCacheMisses"] || 0);
+		const errors = Number(cache["actionCacheErrors"] || 0);
+		if (hits + misses) {
+			stats.push(
+				["Action cache hit rate", groupRate(hits, hits + misses)],
+				["Action cache hits", hits.toLocaleString()],
+				["Action cache misses", misses.toLocaleString()],
+			);
+		}
+		if (errors) stats.push(["Action cache errors", errors.toLocaleString()]);
+		if (cache["bazelRemoteCacheHits"] != null) {
+			stats.push([
+				"Remote cache hits reported by Bazel",
+				Number(cache["bazelRemoteCacheHits"]).toLocaleString(),
+			]);
+		}
+		renderGroupMetricList(body, stats);
 		if (metrics["tests"])
 			this.renderGroupTests_(
 				/** @type {!Object<string, *>} */ (metrics["tests"]),
@@ -992,43 +1016,6 @@ class InvocationGroupsComponent extends Component {
 				this.groupElement_(goog.getCssName("igroup-test-metrics")),
 				"Group test metrics require SQLite.",
 			);
-	}
-
-	/**
-	 * @private
-	 * @param {!Object<string, *>} cache
-	 */
-	renderGroupCache_(cache) {
-		const body = this.groupElement_(goog.getCssName("igroup-cache-metrics"));
-		const hits = Number(cache["actionCacheHits"] || 0);
-		const misses = Number(cache["actionCacheMisses"] || 0);
-		const sampled = Number(cache["actionCacheInvocationCount"] || 0);
-		if (!sampled && cache["bazelRemoteCacheHits"] == null) {
-			this.renderMetricBlankslate_(
-				body,
-				"No action cache lookups recorded. Connect Bazel to an instrumented cache to see the hit rate.",
-			);
-			return;
-		}
-		renderGroupMetricList(body, [
-			["Action cache hit rate", groupRate(hits, hits + misses)],
-			["Hits", hits.toLocaleString()],
-			["Misses", misses.toLocaleString()],
-			["Errors", Number(cache["actionCacheErrors"] || 0).toLocaleString()],
-			["Builds with action cache lookups", sampled.toLocaleString()],
-			[
-				"Remote cache hits reported by Bazel",
-				cache["bazelRemoteCacheHits"] == null
-					? "—"
-					: Number(cache["bazelRemoteCacheHits"]).toLocaleString(),
-			],
-		]);
-		const message = sampled
-			? "Hit rate uses hits divided by hits plus misses."
-			: "No action cache lookups recorded. The rate needs telemetry from the instrumented cache.";
-		body.appendChild(
-			dom.createDom("p", "mt-3 mb-0 color-fg-muted text-small", message),
-		);
 	}
 
 	/**
@@ -1083,23 +1070,22 @@ class InvocationGroupsComponent extends Component {
 		}
 	}
 
-	/**
-	 * @private
-	 * @param {string=} newestUnseen
-	 */
-	selectActiveRun_(newestUnseen = "") {
+	/** @private */
+	selectActiveRun_() {
 		const running = "INVOCATION_STATE_IN_PROGRESS";
 		if (
-			this.viewingUpload_ ||
 			this.followMode_() !== "auto" ||
 			this.watchedRun_?.["state"] === running
 		)
 			return;
-		const next =
+		const active =
 			this.activeRun_ || this.runs_.find((run) => run["state"] === running);
-		if (next) this.watch_(String(next["invocationId"]));
-		// A short build can start and finish between two group polls.
-		else if (newestUnseen) this.watch_(newestUnseen);
+		// Keep a short build eligible even if it finished while another was watched.
+		const nextId = active ? String(active["invocationId"]) : this.pendingRunId_;
+		if (nextId) {
+			this.pendingRunId_ = "";
+			this.watch_(nextId);
+		}
 	}
 
 	/**
@@ -1112,8 +1098,7 @@ class InvocationGroupsComponent extends Component {
 		setViewerPath(url, this.group_, id, viewerLocation(url).view);
 		replaceViewerLocation(url);
 		this.updateViewLinks_(url);
-		if (id === this.watchedId_ && !this.viewingUpload_) return;
-		this.viewingUpload_ = false;
+		if (id === this.watchedId_) return;
 		this.watchedId_ = id;
 		if (this.watchedRun_?.["invocationId"] !== id) {
 			this.watchedRun_ =
@@ -1133,7 +1118,7 @@ class InvocationGroupsComponent extends Component {
 					: closed
 						? "Label--danger"
 						: "Label--attention",
-				message,
+				connected ? "Watching invocation " + id : message,
 			);
 		};
 		viewer.followInvocation(this.address_, id, onStatus, (summary) => {
@@ -1148,22 +1133,32 @@ class InvocationGroupsComponent extends Component {
 		});
 	}
 
-	/** @private @return {!BuildEventViewerComponent} */
-	showViewer_() {
-		const mount = this.groupElement_(goog.getCssName("igroup-viewer"));
-		if (!this.viewer_) {
-			this.viewer_ = new BuildEventViewerComponent(this.getDomHelper());
-			this.addChild(this.viewer_, false);
-			this.viewer_.render(mount);
+	/**
+	 * @private
+	 * @param {boolean=} upload
+	 * @return {!BuildEventViewerComponent}
+	 */
+	showViewer_(upload = false) {
+		const mount = this.groupElement_(
+			upload
+				? goog.getCssName("igroup-upload-viewer")
+				: goog.getCssName("igroup-viewer"),
+		);
+		let viewer = upload ? this.uploadViewer_ : this.viewer_;
+		if (!viewer) {
+			viewer = new BuildEventViewerComponent(this.getDomHelper(), upload);
+			this.addChild(viewer, false);
+			viewer.render(mount);
+			if (upload) this.uploadViewer_ = viewer;
+			else this.viewer_ = viewer;
 		}
 		mount.classList.remove("d-none");
-		return this.viewer_;
+		return viewer;
 	}
 
 	/** @private */
 	stopWatching_() {
 		if (this.viewer_) this.viewer_.stopFollowing();
-		this.viewingUpload_ = false;
 		this.watchedId_ = "";
 		this.groupElement_(goog.getCssName("igroup-viewer")).classList.add(
 			"d-none",
@@ -1174,46 +1169,96 @@ class InvocationGroupsComponent extends Component {
 	renderGroupStatus_() {
 		const current = this.watchedRun_;
 		const status = this.groupElement_(goog.getCssName("igroup-status"));
-		status.hidden = this.viewingUpload_ || Boolean(this.watchedId_);
+		status.hidden = Boolean(this.watchedId_);
 		const message = current
 			? ""
 			: this.requestedId_
 				? "Waiting for invocation " + this.requestedId_
 				: this.followMode_() === "auto"
 					? this.group_ + " · Waiting for the next build"
-					: "Select a run from the Runs tab.";
+					: "Select a run from the Group tab.";
 		if (status.textContent !== message) status.textContent = message;
-		const tab = this.groupElement_(goog.getCssName("igroup-current-tab"));
-		const name = this.viewingUpload_
-			? "Current"
-			: current && current["state"] !== "INVOCATION_STATE_IN_PROGRESS"
-				? "Last"
-				: "Current";
-		if (tab.textContent !== name) tab.textContent = name;
+	}
+
+	/** @private */
+	async refreshCatalog_() {
+		const backend = this.backend_;
+		if (!backend) return;
+		try {
+			const result = await backend.listGroups();
+			if (backend === this.backend_)
+				this.renderCatalog_(
+					/** @type {!Array<!Object<string, *>>} */ (result["groups"] || []),
+					"No invocation groups found.",
+				);
+		} catch (_error) {
+			if (backend === this.backend_)
+				this.renderCatalog_(
+					[],
+					"Group catalog is unavailable on this connection.",
+				);
+		}
 	}
 
 	/**
 	 * @private
 	 * @param {!Array<!Object<string, *>>} groups
+	 * @param {string} message
 	 */
-	renderCatalog_(groups) {
+	renderCatalog_(groups, message) {
 		const list = this.groupElement_(goog.getCssName("igroup-list"));
 		dom.removeChildren(list);
+		const dates = new Intl.DateTimeFormat(undefined, {
+			dateStyle: "medium",
+			timeStyle: "long",
+		});
 		for (const group of groups) {
 			const name = String(group["name"]);
+			const count = group["invocationCount"];
+			const last = String(group["latestInvocationAt"] || "");
+			const date = new Date(last);
+			const time = Number.isFinite(date.getTime())
+				? dom.createDom(
+						"time",
+						{
+							"class": "bes-group-run-time color-fg-muted",
+							"title": dates.format(date),
+						},
+						formatRelativeShort(last),
+					)
+				: null;
+			if (time) time.setAttribute("datetime", last);
 			list.appendChild(
 				dom.createDom(
-					"button",
-					{
-						"type": "button",
-						"class": "Box-row btn-link d-block width-full text-left",
-						"data-group-name": name,
-					},
-					name,
+					"tr",
+					null,
+					dom.createDom(
+						"td",
+						null,
+						dom.createDom(
+							"button",
+							{
+								"type": "button",
+								"class": "btn-link",
+								"data-group-name": name,
+							},
+							name,
+						),
+					),
+					dom.createDom(
+						"td",
+						"bes-group-catalog-count",
+						count == null ? "—" : Number(count).toLocaleString(),
+					),
+					dom.createDom("td", null, time || "—"),
 				),
 			);
 		}
-		list.classList.toggle("d-none", !groups.length);
+		/** @type {!HTMLTableElement} */ (list.closest("table")).hidden =
+			!groups.length;
+		const status = this.groupElement_(goog.getCssName("igroup-catalog-status"));
+		status.textContent = message;
+		status.hidden = Boolean(groups.length);
 	}
 
 	/** @private @param {!Object<string, *>} result */
@@ -1290,8 +1335,7 @@ class InvocationGroupsComponent extends Component {
 		const runs = /** @type {!Array<!Object<string, *>>} */ (
 			this.runs_.concat(this.olderRuns_)
 		);
-		/** @type {!Array<{id: string, command: string, status: !InvocationStatus, time: string,
-		 *     timeLabel: string, title: string, file: string}>} */
+		/** @type {!Array<!InvocationRow>} */
 		const rows = runs.map((run) => {
 			const id = String(run["invocationId"]);
 			const command = [
@@ -1321,27 +1365,195 @@ class InvocationGroupsComponent extends Component {
 					: run["startedAt"]
 						? "Started"
 						: "Recorded";
-			return { id, command, status, time, timeLabel, title: id, file: "" };
+			const started = Date.parse(
+				String(run["startedAt"] || run["createdAt"] || time),
+			);
+			const recorded = Date.parse(
+				String(run["createdAt"] || run["startedAt"] || time),
+			);
+			return {
+				id,
+				command,
+				status,
+				time,
+				timeLabel,
+				started,
+				recorded,
+			};
 		});
-		const key = JSON.stringify(rows);
+		const cutoff = Date.now() - this.windowDays_ * 86400000;
+		const recent = rows.filter(
+			(row) => !Number.isFinite(row.recorded) || row.recorded >= cutoff,
+		);
+		this.updateRunFilterOptions_(recent);
+		const id = this.input_(goog.getCssName("igroup-id-filter"))
+			.value.trim()
+			.toLowerCase();
+		const command = this.input_(goog.getCssName("igroup-command-filter"))
+			.value.trim()
+			.toLowerCase();
+		const visible = recent.filter(
+			(row) =>
+				this.statusFilter_.has(row.status.label) &&
+				row.id.toLowerCase().startsWith(id) &&
+				row.command.toLowerCase().includes(command),
+		);
+		visible.sort(
+			(a, b) => (b.started || 0) - (a.started || 0) || a.id.localeCompare(b.id),
+		);
+		const metricIndex = Number(
+			/** @type {!HTMLSelectElement} */ (
+				this.groupElement_(goog.getCssName("igroup-metric"))
+			).value,
+		);
+		const metric = METRICS[metricIndex];
+		const metricHeading = this.groupElement_(
+			goog.getCssName("igroup-metric-heading"),
+		);
+		if (metricHeading.textContent !== metric.label) {
+			metricHeading.textContent = metric.label;
+			metricHeading.title = metric.label;
+		}
+		const bin = Number(
+			/** @type {!HTMLSelectElement} */ (
+				this.groupElement_(goog.getCssName("igroup-binning"))
+			).value,
+		);
+		/** @type {!Array<?number>} */
+		const values = visible.map((row) =>
+			metricValue(this.buildSamples_.get(row.id) || null, metric),
+		);
+		const key = JSON.stringify([visible, metricIndex, bin, values]);
 		const empty = this.groupElement_(goog.getCssName("igroup-runs-empty"));
-		empty.hidden = Boolean(rows.length);
-		if (!rows.length && empty.textContent !== "No invocations yet.")
-			empty.textContent = "No invocations yet.";
-		this.groupElement_(goog.getCssName("igroup-runs-table")).hidden =
-			!rows.length;
+		empty.hidden = Boolean(visible.length);
+		empty.textContent = !this.backend_
+			? "Connect to a backend and choose a group to see its runs."
+			: rows.length
+				? "No loaded invocations match these filters."
+				: "No invocations yet.";
 		if (key === this.historyKey_) return;
 		this.historyKey_ = key;
-		this.renderInvocationRows_(
-			this.groupElement_(goog.getCssName("igroup-runs")),
-			rows,
-			true,
+		const list = this.groupElement_(goog.getCssName("igroup-runs"));
+		this.renderInvocationRows_(list, visible);
+		let maximum = 0;
+		for (const value of values) maximum = Math.max(maximum, value ?? 0);
+		/** @type {!Map<number, {first: !Element, sum: number, count: number}>} */
+		const buckets = new Map();
+		for (let index = 0; index < visible.length; index++) {
+			const element = /** @type {!HTMLElement} */ (list.children[index]);
+			const row = visible[index];
+			const value = values[index];
+			if (value !== null) {
+				element.style.setProperty(
+					"--bes-metric-width",
+					(maximum ? (100 * value) / maximum : 0) + "%",
+				);
+				const label = metricLabel(value, metric);
+				element.lastElementChild.appendChild(
+					dom.createDom(
+						"span",
+						{
+							"class": "bes-group-run-value",
+							"title": metric.label + ": " + label,
+						},
+						label,
+					),
+				);
+			}
+			if (!bin) continue;
+			const start = Math.floor((row.started || 0) / bin) * bin;
+			let bucket = buckets.get(start);
+			if (!bucket) {
+				bucket = { first: element, sum: 0, count: 0 };
+				buckets.set(start, bucket);
+			}
+			if (value !== null) {
+				bucket.sum += value;
+				bucket.count++;
+			}
+		}
+		buckets.forEach(({ first, sum, count }, start) => {
+			const date = start
+				? new Intl.DateTimeFormat(undefined, {
+						timeZone: "UTC",
+						dateStyle: "medium",
+						timeStyle: bin === 3600000 ? "short" : undefined,
+					}).format(start) + " UTC"
+				: "Unknown time";
+			list.insertBefore(
+				dom.createDom(
+					"tr",
+					"bes-group-bin",
+					dom.createDom(
+						"th",
+						{ "colspan": "5" },
+						dom.createDom("span", null, date),
+						count
+							? dom.createDom(
+									"span",
+									"color-fg-muted",
+									"Average " + metricLabel(sum / count, metric),
+								)
+							: null,
+					),
+				),
+				first,
+			);
+		});
+	}
+
+	/** @private @param {!Array<!InvocationRow>} rows */
+	updateRunFilterOptions_(rows) {
+		/** @type {!Map<string, !InvocationStatus>} */
+		const statuses = new Map();
+		statuses.set("SUCCESS", invocationStatus("SUCCESS", "success"));
+		for (const row of rows) statuses.set(row.status.label, row.status);
+		/** @type {!Set<string>} */
+		const uniqueCommands = new Set(rows.map((row) => row.command));
+		/** @type {!Array<string>} */
+		const commands = Array.from(uniqueCommands);
+		commands.sort();
+		const key = JSON.stringify([Array.from(statuses.keys()).sort(), commands]);
+		if (key === this.filterOptionsKey_) return;
+		this.filterOptionsKey_ = key;
+		const field = this.groupElement_(goog.getCssName("igroup-status-options"));
+		const active = document.activeElement;
+		dom.removeChildren(field);
+		statuses.forEach((status, label) => {
+			const input = /** @type {!HTMLInputElement} */ (
+				dom.createDom("input", { type: "checkbox", value: label })
+			);
+			input.checked = this.statusFilter_.has(label);
+			field.appendChild(
+				dom.createDom(
+					"label",
+					null,
+					input,
+					dom.createDom("span", status.color, label),
+				),
+			);
+			if (
+				active instanceof HTMLInputElement &&
+				active.value === label &&
+				!active.isConnected
+			)
+				/** @type {!HTMLElement} */ (input).focus({ preventScroll: true });
+		});
+		const options = this.getElementStrict().querySelector(
+			"#igroup-command-options",
 		);
+		dom.removeChildren(options);
+		for (const command of commands)
+			options.appendChild(dom.createDom("option", { value: command }));
 	}
 
 	/** @private */
-	refreshHistoryTimes_() {
-		const list = this.groupElement_(goog.getCssName("igroup-runs"));
+	refreshRelativeTimes_() {
+		const list = this.groupElement_(
+			this.activeView_ === "groups"
+				? goog.getCssName("igroup-list")
+				: goog.getCssName("igroup-runs"),
+		);
 		for (const time of list.querySelectorAll("time[datetime]")) {
 			const label = formatRelativeShort(time.getAttribute("datetime") || "");
 			if (time.textContent !== label) time.textContent = label;
@@ -1351,16 +1563,14 @@ class InvocationGroupsComponent extends Component {
 	/**
 	 * @private
 	 * @param {!HTMLElement} list
-	 * @param {!Array<{id: string, command: string, status: !InvocationStatus, time: string,
-	 *     timeLabel: string, title: string, file: string}>} rows
-	 * @param {boolean=} relativeTime
+	 * @param {!Array<!InvocationRow>} rows
 	 */
-	renderInvocationRows_(list, rows, relativeTime = false) {
+	renderInvocationRows_(list, rows) {
 		const focused = document.activeElement?.getAttribute("data-invocation-id");
 		dom.removeChildren(list);
 		const dates = new Intl.DateTimeFormat(undefined, {
 			dateStyle: "medium",
-			timeStyle: relativeTime ? "long" : "short",
+			timeStyle: "long",
 		});
 		for (const row of rows) {
 			const command = dom.createDom(
@@ -1368,16 +1578,6 @@ class InvocationGroupsComponent extends Component {
 				{ "class": "bes-group-run-command", "title": row.command },
 				row.command,
 			);
-			const file = row.file
-				? dom.createDom(
-						"span",
-						{
-							"class": "bes-group-run-command text-small color-fg-muted",
-							"title": row.file,
-						},
-						row.file,
-					)
-				: null;
 			const date = new Date(row.time);
 			const timestamp =
 				row.time && Number.isFinite(date.getTime())
@@ -1390,7 +1590,7 @@ class InvocationGroupsComponent extends Component {
 							"class": "bes-group-run-time color-fg-muted",
 							"title": timestamp,
 						},
-						relativeTime ? formatRelativeShort(row.time) : timestamp,
+						formatRelativeShort(row.time),
 					)
 				: null;
 			if (time) time.setAttribute("datetime", row.time);
@@ -1398,20 +1598,25 @@ class InvocationGroupsComponent extends Component {
 				"button",
 				{
 					"type": "button",
-					"class": "btn-link branch-name bes-group-run-id",
+					"class": "btn-link text-mono text-small bes-group-run-id",
 					"data-invocation-id": row.id,
-					"title": row.title,
+					"title": row.id,
 				},
-				row.title,
+				row.id,
 			);
 			list.appendChild(
 				dom.createDom(
 					"tr",
-					{ "class": "bes-group-run", "data-invocation-id": row.id },
+					{
+						"class": "bes-group-run",
+						"data-invocation-id": row.id,
+						"data-outcome": row.status.kind,
+					},
 					dom.createDom("td", null, renderInvocationStatusIcon(row.status)),
 					dom.createDom("td", null, button),
-					dom.createDom("td", null, command, file),
+					dom.createDom("td", null, command),
 					dom.createDom("td", null, time),
+					dom.createDom("td", "bes-group-run-stat"),
 				),
 			);
 			if (focused === row.id)
@@ -1422,6 +1627,7 @@ class InvocationGroupsComponent extends Component {
 	/** @private @param {!File} file */
 	async loadUpload_(file) {
 		const generation = ++this.uploadGeneration_;
+		if (this.activeView_ !== "upload") this.navigateView_("upload");
 		const status = this.groupElement_(goog.getCssName("igroup-upload-status"));
 		status.hidden = false;
 		status.classList.remove("color-fg-danger");
@@ -1452,9 +1658,7 @@ class InvocationGroupsComponent extends Component {
 				uploadedAt: Date.now(),
 			});
 			for (const event of fileEvents) invocation.add(event);
-			this.uploads_.unshift(invocation);
-			this.renderUploads_();
-			this.openUpload_(invocation);
+			this.showViewer_(true).showReplay(invocation);
 			status.textContent = "Loaded " + file.name + ".";
 		} catch (_error) {
 			if (generation !== this.uploadGeneration_) return;
@@ -1462,46 +1666,6 @@ class InvocationGroupsComponent extends Component {
 				"Could not read this build event file. It may be truncated or invalid.";
 			status.classList.add("color-fg-danger");
 		}
-	}
-
-	/** @private */
-	renderUploads_() {
-		const rows = this.uploads_.map((invocation) => {
-			const file = /** @type {!InvocationFile} */ (invocation.file);
-			const started = invocation.started;
-			const startTime = started ? eventTimestampMillis(started) : null;
-			return {
-				id: invocation.sourceId,
-				title: invocation.invocationId(),
-				file: file.name,
-				command: [
-					"bazel",
-					started?.getStarted()?.getCommand(),
-					...invocation.targets,
-				]
-					.filter(Boolean)
-					.join(" "),
-				status:
-					replayResultStatus(invocation) ||
-					invocationStatus("Incomplete", "warning"),
-				time: new Date(startTime ?? file.uploadedAt).toISOString(),
-				timeLabel: startTime === null ? "Uploaded" : "Started",
-			};
-		});
-		this.groupElement_(goog.getCssName("igroup-uploads-empty")).hidden = true;
-		this.groupElement_(goog.getCssName("igroup-uploads-table")).hidden = false;
-		this.renderInvocationRows_(
-			this.groupElement_(goog.getCssName("igroup-uploads")),
-			rows,
-		);
-	}
-
-	/** @private @param {!InvocationProgress} invocation */
-	openUpload_(invocation) {
-		this.viewingUpload_ = true;
-		this.showViewer_().showReplay(invocation);
-		this.renderGroupStatus_();
-		this.navigateView_("current");
 	}
 
 	/**

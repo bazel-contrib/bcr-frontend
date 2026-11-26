@@ -212,8 +212,6 @@ function renderTerminalText(value, style = defaultTerminalStyle()) {
 /** @typedef {{start: number, end: number, number: number}} */
 let TerminalMatch;
 
-const TERMINAL_SEARCH_HIGHLIGHT = "bes-terminal-match";
-
 /** @return {?Map<string, !Highlight>} */
 function terminalHighlights() {
 	// HighlightRegistry is map-like, but the Closure externs omit its set/delete methods.
@@ -222,9 +220,14 @@ function terminalHighlights() {
 }
 
 class InvocationTerminal {
-	/** @param {!HTMLElement} root */
-	constructor(root) {
+	/**
+	 * @param {!HTMLElement} root
+	 * @param {string=} highlightName
+	 */
+	constructor(root, highlightName) {
 		this.root = root;
+		/** @private @const {string} */
+		this.highlightName_ = highlightName || "bes-terminal-match";
 		this.tail_ = document.createElement("span");
 		/** @private @type {number} */
 		this.cursor_ = 0;
@@ -281,7 +284,7 @@ class InvocationTerminal {
 	}
 
 	clearHighlight() {
-		terminalHighlights()?.delete(TERMINAL_SEARCH_HIGHLIGHT);
+		terminalHighlights()?.delete(this.highlightName_);
 	}
 
 	/**
@@ -351,10 +354,7 @@ class InvocationTerminal {
 		}
 		// A document selection can steal focus from the search input as the user types.
 		if (typeof Highlight === "function")
-			terminalHighlights()?.set(
-				TERMINAL_SEARCH_HIGHLIGHT,
-				new Highlight(range),
-			);
+			terminalHighlights()?.set(this.highlightName_, new Highlight(range));
 		if (reveal) {
 			const match = range.getBoundingClientRect();
 			const viewport = this.root.getBoundingClientRect();

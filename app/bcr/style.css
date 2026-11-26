@@ -484,6 +484,12 @@ html.bcr-refresh-available .bcr-refresh-indicator {
 	overflow-wrap: anywhere;
 }
 
+.bes-upload-target-large {
+	gap: 8px;
+	min-height: 14rem;
+	padding: 24px;
+}
+
 .bes-upload-target:hover,
 .bes-upload-target:focus-within,
 .bes-events-layout.is-dragging .bes-upload-target {
@@ -965,7 +971,7 @@ html:has(.action-query-fullscreen[open]) {
 	white-space: nowrap;
 }
 
-#bes-panel-overview:not([hidden]) {
+.bes-overview-panel:not([hidden]) {
 	display: grid;
 	gap: 20px;
 }
@@ -1074,20 +1080,20 @@ html:has(.action-query-fullscreen[open]) {
 }
 
 .bes-events-nav {
-	margin-top: 16px;
-	border: 0;
-	background: transparent;
+	margin-bottom: 20px;
+	overflow-x: auto;
 }
 
-.bes-events-nav .SideNav-item {
-	border: 0;
-	border-radius: 6px;
-	padding: 5px 8px;
+.bes-events-nav .UnderlineNav-body {
+	width: max-content;
 }
 
-.bes-events-nav .SideNav-item[aria-current="location"] {
-	background: var(--bgColor-accent-muted, var(--color-accent-subtle));
-	color: var(--fgColor-accent, var(--color-accent-fg));
+.bes-events-nav .UnderlineNav-item[aria-current="location"] {
+	border-bottom-color: var(
+		--underlineNav-borderColor-active,
+		var(--color-primer-border-active)
+	);
+	color: var(--fgColor-default, var(--color-fg-default));
 	font-weight: 600;
 }
 
@@ -1109,8 +1115,7 @@ html:has(.action-query-fullscreen[open]) {
 	outline-offset: 4px;
 }
 
-.bes-backend-form,
-.bes-backend-status {
+.bes-backend-form {
 	display: grid;
 	justify-items: start;
 	gap: 8px;
@@ -1121,9 +1126,21 @@ html:has(.action-query-fullscreen[open]) {
 	width: 100%;
 }
 
-.bes-backend-status {
+.bes-backend-actions {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 8px;
+}
+
+.bes-backend-detail {
+	display: grid;
 	gap: 4px;
 	overflow-wrap: anywhere;
+}
+
+.bes-backend-detail:empty {
+	display: none;
 }
 
 .bes-group-controls {
@@ -1149,10 +1166,6 @@ html:has(.action-query-fullscreen[open]) {
 .bes-group-empty {
 	margin-bottom: 0;
 	color: var(--color-fg-muted);
-}
-
-.bes-group-cache-title {
-	margin-top: 24px;
 }
 
 .bes-group-usage {
@@ -1273,7 +1286,9 @@ html:has(.action-query-fullscreen[open]) {
 
 .bes-group-run-id,
 .bes-group-run-command,
-.bes-group-run-time {
+.bes-group-run-time,
+.bes-group-run-heading,
+.bes-group-run-value {
 	display: block;
 	max-width: 100%;
 	overflow: hidden;
@@ -1554,7 +1569,9 @@ html:has(.action-query-fullscreen[open]) {
 }
 
 .bes-terminal-full::highlight(bes-terminal-match),
-.bes-terminal-full *::highlight(bes-terminal-match) {
+.bes-terminal-full *::highlight(bes-terminal-match),
+.bes-terminal-full::highlight(bes-upload-terminal-match),
+.bes-terminal-full *::highlight(bes-upload-terminal-match) {
 	background: #f2cc60;
 	color: #161b22;
 }
@@ -1584,7 +1601,27 @@ html:has(.action-query-fullscreen[open]) {
 
 .bes-test-attempts td:last-child {
 	min-width: 10em;
-	overflow-wrap: anywhere;
+}
+
+.bes-test-detail-preview {
+	display: block;
+	max-width: min(26rem, 60vw);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.bes-test-outputs > summary {
+	width: fit-content;
+	color: var(--color-accent-fg);
+	cursor: pointer;
+}
+
+.bes-test-output-list {
+	max-height: 10rem;
+	margin: 4px 0 0;
+	padding-inline-start: 20px;
+	overflow: auto;
 }
 
 .bes-critical-path-table th {
@@ -1607,130 +1644,188 @@ html:has(.action-query-fullscreen[open]) {
 	gap: 8px 20px;
 }
 
-.bes-chart-status,
-.bes-chart-controls {
-	display: flex;
-	flex-wrap: wrap;
-	align-items: center;
-	gap: 8px 16px;
-}
-
-.bes-chart-status {
-	border: 0;
-	padding: 0;
-	margin: 0 0 16px;
-}
-
-.bes-chart-status legend {
-	margin-bottom: 4px;
-}
-
-.bes-chart-status label {
+.bes-group-table-controls label {
 	display: inline-flex;
-	gap: 6px;
-	align-items: center;
-}
-
-.bes-chart-swatch {
-	width: 8px;
-	height: 8px;
-	border-radius: 50%;
-	background-color: currentColor;
-}
-
-.bes-chart-control {
-	display: grid;
-	gap: 4px;
-}
-
-.bes-chart-controls {
-	margin-bottom: 16px;
-}
-
-.bes-chart-graph {
-	--bes-chart-label-width: min(9rem, 40%);
-}
-
-.bes-chart-scale,
-.bes-chart-separator,
-.bes-chart-row {
-	display: grid;
-	grid-template-columns: var(--bes-chart-label-width) minmax(0, 1fr);
 	align-items: center;
 	gap: 8px;
 }
 
-.bes-chart-axis {
-	display: flex;
-	justify-content: space-between;
-	font-variant-numeric: tabular-nums;
-	border-bottom: 1px solid var(--borderColor-muted, #d8dee4);
-	padding-bottom: 2px;
+.bes-group-filter-table {
+	min-width: 40rem;
+	margin-top: 12px;
 }
 
-.bes-chart-separator {
-	margin: 10px 0 4px;
-	font-weight: 600;
+.bes-group-filter-table th {
+	vertical-align: top;
 }
 
-.bes-chart-separator::after {
-	content: "";
-	border-top: 1px solid var(--borderColor-muted, #d8dee4);
+.bes-group-filter-table th:nth-child(1) {
+	width: 5rem;
 }
 
-.bes-chart-row {
-	align-items: start;
-	padding: 4px 0;
+.bes-group-filter-table th:nth-child(2) {
+	width: 10rem;
 }
 
-.bes-chart-label {
-	overflow: hidden;
-	text-overflow: ellipsis;
-	white-space: nowrap;
-	font-variant-numeric: tabular-nums;
+.bes-group-filter-table th:nth-child(4) {
+	width: 8.5rem;
 }
 
-.bes-chart-bars {
+.bes-group-filter-table .bes-group-run-stat {
+	width: 7rem;
+	text-align: right;
+}
+
+.bes-group-filter-table th label {
 	display: grid;
 	gap: 4px;
 }
 
-.bes-chart-track {
+.bes-group-filter-table th input,
+.bes-group-filter-table th select {
+	width: 100%;
+	min-width: 0;
+}
+
+.bes-group-status-filter {
+	position: relative;
+	white-space: nowrap;
+}
+
+.bes-group-runs:has(.bes-group-status-filter[open]) {
+	min-height: 13.5rem;
+}
+
+.bes-group-status-filter fieldset {
+	position: absolute;
+	z-index: 1;
+	inset-inline-start: 0;
+	display: grid;
+	gap: 4px;
+	width: max-content;
+	min-width: 9rem;
+	max-width: 19rem;
+	max-height: 11rem;
+	overflow: auto;
+	margin-top: 4px;
+	padding: 6px 8px;
+	border: 1px solid var(--color-border-default);
+	border-radius: 6px;
+	background: var(--color-canvas-default);
+	box-shadow: var(--color-shadow-medium);
+	font-size: 12px;
+	white-space: normal;
+}
+
+.bes-group-status-filter:not([open]) fieldset {
+	display: none;
+}
+
+.bes-group-status-filter fieldset label {
 	display: flex;
-	align-items: stretch;
-	height: 18px;
-	background-color: var(
-		--bgColor-muted,
-		var(--color-canvas-subtle, transparent)
-	);
+	align-items: baseline;
+	overflow-wrap: anywhere;
+}
+
+.bes-group-status-filter fieldset input {
+	width: auto;
+	margin: 0;
+}
+
+.bes-group-filter-table .bes-group-run {
+	--bes-metric-color: var(--fgColor-accent, var(--color-accent-fg));
 	background-image: linear-gradient(
 		to right,
-		var(--borderColor-muted, var(--color-border-muted)) 1px,
-		transparent 1px
+		color-mix(in srgb, var(--bes-metric-color) 19%, transparent)
+			var(--bes-metric-width, 0%),
+		transparent var(--bes-metric-width, 0%)
 	);
-	background-size: 25% 100%;
-	border-radius: 3px;
-	overflow: hidden;
+	background-size: 100% calc(100% - 4px);
+	background-position: center;
+	background-repeat: no-repeat;
 }
 
-.bes-chart-segment {
-	flex: 0 0 auto;
-	background-color: currentColor;
+.bes-group-filter-table .bes-group-run td {
+	padding-block: 3px;
+	font-size: 13px;
+	line-height: 16px;
 }
 
-.bes-chart-segment + .bes-chart-segment {
-	box-shadow: inset 1px 0
-		var(--bgColor-default, var(--color-canvas-default, transparent));
+.bes-group-filter-table .bes-group-run-id {
+	padding: 0;
+	line-height: inherit;
 }
 
-a.bes-chart-segment:hover,
-a.bes-chart-segment:focus-visible {
-	outline: 2px solid var(--fgColor-default, #1f2328);
-	outline-offset: -2px;
+.bes-group-filter-table .bes-invocation-status-icon {
+	display: flex;
+	width: fit-content;
 }
 
-.bes-chart-segment:last-child {
-	border-radius: 0 3px 3px 0;
+.bes-group-filter-table .bes-group-run[data-outcome="success"] {
+	--bes-metric-color: var(--fgColor-success, var(--color-success-fg));
+}
+
+.bes-group-filter-table
+	.bes-group-run:is([data-outcome="failure"], [data-outcome="tests"]) {
+	--bes-metric-color: var(--fgColor-danger, var(--color-danger-fg));
+}
+
+.bes-group-filter-table
+	.bes-group-run:is(
+		[data-outcome="input"],
+		[data-outcome="interrupted"],
+		[data-outcome="warning"]
+	) {
+	--bes-metric-color: var(--fgColor-attention, var(--color-attention-fg));
+}
+
+.bes-group-run-heading,
+.bes-group-run-value {
+	font-size: 12px;
+	font-variant-numeric: tabular-nums;
+	font-weight: 600;
+}
+
+.bes-group-bin th {
+	background: transparent;
+	color: var(--fgColor-muted, var(--color-fg-muted));
+	font-size: 12px;
+}
+
+.bes-group-bin span + span {
+	margin-left: 12px;
+	font-weight: 400;
+}
+
+.bes-group-catalog {
+	min-width: 0;
+	border: 1px solid var(--color-border-default);
+}
+
+.bes-group-catalog th:first-child {
+	width: auto;
+}
+
+.bes-group-catalog .bes-group-catalog-count {
+	width: 7rem;
+	text-align: right;
+	font-variant-numeric: tabular-nums;
+}
+
+.bes-group-catalog .bes-group-catalog-time {
+	width: 9rem;
+}
+
+.bes-group-catalog tbody tr:hover,
+.bes-group-catalog tbody tr:focus-within {
+	background-color: var(--color-canvas-subtle);
+}
+
+.bes-group-catalog button {
+	display: block;
+	width: 100%;
+	overflow-wrap: anywhere;
+	text-align: left;
 }
 
 .execution-log-graph {

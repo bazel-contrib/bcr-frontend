@@ -844,7 +844,9 @@ func listSQLiteInvocations(ctx context.Context, reader interface {
 }
 
 func (s *sqliteStorage) ListGroups(ctx context.Context) ([]*pb.InvocationGroup, error) {
-	rows, err := s.db.QueryContext(ctx, "SELECT name FROM invocation_groups ORDER BY name")
+	rows, err := s.db.QueryContext(ctx, `SELECT g.name, count(i.invocation_group), max(i.created_us) AS latest
+		FROM invocation_groups g LEFT JOIN invocations i ON i.invocation_group = g.name
+		GROUP BY g.name ORDER BY latest DESC, g.name`)
 	if err != nil {
 		return nil, err
 	}
@@ -852,8 +854,14 @@ func (s *sqliteStorage) ListGroups(ctx context.Context) ([]*pb.InvocationGroup, 
 	var groups []*pb.InvocationGroup
 	for rows.Next() {
 		group := new(pb.InvocationGroup)
-		if err := rows.Scan(&group.Name); err != nil {
+		var count int64
+		var latest sql.NullInt64
+		if err := rows.Scan(&group.Name, &count, &latest); err != nil {
 			return nil, err
+		}
+		group.InvocationCount = proto.Int64(count)
+		if latest.Valid {
+			group.LatestInvocationAt = timestamppb.New(time.UnixMicro(latest.Int64))
 		}
 		groups = append(groups, group)
 	}
