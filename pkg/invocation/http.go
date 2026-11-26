@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"net/http"
+	"slices"
 	"strconv"
 	"time"
 
@@ -14,9 +15,8 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-// Handler exposes the local POC browser API. The configured origin permits a
-// separately served BCR frontend. Authentication and tenant filtering are future work.
-func (s *Store) Handler(origin string) http.Handler {
+// Handler exposes the local POC browser API to the configured frontend origins.
+func (s *Store) Handler(origins ...string) http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/invocation-groups", func(w http.ResponseWriter, r *http.Request) {
 		result, err := s.ListInvocationGroups(r.Context(), &pb.ListInvocationGroupsRequest{})
@@ -50,13 +50,13 @@ func (s *Store) Handler(origin string) http.Handler {
 	})
 	mux.HandleFunc("GET /api/invocations/{id}/events", s.serveEvents)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Add("Vary", "Origin")
 		if requestOrigin := r.Header.Get("Origin"); requestOrigin != "" {
-			if requestOrigin != origin {
+			if !slices.Contains(origins, requestOrigin) {
 				http.Error(w, "origin is not allowed", http.StatusForbidden)
 				return
 			}
-			w.Header().Set("Access-Control-Allow-Origin", origin)
-			w.Header().Set("Vary", "Origin")
+			w.Header().Set("Access-Control-Allow-Origin", requestOrigin)
 		}
 		mux.ServeHTTP(w, r)
 	})

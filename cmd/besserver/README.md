@@ -12,6 +12,11 @@ go run ./cmd/besserver \
   --sqlite=invocations.sqlite
 ```
 
+Repeat `--frontend_origin` to allow multiple browser origins. For example, set
+`--frontend_origin=https://registry.bazel.build` and
+`--frontend_origin=http://localhost:1971` for the hosted viewer and an SSH-forwarded
+local viewer. Each value must match the URL's scheme, host, and port.
+
 Serve the Closure frontend with the existing release server.
 
 ```sh

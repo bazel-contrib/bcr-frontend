@@ -140,7 +140,31 @@ func checkBrowserReplayAndLive(t *testing.T, store *Store) {
 	if err := store.Append(testEvent(t, 1), false); err != nil {
 		t.Fatal(err)
 	}
-	server := httptest.NewServer(store.Handler("http://localhost:8080"))
+	const localOrigin = "http://localhost:8080"
+	const hostedOrigin = "https://registry.bazel.build"
+	handler := store.Handler(localOrigin, hostedOrigin)
+	for _, probe := range []struct {
+		origin        string
+		status        int
+		allowedOrigin string
+	}{
+		{localOrigin, http.StatusOK, localOrigin},
+		{hostedOrigin, http.StatusOK, hostedOrigin},
+		{"http://localhost:1975", http.StatusForbidden, ""},
+		{"", http.StatusOK, ""},
+	} {
+		request := httptest.NewRequest(http.MethodGet, "/api/invocations", nil)
+		if probe.origin != "" {
+			request.Header.Set("Origin", probe.origin)
+		}
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, request)
+		if response.Code != probe.status || response.Header().Get("Access-Control-Allow-Origin") != probe.allowedOrigin ||
+			response.Header().Get("Vary") != "Origin" {
+			t.Fatalf("origin %q: HTTP %d with headers %v", probe.origin, response.Code, response.Header())
+		}
+	}
+	server := httptest.NewServer(handler)
 	defer server.Close()
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()

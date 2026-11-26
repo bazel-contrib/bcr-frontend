@@ -109,12 +109,19 @@ func (s *publishServer) PublishBuildToolEventStream(stream buildpb.PublishBuildE
 func run() error {
 	listen := flag.String("listen", "localhost:1973", "address for the plaintext build event gRPC service")
 	httpListen := flag.String("http_listen", "localhost:1974", "address for invocation HTTP and SSE APIs")
-	origin := flag.String("frontend_origin", "http://localhost:8080", "allowed BCR frontend origin")
+	var origins []string
+	flag.Func("frontend_origin", "allowed BCR frontend origin (repeatable; defaults to http://localhost:8080)", func(origin string) error {
+		origins = append(origins, origin)
+		return nil
+	})
 	journal := flag.String("journal", "", "use a legacy event journal at this path")
 	database := flag.String("sqlite", "", "path to the SQLite event database (default invocations.sqlite)")
 	incompleteAfter := flag.Duration("incomplete_after", 5*time.Minute, "grace period before an abandoned invocation is marked incomplete")
 	cache := registerCacheFlags()
 	flag.Parse()
+	if len(origins) == 0 {
+		origins = []string{"http://localhost:8080"}
+	}
 	if *incompleteAfter <= 0 {
 		return errors.New("--incomplete_after must be positive")
 	}
@@ -170,7 +177,7 @@ func run() error {
 	}))
 	buildpb.RegisterPublishBuildEventServer(server, &publishServer{logger: logger, store: store})
 	invocationpb.RegisterInvocationServiceServer(server, store)
-	httpServer := &http.Server{Handler: store.Handler(*origin), ReadHeaderTimeout: 10 * time.Second}
+	httpServer := &http.Server{Handler: store.Handler(origins...), ReadHeaderTimeout: 10 * time.Second}
 	serveErrors := make(chan error, 3)
 	cacheServer, closeCache, err := cache.start(store, logger, serveErrors)
 	if err != nil {
