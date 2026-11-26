@@ -7,7 +7,7 @@ require (
 	github.com/bazelbuild/bazel-gazelle v0.47.0
 	github.com/bazelbuild/bazelisk v1.27.0
 	github.com/bazelbuild/buildtools v0.0.0-20260904073137-eaa4d125b423
-	github.com/bazelbuild/remote-apis v0.0.0-20251110153243-3860ca2d3e55
+	github.com/bazelbuild/remote-apis v0.0.0-20261110225606-e0c0554bfc8a
 	github.com/chromedp/cdproto v0.0.0-20250724212937-08a3db8b4327
 	github.com/chromedp/chromedp v0.14.2
 	github.com/dominikbraun/graph v0.23.0
@@ -33,7 +33,7 @@ require (
 )
 
 require (
-	cloud.google.com/go/longrunning v0.5.12 // indirect
+	cloud.google.com/go/longrunning v0.8.0 // indirect
 	github.com/PuerkitoBio/goquery v1.9.2 // indirect
 	github.com/andybalholm/cascadia v1.3.2 // indirect
 	github.com/bazel-contrib/bcr-frontend/proto/build v0.0.0

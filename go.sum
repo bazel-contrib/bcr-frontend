@@ -1,5 +1,7 @@
 cloud.google.com/go/longrunning v0.5.12 h1:5LqSIdERr71CqfUsFlJdBpOkBH8FBCFD7P1nTWy3TYE=
 cloud.google.com/go/longrunning v0.5.12/go.mod h1:S5hMV8CDJ6r50t2ubVJSKQVv5u0rmik5//KgLO3k4lU=
+cloud.google.com/go/longrunning v0.8.0 h1:LiKK77J3bx5gDLi4SMViHixjD2ohlkwBi+mKA7EhfW8=
+cloud.google.com/go/longrunning v0.8.0/go.mod h1:UmErU2Onzi+fKDg2gR7dusz11Pe26aknR4kHmJJqIfk=
 github.com/JohannesKaufmann/html-to-markdown v1.6.0 h1:04VXMiE50YYfCfLboJCLcgqF5x+rHJnb1ssNmqpLH/k=
 github.com/JohannesKaufmann/html-to-markdown v1.6.0/go.mod h1:NUI78lGg/a7vpEJTz/0uOcYMaibytE4BUOQS8k78yPQ=
 github.com/PuerkitoBio/goquery v1.9.2 h1:4/wZksC3KgkQw7SQgkKotmKljk0M6V8TUvA8Wb4yPeE=
@@ -16,6 +18,8 @@ github.com/bazelbuild/buildtools v0.0.0-20260904073137-eaa4d125b423 h1:scNMqf+Fg
 github.com/bazelbuild/buildtools v0.0.0-20260904073137-eaa4d125b423/go.mod h1:jWjcMGVH6hAgMG98abRQOIvoFFLPx/p3e5eeTGIHUMc=
 github.com/bazelbuild/remote-apis v0.0.0-20251110153243-3860ca2d3e55 h1:nD+YlIEH8YSXHW6reGLoi7DG0X1KaKRKO83VZ1nPjvE=
 github.com/bazelbuild/remote-apis v0.0.0-20251110153243-3860ca2d3e55/go.mod h1:/xo1pn3QkEL2JXrLeK30jvjVR/zXM9H8EqcWb/l5/A0=
+github.com/bazelbuild/remote-apis v0.0.0-20261110225606-e0c0554bfc8a h1:gDr2nGTyUfbFrz4HU4cHoyPH0loLZyFoQDeRygMscMg=
+github.com/bazelbuild/remote-apis v0.0.0-20261110225606-e0c0554bfc8a/go.mod h1:7Tyi5f5+hG+6LwC0X/G/EjCQS4ZYJUcpY0geSsU2NAw=
 github.com/bazelbuild/rules_go v0.53.0 h1:u160DT+RRb+Xb2aSO4piN8xhs4aZvWz2UDXCq48F4ao=
 github.com/bazelbuild/rules_go v0.53.0/go.mod h1:xB1jfsYHWlnZyPPxzlOSst4q2ZAwS251Mp9Iw6TPuBc=
 github.com/bgentry/go-netrc v0.0.0-20140422174119-9fd32a8b3d3d h1:xDfNPAt8lFiC1UJrqV3uuy861HCTo708pDMbjHHdCas=
