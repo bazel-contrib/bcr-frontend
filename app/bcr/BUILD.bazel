@@ -11,7 +11,6 @@ load(
 )
 load("@stackb_rules_closure//closure/protobuf:defs.bzl", "closure_jspb_library")
 load("//rules:css_purge.bzl", "css_purge")
-load("//rules:deploy.bzl", "cloudflare_deploy")
 load("//rules:ghpages.bzl", "ghpages_deploy")
 load("//rules:octicons_closure_template_compile.bzl", "octicons_closure_template_compile")
 load("//rules:prerender.bzl", "prerender_home", "prerender_pages")
@@ -578,13 +577,6 @@ release_archive(
         "//conditions:default": None,
     }),
     registry_file = ":registrylite_pb",
-)
-
-cloudflare_deploy(
-    name = "deploy",
-    account_id = "df53dccd72b4a61d2f8b1323256bc71c",
-    project = "centrl",
-    tarball = ":release",
 )
 
 ghpages_deploy(

@@ -9,7 +9,7 @@ This repository provides a web UI and API for the [Bazel Central Registry](https
 - A protobuf representation of the state of the BCR is constructed by `bazel build //data/bazel-central-registry/modules:modules`.  This includes downloading source repository archives for latest versions (that include starlark files) and extracting stardoc for them, outputting the file `bazel-bin/data/bazel-central-registry/modules/registry.pb`.
 - `bazel run //app/bcr:release` builds the frontend single-page-application UI
   and embed the registry proto data in it, and starts a webserver for local development.
-- `bazel run //app/bcr:deploy` builds the UI and deploys it to Cloudflare as static assets.
+- `make deploy-ghpages` publishes a production build to the GitHub Pages repository specified by `DEPLOY_REMOTE`.
 
 CI works as follows:
 
@@ -112,8 +112,8 @@ graph TB
     end
 
     subgraph "Deployment"
-        ReleaseTar --> Deploy[cloudflare_deploy<br/>deploy assets]
-        Deploy --> Live[https://bcr.stack.build]
+        ReleaseTar --> Deploy[deploy-ghpages.yml]
+        Deploy --> Live[GitHub Pages]
     end
 
     %% Data Sources - Light Blue with darker borders

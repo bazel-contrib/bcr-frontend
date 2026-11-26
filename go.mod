@@ -17,7 +17,6 @@ require (
 	github.com/schollz/progressbar/v3 v3.19.0
 	github.com/shurcooL/githubv4 v0.0.0-20260209031235-2402fdf4a9ed
 	github.com/teacat/noire v1.1.0
-	github.com/zeebo/blake3 v0.2.4
 	go.starlark.net v0.0.0-20261021141710-4f4267fb140d
 	golang.org/x/oauth2 v0.36.0
 	golang.org/x/sync v0.20.0
@@ -50,7 +49,6 @@ require (
 	github.com/google/go-querystring v1.1.0 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/hashicorp/go-version v1.7.0 // indirect
-	github.com/klauspost/cpuid/v2 v2.0.12 // indirect
 	github.com/kr/text v0.2.0 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/mitchellh/colorstring v0.0.0-20190213212951-d06e56a500db // indirect

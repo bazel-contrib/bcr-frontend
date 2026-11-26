@@ -39,8 +39,6 @@ def _compile_release_action(ctx):
     # Collect files to exclude from hashing
     exclude_from_hash = [src.basename for src in ctx.files.srcs]
 
-    # Add worker modules to exclude list (don't hash WASM/JS modules)
-    exclude_from_hash.extend([mod.basename for mod in ctx.files.worker_modules])
     if len(exclude_from_hash) > 0:
         args.add("--exclude_from_hash", ",".join(exclude_from_hash))
 
@@ -50,10 +48,9 @@ def _compile_release_action(ctx):
     # Positional args (asset files) must come last, after all flags
     args.add_all(ctx.files.srcs)
     args.add_all(ctx.files.hashed_srcs)
-    args.add_all(ctx.files.worker_modules)
 
     # Build inputs list
-    inputs = ctx.files.srcs + ctx.files.hashed_srcs + ctx.files.worker_modules + ctx.files.modules_srcs + [
+    inputs = ctx.files.srcs + ctx.files.hashed_srcs + ctx.files.modules_srcs + [
         ctx.file.index_html,
         ctx.file.registry_file,
     ] + (
@@ -97,10 +94,6 @@ release_archive = rule(
             doc = "Files to include under modules/ in the tarball, preserving subdirectory structure",
         ),
         "srcs": attr.label_list(allow_files = True),
-        "worker_modules": attr.label_list(
-            allow_files = [".wasm", ".js", ".mjs"],
-            doc = "WASM/JS modules for Worker (excluded from hashing)",
-        ),
         "index_html": attr.label(allow_single_file = True, mandatory = True),
         "registry_file": attr.label(allow_single_file = True, mandatory = True),
         "module_registry_symbols_file": attr.label(allow_single_file = True, mandatory = True),

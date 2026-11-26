@@ -40,11 +40,7 @@ serve:
 serve-production:
 	bazel run //app/bcr:release --//app/bcr:release_type=production
 
-# Deployment targets
-.PHONY: deploy
-deploy:
-	bazel run //app/bcr:deploy --//app/bcr:release_type=production
-
+# GitHub Pages deployment
 .PHONY: deploy-ghpages
 deploy-ghpages:
 	bazel run //app/bcr:ghpages --//app/bcr:release_type=production
