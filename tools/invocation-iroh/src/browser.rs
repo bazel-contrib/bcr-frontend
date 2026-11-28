@@ -5,7 +5,7 @@ use iroh::{
 };
 use wasm_bindgen::prelude::*;
 
-use crate::{ALPN, MAX_SUMMARY, Operation, Request, Ticket};
+use crate::{ALPN, MAX_ATTACHMENT, MAX_SUMMARY, Operation, Request, Ticket};
 
 #[wasm_bindgen]
 pub struct InvocationClient {
@@ -76,6 +76,14 @@ impl InvocationClient {
 
     pub async fn get(&self, id: String) -> Result<String, JsError> {
         self.summary(Operation::Get { id }).await.map_err(js_error)
+    }
+
+    pub async fn attachment(&self, id: String, kind: String) -> Result<Vec<u8>, JsError> {
+        let mut stream = self
+            .open(Operation::Attachment { id, kind })
+            .await
+            .map_err(js_error)?;
+        stream.read_to_end(MAX_ATTACHMENT).await.map_err(js_error)
     }
 
     pub async fn watch(&self, id: String, after: String) -> Result<InvocationStream, JsError> {

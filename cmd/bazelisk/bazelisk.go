@@ -2,7 +2,7 @@
 // logic so the bazel_version rule can invoke a hermetic, project-controlled
 // bazel binary instead of relying on a host-installed bazelisk.
 //
-// Compared to upstream bazelisk it adds one feature: an optional
+// It adds an invocation capture command and an optional
 // "--output <path>" flag (must come first) that redirects the wrapped bazel
 // process's stdout to <path>. Stdin and stderr always pass through untouched.
 //
@@ -31,6 +31,13 @@ const unknownCommandPattern = "is not a known command"
 
 func main() {
 	args := os.Args[1:]
+	if startup, args, ok := invocationArgs(args); ok {
+		code, err := runInvoke(startup, args)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "invoke:", err)
+		}
+		os.Exit(code)
+	}
 	allowUnknownCommand := false
 
 	// Optional leading "--allow-unknown-command": treat "is not a known command"
@@ -174,13 +181,15 @@ func runBazelisk(args []string) (int, string, error) {
 		return 0, "", fmt.Errorf("could not capture stderr: %w", err)
 	}
 
-	gcs := &repositories.GCSRepo{}
-	gitHub := repositories.CreateGitHubRepo(os.Getenv("BAZELISK_GITHUB_TOKEN"))
-	repos := core.CreateRepositories(gcs, gitHub, gcs, gcs, false)
-
-	code, runErr := core.RunBazelisk(args, repos)
+	code, runErr := core.RunBazelisk(args, bazelRepositories())
 	stopTee()
 	return code, stderrBuf.String(), runErr
+}
+
+func bazelRepositories() *core.Repositories {
+	gcs := &repositories.GCSRepo{}
+	gitHub := repositories.CreateGitHubRepo(os.Getenv("BAZELISK_GITHUB_TOKEN"))
+	return core.CreateRepositories(gcs, gitHub, gcs, gcs, false)
 }
 
 // teeStderr replaces os.Stderr with a pipe that copies into both the original

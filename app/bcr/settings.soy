@@ -92,12 +92,17 @@ import {invocationGroupUsage, remoteExecutionUsage} from 'app/bcr/tools.soy';
         </section>
         {remoteExecutionUsage()}
         <section aria-label="File-based tools usage">
-          {sectionHeader(title: 'Open action queries and execution logs')}
+          {sectionHeader(title: 'Open local Bazel files')}
           <p>Run these commands in your workspace, then drop the generated file into the corresponding tool.</p>
+          <p><a href="/tools/query">Query</a></p>
+          <pre><code>{'bazel query "deps(//absl/strings)" --output=proto > query.pb'}</code></pre>
           <p><a href="/tools/action-query">Action Query</a></p>
           <pre><code>{'bazel aquery "deps(//pkg:target)" --output=proto > actions.pb'}</code></pre>
           <p><a href="/tools/execution-log">Execution Log</a></p>
           <pre><code>{'bazel build //pkg:target --execution_log_compact_file=execution.log.zst'}</code></pre>
+          <p><a href="/tools/command-profile">Command Profile</a></p>
+          <pre><code>{'bazel build //pkg:target --profile=command.profile.gz'}</code></pre>
+          <p>Bazel also keeps the latest trace at <code>{'$(bazel info output_base)/command.profile.gz'}</code>.</p>
         </section>
       </div>
     </section>

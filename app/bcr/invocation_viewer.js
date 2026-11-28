@@ -24,6 +24,7 @@ const {
 	testStatusName,
 } = goog.require("bcrfrontend.invocationEvents");
 const { Component } = goog.require("stack.ui");
+const InvocationActionMap = goog.require("bcrfrontend.InvocationActionMap");
 const {
 	FrontierActionReaders,
 	InvocationFrontier,
@@ -152,6 +153,15 @@ class BuildEventViewerComponent extends Component {
 		this.terminal_ = null;
 		/** @private @type {number} */
 		this.activeTab_ = 0;
+		/** @private @type {?InvocationActionMap} */ this.actionMap_ = null;
+		/** @private @type {?ResizeObserver} */ this.mapObserver_ = null;
+		/** @private */ this.mapTimer_ = 0;
+		/** @private */ this.mapPending_ = false;
+		/** @private */ this.mapCapture_ = false;
+		/** @private */ this.mapProbed_ = false;
+		/** @private */ this.mapState_ = "";
+		/** @private */ this.mapError_ = "";
+
 		/** @private @type {string} */
 		this.testsRenderKey_ = "";
 		/** @private @type {?BuildMetrics} */
@@ -209,6 +219,7 @@ class BuildEventViewerComponent extends Component {
 		super.enterDocument();
 		this.bindTabs_();
 		this.bindFrontier_();
+		this.bindActionMap_();
 	}
 
 	/**
@@ -352,6 +363,9 @@ class BuildEventViewerComponent extends Component {
 	/** @private */
 	stopBackend_() {
 		this.loadGeneration_++;
+		clearTimeout(this.mapTimer_);
+		this.mapTimer_ = 0;
+		this.mapPending_ = false;
 		if (this.frontier_) this.frontier_.stop();
 		clearInterval(this.cacheTimer_);
 		this.cacheTimer_ = 0;
@@ -372,6 +386,8 @@ class BuildEventViewerComponent extends Component {
 	exitDocument() {
 		this.stopBackend_();
 		if (this.frontierObserver_) this.frontierObserver_.disconnect();
+		this.mapObserver_?.disconnect();
+		this.actionMap_?.show(false);
 		if (this.commandObserver_) this.commandObserver_.disconnect();
 		super.exitDocument();
 	}
@@ -441,6 +457,11 @@ class BuildEventViewerComponent extends Component {
 	selectTab_(index, skipRender = false) {
 		if (this.activeTab_ === 1 && index !== 1) this.terminal_?.clearHighlight();
 		this.activeTab_ = index;
+		this.actionMap_?.show(index === 4);
+		if (index !== 4) {
+			clearTimeout(this.mapTimer_);
+			this.mapTimer_ = 0;
+		}
 		showViewerTab(
 			this.getElement_(goog.getCssName("bes-tabs")),
 			this.getElement_(CSS_RESULTS),
@@ -486,6 +507,204 @@ class BuildEventViewerComponent extends Component {
 				this.renderMetrics_();
 				this.renderCacheStats_();
 				break;
+			case 4:
+				this.renderActionMap_();
+				break;
+		}
+	}
+
+	/** @private */
+	bindActionMap_() {
+		const canvas = /** @type {!HTMLCanvasElement} */ (
+			this.getElement_(goog.getCssName("action-map-canvas"))
+		);
+		const map = new InvocationActionMap(
+			canvas,
+			this.getElement_(goog.getCssName("action-map-detail")),
+			this.getElement_(goog.getCssName("action-map-tooltip")),
+		);
+		this.actionMap_ = map;
+		this.mapObserver_ = new ResizeObserver(() => map.paint());
+		this.mapObserver_.observe(canvas);
+		const handler = this.getHandler();
+		handler.listen(
+			this.getElement_(goog.getCssName("action-map-full")),
+			"change",
+			() => this.renderActionMap_(),
+		);
+		const fit = this.getElement().querySelector('[data-action-map="fit"]');
+		handler.listen(/** @type {!HTMLElement} */ (fit), "click", () => map.fit());
+		handler.listen(
+			canvas,
+			"wheel",
+			(/** !events.BrowserEvent */ e) =>
+				map.wheel(/** @type {!WheelEvent} */ (e.getBrowserEvent())),
+			{ passive: false },
+		);
+		handler.listen(canvas, "pointerdown", (/** !events.BrowserEvent */ e) =>
+			map.start(/** @type {!PointerEvent} */ (e.getBrowserEvent())),
+		);
+		handler.listen(canvas, "pointermove", (/** !events.BrowserEvent */ e) =>
+			map.move(/** @type {!PointerEvent} */ (e.getBrowserEvent())),
+		);
+		handler.listen(canvas, "pointerleave", () => map.clearHover());
+		handler.listen(canvas, ["pointercancel", "lostpointercapture"], () =>
+			map.end(),
+		);
+		handler.listen(canvas, "pointerup", (/** !events.BrowserEvent */ e) =>
+			map.end(/** @type {!PointerEvent} */ (e.getBrowserEvent())),
+		);
+		const critical = this.getElement_(goog.getCssName("action-map-critical"));
+		handler.listen(critical, "click", () => map.resetPath());
+		for (const button of this.getElement().querySelectorAll(
+			"[data-action-map-download]",
+		)) {
+			handler.listen(button, "click", () =>
+				this.downloadCapture_(
+					button.getAttribute("data-action-map-download") || "",
+				),
+			);
+		}
+	}
+
+	/** @private */
+	renderActionMap_() {
+		const map = this.actionMap_;
+		if (!map) return;
+		const full = /** @type {!HTMLInputElement} */ (
+			this.getElement_(goog.getCssName("action-map-full"))
+		);
+		const status = this.getElement_(goog.getCssName("action-map-status"));
+		const content = this.getElement_(goog.getCssName("action-map-content"));
+		const downloads = /** @type {!HTMLElement} */ (
+			this.getElement().querySelector('[data-action-map="downloads"]')
+		);
+		downloads.hidden = !this.mapCapture_;
+		downloads.classList.toggle("d-flex", this.mapCapture_);
+		content.hidden = !map.hasGraph();
+		const message = map.hasGraph()
+			? map.update(this.progress_, full.checked)
+			: this.mapState_ === "disabled"
+				? "Action map capture was disabled."
+				: this.mapState_ === "unavailable"
+					? "The action query could not produce a graph."
+					: this.source_
+						? "No action map attached yet."
+						: "This invocation has no attached action map.";
+		this.getElement_(goog.getCssName("action-map-critical")).hidden =
+			!map.hasTimeline();
+		const detail = this.mapError_ ? message + " · " + this.mapError_ : message;
+		if (status.textContent !== detail) status.textContent = detail;
+		if (
+			this.source_ &&
+			!this.mapPending_ &&
+			!this.mapTimer_ &&
+			(!this.mapState_ || this.mapState_ === "captured") &&
+			(!map.hasGraph() || !map.hasLog())
+		) {
+			this.mapTimer_ = setTimeout(
+				() => {
+					this.mapTimer_ = 0;
+					void this.refreshActionMap_();
+				},
+				this.mapProbed_ ? 2200 : 0,
+			);
+		}
+	}
+
+	/** @private */
+	async refreshActionMap_() {
+		const map = this.actionMap_;
+		const source = this.source_;
+		const id = this.progress_.invocationId();
+		if (!source || !map || this.activeTab_ !== 4) return;
+		const generation = this.loadGeneration_;
+		/** @return {boolean} */
+		const current = () => generation === this.loadGeneration_;
+		this.mapPending_ = true;
+		this.mapProbed_ = true;
+		try {
+			if (!this.mapCapture_) {
+				const captureFile = await source.attachment(id, "capture");
+				if (!current()) return;
+				if (captureFile) {
+					const capture = /** @type {!Object<string, *>} */ (
+						JSON.parse(await captureFile.text())
+					);
+					if (!current()) return;
+					this.mapCapture_ = true;
+					this.mapState_ = String(capture["actionMap"] || "captured");
+					if (Array.isArray(capture["targets"]))
+						map.setTargets(/** @type {!Array<string>} */ (capture["targets"]));
+				}
+			}
+			if (
+				(!this.mapState_ || this.mapState_ === "captured") &&
+				!map.hasGraph()
+			) {
+				const graph = await source.attachment(id, "action-map");
+				if (!current()) return;
+				if (graph) {
+					const bytes = await graph.arrayBuffer();
+					if (!current()) return;
+					map.load(new Uint8Array(bytes));
+				}
+			}
+			if (map.hasGraph() && !map.hasLog()) {
+				const log = await source.attachment(id, "execution-log");
+				if (!current()) return;
+				if (log) await map.loadLog(new File([log], "execution.zst"), current);
+			}
+			if (current()) this.mapError_ = "";
+		} catch (/** @type {*} */ error) {
+			if (current())
+				this.mapError_ =
+					error instanceof Error ? error.message : "Could not load attachment.";
+		} finally {
+			if (current()) {
+				this.mapPending_ = false;
+				if (this.activeTab_ === 4) this.renderActionMap_();
+			}
+		}
+	}
+
+	/**
+	 * @private
+	 * @param {string} kind
+	 */
+	async downloadCapture_(kind) {
+		const source = this.source_;
+		if (!source) return;
+		const id = this.progress_.invocationId();
+		const generation = this.loadGeneration_;
+		const status = /** @type {!HTMLElement} */ (
+			this.getElement().querySelector('[data-action-map="download-status"]')
+		);
+		status.textContent = "Downloading…";
+		try {
+			const blob = await source.attachment(id, kind);
+			if (generation !== this.loadGeneration_) return;
+			if (!blob) {
+				status.textContent = "This file has not been attached.";
+				return;
+			}
+			/** @type {!Object<string, string>} */
+			const extensions = {
+				"execution-log": ".zst",
+				"profile": ".json.gz",
+				"bep": ".pb",
+			};
+			const url = URL.createObjectURL(blob);
+			const link = document.createElement("a");
+			link.href = url;
+			link.download = id + "-" + kind + (extensions[kind] || "");
+			link.click();
+			setTimeout(() => URL.revokeObjectURL(url), 1000);
+			status.textContent = "";
+		} catch (/** @type {*} */ error) {
+			if (generation === this.loadGeneration_)
+				status.textContent =
+					error instanceof Error ? error.message : "Could not load attachment.";
 		}
 	}
 
@@ -544,6 +763,19 @@ class BuildEventViewerComponent extends Component {
 
 	/** @private */
 	resetResults_() {
+		this.actionMap_?.reset();
+		this.mapCapture_ = false;
+		this.mapProbed_ = false;
+		this.mapState_ = "";
+		this.mapError_ = "";
+		/** @type {!HTMLInputElement} */ (
+			this.getElement_(goog.getCssName("action-map-full"))
+		).checked = false;
+		const downloadStatus = this.getElement().querySelector(
+			'[data-action-map="download-status"]',
+		);
+		if (downloadStatus) downloadStatus.textContent = "";
+
 		this.commandExpanded_ = false;
 		this.inspected_ = null;
 		this.inspectedEvent_ = null;

@@ -1,0 +1,52 @@
+{namespace soy.bcrfrontend.query}
+
+import {octiconFile16} from 'app/bcr/octicons.soy';
+import {toolsSidebar, toolSettingsLink} from 'app/bcr/tools.soy';
+
+{template query}
+  <div class="PageLayout PageLayout--panePos-start PageLayout--hasPaneDivider PageLayout--responsive-stackRegions PageLayout--responsive-panePos-start">
+    <div class="PageLayout-columns">
+      <aside class="PageLayout-pane action-query-sidebar">
+        <h1 class="h2 mb-2">Query</h1>
+        <p class="color-fg-muted">Explore dependencies between Bazel targets. Query files stay in this browser.</p>
+        <p>{toolSettingsLink()}</p>
+        <section data-query="detail" aria-label="Selected target" hidden>
+          <h2 class="h4" data-query="label"></h2>
+          <p class="text-small color-fg-muted" data-query="location"></p>
+          <div data-query="dependencies"></div>
+        </section>
+        {toolsSidebar(current: 'query')}
+      </aside>
+      <div class="PageLayout-content action-query-content" data-query="content">
+        <input type="file" class="d-none" data-query="file" aria-label="Choose a Bazel query protobuf">
+        <div class="action-query-drop" role="region" aria-label="Upload query protobuf" data-query="drop">
+          <span class="color-fg-muted" aria-hidden="true">{octiconFile16()}</span>
+          <strong>Drop a Bazel query protobuf</strong>
+          <span class="text-small color-fg-muted">Export with <code>bazel query --output=proto</code></span>
+          <button type="button" class="btn btn-outline btn-sm" data-query="choose">Choose file</button>
+        </div>
+        <p class="text-small color-fg-muted my-2" data-query="status" role="status"></p>
+        <section data-query="viewer" aria-label="Ranked target graph" hidden>
+          <div class="query-controls mb-2">
+            <input type="search" class="form-control input-sm" placeholder="Find a target" aria-label="Find a target" data-query="search">
+            <select class="form-select input-sm" aria-label="Select a target" data-query="matches"></select>
+            <label class="text-small d-flex flex-items-center">
+              <input class="mr-1" type="checkbox" data-query="include-sources" checked> Include source files
+            </label>
+            <div class="BtnGroup" role="group" aria-label="Graph zoom">
+              <button type="button" class="btn btn-sm BtnGroup-item" data-query="zoom-out" aria-label="Zoom out">−</button>
+              <button type="button" class="btn btn-sm BtnGroup-item" data-query="zoom-in" aria-label="Zoom in">+</button>
+              <button type="button" class="btn btn-sm BtnGroup-item" data-query="fit">Fit</button>
+            </div>
+            <button type="button" class="btn btn-sm" data-query="fullscreen">Full screen</button>
+            <button type="button" class="btn btn-sm" data-query="replace">Choose another file</button>
+          </div>
+          <p class="color-fg-muted" data-query="empty" hidden>All targets in this query are source files.</p>
+          <canvas class="action-query-canvas" tabindex="0" data-query="canvas"
+              aria-label="Dependency graph. Drag or use arrow keys to pan. Use the wheel, pinch, or plus and minus keys to zoom."></canvas>
+        </section>
+      </div>
+      <dialog class="action-query-fullscreen" data-query="dialog" aria-label="Query canvas"></dialog>
+    </div>
+  </div>
+{/template}

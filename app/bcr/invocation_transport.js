@@ -13,6 +13,7 @@ let StatusCallback;
  *     listGroup: function(string, string=): !Promise<!Object<string, *>>,
  *     groupMetrics: function(string, number=): !Promise<!Object<string, *>>,
  *     get: function(string): !Promise<!Object<string, *>>,
+ *     attachment: function(string, string): !Promise<?Blob>,
  *     watch: function(string, function():string, !EventCallback, !StatusCallback):void,
  *     close: function():void}} */
 let InvocationBackend;
@@ -87,6 +88,9 @@ async function openInvocationBackend(address) {
 			get: /** @type {function(string):!Promise<!Object<string, *>>} */ (
 				external["get"]
 			),
+			attachment: /** @type {function(string, string):!Promise<?Blob>} */ (
+				external["attachment"]
+			),
 			watch:
 				/** @type {function(string, function():string, !EventCallback, !StatusCallback):void} */ (
 					external["watch"]
@@ -158,6 +162,24 @@ async function openInvocationBackend(address) {
 			}
 		});
 	}
+	/**
+	 * @param {string} id
+	 * @param {string} kind
+	 * @return {!Promise<?Blob>}
+	 */
+	async function attachment(id, kind) {
+		const response = await fetch(
+			base +
+				"/" +
+				encodeURIComponent(id) +
+				"/attachments/" +
+				encodeURIComponent(kind),
+		);
+		if (response.status === 404) return null;
+		if (!response.ok)
+			throw new Error("Backend returned HTTP " + response.status);
+		return response.blob();
+	}
 	return {
 		list: (/** string= */ token) =>
 			read(
@@ -179,6 +201,7 @@ async function openInvocationBackend(address) {
 					(days ? "?window_days=" + days : ""),
 			),
 		get: (/** string */ id) => read("/invocations/" + encodeURIComponent(id)),
+		attachment: attachment,
 		watch: watch,
 		close: () => {
 			if (source) source.close();

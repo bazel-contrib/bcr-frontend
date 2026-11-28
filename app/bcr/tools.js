@@ -2,6 +2,8 @@
 goog.module("bcrfrontend.tools");
 
 const ActionQuery = goog.require("bcrfrontend.ActionQuery");
+const CommandProfile = goog.require("bcrfrontend.CommandProfile");
+const Query = goog.require("bcrfrontend.Query");
 const ExecutionLog = goog.require("bcrfrontend.ExecutionLog");
 const dom = goog.require("goog.dom");
 const soy = goog.require("goog.soy");
@@ -67,8 +69,18 @@ class ToolsSelect extends ContentSelect {
 			this.select(name, route);
 			return;
 		}
+		if (name === "query") {
+			this.addTab(name, new Query(this.dom_));
+			this.select(name, route);
+			return;
+		}
 		if (name === "action-query") {
 			this.addTab(name, new ActionQuery(this.dom_));
+			this.select(name, route);
+			return;
+		}
+		if (name === "command-profile") {
+			this.addTab(name, new CommandProfile(this.dom_));
 			this.select(name, route);
 			return;
 		}

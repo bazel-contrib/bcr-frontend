@@ -267,7 +267,12 @@ func (s *sqliteStorage) initialize(ctx context.Context) error {
 		if err := backfillArchiveTimestamps(ctx, tx); err != nil {
 			return err
 		}
+		fallthrough
 	case 7:
+		if _, err := tx.ExecContext(ctx, sqliteAttachmentSchema); err != nil {
+			return err
+		}
+	case 8:
 	default:
 		return fmt.Errorf("unsupported invocation database schema version %d", version)
 	}

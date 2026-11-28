@@ -449,3 +449,50 @@ bazel_backend \
 Use HTTPS for scheduler HTTP upstreams outside loopback. Caller gRPC
 headers travel over TLS or a loopback connection. Bazel request metadata
 also travels over plaintext links so cache metrics can be correlated.
+
+## Capture an invocation and its action map
+
+Build the Bazelisk-based launcher and put it on your path as `bazel`, or call
+the built executable directly.
+
+```sh
+bazel build //cmd/bazelisk
+export BCR_INVOKE_BES=grpc://localhost:1973
+export BCR_INVOKE_URL=http://localhost:1974
+bazel-bin/cmd/bazelisk/bazelisk_/bazelisk invoke build //:gazelle
+```
+
+The launcher respects the workspace's Bazel version. An existing
+`--bes_backend` in your Bazel configuration can supply the BES endpoint in
+place of `BCR_INVOKE_BES`. Use `--build_metadata=igroup=NAME` to put the build
+in an invocation group. Open the invocation by its printed UUID to see the
+Action Map. As actions complete, their branches are pruned. On completion the
+center dot remains and measured actions become radial segments. Distance from
+the center shows elapsed build time, and segment length shows action duration.
+Colors identify mnemonics, and arrows connect producers to consumers. Hover
+over a segment to see its timing and highlight its dependencies. The longest
+chain of measured actions starts at 12 o’clock. Click an action to rotate
+the longest chain through it onto that spoke, or use **Critical path** to reset.
+**Show full graph** restores the analyzed dependencies and observed outcomes.
+
+The capture command accepts positive target patterns, long option values in
+`--flag=value` form, and common short options such as `-c opt`. It runs a
+separate, target-scoped action query with `--notool_deps`. Use `--tool_deps` to
+include tools or `--execution-only` to skip the query altogether. Keep
+configuration choices common to both commands and avoid graph-changing
+`aquery`-only rc settings. The compact execution log, command profile, and
+binary BEP file are also attached. Explicit UUIDs disable Bazel's automatic
+retry of builds with lost remote-cache inputs, which can use different UUIDs.
+
+Attachments require a SQLite backend and are limited to 64 MiB each. The
+backend uses the configured archive CAS when available, or stores the bytes
+in SQLite. Local uploads can use a loopback or SSH-forwarded connection.
+Set `BCR_INVOKE_TOKEN` on the backend and launcher to accept authenticated
+uploads from other hosts. Serve the HTTP viewer API inside your trusted
+network. The attached execution log can include build arguments and action
+environment variables.
+
+If upload fails, the build keeps its own exit code and the launcher prints
+the local spool path. Retry with `bazel invoke upload UUID` using the same
+`BCR_INVOKE_URL` and optional token. Iroh attachment reads require the
+updated companion and browser module.

@@ -783,6 +783,16 @@ function newSlot() {
 }
 
 class ExecutionLog extends Component {
+	/**
+	 * @param {!File} file
+	 * @param {function():boolean} current
+	 * @return {!Promise<!Array<!LogAction>>}
+	 */
+	static async readActions(file, current) {
+		const data = await parseLog(file, current);
+		return data?.actions || [];
+	}
+
 	/** @param {?dom.DomHelper=} opt_domHelper */
 	constructor(opt_domHelper) {
 		super(opt_domHelper);

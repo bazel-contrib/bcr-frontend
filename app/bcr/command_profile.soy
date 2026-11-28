@@ -1,0 +1,58 @@
+{namespace soy.bcrfrontend.commandProfile}
+
+import {octiconFile16} from 'app/bcr/octicons.soy';
+import {toolsSidebar, toolSettingsLink} from 'app/bcr/tools.soy';
+
+{template commandProfile}
+  <div class="PageLayout PageLayout--panePos-start PageLayout--hasPaneDivider PageLayout--responsive-stackRegions PageLayout--responsive-panePos-start">
+    <div class="PageLayout-columns">
+      <aside class="PageLayout-pane action-query-sidebar">
+        <h1 class="h2 mb-2">Command Profile</h1>
+        <p class="color-fg-muted">See where a Bazel command spent its time. Profiles stay in this browser.</p>
+        <p>{toolSettingsLink()}</p>
+        {toolsSidebar(current: 'command-profile')}
+      </aside>
+      <div class="PageLayout-content command-profile-content">
+        <input type="file" class="d-none" data-profile="file" accept=".gz,.json,.profile" aria-label="Choose a command profile">
+        <div class="action-query-drop" data-profile="drop" role="region" aria-label="Upload command profile">
+          <span class="color-fg-muted" aria-hidden="true">{octiconFile16()}</span>
+          <strong>Drop a command.profile.gz file</strong>
+          <button type="button" class="btn btn-outline btn-sm" data-profile="choose">Choose file</button>
+        </div>
+        <p class="text-small color-fg-muted mt-2 mb-2" data-profile="status" role="status"></p>
+        <section data-profile="viewer" aria-label="Command profile timeline" hidden>
+          <div class="profile-controls">
+            <input type="search" class="form-control input-sm" data-profile="search"
+                placeholder="Filter events or threads" aria-label="Filter events or threads">
+            <div class="BtnGroup" role="group" aria-label="Timeline zoom">
+              <button type="button" class="btn btn-sm BtnGroup-item" data-profile="zoom-out" aria-label="Zoom out">−</button>
+              <button type="button" class="btn btn-sm BtnGroup-item" data-profile="zoom-in" aria-label="Zoom in">+</button>
+              <button type="button" class="btn btn-sm BtnGroup-item" data-profile="reset">Fit</button>
+            </div>
+            <button type="button" class="btn btn-sm" data-profile="replace">Choose another file</button>
+          </div>
+          <label class="profile-pan text-small color-fg-muted" data-profile="position-control" hidden>
+            Timeline position
+            <input type="range" data-profile="position" min="0" max="1000" value="0">
+          </label>
+          <p class="color-fg-muted" data-profile="empty" hidden>No matching events.</p>
+          <div class="profile-timeline" data-profile="timeline">
+            <div class="profile-scale text-small color-fg-muted" data-profile="scale" aria-hidden="true"></div>
+            <div class="profile-viewport" data-profile="viewport" tabindex="0" aria-label="Scrollable profile tracks">
+              <div data-profile="space"></div>
+              <canvas data-profile="canvas" aria-label="Bazel trace events by thread and time"></canvas>
+            </div>
+          </div>
+          <label class="profile-event-picker mt-3">Longest matching events
+            <select class="form-select input-block" data-profile="events"></select>
+          </label>
+          <section class="profile-detail mt-3" data-profile="detail" aria-label="Selected event" hidden>
+            <h2 class="h4" data-profile="title"></h2>
+            <p class="text-small color-fg-muted" data-profile="timing"></p>
+            <pre data-profile="args" hidden></pre>
+          </section>
+        </section>
+      </div>
+    </div>
+  </div>
+{/template}

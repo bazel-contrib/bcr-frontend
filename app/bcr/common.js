@@ -202,10 +202,11 @@ exports.DefaultSearchHandlerName = "All";
 /**
  * Decompress gzip data using DecompressionStream API.
  * @param {!Uint8Array} gzipData
+ * @param {number=} maxOutputBytes
  * @returns {!Promise<!Uint8Array>}
  * @suppress {reportUnknownTypes, missingProperties, checkTypes}
  */
-async function gzipDecode(gzipData) {
+async function gzipDecode(gzipData, maxOutputBytes = Infinity) {
 	const decompressor = new DecompressionStream("gzip");
 	const input = new ReadableStream({
 		/** @param {!ReadableStreamDefaultController} controller */
@@ -217,12 +218,17 @@ async function gzipDecode(gzipData) {
 	const output = input.pipeThrough(decompressor);
 	const reader = output.getReader();
 	const chunks = [];
+	let totalLength = 0;
 	while (true) {
 		const { done, value } = await reader.read();
 		if (done) break;
+		totalLength += value.length;
+		if (totalLength > maxOutputBytes) {
+			await reader.cancel();
+			throw new Error("The decompressed data exceeds the size limit.");
+		}
 		chunks.push(value);
 	}
-	const totalLength = chunks.reduce((acc, chunk) => acc + chunk.length, 0);
 	const decompressed = new Uint8Array(totalLength);
 	let offset = 0;
 	for (const chunk of chunks) {

@@ -8,6 +8,7 @@ import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
+import { gzipSync } from "node:zlib";
 
 const require = createRequire(import.meta.url);
 const { chromium } = require(process.env.PLAYWRIGHT_MODULE || "playwright");
@@ -1185,6 +1186,8 @@ test("Tools catalog faces and shared sidebar links open all tools", async (t) =>
 		["Action Query", "action-query"],
 		["Execution Log", "execution-log"],
 		["Remote Cache", "remote-cache"],
+		["Command Profile", "command-profile"],
+		["Query", "query"],
 	];
 	await page.goto(site + "/tools");
 	const catalog = page.getByRole("navigation", { name: "Bazel tools", exact: true });
@@ -1271,4 +1274,187 @@ test("Remote Cache updates live traffic and storage from the status API", async 
 	const stopped = polls;
 	await page.waitForTimeout(2200);
 	assert.equal(polls, stopped);
+});
+
+test("Command Profile opens gzipped Bazel traces by drop and supports inspection", async (t) => {
+	const web = launch(t, command("RELEASESERVER"), [
+		"--host=127.0.0.1", "--port=0", command("FRONTEND_ARCHIVE"),
+	]);
+	const site = await web.ready(/Starting server on (http:\/\/[^\s]+)/);
+	const browser = await chromium.launch(process.env.CHROME_BIN ? { executablePath: process.env.CHROME_BIN } : {});
+	t.after(() => browser.close());
+	const page = await browser.newPage();
+	page.setDefaultTimeout(8000);
+	await page.goto(site + "/tools/command-profile");
+	const drop = page.getByRole("region", { name: "Upload command profile" });
+	await drop.getByText("Drop a command.profile.gz file").waitFor();
+	const compressed = gzipSync(JSON.stringify({ traceEvents: [
+		{ ph: "M", pid: 1, tid: 8, name: "thread_name", args: { name: "Main Thread" } },
+		{ ph: "X", pid: 1, tid: 8, name: "Build phase", cat: "phase", ts: -1000, dur: 10000, args: { phase: "analysis" } },
+		{ ph: "i", pid: 1, tid: 8, name: "Event marker", ts: 0 },
+		{ ph: "C", pid: 1, tid: 8, name: "CPU usage", ts: 1000, args: { cpu: 2 } },
+		{ ph: "C", pid: 1, tid: 8, name: "CPU usage", ts: 5000, args: { cpu: 3 } },
+	] }));
+	const dataTransfer = await page.evaluateHandle((bytes) => {
+		const transfer = new DataTransfer();
+		transfer.items.add(new File([Uint8Array.from(bytes)], "command.profile.gz"));
+		return transfer;
+	}, Array.from(compressed));
+	await drop.dispatchEvent("dragenter", { dataTransfer });
+	await drop.dispatchEvent("drop", { dataTransfer });
+	await page.getByRole("status").getByText("command.profile.gz · 10 ms · 4 events · 2 tracks").waitFor();
+	const timeline = page.getByRole("region", { name: "Command profile timeline" });
+	await timeline.waitFor();
+	await page.getByRole("button", { name: "Zoom in" }).click();
+	await page.getByRole("slider", { name: "Timeline position" }).waitFor();
+	await page.getByLabel("Longest matching events").selectOption("0");
+	const detail = page.getByRole("region", { name: "Selected event" });
+	await detail.getByRole("heading", { name: "Build phase" }).waitFor();
+	assert.match(await detail.innerText(), /Main Thread · phase · At 0 µs · 10 ms/);
+	assert.match(await detail.locator("pre").innerText(), /analysis/);
+	await page.getByLabel("Filter events or threads").fill("no such track");
+	await page.getByText("No matching events.").waitFor();
+
+	const input = page.getByLabel("Choose a command profile");
+	await input.setInputFiles({ name: "broken.profile.gz", mimeType: "application/gzip", buffer: Buffer.from("not a profile") });
+	await page.getByRole("status").getByText(/Could not open broken.profile.gz/).waitFor();
+	await input.setInputFiles({ name: "command.profile.gz", mimeType: "application/gzip", buffer: compressed });
+	await detail.waitFor({ state: "hidden" });
+	await page.getByRole("status").getByText("command.profile.gz · 10 ms · 4 events · 2 tracks").waitFor();
+});
+
+test("Query opens a binary target graph by drop and follows ranked dependencies", async (t) => {
+	const web = launch(t, command("RELEASESERVER"), [
+		"--host=127.0.0.1", "--port=0", command("FRONTEND_ARCHIVE"),
+	]);
+	const site = await web.ready(/Starting server on (http:\/\/[^\s]+)/);
+	const browser = await chromium.launch(process.env.CHROME_BIN ? { executablePath: process.env.CHROME_BIN } : {});
+	t.after(() => browser.close());
+	const page = await browser.newPage({ hasTouch: true });
+	page.setDefaultTimeout(8000);
+
+	// Encode the fields needed from Bazel's QueryResult schema.
+	const field = (number, value) => {
+		const bytes = Buffer.from(value);
+		assert.ok(bytes.length < 128);
+		return Buffer.concat([Buffer.from([(number << 3) | 2, bytes.length]), bytes]);
+	};
+	const target = (type, ...fields) => field(1, Buffer.concat([
+		Buffer.from([8, type]), field(type + 1, Buffer.concat(fields)),
+	]));
+	const parent = "//absl/strings:strings";
+	const generated = "//absl/strings:generated.txt";
+	const producer = "//absl/strings:generate";
+	const source = "//absl/strings:source.txt";
+	const payload = Buffer.concat([
+		target(1, field(1, parent), field(2, "filegroup"), field(5, generated), field(5, "//outside:omitted")),
+		target(3, field(1, generated), field(2, producer)),
+		target(1, field(1, producer), field(2, "genrule"), field(5, source)),
+		target(2, field(1, source)),
+	]);
+
+	await page.goto(site + "/tools/query");
+	const drop = page.getByRole("region", { name: "Upload query protobuf" });
+	await drop.waitFor();
+	const transfer = await page.evaluateHandle((bytes) => {
+		const data = new DataTransfer();
+		data.items.add(new File([Uint8Array.from(bytes)], "query.pb"));
+		return data;
+	}, Array.from(payload));
+	await drop.dispatchEvent("dragenter", { dataTransfer: transfer });
+	await drop.dispatchEvent("drop", { dataTransfer: transfer });
+	await page.getByRole("status").getByText("query.pb · 4 targets · 3 dependency edges").waitFor();
+	const graph = page.getByRole("region", { name: "Ranked target graph" });
+	await graph.waitFor();
+	await page.waitForFunction(() => document.querySelector('[data-query="canvas"]').width > 300);
+	await page.getByRole("searchbox", { name: "Find a target" }).fill(":strings");
+	await page.getByRole("combobox", { name: "Select a target" }).selectOption({ label: parent });
+	const selected = page.getByRole("region", { name: "Selected target" });
+	await selected.getByRole("heading", { name: parent, exact: true }).waitFor();
+	assert.equal(await selected.getByRole("button").count(), 1);
+	await selected.getByRole("button", { name: generated, exact: true }).click();
+	await selected.getByText("Generated file", { exact: true }).waitFor();
+	await selected.getByRole("button", { name: producer, exact: true }).click();
+	await selected.getByRole("button", { name: source, exact: true }).click();
+	await selected.getByText("Dependencies in this query (0)").waitFor();
+
+	const canvas = page.locator('[data-query="canvas"]');
+	const pixels = () => canvas.evaluate((node) => node.toDataURL());
+	const canvasChanged = (before) => page.waitForFunction((old) => (
+		document.querySelector('[data-query="canvas"]').toDataURL() !== old
+	), before);
+	const normal = await canvas.boundingBox();
+	await page.getByRole("button", { name: "Full screen", exact: true }).click();
+	const dialog = page.getByRole("dialog", { name: "Query canvas" });
+	await dialog.waitFor();
+	const expanded = await canvas.boundingBox();
+	assert.ok(expanded.width > normal.width && expanded.height > normal.height);
+	assert.equal(await page.evaluate(() => document.fullscreenElement), null);
+	await dialog.getByRole("button", { name: "Fit", exact: true }).click();
+	await page.evaluate(() => new Promise(requestAnimationFrame));
+
+	await canvas.hover();
+	let before = await pixels();
+	await page.mouse.wheel(0, -120);
+	await canvasChanged(before);
+	before = await pixels();
+	await page.keyboard.down("Control");
+	await page.mouse.wheel(0, -28);
+	await page.keyboard.up("Control");
+	await canvasChanged(before);
+
+	const cdp = await page.context().newCDPSession(page);
+	const x = Math.round(expanded.x + expanded.width / 2);
+	const y = Math.round(expanded.y + expanded.height / 2);
+	before = await pixels();
+	await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [
+		{ x: x - 45, y, id: 1 }, { x: x + 45, y, id: 2 },
+	] });
+	await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [
+		{ x: x - 80, y, id: 1 }, { x: x + 80, y, id: 2 },
+	] });
+	await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+	await canvasChanged(before);
+	await page.keyboard.press("Escape");
+	await dialog.waitFor({ state: "hidden" });
+	assert.equal((await canvas.boundingBox()).width, normal.width);
+	assert.equal(await selected.getByRole("heading", { name: source, exact: true }).count(), 1);
+	await page.getByRole("button", { name: "Full screen", exact: true }).click();
+	await dialog.getByRole("button", { name: "Exit full screen", exact: true }).click();
+	await dialog.waitFor({ state: "hidden" });
+
+	const includeSources = page.getByRole("checkbox", { name: "Include source files" });
+	assert.equal(await includeSources.isChecked(), true);
+	await includeSources.uncheck();
+	await page.getByRole("status").getByText("query.pb · 3 targets · 2 dependency edges").waitFor();
+	assert.equal(await selected.isVisible(), false);
+	await page.getByRole("searchbox", { name: "Find a target" }).fill("source.txt");
+	assert.equal(await page.getByRole("combobox", { name: "Select a target" }).isDisabled(), true);
+	await includeSources.check();
+	await page.getByRole("status").getByText("query.pb · 4 targets · 3 dependency edges").waitFor();
+	await page.getByRole("combobox", { name: "Select a target" }).selectOption({ label: source });
+	await selected.getByRole("heading", { name: source, exact: true }).waitFor();
+
+	await page.evaluate((label) => {
+		const original = CanvasRenderingContext2D.prototype.fillText;
+		window.queryPaintedTinyLabel = false;
+		CanvasRenderingContext2D.prototype.fillText = function(text, ...args) {
+			if (text === label && this.getTransform().a / devicePixelRatio < 0.35)
+				window.queryPaintedTinyLabel = true;
+			return original.call(this, text, ...args);
+		};
+	}, source);
+	for (let index = 0; index < 7; index++)
+		await page.getByRole("button", { name: "Zoom out", exact: true }).click();
+	await page.waitForFunction(() => window.queryPaintedTinyLabel);
+
+	await includeSources.uncheck();
+	await page.getByLabel("Choose a Bazel query protobuf").setInputFiles({
+		name: "sources.pb", mimeType: "application/octet-stream",
+		buffer: target(2, field(1, source)),
+	});
+	await page.getByText("All targets in this query are source files.").waitFor();
+	await canvas.waitFor({ state: "hidden" });
+	await includeSources.check();
+	await canvas.waitFor();
 });

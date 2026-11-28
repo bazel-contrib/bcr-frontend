@@ -11,7 +11,7 @@ use anyhow::{Context, Result, bail, ensure};
 use base64::{Engine, engine::general_purpose::URL_SAFE_NO_PAD};
 use clap::Parser;
 use invocation_iroh::{
-    ALPN, MAX_REQUEST, MAX_SUMMARY, Operation, Request, Ticket, valid_group_name,
+    ALPN, MAX_ATTACHMENT, MAX_REQUEST, MAX_SUMMARY, Operation, Request, Ticket, valid_group_name,
     valid_invocation_id,
 };
 use iroh::{
@@ -175,6 +175,20 @@ impl ViewerApi {
                 execution_watch = watch;
                 format!("/api/remote-execution{path}")
             }
+            Operation::Attachment { id, kind } => {
+                if !valid_invocation_id(id)
+                    || !matches!(
+                        kind.as_str(),
+                        "capture" | "action-map" | "execution-log" | "profile" | "bep"
+                    )
+                {
+                    return reply(send, 400, b"invalid attachment request").await;
+                }
+                if self.scope.as_ref().is_some_and(|scope| scope != id) {
+                    return reply(send, 403, b"invocation outside ticket scope").await;
+                }
+                format!("/api/invocations/{id}/attachments/{kind}")
+            }
             Operation::Get { id } | Operation::Watch { id, .. } => {
                 if !valid_invocation_id(id) {
                     return reply(send, 400, b"invalid invocation ID").await;
@@ -191,6 +205,7 @@ impl ViewerApi {
             }
         };
 
+        let attachment = matches!(request.operation, Operation::Attachment { .. });
         let watch = execution_watch || matches!(request.operation, Operation::Watch { .. });
         let mut upstream_request = self
             .upstream
@@ -209,12 +224,23 @@ impl ViewerApi {
         if !upstream.status().is_success() {
             return reply(send, status, b"invocation request failed").await;
         }
-        if watch {
+        if watch || attachment {
+            let mut remaining = if attachment {
+                MAX_ATTACHMENT
+            } else {
+                usize::MAX
+            };
             send.write_all(&status.to_be_bytes()).await?;
             loop {
                 tokio::select! {
                     chunk = upstream.chunk() => match chunk? {
-                        Some(bytes) => send.write_all(&bytes).await?,
+                        Some(bytes) => {
+                            if bytes.len() > remaining {
+                                anyhow::bail!("invocation attachment exceeds the viewer limit");
+                            }
+                            remaining -= bytes.len();
+                            send.write_all(&bytes).await?;
+                        }
                         None => break,
                     },
                     _ = send.stopped() => return Ok(()),

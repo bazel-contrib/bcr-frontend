@@ -96,6 +96,17 @@ function openBackend(ticket) {
 		execution: (path) => readGroup((transport) => transport.execution(path)),
 		executionActivity: async (path) => (await client()).wait_execution_activity(path),
 		get: async (id) => JSON.parse(await (await client()).get(id)),
+		attachment: async (id, kind) => {
+			const transport = await client();
+			if (!transport.attachment) throw new Error("The Iroh browser module does not support attachments.");
+			try {
+				return new Blob([await transport.attachment(id, kind)], {type: "application/octet-stream"});
+			} catch (error) {
+				if (/HTTP 404\b/.test(error.message)) return null;
+				throw error;
+			}
+		},
+
 		watch: (...args) => void follow(...args),
 		close: () => {
 			closed = true;

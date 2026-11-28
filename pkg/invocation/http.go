@@ -49,6 +49,8 @@ func (s *Store) Handler(origins ...string) http.Handler {
 		writeInvocationJSON(w, result, err)
 	})
 	mux.HandleFunc("GET /api/invocations/{id}/events", s.serveEvents)
+	mux.HandleFunc("GET /api/invocations/{id}/attachments/{kind}", s.serveAttachment)
+	mux.HandleFunc("PUT /api/invocations/{id}/attachments/{kind}", s.serveAttachment)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Add("Vary", "Origin")
 		if requestOrigin := r.Header.Get("Origin"); requestOrigin != "" {

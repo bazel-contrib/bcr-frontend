@@ -13,6 +13,7 @@ import {
   octiconPulse16,
   octiconServer16,
   octiconStop16,
+  octiconStopwatch16,
   octiconTerminal16,
   octiconXCircleFill16
 } from 'app/bcr/octicons.soy';
@@ -77,6 +78,8 @@ import {sectionHeader} from 'app/bcr/registry.soy';
   {toolLink(id: 'action-query', label: 'Action Query', current: $current, diagram: $diagram)}
   {toolLink(id: 'execution-log', label: 'Execution Log', current: $current, diagram: $diagram)}
   {toolLink(id: 'remote-cache', label: 'Remote Cache', current: $current, diagram: $diagram)}
+  {toolLink(id: 'command-profile', label: 'Command Profile', current: $current, diagram: $diagram)}
+  {toolLink(id: 'query', label: 'Query', current: $current, diagram: $diagram)}
 {/template}
 
 {template toolLink visibility="private"}
@@ -90,9 +93,10 @@ import {sectionHeader} from 'app/bcr/registry.soy';
       {switch $id}
         {case 'invocations'}{octiconPulse16()}
         {case 'remote-execution'}{octiconServer16()}
-        {case 'action-query'}{octiconGraph16()}
+        {case 'query', 'action-query'}{octiconGraph16()}
         {case 'execution-log'}{octiconLog16()}
         {case 'remote-cache'}{octiconDatabase16()}
+        {case 'command-profile'}{octiconStopwatch16()}
       {/switch}
     </span>
     <span>{$label}</span>
@@ -109,7 +113,7 @@ import {sectionHeader} from 'app/bcr/registry.soy';
           <svg class="tools-net-art" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 820 556"
             aria-hidden="true" focusable="false">
             <path class="tools-net-paper" d="M458 100H475L485 82H651L661 100H678V186H764V201L782 211V273L764 283V312L782 322V381L764 391V406H690L678 394V296H568V406H678V492H552L542 510H484L474 492H458V406H360L350 424H284L274 406H262V296H152V283L134 273V211L152 201V186H163L173 168H240L250 186H274L284 168H350L360 186H458Z"/>
-            <path class="tools-net-face-shade" d="M458 100H678V186H458Z M458 186H764V296H568V406H458Z"/>
+            <path class="tools-net-face-shade" d="M458 100H678V186H458Z M458 186H764V296H568V406H458Z M678 296H764V406H690L678 394Z M458 406H568V492H458Z"/>
             <path class="tools-net-back" d="M152 186H372V406H262V296H152Z"/>
             <path class="tools-net-score" d="M458 186H678V296H764 M458 186V406H568V492 M372 186V406 M475 100H661 M764 201V283 M764 312V391 M474 492H552 M274 406H360 M152 201V283 M163 186H250 M274 186H360"/>
             <path class="tools-net-face-seam" d="M568 186V296H458 M372 296H262V186"/>
@@ -355,6 +359,8 @@ import {sectionHeader} from 'app/bcr/registry.soy';
             aria-selected="false" tabindex="-1">Tests</button>
         <button type="button" role="tab" id="{$idPrefix}-bes-tab-metrics" aria-controls="{$idPrefix}-bes-panel-metrics"
             aria-selected="false" tabindex="-1">Metrics</button>
+        <button type="button" role="tab" id="{$idPrefix}-bes-tab-action-map" aria-controls="{$idPrefix}-bes-panel-action-map"
+            aria-selected="false" tabindex="-1">Action Map</button>
       </div>
       <div class="bes-invocation-timing">
         <span class="bes-invocation-state text-small text-bold {css('bes-heading-state')}"></span>
@@ -446,6 +452,30 @@ import {sectionHeader} from 'app/bcr/registry.soy';
           {sectionHeader(title: 'Remote cache')}
           <div class="{css('bes-cache-stats')}"></div>
         </section>
+      </div>
+
+      <div role="tabpanel" id="{$idPrefix}-bes-panel-action-map" aria-labelledby="{$idPrefix}-bes-tab-action-map" tabindex="0" hidden>
+        <p class="text-small color-fg-muted {css('action-map-status')}" role="status"></p>
+        <div class="{css('action-map-content')}" hidden>
+          <div class="d-flex flex-wrap flex-items-center flex-justify-between mb-2">
+            <label class="text-small"><input type="checkbox" class="{css('action-map-full')}"> Show full graph</label>
+            <div>
+              <button class="btn btn-sm {css('action-map-critical')}" type="button" hidden>Critical path</button>
+              <button class="btn btn-sm" type="button" data-action-map="fit">Fit</button>
+            </div>
+          </div>
+          <div class="position-relative">
+            <canvas class="bes-action-map-canvas {css('action-map-canvas')}" aria-label="Radial action map. After the build, colored segments show action timing and arrows show dependencies. Click an action to align its dependency path. Drag to pan and scroll to zoom."></canvas>
+            <div class="bes-action-map-tooltip text-small {css('action-map-tooltip')}" aria-hidden="true" hidden></div>
+          </div>
+          <p class="text-small color-fg-muted mb-2 {css('action-map-detail')}"></p>
+        </div>
+        <div class="flex-wrap flex-items-center" hidden data-action-map="downloads">
+          <button class="btn btn-sm btn-invisible" type="button" data-action-map-download="execution-log">Execution log</button>
+          <button class="btn btn-sm btn-invisible" type="button" data-action-map-download="profile">Command profile</button>
+          <button class="btn btn-sm btn-invisible" type="button" data-action-map-download="bep">Build events file</button>
+          <span class="text-small color-fg-muted" data-action-map="download-status" role="status"></span>
+        </div>
       </div>
     </div>
   </div>

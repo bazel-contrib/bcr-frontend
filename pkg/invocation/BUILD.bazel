@@ -4,6 +4,7 @@ go_library(
     name = "invocation",
     srcs = [
         "archive.go",
+        "attachments.go",
         "group_metrics.go",
         "http.go",
         "service.go",
@@ -30,7 +31,7 @@ go_library(
 
 go_test(
     name = "invocation_test",
-    srcs = ["archive_test.go", "sqlite_test.go", "store_test.go"],
+    srcs = ["archive_test.go", "attachments_test.go", "sqlite_test.go", "store_test.go"],
     embed = [":invocation"],
     deps = [
         "//bazel_tools/proto:buildeventstream",

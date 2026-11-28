@@ -509,7 +509,8 @@ html.bcr-refresh-available .bcr-refresh-indicator {
 }
 
 .action-query-content.is-dragging,
-.execution-log-content.is-dragging {
+.execution-log-content.is-dragging,
+.command-profile-content.is-dragging {
 	outline: 2px dashed
 		var(--borderColor-accent-emphasis, var(--color-accent-emphasis));
 	outline-offset: 4px;
@@ -533,7 +534,8 @@ html.bcr-refresh-available .bcr-refresh-indicator {
 }
 
 .action-query-content.is-dragging .action-query-drop,
-.execution-log-content.is-dragging .action-query-drop {
+.execution-log-content.is-dragging .action-query-drop,
+.command-profile-content.is-dragging .action-query-drop {
 	background: var(--bgColor-accent-muted, var(--color-accent-subtle));
 }
 
@@ -574,6 +576,7 @@ html:has(.action-query-fullscreen[open]) {
 	height: 100%;
 }
 
+.action-query-fullscreen [data-query="viewer"]:not([hidden]),
 .action-query-fullscreen #action-query-view:not([hidden]),
 .action-query-fullscreen #action-query-graph:not([hidden]) {
 	display: flex;
@@ -590,6 +593,7 @@ html:has(.action-query-fullscreen[open]) {
 	flex-shrink: 0;
 }
 
+.action-query-fullscreen [data-query="canvas"],
 .action-query-fullscreen #action-query-canvas {
 	flex: 1 1 0;
 	min-height: 0;
@@ -1204,11 +1208,11 @@ html:has(.action-query-fullscreen[open]) {
 
 .tools-net-links {
 	position: absolute;
-	/* The linked panels span x=458..764 and y=100..406 in the SVG. */
-	inset: 17.9856% 6.8293% 26.9784% 55.8537%;
+	/* The linked panels span x=458..764 and y=100..492 in the SVG. */
+	inset: 17.9856% 6.8293% 11.5108% 55.8537%;
 	display: grid;
 	grid-template-columns: 110fr 110fr 86fr;
-	grid-template-rows: 86fr 110fr 110fr;
+	grid-template-rows: 86fr 110fr 110fr 86fr;
 }
 
 .tools-net-face {
@@ -2525,11 +2529,17 @@ html:has(.action-query-fullscreen[open]) {
 
 .rex-timeline-card:hover {
 	text-decoration: none;
-	border-color: var(--borderColor-accent-emphasis, var(--color-accent-emphasis));
+	border-color: var(
+		--borderColor-accent-emphasis,
+		var(--color-accent-emphasis)
+	);
 }
 
 .rex-timeline-card[data-timeline-state="queued"] {
-	border-color: var(--borderColor-attention-muted, var(--color-attention-muted));
+	border-color: var(
+		--borderColor-attention-muted,
+		var(--color-attention-muted)
+	);
 	background: var(--bgColor-attention-muted, var(--color-attention-subtle));
 }
 
@@ -2570,4 +2580,130 @@ html:has(.action-query-fullscreen[open]) {
 
 .rex-timeline-flights .rex-timeline-card {
 	position: absolute;
+}
+
+.tools-net-face-command-profile {
+	grid-area: 3 / 3;
+}
+
+.command-profile-content {
+	min-width: 0;
+	overflow-wrap: anywhere;
+}
+
+.profile-controls,
+.profile-pan {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+	align-items: center;
+	margin-bottom: 8px;
+}
+
+.profile-pan input {
+	flex: 1;
+}
+
+.profile-pan[hidden],
+.profile-timeline[hidden] {
+	display: none;
+}
+
+.profile-timeline {
+	border: 1px solid var(--borderColor-default, var(--color-border-default));
+	border-radius: 6px;
+}
+
+.profile-scale {
+	display: flex;
+	justify-content: space-between;
+	padding: 4px 8px 4px 0;
+	background: var(--bgColor-muted, var(--color-canvas-subtle));
+}
+
+.profile-viewport {
+	position: relative;
+	max-height: min(58vh, 480px);
+	overflow: auto;
+}
+
+.profile-viewport canvas {
+	--profile-text: var(--fgColor-default, var(--color-fg-default));
+	--profile-grid: var(--borderColor-muted, var(--color-border-muted));
+	--profile-stripe: var(--bgColor-muted, var(--color-canvas-subtle));
+
+	position: absolute;
+	left: 0;
+	display: block;
+	cursor: crosshair;
+}
+
+.profile-event-picker {
+	display: grid;
+	gap: 4px;
+}
+
+.profile-event-picker select {
+	width: 100%;
+}
+
+.profile-detail pre {
+	max-height: 15rem;
+	padding: 8px 12px;
+	overflow: auto;
+	border-radius: 6px;
+	background: var(--bgColor-muted, var(--color-canvas-subtle));
+}
+
+.tools-net-face-query {
+	grid-area: 4 / 1;
+}
+
+.query-controls {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 8px;
+}
+
+.query-controls select {
+	max-width: min(25rem, 100%);
+}
+
+.query-dependencies {
+	max-height: 15rem;
+	overflow: auto;
+	padding-inline-start: 1.25rem;
+}
+
+[data-query="canvas"][hidden] {
+	display: none;
+}
+
+.bes-action-map-canvas {
+	display: block;
+	width: 100%;
+	height: clamp(26rem, 62vh, 50rem);
+	border: 1px solid var(--borderColor-default);
+	border-radius: 6px;
+	background: var(--bgColor-muted);
+	cursor: grab;
+	touch-action: none;
+}
+
+.bes-action-map-canvas:active {
+	cursor: grabbing;
+}
+
+.bes-action-map-tooltip {
+	position: absolute;
+	max-width: min(22rem, calc(100% - 10px));
+	padding: 6px 9px;
+	border: 1px solid var(--borderColor-default);
+	border-radius: 6px;
+	background: var(--bgColor-default);
+	color: var(--fgColor-default);
+	box-shadow: 0 2px 6px rgb(0 0 0 / 15%);
+	overflow-wrap: anywhere;
+	pointer-events: none;
 }

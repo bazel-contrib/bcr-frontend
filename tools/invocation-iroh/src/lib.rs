@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 
 pub const ALPN: &[u8] = b"bcr/invocation-viewer/1";
 pub const MAX_REQUEST: usize = 1024;
+pub const MAX_ATTACHMENT: usize = 64 * 1024 * 1024;
 pub const MAX_SUMMARY: usize = 16 * 1024 * 1024;
 const TICKET_PREFIX: &str = "bcr-iroh-v1:";
 
@@ -62,6 +63,10 @@ pub enum Operation {
     },
     Get {
         id: String,
+    },
+    Attachment {
+        id: String,
+        kind: String,
     },
     ExecutionRead {
         path: String,

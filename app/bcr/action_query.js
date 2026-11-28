@@ -17,12 +17,15 @@ const { mnemonicColor } = goog.require("bcrfrontend.actionColors");
 const { renderMnemonicFilters } = goog.require("bcrfrontend.mnemonicFilters");
 
 const MAX_FILE_BYTES = 256 * 1024 * 1024;
-const NODE_WIDTH = 186;
-const NODE_HEIGHT = 50;
-const DOT_RADIUS = 6;
-const COLUMN_GAP = 62;
-const ROW_GAP = 20;
-const PADDING = 24;
+const {
+	NODE_WIDTH,
+	NODE_HEIGHT,
+	DOT_RADIUS,
+	COLUMN_GAP,
+	PADDING,
+	topologicalRanks,
+	placeRanks,
+} = goog.require("bcrfrontend.rankedGraph");
 const TITLE_SCALE = 0.35;
 const DETAILS_SCALE = 0.5;
 const SUBGRAPH_INSET = 20;
@@ -75,9 +78,9 @@ let ActionGraph;
  * the producers of some inputs. Those inputs contribute no edges.
  *
  * @param {!ActionGraphContainer} container
- * @return {?ActionGraph}
+ * @return {{nodes: !Array<!ActionNode>, artifactPath: function(number):string}}
  */
-function layoutActionGraph(container) {
+function resolveActionGraph(container) {
 	/** @type {!Map<number, string>} */
 	const labels = new Map();
 	for (const target of container.getTargetsList())
@@ -165,30 +168,16 @@ function layoutActionGraph(container) {
 		const primary = node.action.getPrimaryOutputId();
 		if (primary) node.output = artifactPath(primary);
 	}
-	return positionActionNodes(nodes, artifactPath);
+	return { nodes, artifactPath };
 }
 
 /**
- * @param {!Array<number>} remaining
- * @param {!Array<!Array<number>>} consumers
- * @return {?Array<number>}
+ * @param {!ActionGraphContainer} container
+ * @return {?ActionGraph}
  */
-function topologicalRanks(remaining, consumers) {
-	/** @type {!Array<number>} */
-	const ranks = Array.from({ length: remaining.length }, () => 0);
-	/** @type {!Array<number>} */
-	const ready = [];
-	for (let i = 0; i < remaining.length; i++) {
-		if (remaining[i] === 0) ready.push(i);
-	}
-	for (let i = 0; i < ready.length; i++) {
-		const producer = ready[i];
-		for (const index of consumers[producer]) {
-			ranks[index] = Math.max(ranks[index], ranks[producer] + 1);
-			if (--remaining[index] === 0) ready.push(index);
-		}
-	}
-	return ready.length === remaining.length ? ranks : null;
+function layoutActionGraph(container) {
+	const { nodes, artifactPath } = resolveActionGraph(container);
+	return positionActionNodes(nodes, artifactPath);
 }
 
 /**
@@ -208,47 +197,16 @@ function positionActionNodes(nodes, artifactPath, packageView = false) {
 			nodes.map((node) => node.consumers),
 		) || (packageView ? rankPackageComponents(nodes) : null);
 	if (!ranks) return null;
-	/** @type {!Array<!Array<!ActionNode>>} */
-	const layers = [];
-	let maxLayerSize = 0;
-	for (let i = 0; i < nodes.length; i++) {
-		const node = nodes[i];
-		node.rank = ranks[i];
-		const layer = layers[node.rank] ?? (layers[node.rank] = []);
-		layer.push(node);
-		maxLayerSize = Math.max(maxLayerSize, layer.length);
-	}
-	// Wrap wide layers into several columns, preserving the order of layers.
-	const rowLimit = Math.max(
-		8,
-		Math.ceil(
-			Math.sqrt(
-				(maxLayerSize * (NODE_WIDTH + COLUMN_GAP)) / (NODE_HEIGHT + ROW_GAP),
-			),
-		),
+	const { positions, width, height } = placeRanks(
+		ranks,
+		nodes.map((node) => node.compact),
 	);
-	/** @type {number} */
-	let columnLeft = PADDING;
-	let height = 0;
-	for (const layer of layers) {
-		for (let start = 0; start < layer.length; start += rowLimit) {
-			const column = layer.slice(start, start + rowLimit);
-			const columnWidth = column.every((node) => node.compact)
-				? DOT_RADIUS * 2
-				: NODE_WIDTH;
-			let rowTop = PADDING;
-			for (const node of column) {
-				const rowHeight = node.compact ? DOT_RADIUS * 2 : NODE_HEIGHT;
-				node.x = columnLeft + columnWidth / 2;
-				node.y = rowTop + rowHeight / 2;
-				rowTop += rowHeight + ROW_GAP;
-			}
-			columnLeft += columnWidth + COLUMN_GAP;
-			height = Math.max(height, rowTop - ROW_GAP + PADDING);
-		}
-	}
-	const width = nodes.length ? columnLeft - COLUMN_GAP + PADDING : 0;
-	for (const node of nodes) node.x = width - node.x;
+	nodes.forEach((node, index) => {
+		const position = positions[index];
+		node.rank = position.rank;
+		node.x = width - position.x;
+		node.y = position.y;
+	});
 	return {
 		nodes,
 		edgeCount,
@@ -666,6 +624,14 @@ function suppressActions(graph, suppressed) {
 }
 
 class ActionQuery extends Component {
+	/**
+	 * @param {!Uint8Array} bytes
+	 * @return {{nodes: !Array<!ActionNode>, artifactPath: function(number):string}}
+	 */
+	static resolve(bytes) {
+		return resolveActionGraph(ActionGraphContainer.deserializeBinary(bytes));
+	}
+
 	/** @param {?dom.DomHelper=} opt_domHelper */
 	constructor(opt_domHelper) {
 		super(opt_domHelper);
